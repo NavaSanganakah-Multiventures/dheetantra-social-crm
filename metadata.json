@@ -1,0 +1,8 @@
+{
+  "name": "Omnichannel SaaS",
+  "description": "B2B/B2C Omnichannel Inbox and Social Media Management platform using Next.js and the Cloudflare Edge Ecosystem.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

@@ -1,0 +1,90 @@
+openapi: 3.0.0
+info:
+  title: Dhitantra API
+  description: API Blueprint for Dhitantra (Social Media Management & CRM platform). Supports Multi-tenancy and is compatible with the custom Flutter SDK.
+  version: 1.0.0
+servers:
+  - url: https://api.dhitantra.com/api
+    description: Production API (Workers with Assets)
+  - url: https://preview.dhitantra.com/api
+    description: Preview / Development API
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: Authorization
+    WorkspaceHeader:
+      type: apiKey
+      in: header
+      name: x-workspace-id
+      description: Tenant/Workspace ID required for B2B multi-tenancy.
+security:
+  - ApiKeyAuth: []
+paths:
+  /auth/login:
+    post:
+      summary: User Login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Successful login
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                  workspace_id:
+                    type: string
+  /crm/contacts:
+    get:
+      summary: Get CRM Contacts
+      security:
+        - ApiKeyAuth: []
+        - WorkspaceHeader: []
+      responses:
+        '200':
+          description: List of contacts for the specified workspace.
+  /chat/connect/{roomId}:
+    get:
+      summary: Connect to Real-time Chat (WebSocket)
+      parameters:
+        - name: roomId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '101':
+          description: WebSocket Protocol Handshake
+  /campaigns/schedule:
+    post:
+      summary: Schedule a Social Media Campaign
+      description: Triggers Cloudflare Workflows for background execution.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                campaignId:
+                  type: string
+                scheduledTime:
+                  type: string
+                  format: date-time
+      responses:
+        '200':
+          description: Campaign scheduled successfully.

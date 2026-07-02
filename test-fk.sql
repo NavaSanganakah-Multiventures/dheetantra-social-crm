@@ -1,0 +1,1 @@
+PRAGMA foreign_keys=OFF; CREATE TABLE parent2(id INT PRIMARY KEY); CREATE TABLE child2(id INT, p_id INT REFERENCES parent2(id));
