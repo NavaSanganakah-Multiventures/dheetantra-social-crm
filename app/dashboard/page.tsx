@@ -46,18 +46,41 @@ export default function DashboardWrapper() {
 
 function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
   const [activeTab, setActiveTab] = useState<activeTab>('dashboard');
-  const [isSidebarOpen, setSidebarOpen] = useState(true);
+  const [isSidebarOpen, setSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    const checkScreenSize = () => {
+      setSidebarOpen(window.innerWidth >= 768);
+    };
+    checkScreenSize();
+    window.addEventListener('resize', checkScreenSize);
+    return () => window.removeEventListener('resize', checkScreenSize);
+  }, []);
 
   return (
     <div className="flex h-screen overflow-hidden bg-zinc-100 dark:bg-zinc-950">
+      {/* Sidebar Overlay for Mobile */}
+      <AnimatePresence>
+        {isSidebarOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => { if (window.innerWidth < 768) setSidebarOpen(false); }}
+            className="fixed inset-0 bg-black/50 z-20 md:hidden"
+          />
+        )}
+      </AnimatePresence>
+
       {/* Sidebar */}
       <AnimatePresence>
         {isSidebarOpen && (
           <motion.aside
-            initial={{ width: 0, opacity: 0 }}
-            animate={{ width: 280, opacity: 1 }}
-            exit={{ width: 0, opacity: 0 }}
-            className="flex-shrink-0 bg-zinc-950 dark:bg-zinc-900 border-r border-zinc-800 dark:border-zinc-800 flex flex-col text-zinc-300 z-20"
+            initial={{ x: -280, width: 0, opacity: 0 }}
+            animate={{ x: 0, width: 280, opacity: 1 }}
+            exit={{ x: -280, width: 0, opacity: 0 }}
+            transition={{ type: 'spring', bounce: 0, duration: 0.3 }}
+            className="fixed md:static inset-y-0 left-0 flex-shrink-0 bg-zinc-950 dark:bg-zinc-900 border-r border-zinc-800 flex flex-col text-zinc-300 z-30 shadow-2xl md:shadow-none"
           >
             <div className="p-6 flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -66,30 +89,33 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                 </div>
                 <span className="font-bold text-lg tracking-tight font-display text-white">DheeTantra</span>
               </div>
+              <button onClick={() => setSidebarOpen(false)} className="md:hidden p-2 -mr-2 text-zinc-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
             <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
               <div className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-4 px-3">ओवरव्यू</div>
-              <NavItem icon={<LayoutDashboard />} label="डैशबोर्ड" isActive={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} />
-              <NavItem icon={<MessageSquare />} label="इनबॉक्स" isActive={activeTab === 'inbox'} onClick={() => setActiveTab('inbox')} badge="3" />
+              <NavItem icon={<LayoutDashboard />} label="डैशबोर्ड" isActive={activeTab === 'dashboard'} onClick={() => { setActiveTab('dashboard'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
+              <NavItem icon={<MessageSquare />} label="इनबॉक्स" isActive={activeTab === 'inbox'} onClick={() => { setActiveTab('inbox'); if (window.innerWidth < 768) setSidebarOpen(false); }} badge="3" />
               
               <div className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-4 mt-8 px-3">मार्केटिंग</div>
-              <NavItem icon={<Megaphone />} label="ब्रॉडकास्ट" isActive={activeTab === 'broadcast'} onClick={() => setActiveTab('broadcast')} />
-              <NavItem icon={<CalendarClock />} label="शेड्यूल्ड पोस्ट्स" isActive={activeTab === 'schedule'} onClick={() => setActiveTab('schedule')} />
+              <NavItem icon={<Megaphone />} label="ब्रॉडकास्ट" isActive={activeTab === 'broadcast'} onClick={() => { setActiveTab('broadcast'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
+              <NavItem icon={<CalendarClock />} label="शेड्यूल्ड पोस्ट्स" isActive={activeTab === 'schedule'} onClick={() => { setActiveTab('schedule'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
             </nav>
 
             <div className="p-4 bg-zinc-900/50 dark:bg-zinc-950/50 mt-auto border-t border-zinc-800">
-              <NavItem icon={<Settings />} label="सेटिंग्स" isActive={activeTab === 'settings'} onClick={() => setActiveTab('settings')} />
+              <NavItem icon={<Settings />} label="सेटिंग्स" isActive={activeTab === 'settings'} onClick={() => { setActiveTab('settings'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
               
               <div className="mt-4 pt-4 border-t border-zinc-800 flex items-center gap-3 px-3">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-white font-bold shadow-lg">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-white font-bold shadow-lg shrink-0">
                   {user?.name?.[0] || user?.email?.[0]?.toUpperCase() || 'U'}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-white truncate">{user?.name || "उपयोगकर्ता"}</p>
                   <p className="text-xs text-zinc-500 truncate">{user?.email}</p>
                 </div>
-                <button onClick={onLogout} className="p-2 hover:bg-zinc-800 rounded-xl transition-colors text-zinc-400 hover:text-white" title="लॉगआउट">
+                <button onClick={onLogout} className="p-2 hover:bg-zinc-800 rounded-xl transition-colors text-zinc-400 hover:text-white shrink-0" title="लॉगआउट">
                   <LogOut className="w-4 h-4" />
                 </button>
               </div>
@@ -329,7 +355,8 @@ function InboxView() {
 
   return (
     <div className="flex h-full bg-white dark:bg-zinc-900 overflow-hidden relative">
-      <div className="w-80 border-r border-zinc-200 dark:border-zinc-800 flex flex-col bg-zinc-50/50 dark:bg-zinc-900 z-10">
+      {/* Contact List */}
+      <div className={`w-full md:w-80 border-r border-zinc-200 dark:border-zinc-800 flex flex-col bg-zinc-50/50 dark:bg-zinc-900 z-10 ${activeChat ? 'hidden md:flex' : 'flex'}`}>
         <div className="p-4 border-b border-zinc-200 dark:border-zinc-800 flex-shrink-0 bg-zinc-50 dark:bg-zinc-900">
             <h2 className="font-medium mb-3">सक्रिय बातचीत</h2>
             <div className="flex gap-2 text-xs">
@@ -361,7 +388,8 @@ function InboxView() {
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col bg-zinc-50 dark:bg-zinc-950/50 relative z-0">
+      {/* Chat Area */}
+      <div className={`flex-1 flex flex-col bg-zinc-50 dark:bg-zinc-950/50 relative z-0 ${!activeChat ? 'hidden md:flex' : 'flex'}`}>
           {!activeChat ? (
             <div className="flex-1 flex items-center justify-center text-zinc-500 flex-col">
               <MessageSquare className="w-12 h-12 mb-4 text-zinc-300 dark:text-zinc-700" />
@@ -371,8 +399,14 @@ function InboxView() {
           ) : (
             <>
               {/* Chat Header */}
-              <div className="h-16 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex items-center justify-between px-6 flex-shrink-0">
-                <div className="flex items-center gap-3">
+              <div className="h-16 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex items-center justify-between px-4 md:px-6 flex-shrink-0">
+                <div className="flex items-center gap-2 md:gap-3">
+                  <button 
+                    onClick={() => setActiveChat(null)}
+                    className="md:hidden p-2 -ml-2 rounded-xl text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                  >
+                    <ChevronRight className="w-5 h-5 rotate-180" />
+                  </button>
                   <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-medium text-sm">
                     {activeChat.contact_name ? activeChat.contact_name[0] : <User className="w-4 h-4" />}
                   </div>
@@ -441,11 +475,11 @@ function InboxView() {
       <AnimatePresence>
         {isContactPanelOpen && activeChat && (
           <motion.div 
-            initial={{ x: 320, opacity: 0 }}
+            initial={{ x: "100%", opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
-            exit={{ x: 320, opacity: 0 }}
+            exit={{ x: "100%", opacity: 0 }}
             transition={{ type: "spring", bounce: 0, duration: 0.3 }}
-            className="w-80 border-l border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex flex-col absolute right-0 top-0 bottom-0 z-20 shadow-2xl"
+            className="w-full md:w-80 border-l border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex flex-col absolute right-0 top-0 bottom-0 z-30 shadow-2xl"
           >
             <div className="h-16 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between px-4 flex-shrink-0">
               <h2 className="font-medium">Contact Details</h2>
