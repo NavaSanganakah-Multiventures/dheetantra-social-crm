@@ -15,6 +15,7 @@ function StatusContent() {
 
   useEffect(() => {
     if (id) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLoading(true);
       setError(null);
       fetch(`/api/meta/data-deletion-status/${id}`)

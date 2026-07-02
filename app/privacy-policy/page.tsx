@@ -43,7 +43,7 @@ export default function PrivacyPolicyPage() {
 
           <section className="space-y-4">
             <h2 className="text-2xl font-bold font-display text-zinc-900 dark:text-white">3. Data Security and Cloudflare</h2>
-            <p>DheeTantra utilizes Cloudflare's secure edge infrastructure. Your data is protected by enterprise-grade security, including end-to-end encryption for API keys and secure data routing. We prioritize the security of your personal and business data.</p>
+            <p>DheeTantra utilizes Cloudflare&apos;s secure edge infrastructure. Your data is protected by enterprise-grade security, including end-to-end encryption for API keys and secure data routing. We prioritize the security of your personal and business data.</p>
           </section>
 
           <section className="space-y-4">
