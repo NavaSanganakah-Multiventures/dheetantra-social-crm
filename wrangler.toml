@@ -1,4 +1,4 @@
-name = "dhitantra-crm"
+name = 'dheetantra-social-crm'
 main = "src/index.ts"
 compatibility_date = "2024-03-20"
 compatibility_flags = ["nodejs_compat"]
