@@ -8,15 +8,19 @@ export async function handleIncomingMessage(
   contactName: string,
   messageId?: string
 ) {
+  console.log(`[handleIncomingMessage] Start. phone_number_id=${phoneNumberId}, from=${from}, messageId=${messageId}`);
   // Find the workspace ID for this phone number
   let workspaceId: string | null = null;
   try {
     const config = await env.DB.prepare('SELECT workspace_id FROM whatsapp_configs WHERE phone_number_id = ?').bind(phoneNumberId).first<{ workspace_id: string }>();
     if (config) {
       workspaceId = config.workspace_id;
+      console.log(`[handleIncomingMessage] Found workspaceId=${workspaceId}`);
+    } else {
+      console.error(`[handleIncomingMessage] No workspace found for phone_number_id=${phoneNumberId}`);
     }
   } catch (error) {
-    console.error('Error fetching whatsapp_config:', error);
+    console.error('[handleIncomingMessage] Error fetching whatsapp_config:', error);
   }
 
   let conversationId: string | null = null;
@@ -25,16 +29,22 @@ export async function handleIncomingMessage(
   if (workspaceId) {
     try {
       // 1. Upsert contact
-      const contactId = crypto.randomUUID();
-      const contactResult = await env.DB.prepare(`
-        INSERT INTO contacts (id, workspace_id, platform, platform_contact_id, name)
-        VALUES (?, ?, 'whatsapp', ?, ?)
-        ON CONFLICT (workspace_id, platform, platform_contact_id) 
-        DO UPDATE SET name=excluded.name
-        RETURNING id
-      `).bind(contactId, workspaceId, from, contactName).first<{ id: string }>();
+      let finalContactId = '';
+      const existingContact = await env.DB.prepare(`
+        SELECT id FROM contacts WHERE workspace_id = ? AND platform = 'whatsapp' AND platform_contact_id = ?
+      `).bind(workspaceId, from).first<{ id: string }>();
 
-      const finalContactId = contactResult?.id || contactId;
+      if (existingContact) {
+        finalContactId = existingContact.id;
+        await env.DB.prepare(`UPDATE contacts SET name = ? WHERE id = ?`).bind(contactName, finalContactId).run();
+      } else {
+        finalContactId = crypto.randomUUID();
+        await env.DB.prepare(`
+          INSERT INTO contacts (id, workspace_id, platform, platform_contact_id, name)
+          VALUES (?, ?, 'whatsapp', ?, ?)
+        `).bind(finalContactId, workspaceId, from, contactName).run();
+      }
+      console.log(`[handleIncomingMessage] Contact sorted. id=${finalContactId}`);
 
       // 2. Find or create conversation
       const existingConv = await env.DB.prepare(`
@@ -43,6 +53,7 @@ export async function handleIncomingMessage(
 
       if (existingConv) {
         conversationId = existingConv.id;
+        await env.DB.prepare(`UPDATE conversations SET updated_at = CURRENT_TIMESTAMP, status = 'open' WHERE id = ?`).bind(conversationId).run();
       } else {
         conversationId = crypto.randomUUID();
         await env.DB.prepare(`
@@ -50,18 +61,20 @@ export async function handleIncomingMessage(
           VALUES (?, ?, ?, 'whatsapp', 'open')
         `).bind(conversationId, workspaceId, finalContactId).run();
       }
+      console.log(`[handleIncomingMessage] Conversation sorted. id=${conversationId}`);
 
       // 3. Save incoming message
       if (messageId) {
         const incomingMessageId = crypto.randomUUID();
         await env.DB.prepare(`
-          INSERT INTO messages (id, conversation_id, sender_type, content, platform_message_id)
+          INSERT OR IGNORE INTO messages (id, conversation_id, sender_type, content, platform_message_id)
           VALUES (?, ?, 'contact', ?, ?)
         `).bind(incomingMessageId, conversationId, messageText, messageId).run();
+        console.log(`[handleIncomingMessage] Incoming message saved. id=${incomingMessageId}`);
       }
 
     } catch (error) {
-      console.error('Error saving incoming message:', error);
+      console.error('[handleIncomingMessage] Error saving incoming message:', error);
     }
   }
 
@@ -89,7 +102,18 @@ export async function handleIncomingMessage(
 }
 
 export async function sendWhatsAppMessage(env: Env, phoneNumberId: string, to: string, message: string, conversationId?: string | null) {
-  const token = await env.SECRETS_KV.get('WHATSAPP_API_TOKEN');
+  let token = await env.SECRETS_KV.get('WHATSAPP_API_TOKEN');
+  
+  if (!token) {
+    try {
+      const config = await env.DB.prepare('SELECT access_token FROM whatsapp_configs WHERE phone_number_id = ?').bind(phoneNumberId).first<{ access_token: string }>();
+      if (config && config.access_token) {
+        token = config.access_token;
+      }
+    } catch (e) {
+      console.error('Failed to get workspace token', e);
+    }
+  }
   
   if (!token) {
     console.error('WhatsApp API Token is missing!');

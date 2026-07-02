@@ -460,9 +460,9 @@ function InboxView() {
             <div className="flex-1 overflow-y-auto p-6">
               <div className="flex flex-col items-center mb-8">
                 <div className="w-20 h-20 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-semibold text-2xl mb-4">
-                   {activeChat.name ? activeChat.name[0] : <User className="w-8 h-8" />}
+                   {activeChat.contact_name ? activeChat.contact_name[0] : <User className="w-8 h-8" />}
                 </div>
-                <h3 className="font-medium text-lg text-zinc-900 dark:text-zinc-100">{activeChat.name || "Unknown"}</h3>
+                <h3 className="font-medium text-lg text-zinc-900 dark:text-zinc-100">{activeChat.contact_name || "Unknown"}</h3>
                 <span className="inline-flex items-center px-2 py-1 mt-2 rounded-md text-xs font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300">
                   {activeChat.status}
                 </span>
