@@ -6,9 +6,11 @@ export async function handleIncomingMessage(
   from: string,
   messageText: string,
   contactName: string,
-  messageId?: string
+  messageId?: string,
+  messageType: string = 'text',
+  mediaUrl?: string | null
 ) {
-  console.log(`[handleIncomingMessage] Start. phone_number_id=${phoneNumberId}, from=${from}, messageId=${messageId}`);
+  console.log(`[handleIncomingMessage] Start. phone_number_id=${phoneNumberId}, from=${from}, messageId=${messageId}, type=${messageType}`);
   // Find the workspace ID for this phone number
   let workspaceId: string | null = null;
   try {
@@ -66,10 +68,14 @@ export async function handleIncomingMessage(
       // 3. Save incoming message
       if (messageId) {
         const incomingMessageId = crypto.randomUUID();
+        try {
+          await env.DB.prepare("ALTER TABLE messages ADD COLUMN message_type TEXT DEFAULT 'text'").run();
+        } catch(e) {}
+
         await env.DB.prepare(`
-          INSERT OR IGNORE INTO messages (id, conversation_id, sender_type, content, platform_message_id)
-          VALUES (?, ?, 'contact', ?, ?)
-        `).bind(incomingMessageId, conversationId, messageText, messageId).run();
+          INSERT OR IGNORE INTO messages (id, conversation_id, sender_type, message_type, content, media_url, platform_message_id)
+          VALUES (?, ?, 'contact', ?, ?, ?, ?)
+        `).bind(incomingMessageId, conversationId, messageType, messageText, mediaUrl || null, messageId).run();
         console.log(`[handleIncomingMessage] Incoming message saved. id=${incomingMessageId}`);
       }
 
@@ -79,29 +85,51 @@ export async function handleIncomingMessage(
   }
 
   // Chatbot logic - Supports both standard Cloud API and WhatsApp Business App integrations
+  let replyText = '';
   
-  let replyText = `नमस्ते ${contactName}! Dhitantra प्लेटफॉर्म में आपका स्वागत है।\n\n`;
+  if (messageType === 'text') {
+    replyText = `नमस्ते ${contactName}! Dhitantra प्लेटफॉर्म में आपका स्वागत है।\n\n`;
+    const text = messageText.toLowerCase().trim();
 
-  const text = messageText.toLowerCase().trim();
-
-  // Basic Intent Matching
-  if (text === 'hi' || text === 'hello' || text === 'नमस्ते') {
-    replyText += 'हम आपकी कैसे मदद कर सकते हैं?\n\nनीचे दिए गए विकल्पों में से टाइप करें:\n1. Services (सेवाएं)\n2. Support (सहायता)\n3. Pricing (कीमत)';
-  } else if (text.includes('1') || text.includes('services')) {
-    replyText = 'हम एक संपूर्ण Social Media Management और CRM टूल प्रदान करते हैं। आप यहाँ से अपने सभी मैसेज और शेड्यूलिंग मैनेज कर सकते हैं।';
-  } else if (text.includes('2') || text.includes('support')) {
-    replyText = 'कृपया अपना सवाल पूछें, हमारी टीम जल्द ही आपसे संपर्क करेगी।';
-  } else if (text.includes('3') || text.includes('pricing')) {
-    replyText = 'हमारी कीमत से जुड़ी जानकारी के लिए कृपया हमारी वेबसाइट www.dhitantra.com पर जाएँ।';
+    // Basic Intent Matching
+    if (text === 'hi' || text === 'hello' || text === 'नमस्ते') {
+      replyText += 'हम आपकी कैसे मदद कर सकते हैं?\n\nनीचे दिए गए विकल्पों में से टाइप करें:\n1. Services (सेवाएं)\n2. Support (सहायता)\n3. Pricing (कीमत)';
+    } else if (text.includes('1') || text.includes('services')) {
+      replyText = 'हम एक संपूर्ण Social Media Management और CRM टूल प्रदान करते हैं। आप यहाँ से अपने सभी मैसेज और शेड्यूलिंग मैनेज कर सकते हैं।';
+    } else if (text.includes('2') || text.includes('support')) {
+      replyText = 'कृपया अपना सवाल पूछें, हमारी टीम जल्द ही आपसे संपर्क करेगी।';
+    } else if (text.includes('3') || text.includes('pricing')) {
+      replyText = 'हमारी कीमत से जुड़ी जानकारी के लिए कृपया हमारी वेबसाइट www.dhitantra.com पर जाएँ।';
+    } else {
+      replyText = 'मुझे आपका संदेश समझ में नहीं आया। कृपया "Hi" या "Hello" लिखकर दोबारा शुरुआत करें।';
+    }
   } else {
-    replyText = 'मुझे आपका संदेश समझ में नहीं आया। कृपया "Hi" या "Hello" लिखकर दोबारा शुरुआत करें।';
+    let typeInHindi = 'संदेश';
+    if (messageType === 'image') typeInHindi = 'फ़ोटो (Image)';
+    else if (messageType === 'video') typeInHindi = 'वीडियो (Video)';
+    else if (messageType === 'document') typeInHindi = 'दस्तावेज़ (Document)';
+    else if (messageType === 'location') typeInHindi = 'लोकेशन (Location)';
+    else if (messageType === 'contacts') typeInHindi = 'कॉन्टैक्ट (Contact)';
+    
+    replyText = `नमस्ते ${contactName}! हमें आपका ${typeInHindi} प्राप्त हुआ है। हमारी सहायता टीम जल्द ही आपसे संपर्क करेगी।`;
   }
 
   // Send the reply back to the user
   await sendWhatsAppMessage(env, phoneNumberId, from, replyText, conversationId);
 }
 
-export async function sendWhatsAppMessage(env: Env, phoneNumberId: string, to: string, message: string, conversationId?: string | null) {
+export async function sendWhatsAppMessage(
+  env: Env,
+  phoneNumberId: string,
+  to: string,
+  message: string,
+  conversationId?: string | null,
+  messageType: string = 'text',
+  mediaUrl?: string | null,
+  filename?: string | null,
+  location?: any | null,
+  contacts?: any | null
+) {
   let token = await env.SECRETS_KV.get('WHATSAPP_API_TOKEN');
   
   if (!token) {
@@ -123,6 +151,33 @@ export async function sendWhatsAppMessage(env: Env, phoneNumberId: string, to: s
   // Uses Graph API v19.0 (Supports both Cloud API and WhatsApp Business App integrations)
   const url = `https://graph.facebook.com/v19.0/${phoneNumberId}/messages`;
 
+  // Build the message payload according to the type
+  let payload: any = {
+    messaging_product: 'whatsapp',
+    recipient_type: 'individual',
+    to: to,
+    type: messageType
+  };
+
+  if (messageType === 'text') {
+    payload.text = { body: message };
+  } else if (messageType === 'image') {
+    payload.image = { link: mediaUrl, caption: message || "" };
+  } else if (messageType === 'video') {
+    payload.video = { link: mediaUrl, caption: message || "" };
+  } else if (messageType === 'document') {
+    payload.document = { link: mediaUrl, filename: filename || 'Document.pdf', caption: message || "" };
+  } else if (messageType === 'location') {
+    payload.location = {
+      latitude: location?.latitude,
+      longitude: location?.longitude,
+      name: location?.name || 'Location',
+      address: location?.address || ''
+    };
+  } else if (messageType === 'contacts') {
+    payload.contacts = contacts;
+  }
+
   try {
     const response = await fetch(url, {
       method: 'POST',
@@ -130,12 +185,7 @@ export async function sendWhatsAppMessage(env: Env, phoneNumberId: string, to: s
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        messaging_product: 'whatsapp',
-        to: to,
-        type: 'text',
-        text: { body: message }
-      }),
+      body: JSON.stringify(payload),
     });
 
     const data: any = await response.json();
@@ -148,10 +198,15 @@ export async function sendWhatsAppMessage(env: Env, phoneNumberId: string, to: s
         try {
           const sentMessageId = crypto.randomUUID();
           const platformMsgId = data.messages?.[0]?.id || null;
+
+          try {
+            await env.DB.prepare("ALTER TABLE messages ADD COLUMN message_type TEXT DEFAULT 'text'").run();
+          } catch(e) {}
+
           await env.DB.prepare(`
-            INSERT INTO messages (id, conversation_id, sender_type, content, platform_message_id)
-            VALUES (?, ?, 'bot', ?, ?)
-          `).bind(sentMessageId, conversationId, message, platformMsgId).run();
+            INSERT INTO messages (id, conversation_id, sender_type, message_type, content, media_url, platform_message_id)
+            VALUES (?, ?, 'bot', ?, ?, ?, ?)
+          `).bind(sentMessageId, conversationId, messageType, message, mediaUrl || null, platformMsgId).run();
         } catch (dbError) {
            console.error('Failed to save bot reply to DB:', dbError);
         }

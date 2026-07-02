@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { MessageSquare, Megaphone, CalendarClock, Settings, LayoutDashboard, Search, Bell, Menu, Send, Paperclip, LogOut, User, Phone, X, History, MapPin, Building2, Tag, ChevronDown, ChevronRight, Activity, Users, Zap, Check, CheckCheck } from 'lucide-react';
+import { MessageSquare, Megaphone, CalendarClock, Settings, LayoutDashboard, Search, Bell, Menu, Send, Paperclip, LogOut, User, Phone, X, History, MapPin, Building2, Tag, ChevronDown, ChevronRight, Activity, Users, Zap, Check, CheckCheck, FileText, Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useRouter } from 'next/navigation';
 
@@ -287,6 +287,105 @@ function InboxView() {
   const [messageInput, setMessageInput] = useState("");
   const [sending, setSending] = useState(false);
 
+  // Rich Media Attachments State
+  const [attachmentMenuOpen, setAttachmentMenuOpen] = useState(false);
+  const [attachmentType, setAttachmentType] = useState<'text' | 'image' | 'video' | 'document' | 'location' | 'contacts' | null>(null);
+
+  // Media (Image/Video/Doc) inputs
+  const [mediaUrlInput, setMediaUrlInput] = useState('');
+  const [captionInput, setCaptionInput] = useState('');
+  const [docFilenameInput, setDocFilenameInput] = useState('');
+
+  // Location inputs
+  const [latInput, setLatInput] = useState('28.6139'); // New Delhi Latitude
+  const [lngInput, setLngInput] = useState('77.2090'); // New Delhi Longitude
+  const [locNameInput, setLocNameInput] = useState('Dhitantra Headquarters');
+  const [locAddressInput, setLocAddressInput] = useState('New Delhi, India');
+
+  // Contact inputs
+  const [contactNameInput, setContactNameInput] = useState('');
+  const [contactPhoneInput, setContactPhoneInput] = useState('');
+
+  const sendRichMessage = async () => {
+    if (!activeChat || sending || !attachmentType) return;
+    
+    let payload: any = {
+      to: activeChat.phone,
+      conversationId: activeChat.id,
+      type: attachmentType
+    };
+
+    if (attachmentType === 'image' || attachmentType === 'video' || attachmentType === 'document') {
+      if (!mediaUrlInput.trim()) {
+        alert("कृपया मीडिया यूआरएल प्रदान करें");
+        return;
+      }
+      payload.mediaUrl = mediaUrlInput.trim();
+      if (attachmentType === 'document') {
+        payload.filename = docFilenameInput.trim() || 'Document.pdf';
+        payload.text = docFilenameInput.trim() || 'Document.pdf';
+      } else {
+        payload.text = captionInput.trim();
+      }
+    } else if (attachmentType === 'location') {
+      if (!latInput.trim() || !lngInput.trim() || !locNameInput.trim()) {
+        alert("कृपया अक्षांश, देशांतर और लोकेशन का नाम प्रदान करें");
+        return;
+      }
+      payload.location = {
+        latitude: parseFloat(latInput),
+        longitude: parseFloat(lngInput),
+        name: locNameInput.trim(),
+        address: locAddressInput.trim()
+      };
+    } else if (attachmentType === 'contacts') {
+      if (!contactNameInput.trim() || !contactPhoneInput.trim()) {
+        alert("कृपया संपर्क का नाम और फ़ोन नंबर प्रदान करें");
+        return;
+      }
+      payload.contacts = [{
+        name: {
+          first_name: contactNameInput.trim(),
+          formatted_name: contactNameInput.trim()
+        },
+        phones: [{
+          phone: contactPhoneInput.trim(),
+          type: "MOBILE"
+        }]
+      }];
+    }
+
+    setSending(true);
+    try {
+      const res = await fetch('/api/whatsapp/send', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-workspace-id': localStorage.getItem('workspaceId') || ''
+        },
+        body: JSON.stringify(payload)
+      });
+      const data: any = await res.json();
+      if (data.success) {
+        // Reset state
+        setAttachmentType(null);
+        setAttachmentMenuOpen(false);
+        setMediaUrlInput('');
+        setCaptionInput('');
+        setDocFilenameInput('');
+        setContactNameInput('');
+        setContactPhoneInput('');
+        loadMessages(activeChat.id);
+      } else {
+        alert(data.error || "संदेश भेजने में विफल");
+      }
+    } catch (e) {
+      alert("त्रुटि हुई");
+    } finally {
+      setSending(false);
+    }
+  };
+
   const fetchConversations = () => {
     fetch('/api/inbox/conversations', {
       headers: { 'x-workspace-id': localStorage.getItem('workspaceId') || '' }
@@ -427,51 +526,378 @@ function InboxView() {
               {/* Chat Messages Area */}
               <div className="flex-1 overflow-y-auto p-6 space-y-6 flex flex-col">
                  {messages.length === 0 ? (
-                   <p className="text-center text-zinc-500 text-sm mt-10">कोई संदेश नहीं</p>
-                 ) : (
-                   messages.map(msg => (
-                     <div key={msg.id} className={`flex flex-col gap-1 ${msg.sender_type === 'agent' ? 'items-end' : 'items-start'}`}>
-                        <div className={`px-4 py-2 rounded-2xl max-w-[80%] text-sm ${msg.sender_type === 'agent' ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-tl-none'}`}>
-                          {msg.content}
+                    <p className="text-center text-zinc-500 text-sm mt-10">कोई संदेश नहीं</p>
+                  ) : (
+                    messages.map(msg => {
+                      const isAgent = msg.sender_type === 'agent' || msg.sender_type === 'bot';
+                      const mType = msg.message_type || 'text';
+                      
+                      return (
+                        <div key={msg.id} className={`flex flex-col gap-1 ${isAgent ? 'items-end' : 'items-start'}`}>
+                           <div className={`px-4 py-3 rounded-2xl max-w-[85%] text-sm ${isAgent ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-tl-none'}`}>
+                             {/* Render Image */}
+                             {mType === 'image' && (
+                               <div className="flex flex-col gap-2">
+                                 {msg.media_url && (
+                                   <div className="relative rounded-lg overflow-hidden border border-zinc-100/10 max-w-sm max-h-60 bg-zinc-950/20">
+                                     <img 
+                                       src={msg.media_url} 
+                                       alt="WhatsApp Attachment"
+                                       className="w-full object-cover max-h-60 hover:scale-105 transition-transform duration-200 cursor-pointer" 
+                                       onError={(e) => {
+                                         e.currentTarget.style.display = 'none';
+                                       }}
+                                     />
+                                   </div>
+                                 )}
+                                 {msg.content && <p className="leading-relaxed">{msg.content}</p>}
+                               </div>
+                             )}
+
+                             {/* Render Video */}
+                             {mType === 'video' && (
+                               <div className="flex flex-col gap-2">
+                                 {msg.media_url && (
+                                   <video 
+                                     src={msg.media_url} 
+                                     controls 
+                                     className="rounded-lg max-w-xs max-h-60"
+                                     onError={(e) => {
+                                       e.currentTarget.style.display = 'none';
+                                     }}
+                                   />
+                                 )}
+                                 {msg.content && <p className="leading-relaxed">{msg.content}</p>}
+                               </div>
+                             )}
+
+                             {/* Render Document */}
+                             {mType === 'document' && (
+                               <div className="flex items-center gap-3 bg-zinc-50/10 p-3 rounded-xl border border-zinc-100/10 min-w-[200px] text-zinc-900 dark:text-zinc-100">
+                                 <div className="w-10 h-10 bg-indigo-500/10 text-indigo-400 rounded-lg flex items-center justify-center shrink-0">
+                                   <FileText className="w-5 h-5" />
+                                 </div>
+                                 <div className="min-w-0 flex-1">
+                                   <p className="font-semibold text-xs truncate">{msg.content || 'Document.pdf'}</p>
+                                   {msg.media_url && (
+                                     <a 
+                                       href={msg.media_url} 
+                                       target="_blank" 
+                                       rel="noopener noreferrer" 
+                                       className="text-[10px] text-indigo-400 dark:text-indigo-300 hover:underline mt-1 block font-medium"
+                                     >
+                                       दस्तावेज़ खोलें ↗
+                                     </a>
+                                   )}
+                                 </div>
+                               </div>
+                             )}
+
+                             {/* Render Location */}
+                             {mType === 'location' && (() => {
+                               try {
+                                 const loc = typeof msg.content === 'string' && msg.content.startsWith('{') 
+                                   ? JSON.parse(msg.content) 
+                                   : null;
+                                 
+                                 return (
+                                   <div className="flex flex-col gap-2 min-w-[200px] text-zinc-900 dark:text-zinc-100">
+                                     <div className="flex items-center gap-3 bg-zinc-50/10 p-3 rounded-xl border border-zinc-100/10">
+                                       <div className="w-10 h-10 bg-rose-500/10 text-rose-500 rounded-lg flex items-center justify-center shrink-0">
+                                         <MapPin className="w-5 h-5" />
+                                       </div>
+                                       <div className="min-w-0 flex-1 text-xs">
+                                         <p className="font-semibold truncate">{loc?.name || 'लोकेशन'}</p>
+                                         <p className="text-[10px] text-zinc-500 truncate">{loc?.address || 'नक्शा देखें'}</p>
+                                       </div>
+                                     </div>
+                                     {loc?.latitude && loc?.longitude && (
+                                       <a 
+                                         href={`https://www.google.com/maps?q=${loc.latitude},${loc.longitude}`}
+                                         target="_blank" 
+                                         rel="noopener noreferrer" 
+                                         className="text-center text-xs font-semibold py-1.5 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition-colors block mt-1"
+                                       >
+                                         Google Maps पर खोलें 🗺️
+                                       </a>
+                                     )}
+                                   </div>
+                                 );
+                               } catch (e) {
+                                 return <p className="italic text-xs text-zinc-400">Location: {msg.content}</p>;
+                               }
+                             })()}
+
+                             {/* Render Contacts */}
+                             {mType === 'contacts' && (() => {
+                               try {
+                                 const contactsData = typeof msg.content === 'string' && msg.content.startsWith('[') 
+                                   ? JSON.parse(msg.content) 
+                                   : null;
+                                 const cName = contactsData?.[0]?.name?.formatted_name || contactsData?.[0]?.name?.first_name || 'Contact';
+                                 const cPhone = contactsData?.[0]?.phones?.[0]?.phone || '';
+                                 
+                                 return (
+                                   <div className="flex items-center gap-3 bg-zinc-50/10 p-3 rounded-xl border border-zinc-100/10 min-w-[200px] text-zinc-900 dark:text-zinc-100">
+                                     <div className="w-10 h-10 bg-emerald-500/10 text-emerald-500 rounded-lg flex items-center justify-center shrink-0">
+                                       <User className="w-5 h-5" />
+                                     </div>
+                                     <div className="min-w-0 flex-1 text-xs">
+                                       <p className="font-semibold truncate">{cName}</p>
+                                       <p className="text-[10px] text-zinc-500 truncate">{cPhone}</p>
+                                       {cPhone && (
+                                         <a 
+                                           href={`https://wa.me/${cPhone.replace(/\D/g, '')}`}
+                                           target="_blank" 
+                                           rel="noopener noreferrer" 
+                                           className="text-[10px] text-indigo-400 dark:text-indigo-300 hover:underline mt-1 block font-medium"
+                                         >
+                                           WhatsApp पर चैट करें ↗
+                                         </a>
+                                       )}
+                                     </div>
+                                   </div>
+                                 );
+                               } catch (e) {
+                                 return <p className="italic text-xs text-zinc-400">Contact: {msg.content}</p>;
+                               }
+                             })()}
+
+                             {/* Render Text / Default */}
+                             {mType === 'text' && (
+                               <p className="leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                             )}
+                           </div>
+                           <div className={`flex items-center gap-1 mt-0.5 ${isAgent ? 'mr-1' : 'ml-1'}`}>
+                             <span className="text-[10px] text-zinc-400">{new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                             {isAgent && (
+                               msg.status === 'read' ? <CheckCheck className="w-3.5 h-3.5 text-indigo-500" /> :
+                               msg.status === 'delivered' ? <CheckCheck className="w-3.5 h-3.5 text-zinc-400" /> :
+                               <Check className="w-3.5 h-3.5 text-zinc-400" />
+                             )}
+                           </div>
                         </div>
-                        <div className={`flex items-center gap-1 mt-0.5 ${msg.sender_type === 'agent' ? 'mr-1' : 'ml-1'}`}>
-                          <span className="text-[10px] text-zinc-400">{new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-                          {msg.sender_type === 'agent' && (
-                            msg.status === 'read' ? <CheckCheck className="w-3.5 h-3.5 text-indigo-500" /> :
-                            msg.status === 'delivered' ? <CheckCheck className="w-3.5 h-3.5 text-zinc-400" /> :
-                            <Check className="w-3.5 h-3.5 text-zinc-400" />
-                          )}
-                        </div>
-                     </div>
-                   ))
-                 )}
+                      );
+                    })
+                  )}
               </div>
 
-              {/* Message Input */}
-              <div className="p-4 bg-white dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-800">
-                <div className="flex items-center gap-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-full pl-4 pr-1 py-1 focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-500 transition-all">
-                  <input 
-                    type="text" 
-                    placeholder="संदेश टाइप करें..." 
-                    className="flex-1 bg-transparent border-none outline-none text-sm px-2 py-2"
-                    value={messageInput}
-                    onChange={(e) => setMessageInput(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-                  />
-                  <button 
-                    onClick={sendMessage}
-                    disabled={!messageInput.trim() || sending}
-                    className={`p-2.5 rounded-full transition-colors flex items-center justify-center ${messageInput.trim() && !sending ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-400'}`}
-                  >
-                    <Send className="w-4 h-4" />
-                  </button>
+              {/* Message Input Drawer and Input field */}
+              {attachmentType && (
+                <div className="p-4 bg-zinc-50 dark:bg-zinc-950 border-t border-zinc-200 dark:border-zinc-800 flex flex-col gap-3">
+                  <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-2">
+                    <span className="text-sm font-semibold capitalize text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
+                      {attachmentType === 'image' && '📸 इमेज संदेश भेजें'}
+                      {attachmentType === 'video' && '🎥 वीडियो संदेश भेजें'}
+                      {attachmentType === 'document' && '📄 दस्तावेज़ (Doc) भेजें'}
+                      {attachmentType === 'location' && '📍 लोकेशन (Maps) भेजें'}
+                      {attachmentType === 'contacts' && '👤 संपर्क (Contact) भेजें'}
+                    </span>
+                    <button 
+                      onClick={() => { setAttachmentType(null); setAttachmentMenuOpen(false); }}
+                      className="p-1 rounded-full text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {(attachmentType === 'image' || attachmentType === 'video' || attachmentType === 'document') && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs text-zinc-500 font-medium block mb-1">मीडिया यूआरएल (Direct URL)*</label>
+                        <input 
+                          type="text" 
+                          placeholder={
+                            attachmentType === 'image' ? "https://picsum.photos/seed/vibrant/800/600" :
+                            attachmentType === 'video' ? "https://www.w3schools.com/html/mov_bbb.mp4" :
+                            "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf"
+                          }
+                          className="w-full text-xs p-2 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 outline-none focus:border-indigo-500 text-zinc-800 dark:text-zinc-100"
+                          value={mediaUrlInput}
+                          onChange={(e) => setMediaUrlInput(e.target.value)}
+                        />
+                      </div>
+                      {attachmentType === 'document' ? (
+                        <div>
+                          <label className="text-xs text-zinc-500 font-medium block mb-1">फ़ाइल नाम (Filename.pdf)*</label>
+                          <input 
+                            type="text" 
+                            placeholder="Invoice.pdf" 
+                            className="w-full text-xs p-2 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 outline-none focus:border-indigo-500 text-zinc-800 dark:text-zinc-100"
+                            value={docFilenameInput}
+                            onChange={(e) => setDocFilenameInput(e.target.value)}
+                          />
+                        </div>
+                      ) : (
+                        <div>
+                          <label className="text-xs text-zinc-500 font-medium block mb-1">कैप्शन (Caption - Optional)</label>
+                          <input 
+                            type="text" 
+                            placeholder="कैप्शन लिखें..." 
+                            className="w-full text-xs p-2 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 outline-none focus:border-indigo-500 text-zinc-800 dark:text-zinc-100"
+                            value={captionInput}
+                            onChange={(e) => setCaptionInput(e.target.value)}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {attachmentType === 'location' && (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      <div>
+                        <label className="text-xs text-zinc-500 font-medium block mb-1">अक्षांश (Latitude)*</label>
+                        <input 
+                          type="text" 
+                          className="w-full text-xs p-2 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 outline-none focus:border-indigo-500 text-zinc-800 dark:text-zinc-100"
+                          value={latInput}
+                          onChange={(e) => setLatInput(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-zinc-500 font-medium block mb-1">देशांतर (Longitude)*</label>
+                        <input 
+                          type="text" 
+                          className="w-full text-xs p-2 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 outline-none focus:border-indigo-500 text-zinc-800 dark:text-zinc-100"
+                          value={lngInput}
+                          onChange={(e) => setLngInput(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-zinc-500 font-medium block mb-1">लोकेशन का नाम*</label>
+                        <input 
+                          type="text" 
+                          className="w-full text-xs p-2 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 outline-none focus:border-indigo-500 text-zinc-800 dark:text-zinc-100"
+                          value={locNameInput}
+                          onChange={(e) => setLocNameInput(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-zinc-500 font-medium block mb-1">लोकेशन का पता</label>
+                        <input 
+                          type="text" 
+                          className="w-full text-xs p-2 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 outline-none focus:border-indigo-500 text-zinc-800 dark:text-zinc-100"
+                          value={locAddressInput}
+                          onChange={(e) => setLocAddressInput(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {attachmentType === 'contacts' && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs text-zinc-500 font-medium block mb-1">संपर्क नाम (Contact Name)*</label>
+                        <input 
+                          type="text" 
+                          placeholder="राम शर्मा" 
+                          className="w-full text-xs p-2 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 outline-none focus:border-indigo-500 text-zinc-800 dark:text-zinc-100"
+                          value={contactNameInput}
+                          onChange={(e) => setContactNameInput(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-zinc-500 font-medium block mb-1">फ़ोन नंबर (Country Code के साथ)*</label>
+                        <input 
+                          type="text" 
+                          placeholder="919876543210" 
+                          className="w-full text-xs p-2 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 outline-none focus:border-indigo-500 text-zinc-800 dark:text-zinc-100"
+                          value={contactPhoneInput}
+                          onChange={(e) => setContactPhoneInput(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex gap-2 justify-end mt-1">
+                    <button 
+                      onClick={() => { setAttachmentType(null); setAttachmentMenuOpen(false); }}
+                      className="px-3 py-1.5 text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300 transition-colors"
+                    >
+                      रद्द करें
+                    </button>
+                    <button 
+                      onClick={sendRichMessage}
+                      disabled={sending}
+                      className="px-4 py-1.5 text-xs rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium transition-colors"
+                    >
+                      {sending ? 'भेज रहे हैं...' : 'संदेश भेजें'}
+                    </button>
+                  </div>
                 </div>
-              </div>
-            </>
-          )}
-      </div>
+              )}
 
-      {/* Sliding Contact Details Panel */}
+             <div className="p-4 bg-white dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-800 relative">
+               {/* Attachment Type dropdown */}
+               {attachmentMenuOpen && !attachmentType && (
+                 <motion.div 
+                   initial={{ opacity: 0, y: 10 }}
+                   animate={{ opacity: 1, y: 0 }}
+                   exit={{ opacity: 0, y: 10 }}
+                   className="absolute bottom-16 left-6 p-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-xl flex flex-col gap-1 z-50 text-xs font-medium w-48"
+                 >
+                   <button 
+                     onClick={() => { setAttachmentType('image'); setAttachmentMenuOpen(false); }}
+                     className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-900 text-zinc-700 dark:text-zinc-200 w-full text-left"
+                   >
+                     📸 इमेज (Image)
+                   </button>
+                   <button 
+                     onClick={() => { setAttachmentType('video'); setAttachmentMenuOpen(false); }}
+                     className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-900 text-zinc-700 dark:text-zinc-200 w-full text-left"
+                   >
+                     🎥 वीडियो (Video)
+                   </button>
+                   <button 
+                     onClick={() => { setAttachmentType('document'); setAttachmentMenuOpen(false); }}
+                     className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-900 text-zinc-700 dark:text-zinc-200 w-full text-left"
+                   >
+                     📄 दस्तावेज़ (Doc)
+                   </button>
+                   <button 
+                     onClick={() => { setAttachmentType('location'); setAttachmentMenuOpen(false); }}
+                     className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-900 text-zinc-700 dark:text-zinc-200 w-full text-left"
+                   >
+                     📍 लोकेशन (Maps)
+                   </button>
+                   <button 
+                     onClick={() => { setAttachmentType('contacts'); setAttachmentMenuOpen(false); }}
+                     className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-900 text-zinc-700 dark:text-zinc-200 w-full text-left"
+                   >
+                     👤 संपर्क (Contact)
+                   </button>
+                 </motion.div>
+               )}
+
+               <div className="flex items-center gap-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-full pl-3 pr-1 py-1 focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-500 transition-all">
+                 <button 
+                   onClick={() => setAttachmentMenuOpen(!attachmentMenuOpen)}
+                   className={`p-2 rounded-full transition-colors ${attachmentMenuOpen ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400' : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}
+                   title="Add attachment"
+                 >
+                   <Paperclip className="w-4 h-4" />
+                 </button>
+                 <input 
+                   type="text" 
+                   placeholder="संदेश टाइप करें..." 
+                   className="flex-1 bg-transparent border-none outline-none text-sm px-2 py-2"
+                   value={messageInput}
+                   onChange={(e) => setMessageInput(e.target.value)}
+                   onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
+                   disabled={!!attachmentType}
+                 />
+                 <button 
+                   onClick={sendMessage}
+                   disabled={!messageInput.trim() || sending || !!attachmentType}
+                   className={`p-2.5 rounded-full transition-colors flex items-center justify-center ${messageInput.trim() && !sending && !attachmentType ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-400'}`}
+                 >
+                   <Send className="w-4 h-4" />
+                 </button>
+               </div>
+             </div>
+           </>
+          )}
+      </div>      {/* Sliding Contact Details Panel */}
       <AnimatePresence>
         {isContactPanelOpen && activeChat && (
           <motion.div 

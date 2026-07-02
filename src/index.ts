@@ -309,22 +309,62 @@ app.post('/api/whatsapp/webhook', async (c) => {
             const contact = change.value.contacts[0];
             const phoneNumberId = change.value.metadata.phone_number_id;
             
-            console.log(`New message from ${contact.profile.name} (${message.from}):`, message.text?.body);
+            let messageText = '';
+            let messageType = 'text';
+            let mediaUrl: string | null = null;
+            
+            if (message.text) {
+              messageText = message.text.body;
+              messageType = 'text';
+            } else if (message.image) {
+              messageText = message.image.caption || 'Image Message';
+              messageType = 'image';
+              mediaUrl = `https://graph.facebook.com/v19.0/${message.image.id}`;
+            } else if (message.video) {
+              messageText = message.video.caption || 'Video Message';
+              messageType = 'video';
+              mediaUrl = `https://graph.facebook.com/v19.0/${message.video.id}`;
+            } else if (message.document) {
+              messageText = message.document.caption || message.document.filename || 'Document Message';
+              messageType = 'document';
+              mediaUrl = `https://graph.facebook.com/v19.0/${message.document.id}`;
+            } else if (message.location) {
+              messageText = message.location.name 
+                ? `${message.location.name} (${message.location.address || ''})` 
+                : `Location: ${message.location.latitude}, ${message.location.longitude}`;
+              messageType = 'location';
+              mediaUrl = JSON.stringify({
+                latitude: message.location.latitude,
+                longitude: message.location.longitude,
+                name: message.location.name,
+                address: message.location.address
+              });
+            } else if (message.contacts) {
+              const contactName = message.contacts[0]?.name?.formatted_name || 'Contact';
+              const contactPhone = message.contacts[0]?.phones?.[0]?.phone || '';
+              messageText = `Contact: ${contactName} (${contactPhone})`;
+              messageType = 'contacts';
+              mediaUrl = JSON.stringify(message.contacts);
+            } else {
+              messageText = `Unsupported message type: ${message.type}`;
+              messageType = message.type || 'unknown';
+            }
+
+            console.log(`New ${messageType} message from ${contact.profile.name} (${message.from}):`, messageText);
             
             // Trigger Chatbot Logic for both Cloud API & WhatsApp Business App
-            if (message.text && message.text.body) {
-               // Use waitUntil so the webhook returns 200 OK immediately
-               c.executionCtx.waitUntil(
-                 handleIncomingMessage(
-                   c.env, 
-                   phoneNumberId, 
-                   message.from, 
-                   message.text.body, 
-                   contact.profile.name,
-                   message.id
-                 )
-               );
-            }
+            c.executionCtx.waitUntil(
+              handleIncomingMessage(
+                c.env, 
+                phoneNumberId, 
+                message.from, 
+                messageText, 
+                contact.profile.name,
+                message.id,
+                messageType,
+                mediaUrl
+              )
+            );
           } else if (change.value && change.value.statuses) {
             const statusObj = change.value.statuses[0];
             const platformMsgId = statusObj.id;
@@ -552,27 +592,60 @@ app.post('/api/whatsapp/send', async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
-  const { to, text, conversationId } = await c.req.json();
-  if (!to || !text || !conversationId) return c.json({ error: 'Missing required fields' }, 400);
+  const { to, text, conversationId, type = 'text', mediaUrl, filename, location, contacts } = await c.req.json();
+  if (!to || !conversationId) return c.json({ error: 'Missing required fields' }, 400);
 
   try {
     const config = await c.env.DB.prepare('SELECT phone_number_id, access_token FROM whatsapp_configs WHERE workspace_id = ?').bind(workspaceId).first();
     if (!config) return c.json({ error: 'WhatsApp is not configured for this workspace' }, 400);
 
+    // Build the Meta Cloud API payload
+    let payload: any = {
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      to: to,
+      type: type
+    };
+
+    if (type === 'text') {
+      if (!text) return c.json({ error: 'Text content is required for text messages' }, 400);
+      payload.text = { preview_url: false, body: text };
+    } else if (type === 'image') {
+      if (!mediaUrl) return c.json({ error: 'Media URL is required for image messages' }, 400);
+      payload.image = { link: mediaUrl, caption: text || "" };
+    } else if (type === 'video') {
+      if (!mediaUrl) return c.json({ error: 'Media URL is required for video messages' }, 400);
+      payload.video = { link: mediaUrl, caption: text || "" };
+    } else if (type === 'document') {
+      if (!mediaUrl) return c.json({ error: 'Media URL is required for document messages' }, 400);
+      payload.document = { link: mediaUrl, filename: filename || 'Document.pdf', caption: text || "" };
+    } else if (type === 'location') {
+      if (!location || !location.latitude || !location.longitude) {
+        return c.json({ error: 'Latitude and longitude are required for location messages' }, 400);
+      }
+      payload.location = {
+        latitude: location.latitude,
+        longitude: location.longitude,
+        name: location.name || 'Location',
+        address: location.address || ''
+      };
+    } else if (type === 'contacts') {
+      if (!contacts || !Array.isArray(contacts) || contacts.length === 0) {
+        return c.json({ error: 'Contacts list is required' }, 400);
+      }
+      payload.contacts = contacts;
+    } else {
+      return c.json({ error: `Unsupported send type: ${type}` }, 400);
+    }
+
     // Call Meta Cloud API
-    const metaResponse = await fetch(`https://graph.facebook.com/v17.0/${config.phone_number_id}/messages`, {
+    const metaResponse = await fetch(`https://graph.facebook.com/v19.0/${config.phone_number_id}/messages`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${config.access_token}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        messaging_product: "whatsapp",
-        recipient_type: "individual",
-        to: to,
-        type: "text",
-        text: { preview_url: false, body: text }
-      })
+      body: JSON.stringify(payload)
     });
 
     const metaData: any = await metaResponse.json();
@@ -580,15 +653,37 @@ app.post('/api/whatsapp/send', async (c) => {
       return c.json({ error: metaData.error.message }, 400);
     }
 
+    // Ensure database columns are up-to-date
+    try {
+      await c.env.DB.prepare("ALTER TABLE messages ADD COLUMN message_type TEXT DEFAULT 'text'").run();
+    } catch(e) {}
+
     // Save sent message to database
-    await c.env.DB.prepare('INSERT INTO messages (id, conversation_id, sender_type, content, platform_message_id) VALUES (?, ?, ?, ?, ?)')
-      .bind(crypto.randomUUID(), conversationId, 'agent', text, metaData.messages?.[0]?.id || crypto.randomUUID()).run();
+    let contentToSave = text;
+    if (type === 'location') {
+      contentToSave = JSON.stringify(location);
+    } else if (type === 'contacts') {
+      contentToSave = JSON.stringify(contacts);
+    } else if (type === 'document' && !text) {
+      contentToSave = filename || 'Document.pdf';
+    }
+
+    await c.env.DB.prepare('INSERT INTO messages (id, conversation_id, sender_type, message_type, content, media_url, platform_message_id) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .bind(
+        crypto.randomUUID(), 
+        conversationId, 
+        'agent', 
+        type, 
+        contentToSave || null, 
+        mediaUrl || null, 
+        metaData.messages?.[0]?.id || crypto.randomUUID()
+      ).run();
 
     // Update conversation
     await c.env.DB.prepare('UPDATE conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = ?')
       .bind(conversationId).run();
 
-    return c.json({ success: true, message: 'Message sent' });
+    return c.json({ success: true, message: 'Message sent successfully' });
   } catch (err: any) {
     return c.json({ error: err.message }, 500);
   }
