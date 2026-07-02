@@ -325,6 +325,17 @@ app.post('/api/whatsapp/webhook', async (c) => {
                  )
                );
             }
+          } else if (change.value && change.value.statuses) {
+            const statusObj = change.value.statuses[0];
+            const platformMsgId = statusObj.id;
+            const status = statusObj.status; // 'sent', 'delivered', 'read'
+            
+            try {
+              await c.env.DB.prepare('UPDATE messages SET status = ? WHERE platform_message_id = ?')
+                .bind(status, platformMsgId).run();
+            } catch (err: any) {
+              console.error("Webhook status error:", err);
+            }
           }
         }
       }
@@ -541,90 +552,6 @@ app.get('/api/whatsapp/config', async (c) => {
   }
 });
 
-// WhatsApp Webhook Verification
-app.get('/api/whatsapp/webhook/:workspaceId', async (c) => {
-  const workspaceId = c.req.param('workspaceId');
-  const mode = c.req.query('hub.mode');
-  const token = c.req.query('hub.verify_token');
-  const challenge = c.req.query('hub.challenge');
-
-  if (mode && token) {
-    const config = await c.env.DB.prepare('SELECT verify_token FROM whatsapp_configs WHERE workspace_id = ?').bind(workspaceId).first();
-    
-    if (mode === 'subscribe' && config && token === config.verify_token) {
-      return new Response(challenge, { status: 200 });
-    } else {
-      return c.json({ error: 'Forbidden' }, 403);
-    }
-  }
-  return c.json({ error: 'Bad Request' }, 400);
-});
-
-// WhatsApp Webhook Event Receiver
-app.post('/api/whatsapp/webhook/:workspaceId', async (c) => {
-  const workspaceId = c.req.param('workspaceId');
-  const body = await c.req.json();
-
-  if (body.object) {
-    if (body.entry && body.entry[0].changes && body.entry[0].changes[0].value.messages && body.entry[0].changes[0].value.messages[0]) {
-      const message = body.entry[0].changes[0].value.messages[0];
-      const contact = body.entry[0].changes[0].value.contacts[0];
-      
-      const phone = contact.wa_id;
-      const name = contact.profile.name;
-      const msgText = message.text?.body || '';
-      const platformMsgId = message.id;
-
-      try {
-        // Find or create contact
-        let contactRow = await c.env.DB.prepare('SELECT id FROM contacts WHERE workspace_id = ? AND platform = ? AND platform_contact_id = ?')
-          .bind(workspaceId, 'whatsapp', phone).first();
-        
-        let contactId = contactRow?.id;
-        if (!contactRow) {
-          contactId = crypto.randomUUID();
-          await c.env.DB.prepare('INSERT INTO contacts (id, workspace_id, platform, platform_contact_id, name) VALUES (?, ?, ?, ?, ?)')
-            .bind(contactId, workspaceId, 'whatsapp', phone, name).run();
-        }
-
-        // Find or create conversation
-        let conversationRow = await c.env.DB.prepare('SELECT id FROM conversations WHERE workspace_id = ? AND contact_id = ? AND platform = ?')
-          .bind(workspaceId, contactId, 'whatsapp').first();
-          
-        let conversationId = conversationRow?.id;
-        if (!conversationRow) {
-          conversationId = crypto.randomUUID();
-          await c.env.DB.prepare('INSERT INTO conversations (id, workspace_id, contact_id, platform) VALUES (?, ?, ?, ?)')
-            .bind(conversationId, workspaceId, contactId, 'whatsapp').run();
-        } else {
-          // Update conversation timestamp
-          await c.env.DB.prepare('UPDATE conversations SET updated_at = CURRENT_TIMESTAMP, status = ? WHERE id = ?')
-            .bind('open', conversationId).run();
-        }
-
-        // Insert message
-        await c.env.DB.prepare('INSERT INTO messages (id, conversation_id, sender_type, content, platform_message_id) VALUES (?, ?, ?, ?, ?)')
-          .bind(crypto.randomUUID(), conversationId, 'contact', msgText, platformMsgId).run();
-
-      } catch (err: any) {
-        console.error("Webhook processing error:", err);
-      }
-    } else if (body.entry && body.entry[0].changes && body.entry[0].changes[0].value.statuses && body.entry[0].changes[0].value.statuses[0]) {
-      const statusObj = body.entry[0].changes[0].value.statuses[0];
-      const platformMsgId = statusObj.id;
-      const status = statusObj.status; // 'sent', 'delivered', 'read'
-      
-      try {
-        await c.env.DB.prepare('UPDATE messages SET status = ? WHERE platform_message_id = ?')
-          .bind(status, platformMsgId).run();
-      } catch (err: any) {
-        console.error("Webhook status error:", err);
-      }
-    }
-    return c.json({ status: 'ok' }, 200);
-  }
-  return c.json({ error: 'Not Found' }, 404);
-});
 
 // Send WhatsApp Message
 app.post('/api/admin/migrate', async (c) => {

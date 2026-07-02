@@ -734,12 +734,12 @@ function SettingsView() {
           setAccessToken("••••••••••••••••"); // Don't show actual token
         }
         if (wId) {
-          setWebhookUrl(`${window.location.origin}/api/whatsapp/webhook/${wId}`);
+          setWebhookUrl(`${window.location.origin}/api/whatsapp/webhook`);
         }
         setLoading(false);
       }).catch(() => {
         if (wId) {
-          setWebhookUrl(`${window.location.origin}/api/whatsapp/webhook/${wId}`);
+          setWebhookUrl(`${window.location.origin}/api/whatsapp/webhook`);
         }
         setLoading(false);
       });
