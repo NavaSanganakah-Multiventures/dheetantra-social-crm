@@ -349,40 +349,6 @@ app.post('/api/whatsapp/webhook', async (c) => {
   }
 });
 
-// Send WhatsApp Message Endpoint
-app.post('/api/whatsapp/send', async (c) => {
-  const { to, message, phoneNumberId } = await c.req.json();
-  const token = await c.env.SECRETS_KV.get('WHATSAPP_API_TOKEN');
-
-  if (!token || !phoneNumberId) {
-    return c.json({ error: 'WhatsApp API credentials missing' }, 500);
-  }
-
-  try {
-    const response = await fetch(`https://graph.facebook.com/v19.0/${phoneNumberId}/messages`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        messaging_product: 'whatsapp',
-        to: to,
-        type: 'text',
-        text: { body: message }
-      }),
-    });
-
-    const data = await response.json();
-    if (!response.ok) {
-      throw new Error(JSON.stringify(data));
-    }
-    return c.json({ success: true, data });
-  } catch (error: any) {
-    console.error('WhatsApp send error:', error);
-    return c.json({ error: 'Failed to send WhatsApp message', details: error.message }, 500);
-  }
-});
 
 // ==========================================
 // B2C & B2B API ROUTES
