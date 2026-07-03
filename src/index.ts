@@ -53,15 +53,23 @@ export class ChatDurableObject extends DurableObject {
   }
 
   async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer) {
-    // Forward message to all other connected clients
     const text = typeof message === 'string' ? message : new TextDecoder().decode(message);
     try {
       const data = JSON.parse(text);
+      const { event, payload } = data;
+
+      // Handle WhatsApp Calling Bridge (Placeholder for Meta Cloud API WebRTC Beta)
+      if (event === 'offer' && payload.target) {
+        console.log(`[Calling] Initiating call to WhatsApp target: ${payload.target}`);
+        // Bridge with Meta Cloud API Voice (SIP or WebRTC Beta)
+      }
+
+      // Relay the event and payload to other clients in the room
       const sockets = this.ctx.getWebSockets();
       for (const socket of sockets) {
         if (socket !== ws) {
           try {
-            socket.send(JSON.stringify(data));
+            socket.send(JSON.stringify({ event, payload }));
           } catch (e) {}
         }
       }
