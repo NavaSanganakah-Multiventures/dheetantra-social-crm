@@ -67,7 +67,7 @@ export default function AdminDashboard() {
 
   // Fetch Stats
   const loadStats = () => {
-    Promise.resolve().then(() => setLoadingStats(true));
+    setLoadingStats(true);
     fetch('/api/admin/stats')
       .then(res => res.json())
       .then((data: any) => {
@@ -84,7 +84,7 @@ export default function AdminDashboard() {
 
   // Fetch Users
   const loadUsers = () => {
-    Promise.resolve().then(() => setLoadingUsers(true));
+    setLoadingUsers(true);
     fetch('/api/admin/users')
       .then(res => res.json())
       .then((data: any) => {
@@ -101,7 +101,7 @@ export default function AdminDashboard() {
 
   // Fetch Workspaces
   const loadWorkspaces = () => {
-    Promise.resolve().then(() => setLoadingWorkspaces(true));
+    setLoadingWorkspaces(true);
     fetch('/api/admin/workspaces')
       .then(res => res.json())
       .then((data: any) => {
@@ -118,7 +118,7 @@ export default function AdminDashboard() {
 
   // Fetch Plans
   const loadPlans = () => {
-    Promise.resolve().then(() => setLoadingPlans(true));
+    setLoadingPlans(true);
     fetch('/api/admin/plans')
       .then(res => res.json())
       .then((data: any) => {
@@ -135,7 +135,7 @@ export default function AdminDashboard() {
 
   // Fetch KV Secrets
   const loadKvSecrets = () => {
-    Promise.resolve().then(() => setLoadingKv(true));
+    setLoadingKv(true);
     fetch('/api/admin/kv')
       .then(res => res.json())
       .then((data: any) => {

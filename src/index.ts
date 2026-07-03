@@ -1735,7 +1735,16 @@ app.post('/api/whatsapp/send', async (c) => {
       console.error("Failed to broadcast message to DO:", doErr);
     }
 
-    return c.json({ success: true, message: 'Message sent successfully' });
+    return c.json({ 
+      success: true, 
+      message: 'Message sent successfully',
+      data: {
+        id: savedMessageId,
+        platform_message_id: platformMsgId,
+        status: 'sent',
+        created_at: new Date().toISOString()
+      }
+    });
   } catch (err: any) {
     return c.json({ error: err.message }, 500);
   }

@@ -1041,7 +1041,7 @@ function InboxView({
       const data: any = await res.json();
       if (data.success) {
         // Replace optimistic message with the real one returned from DB
-        setMessages(prev => prev.map(m => m.id === tempId ? { ...m, id: data.message?.id || m.id, status: 'sent' } : m));
+        setMessages(prev => prev.map(m => m.id === tempId ? { ...m, id: data.data?.id || m.id, status: 'sent' } : m));
         // Refresh conversations to bubble up the active conversation
         fetchConversations();
       } else {
