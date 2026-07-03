@@ -112,6 +112,7 @@ CREATE TABLE IF NOT EXISTS whatsapp_configs (
   phone_number_id TEXT NOT NULL,
   access_token TEXT NOT NULL,
   verify_token TEXT,
+  reply_mode TEXT DEFAULT 'manual',
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
 );

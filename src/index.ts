@@ -521,24 +521,28 @@ app.post('/api/whatsapp/config', async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
-  const { phone_number_id, access_token, verify_token } = await c.req.json();
+  const { phone_number_id, access_token, verify_token, reply_mode } = await c.req.json();
   const id = crypto.randomUUID();
 
   try {
-    const existing: any = await c.env.DB.prepare('SELECT id, access_token FROM whatsapp_configs WHERE workspace_id = ?').bind(workspaceId).first();
+    try {
+      await c.env.DB.prepare("ALTER TABLE whatsapp_configs ADD COLUMN reply_mode TEXT DEFAULT 'manual'").run();
+    } catch(e) {}
+
+    const existing: any = await c.env.DB.prepare('SELECT id, access_token, reply_mode FROM whatsapp_configs WHERE workspace_id = ?').bind(workspaceId).first();
     const finalToken = access_token || existing?.access_token || '';
+    const finalReplyMode = reply_mode || existing?.reply_mode || 'manual';
 
     if (existing) {
       await c.env.DB.prepare(
-        `UPDATE whatsapp_configs SET phone_number_id = ?, access_token = ?, verify_token = ? WHERE workspace_id = ?`
-      ).bind(phone_number_id, finalToken, verify_token, workspaceId).run();
+        `UPDATE whatsapp_configs SET phone_number_id = ?, access_token = ?, verify_token = ?, reply_mode = ? WHERE workspace_id = ?`
+      ).bind(phone_number_id, finalToken, verify_token, finalReplyMode, workspaceId).run();
     } else {
       await c.env.DB.prepare(
-        `INSERT INTO whatsapp_configs (id, workspace_id, phone_number_id, access_token, verify_token)
-         VALUES (?, ?, ?, ?, ?)`
-      ).bind(id, workspaceId, phone_number_id, finalToken, verify_token).run();
+        `INSERT INTO whatsapp_configs (id, workspace_id, phone_number_id, access_token, verify_token, reply_mode) 
+         VALUES (?, ?, ?, ?, ?, ?)`
+      ).bind(id, workspaceId, phone_number_id, finalToken, verify_token, finalReplyMode).run();
     }
-
     return c.json({ success: true, message: 'WhatsApp config saved' });
   } catch (err: any) {
     return c.json({ error: err.message }, 500);
@@ -551,7 +555,10 @@ app.get('/api/whatsapp/config', async (c) => {
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
   try {
-    const config = await c.env.DB.prepare('SELECT phone_number_id, verify_token FROM whatsapp_configs WHERE workspace_id = ?').bind(workspaceId).first();
+    try {
+      await c.env.DB.prepare("ALTER TABLE whatsapp_configs ADD COLUMN reply_mode TEXT DEFAULT 'manual'").run();
+    } catch(e) {}
+    const config = await c.env.DB.prepare('SELECT phone_number_id, verify_token, reply_mode FROM whatsapp_configs WHERE workspace_id = ?').bind(workspaceId).first();
     return c.json({ config: config || null });
   } catch (err: any) {
     return c.json({ error: err.message }, 500);
@@ -607,18 +614,22 @@ app.post('/api/whatsapp/send', async (c) => {
       type: type
     };
 
+
+    const isMediaId = mediaUrl && !mediaUrl.startsWith('http');
+    const mediaObj = isMediaId ? { id: mediaUrl } : { link: mediaUrl };
+
     if (type === 'text') {
       if (!text) return c.json({ error: 'Text content is required for text messages' }, 400);
       payload.text = { preview_url: false, body: text };
     } else if (type === 'image') {
       if (!mediaUrl) return c.json({ error: 'Media URL is required for image messages' }, 400);
-      payload.image = { link: mediaUrl, caption: text || "" };
+      payload.image = { ...mediaObj, caption: text || "" };
     } else if (type === 'video') {
       if (!mediaUrl) return c.json({ error: 'Media URL is required for video messages' }, 400);
-      payload.video = { link: mediaUrl, caption: text || "" };
+      payload.video = { ...mediaObj, caption: text || "" };
     } else if (type === 'document') {
       if (!mediaUrl) return c.json({ error: 'Media URL is required for document messages' }, 400);
-      payload.document = { link: mediaUrl, filename: filename || 'Document.pdf', caption: text || "" };
+      payload.document = { ...mediaObj, filename: filename || 'Document.pdf', caption: text || "" };
     } else if (type === 'location') {
       if (!location || !location.latitude || !location.longitude) {
         return c.json({ error: 'Latitude and longitude are required for location messages' }, 400);
@@ -850,3 +861,100 @@ const worker = {
 };
 
 export default worker;
+
+
+// Proxy for downloading WhatsApp media
+app.get('/api/whatsapp/media', async (c) => {
+  const workspaceId = c.req.query('workspaceId');
+  const mediaUrl = c.req.query('url');
+  
+  if (!workspaceId || !mediaUrl) {
+    return c.text('Missing parameters', 400);
+  }
+
+  try {
+    const config = await c.env.DB.prepare('SELECT access_token FROM whatsapp_configs WHERE workspace_id = ?').bind(workspaceId).first();
+    if (!config || !config.access_token) {
+      return c.text('WhatsApp not configured', 400);
+    }
+    
+    const token = config.access_token;
+    
+    // 1. Get the CDN URL from media ID
+    const graphUrl = mediaUrl.startsWith('http') ? mediaUrl : `https://graph.facebook.com/v19.0/${mediaUrl}`;
+    const res = await fetch(graphUrl, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const data = await res.json();
+    
+    if (!data.url) {
+      return c.text('Media not found or expired', 404);
+    }
+    
+    // 2. Download the actual binary data from CDN URL
+    const binaryRes = await fetch(data.url, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    
+    const headers = new Headers();
+    headers.set('Content-Type', binaryRes.headers.get('Content-Type') || 'application/octet-stream');
+    headers.set('Cache-Control', 'public, max-age=31536000');
+    
+    return new Response(binaryRes.body, {
+      status: 200,
+      headers: headers
+    });
+    
+  } catch (e) {
+    console.error('Media proxy error:', e);
+    return c.text('Internal Server Error', 500);
+  }
+});
+
+
+// Upload media to WhatsApp API
+app.post('/api/whatsapp/upload', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  try {
+    const config = await c.env.DB.prepare('SELECT access_token, phone_number_id FROM whatsapp_configs WHERE workspace_id = ?').bind(workspaceId).first();
+    if (!config || !config.access_token || !config.phone_number_id) {
+      return c.json({ error: 'WhatsApp not configured' }, 400);
+    }
+    
+    const token = config.access_token;
+    const phoneNumberId = config.phone_number_id;
+
+    const body = await c.req.parseBody();
+    const file = body['file'];
+    
+    if (!file || typeof file === 'string') {
+       return c.json({ error: 'No file uploaded' }, 400);
+    }
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('type', file.type);
+    formData.append('messaging_product', 'whatsapp');
+    
+    const uploadRes = await fetch(`https://graph.facebook.com/v19.0/${phoneNumberId}/media`, {
+       method: 'POST',
+       headers: {
+          'Authorization': `Bearer ${token}`
+       },
+       body: formData
+    });
+    
+    const uploadData = await uploadRes.json();
+    if (uploadData.id) {
+       return c.json({ success: true, mediaUrl: uploadData.id });
+    } else {
+       console.error("WA Upload Error", uploadData);
+       return c.json({ error: 'WhatsApp API upload failed', details: uploadData }, 400);
+    }
+  } catch (e) {
+    console.error('Media upload error:', e);
+    return c.json({ error: 'Internal Server Error' }, 500);
+  }
+});

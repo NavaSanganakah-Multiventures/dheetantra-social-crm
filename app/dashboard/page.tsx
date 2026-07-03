@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { MessageSquare, Megaphone, CalendarClock, Settings, LayoutDashboard, Search, Bell, Menu, Send, Paperclip, LogOut, User, Phone, X, History, MapPin, Building2, Tag, ChevronDown, ChevronRight, Activity, Users, Zap, Check, CheckCheck, FileText, Plus } from 'lucide-react';
+import { Download,  Bot, MessageSquare, Megaphone, CalendarClock, Settings, LayoutDashboard, Search, Bell, Menu, Send, Paperclip, LogOut, User, Phone, X, History, MapPin, Building2, Tag, ChevronDown, ChevronRight, Activity, Users, Zap, Check, CheckCheck, FileText, Plus  } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useRouter } from 'next/navigation';
 
@@ -293,6 +293,8 @@ function InboxView() {
 
   // Media (Image/Video/Doc) inputs
   const [mediaUrlInput, setMediaUrlInput] = useState('');
+  const [mediaFileState, setMediaFileState] = useState<File | null>(null);
+  const [replyMode, setReplyMode] = useState("manual");
   const [captionInput, setCaptionInput] = useState('');
   const [docFilenameInput, setDocFilenameInput] = useState('');
 
@@ -305,6 +307,32 @@ function InboxView() {
   // Contact inputs
   const [contactNameInput, setContactNameInput] = useState('');
   const [contactPhoneInput, setContactPhoneInput] = useState('');
+
+
+  const toggleAI = async () => {
+    const newMode = replyMode === 'ai' ? 'manual' : 'ai';
+    setReplyMode(newMode);
+    try {
+      const wId = localStorage.getItem('workspaceId');
+      if (!wId) return;
+      
+      const confRes = await fetch('/api/whatsapp/config', { headers: { 'x-workspace-id': wId } });
+      const confData = await confRes.json();
+      const existing = confData.config || {};
+      
+      await fetch('/api/whatsapp/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-workspace-id': wId },
+        body: JSON.stringify({ 
+          phone_number_id: existing.phone_number_id || "", 
+          verify_token: existing.verify_token || "", 
+          reply_mode: newMode 
+        })
+      });
+    } catch (e) {
+      console.error("Failed to toggle AI", e);
+    }
+  };
 
   const sendRichMessage = async () => {
     if (!activeChat || sending || !attachmentType) return;
@@ -368,7 +396,7 @@ function InboxView() {
       const data: any = await res.json();
       if (data.success) {
         // Reset state
-        setAttachmentType(null);
+        setAttachmentType(null); setMediaFileState(null);
         setAttachmentMenuOpen(false);
         setMediaUrlInput('');
         setCaptionInput('');
@@ -514,13 +542,23 @@ function InboxView() {
                     <p className="text-xs text-zinc-500">{activeChat.phone}</p>
                   </div>
                 </div>
-                <button 
-                  onClick={() => setIsContactPanelOpen(!isContactPanelOpen)}
-                  className={`p-2 rounded-lg transition-colors ${isContactPanelOpen ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400' : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}
-                  title="Contact Details"
-                >
-                  <User className="w-5 h-5" />
-                </button>
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={toggleAI}
+                    className={`p-2 rounded-lg transition-colors flex items-center gap-1.5 ${replyMode === 'ai' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400' : 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'}`}
+                    title="Toggle AI Chatbot"
+                  >
+                    <Bot className="w-4 h-4" />
+                    <span className="text-[10px] font-bold uppercase tracking-wider hidden md:inline-block">{replyMode === 'ai' ? 'AI ON' : 'AI OFF'}</span>
+                  </button>
+                  <button 
+                    onClick={() => setIsContactPanelOpen(!isContactPanelOpen)}
+                    className={`p-2 rounded-lg transition-colors ${isContactPanelOpen ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400' : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}
+                    title="Contact Details"
+                  >
+                    <User className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
 
               {/* Chat Messages Area */}
@@ -529,6 +567,12 @@ function InboxView() {
                     <p className="text-center text-zinc-500 text-sm mt-10">कोई संदेश नहीं</p>
                   ) : (
                     messages.map(msg => {
+                      let displayMediaUrl = msg.media_url;
+                      if (displayMediaUrl && (!displayMediaUrl.startsWith('http') || displayMediaUrl.includes('graph.facebook.com'))) {
+                          const wId = localStorage.getItem('workspaceId');
+                          displayMediaUrl = `/api/whatsapp/media?workspaceId=${wId}&url=${encodeURIComponent(displayMediaUrl)}`;
+                      }
+
                       const isAgent = msg.sender_type === 'agent' || msg.sender_type === 'bot';
                       const mType = msg.message_type || 'text';
                       
@@ -538,16 +582,20 @@ function InboxView() {
                              {/* Render Image */}
                              {mType === 'image' && (
                                <div className="flex flex-col gap-2">
-                                 {msg.media_url && (
-                                   <div className="relative rounded-lg overflow-hidden border border-zinc-100/10 max-w-sm max-h-60 bg-zinc-950/20">
+                                 {displayMediaUrl && (
+                                   <div className="group relative rounded-lg overflow-hidden border border-zinc-100/10 max-w-sm max-h-60 bg-zinc-950/20">
                                      <img 
-                                       src={msg.media_url} 
+                                       src={displayMediaUrl} 
                                        alt="WhatsApp Attachment"
                                        className="w-full object-cover max-h-60 hover:scale-105 transition-transform duration-200 cursor-pointer" 
                                        onError={(e) => {
                                          e.currentTarget.style.display = 'none';
                                        }}
                                      />
+                                   
+                                     <a href={displayMediaUrl} download="image.jpg" target="_blank" rel="noopener noreferrer" className="absolute top-2 right-2 p-1.5 bg-black/50 text-white rounded-lg hover:bg-black/70 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <Download className="w-4 h-4" />
+                                     </a>
                                    </div>
                                  )}
                                  {msg.content && <p className="leading-relaxed">{msg.content}</p>}
@@ -557,15 +605,18 @@ function InboxView() {
                              {/* Render Video */}
                              {mType === 'video' && (
                                <div className="flex flex-col gap-2">
-                                 {msg.media_url && (
-                                   <video 
-                                     src={msg.media_url} 
+                                 {displayMediaUrl && (
+                                   <div className="group relative rounded-lg inline-block w-full max-w-xs">
+<video 
+                                     src={displayMediaUrl} 
                                      controls 
-                                     className="rounded-lg max-w-xs max-h-60"
+                                     className="rounded-lg w-full max-h-60"
                                      onError={(e) => {
                                        e.currentTarget.style.display = 'none';
                                      }}
                                    />
+<a href={displayMediaUrl} download="video.mp4" target="_blank" rel="noopener noreferrer" className="absolute top-2 right-2 p-1.5 bg-black/50 text-white rounded-lg hover:bg-black/70 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity"><Download className="w-4 h-4" /></a>
+</div>
                                  )}
                                  {msg.content && <p className="leading-relaxed">{msg.content}</p>}
                                </div>
@@ -579,14 +630,14 @@ function InboxView() {
                                  </div>
                                  <div className="min-w-0 flex-1">
                                    <p className="font-semibold text-xs truncate">{msg.content || 'Document.pdf'}</p>
-                                   {msg.media_url && (
+                                   {displayMediaUrl && (
                                      <a 
-                                       href={msg.media_url} 
+                                       href={displayMediaUrl} 
                                        target="_blank" 
                                        rel="noopener noreferrer" 
                                        className="text-[10px] text-indigo-400 dark:text-indigo-300 hover:underline mt-1 block font-medium"
                                      >
-                                       दस्तावेज़ खोलें ↗
+                                       डाउनलोड करें (Download)
                                      </a>
                                    )}
                                  </div>
@@ -694,7 +745,7 @@ function InboxView() {
                       {attachmentType === 'contacts' && '👤 संपर्क (Contact) भेजें'}
                     </span>
                     <button 
-                      onClick={() => { setAttachmentType(null); setAttachmentMenuOpen(false); }}
+                      onClick={() => { setAttachmentType(null); setMediaFileState(null); setAttachmentMenuOpen(false); }}
                       className="p-1 rounded-full text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800"
                     >
                       <X className="w-4 h-4" />
@@ -704,17 +755,23 @@ function InboxView() {
                   {(attachmentType === 'image' || attachmentType === 'video' || attachmentType === 'document') && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       <div>
-                        <label className="text-xs text-zinc-500 font-medium block mb-1">मीडिया यूआरएल (Direct URL)*</label>
+                        <label className="text-xs text-zinc-500 font-medium block mb-1">फ़ाइल चुनें (File)*</label>
                         <input 
-                          type="text" 
-                          placeholder={
-                            attachmentType === 'image' ? "https://picsum.photos/seed/vibrant/800/600" :
-                            attachmentType === 'video' ? "https://www.w3schools.com/html/mov_bbb.mp4" :
-                            "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf"
+                          type="file" 
+                          accept={
+                            attachmentType === 'image' ? "image/*" :
+                            attachmentType === 'video' ? "video/*" :
+                            "application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                           }
-                          className="w-full text-xs p-2 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 outline-none focus:border-indigo-500 text-zinc-800 dark:text-zinc-100"
-                          value={mediaUrlInput}
-                          onChange={(e) => setMediaUrlInput(e.target.value)}
+                          className="w-full text-xs p-1.5 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 outline-none focus:border-indigo-500 text-zinc-800 dark:text-zinc-100 file:mr-3 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+                          onChange={async (e) => {
+                             const file = e.target.files?.[0];
+                             if (file) {
+                                // Convert to base64 or object URL for preview, and we'll upload it when sending
+                                // For now, we will just use a global state or attach it to the form
+                                setMediaFileState(file);
+                             }
+                          }}
                         />
                       </div>
                       {attachmentType === 'document' ? (
@@ -811,7 +868,7 @@ function InboxView() {
 
                   <div className="flex gap-2 justify-end mt-1">
                     <button 
-                      onClick={() => { setAttachmentType(null); setAttachmentMenuOpen(false); }}
+                      onClick={() => { setAttachmentType(null); setMediaFileState(null); setAttachmentMenuOpen(false); }}
                       className="px-3 py-1.5 text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300 transition-colors"
                     >
                       रद्द करें
@@ -1104,6 +1161,7 @@ function SettingsView() {
     const [message, setMessage] = useState("");
     const [webhookUrl, setWebhookUrl] = useState("");
     const [metaConfigId, setMetaConfigId] = useState("");
+    const [replyMode, setReplyMode] = useState("manual");
 
     useEffect(() => {
       let isSubscribed = true;
@@ -1192,6 +1250,7 @@ function SettingsView() {
           setPhoneNumberId(data.config.phone_number_id || "");
           setVerifyToken(data.config.verify_token || "");
           setAccessToken("••••••••••••••••"); // Don't show actual token
+          setReplyMode(data.config.reply_mode || "manual");
         }
         if (wId) {
           setWebhookUrl(`${window.location.origin}/api/whatsapp/webhook`);
@@ -1241,7 +1300,7 @@ function SettingsView() {
       setSaving(true);
       setMessage("");
       try {
-        const payload: any = { phone_number_id: phoneNumberId, verify_token: verifyToken };
+        const payload: any = { phone_number_id: phoneNumberId, verify_token: verifyToken, reply_mode: replyMode };
         if (accessToken !== "••••••••••••••••") {
           payload.access_token = accessToken;
         }
@@ -1315,6 +1374,44 @@ function SettingsView() {
                            </div>
                          )}
 
+                         <div className="mt-6 pt-6 border-t border-zinc-100 dark:border-zinc-800">
+                           <h4 className="block text-sm font-bold text-zinc-900 dark:text-zinc-100 tracking-wider mb-4 flex items-center gap-2">
+                             <Bot className="w-4 h-4 text-indigo-500" /> चैटबॉट (Chatbot) और AI सेटिंग्स
+                           </h4>
+                           <label className="block text-xs font-medium text-zinc-500 uppercase tracking-wider mb-3">ऑटो-रिप्लाई मोड</label>
+                           <div className="flex flex-col md:flex-row gap-3 mb-6">
+                             <label className={`flex-1 flex flex-col p-4 border rounded-xl cursor-pointer transition-all ${replyMode === 'manual' ? 'bg-indigo-50 border-indigo-200 dark:bg-indigo-500/10 dark:border-indigo-500/30 ring-1 ring-indigo-500' : 'bg-white border-zinc-200 dark:bg-zinc-950 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700'}`}>
+                               <div className="flex items-center gap-2 mb-1">
+                                 <input type="radio" name="replyMode" value="manual" checked={replyMode === 'manual'} onChange={(e) => setReplyMode(e.target.value)} className="hidden" />
+                                 <span className={`w-4 h-4 rounded-full border flex items-center justify-center ${replyMode === 'manual' ? 'border-indigo-600 bg-indigo-600' : 'border-zinc-300'}`}>
+                                   {replyMode === 'manual' && <div className="w-1.5 h-1.5 bg-white rounded-full"></div>}
+                                 </span>
+                                 <span className="font-semibold text-sm text-zinc-900 dark:text-zinc-100">मैन्युअल (Manual)</span>
+                               </div>
+                               <p className="text-xs text-zinc-500 pl-6">ऑटो-रिप्लाई बंद रखें। मैं खुद जवाब दूंगा।</p>
+                             </label>
+                             <label className={`flex-1 flex flex-col p-4 border rounded-xl cursor-pointer transition-all ${replyMode === 'ai' ? 'bg-indigo-50 border-indigo-200 dark:bg-indigo-500/10 dark:border-indigo-500/30 ring-1 ring-indigo-500' : 'bg-white border-zinc-200 dark:bg-zinc-950 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700'}`}>
+                               <div className="flex items-center gap-2 mb-1">
+                                 <input type="radio" name="replyMode" value="ai" checked={replyMode === 'ai'} onChange={(e) => setReplyMode(e.target.value)} className="hidden" />
+                                 <span className={`w-4 h-4 rounded-full border flex items-center justify-center ${replyMode === 'ai' ? 'border-indigo-600 bg-indigo-600' : 'border-zinc-300'}`}>
+                                   {replyMode === 'ai' && <div className="w-1.5 h-1.5 bg-white rounded-full"></div>}
+                                 </span>
+                                 <span className="font-semibold text-sm text-zinc-900 dark:text-zinc-100">AI चैटबॉट</span>
+                               </div>
+                               <p className="text-xs text-zinc-500 pl-6">कृत्रिम बुद्धिमत्ता (AI) द्वारा स्मार्ट जवाब।</p>
+                             </label>
+                             <label className={`flex-1 flex flex-col p-4 border rounded-xl cursor-pointer transition-all ${replyMode === 'rule_based' ? 'bg-indigo-50 border-indigo-200 dark:bg-indigo-500/10 dark:border-indigo-500/30 ring-1 ring-indigo-500' : 'bg-white border-zinc-200 dark:bg-zinc-950 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700'}`}>
+                               <div className="flex items-center gap-2 mb-1">
+                                 <input type="radio" name="replyMode" value="rule_based" checked={replyMode === 'rule_based'} onChange={(e) => setReplyMode(e.target.value)} className="hidden" />
+                                 <span className={`w-4 h-4 rounded-full border flex items-center justify-center ${replyMode === 'rule_based' ? 'border-indigo-600 bg-indigo-600' : 'border-zinc-300'}`}>
+                                   {replyMode === 'rule_based' && <div className="w-1.5 h-1.5 bg-white rounded-full"></div>}
+                                 </span>
+                                 <span className="font-semibold text-sm text-zinc-900 dark:text-zinc-100">रूल्स (Rule-based)</span>
+                               </div>
+                               <p className="text-xs text-zinc-500 pl-6">पहले से सेट किए गए कीवर्ड्स के आधार पर।</p>
+                             </label>
+                           </div>
+                         </div>
                          <div className="pt-2">
                            <button onClick={saveConfig} disabled={saving} className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl text-sm font-medium transition-colors shadow-md shadow-indigo-600/20 flex items-center gap-2">
                              {saving ? "सुरक्षित किया जा रहा है..." : "सेव करें"}
