@@ -243,7 +243,11 @@ async function ensureMultipleWabaSchema(db: any) {
 
 app.use('/api/whatsapp/*', async (c, next) => {
   if (c.env.DB) {
+    const t0 = Date.now();
     await ensureMultipleWabaSchema(c.env.DB);
+    if (Date.now() - t0 > 100) {
+      console.log(`[Migration] ensureMultipleWabaSchema took ${Date.now() - t0}ms`);
+    }
   }
   await next();
 });

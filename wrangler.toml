@@ -79,7 +79,25 @@ binding = "MEDIA_BUCKET"
 bucket_name = "dhitantra-media-preview"
 
 # ==========================================
-# 8. EMAIL SENDING BINDING
+# 8. OBSERVABILITY — Logs & Tail
+# ==========================================
+[observability]
+enabled = false
+head_sampling_rate = 1
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+persist = true
+invocation_logs = true
+
+[observability.traces]
+enabled = false
+persist = true
+head_sampling_rate = 1
+
+# ==========================================
+# 9. EMAIL SENDING BINDING
 # ==========================================
 [[send_email]]
 name = "EMAIL_SENDER"
