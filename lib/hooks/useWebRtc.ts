@@ -121,7 +121,7 @@ export function useWebRtc(config: WebRtcConfig | null) {
       setError(err.message);
       setStatus('error');
     }
-  }, [config?.workspaceId, cleanup]);
+  }, [config, cleanup]);
 
   const call = useCallback(async (target: string) => {
     await initWebRtc(true, target);

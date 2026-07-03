@@ -590,6 +590,26 @@ app.post('/api/whatsapp/webhook', async (c) => {
             if (message.text) {
               messageText = message.text.body;
               messageType = 'text';
+            } else if (message.interactive) {
+              if (message.interactive.type === 'button_reply') {
+                messageText = message.interactive.button_reply.title;
+              } else if (message.interactive.type === 'list_reply') {
+                messageText = message.interactive.list_reply.title;
+              } else if (message.interactive.type === 'nfm_reply') {
+                messageText = message.interactive.nfm_reply?.response_json ? JSON.parse(message.interactive.nfm_reply.response_json).name || 'Flow Reply' : 'Flow Reply';
+              } else {
+                messageText = 'Interactive Response';
+              }
+              messageType = 'interactive';
+              mediaUrl = JSON.stringify(message.interactive);
+            } else if (message.order) {
+              messageText = message.order.text || 'Order Received';
+              messageType = 'order';
+              mediaUrl = JSON.stringify(message.order);
+            } else if (message.reaction) {
+              messageText = message.reaction.emoji || '';
+              messageType = 'reaction';
+              mediaUrl = message.reaction.message_id; // the message they reacted to
             } else if (message.image) {
               messageText = message.image.caption || 'Image Message';
               messageType = 'image';
@@ -619,12 +639,23 @@ app.post('/api/whatsapp/webhook', async (c) => {
               messageText = `Contact: ${contactName} (${contactPhone})`;
               messageType = 'contacts';
               mediaUrl = JSON.stringify(message.contacts);
-            } else if (message.type === 'system' && message.system && message.system.type === 'user_initiated_call') {
-              messageText = 'इनकमिंग कॉल (Incoming Voice Call)';
-              messageType = 'system_call';
+            } else if (message.type === 'system') {
+              if (message.system && message.system.type === 'user_initiated_call') {
+                messageText = 'इनकमिंग कॉल (Incoming Voice Call)';
+                messageType = 'system_call';
+              } else {
+                messageText = message.system?.body || 'System Message';
+                messageType = 'system';
+                mediaUrl = JSON.stringify(message.system);
+              }
             } else {
               messageText = `Unsupported message type: ${message.type}`;
               messageType = message.type || 'unknown';
+              mediaUrl = JSON.stringify(message); // Save raw for unknown
+            }
+            
+            if (message.context && message.context.id) {
+               messageText = `[Reply] ` + messageText;
             }
 
             console.log(`New ${messageType} message from ${contact.profile.name} (${message.from}):`, messageText);

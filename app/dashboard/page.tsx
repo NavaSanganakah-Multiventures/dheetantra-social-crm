@@ -207,7 +207,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
       if (socket) socket.close();
     };
-  }, [callingEnabled, incomingCall, activeCall]);
+  }, [callingEnabled, incomingCall, activeCall]); // eslint-disable-next-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const checkScreenSize = () => {
@@ -1460,9 +1460,25 @@ function InboxView({
                                }
                              })()}
 
-                             {/* Render Text / Default */}
-                             {mType === 'text' && (
+                             {/* Render Text / Default / Interactive / Order / Reaction */}
+                             {(mType === 'text' || mType === 'interactive' || mType === 'order') && (
                                <p className="leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                             )}
+                             {mType === 'reaction' && (
+                               <div className="flex items-center gap-2 text-zinc-900 dark:text-zinc-100">
+                                 <span className="text-2xl">{msg.content}</span>
+                                 <span className="text-xs text-zinc-400 italic">(रिएक्शन / Reaction)</span>
+                               </div>
+                             )}
+                             {mType === 'system' && (
+                               <div className="flex items-center gap-2 text-zinc-900 dark:text-zinc-100">
+                                 <span className="text-sm font-semibold italic text-zinc-500">[{msg.content}]</span>
+                               </div>
+                             )}
+                             {mType === 'unknown' && (
+                               <div className="flex items-center gap-2 text-zinc-900 dark:text-zinc-100">
+                                 <span className="text-sm italic">({msg.content})</span>
+                               </div>
                              )}
                            </div>
                            <div className={`flex items-center gap-1 mt-0.5 ${isAgent ? 'mr-1' : 'ml-1'}`}>
