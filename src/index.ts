@@ -80,7 +80,12 @@ export class ChatDurableObject extends DurableObject {
   }
 
   async webSocketClose(ws: WebSocket, code: number, reason: string, wasClean: boolean) {
-    ws.close(code, reason);
+    try {
+      const validCode = (code === 1005 || code === 1006) ? 1000 : code;
+      ws.close(validCode, reason);
+    } catch (e) {
+      console.error("Error closing websocket:", e);
+    }
   }
 
   async webSocketError(ws: WebSocket, error: any) {

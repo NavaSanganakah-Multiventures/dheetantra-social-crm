@@ -58,7 +58,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
 
   const { status: rtcStatus, answer: answerWebRTC, hangup: hangupWebRTC, handleRemoteHangup, remoteStream: rtcRemoteStream, localStream: rtcLocalStream } = useWhatsAppWebRTC();
 
-  // Load Calling Config and SIP Settings
+  // Load Calling Config
   useEffect(() => {
     const wId = localStorage.getItem('workspaceId');
     if (!wId) return;
@@ -75,14 +75,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
     })
     .catch(err => console.error("Error loading calling config:", err));
 
-    // Load SIP Credentials
-    fetch('/api/whatsapp/config', {
-      headers: { 'x-workspace-id': wId }
-    })
-    .then(r => r.json())
-    .then((data: any) => {
-    })
-    .catch(err => console.error("Error loading SIP config:", err));
+    // No SIP config to load anymore
   }, []);
 
   // Update activeCall state based on WebRTC status
@@ -97,7 +90,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
     }
   }, [rtcStatus]);
 
-  // Audio element for SIP remote stream
+  // Audio element for WebRTC remote stream
   useEffect(() => {
     if (rtcRemoteStream) {
       const audio = new Audio();
@@ -419,10 +412,8 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
               exit={{ scale: 0.9, opacity: 0 }}
               className="bg-zinc-900 border border-zinc-800 rounded-3xl max-w-sm w-full p-8 text-center text-white shadow-2xl relative overflow-hidden"
             >
-              {/* Pulsing visual glow */}
               <div className="absolute inset-0 bg-gradient-to-b from-indigo-500/10 to-transparent pointer-events-none"></div>
 
-              {/* Glowing animated wave rings */}
               <div className="relative w-24 h-24 mx-auto mb-6 flex items-center justify-center">
                 <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-20 animate-ping"></span>
                 <span className="absolute inline-flex h-20 w-20 rounded-full bg-indigo-500 opacity-15 animate-pulse"></span>
@@ -431,15 +422,19 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                 </div>
               </div>
 
-              <span className="inline-block px-3 py-1 bg-emerald-500/15 text-emerald-400 text-[10px] font-bold uppercase tracking-widest rounded-full mb-3">
-                व्हाट्सएप वॉयस कॉल आ रहा है...
-              </span>
+              <div className="flex flex-col items-center mb-3 gap-2">
+                <span className="inline-block px-3 py-1 bg-emerald-500/15 text-emerald-400 text-[10px] font-bold uppercase tracking-widest rounded-full">
+                  इनकमिंग कॉल (Incoming Call)
+                </span>
+                <span className="inline-block px-2 py-1 bg-amber-500/10 text-amber-500 text-[10px] font-semibold rounded-md border border-amber-500/20">
+                  ⚠️ कृपया 30 सेकंड के अंदर जवाब दें
+                </span>
+              </div>
 
               <h3 className="text-xl font-bold font-display tracking-tight text-white truncate">{incomingCall.contact_name || 'अज्ञात'}</h3>
               <p className="text-xs text-zinc-400 font-mono mt-1">+{incomingCall.phone}</p>
 
               <div className="flex gap-4 mt-8">
-                {/* Decline Button */}
                 <button
                   onClick={async () => {
                     try {
@@ -460,7 +455,6 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                   काटें (Decline)
                 </button>
 
-                {/* Attend Button */}
                 <button
                   onClick={async () => {
                     try {
@@ -656,7 +650,6 @@ function InboxView({
   const [sending, setSending] = useState(false);
   const [filterStatus, setFilterStatus] = useState<'open' | 'closed'>('open');
 
-  // Handle preselectedChat from parent component
   useEffect(() => {
     if (preselectedChat) {
       const timer = setTimeout(() => {
@@ -669,32 +662,26 @@ function InboxView({
     }
   }, [preselectedChat, setPreselectedChat]);
 
-  // Multi-WABA and Preview states
   const [configs, setConfigs] = useState<any[]>([]);
   const [selectedWaba, setSelectedWaba] = useState<any>({ id: 'all', phone_number_id: 'all' });
   const [mediaPreviewUrl, setMediaPreviewUrl] = useState<string | null>(null);
 
-  // Rich Media Attachments State
   const [attachmentMenuOpen, setAttachmentMenuOpen] = useState(false);
   const [attachmentType, setAttachmentType] = useState<'text' | 'image' | 'video' | 'document' | 'location' | 'contacts' | null>(null);
 
-  // Media (Image/Video/Doc) inputs
   const [mediaUrlInput, setMediaUrlInput] = useState('');
   const [mediaFileState, setMediaFileState] = useState<File | null>(null);
   const [captionInput, setCaptionInput] = useState('');
   const [docFilenameInput, setDocFilenameInput] = useState('');
 
-  // Location inputs
-  const [latInput, setLatInput] = useState('28.6139'); // New Delhi Latitude
-  const [lngInput, setLngInput] = useState('77.2090'); // New Delhi Longitude
+  const [latInput, setLatInput] = useState('28.6139');
+  const [lngInput, setLngInput] = useState('77.2090');
   const [locNameInput, setLocNameInput] = useState('Dhitantra Headquarters');
   const [locAddressInput, setLocAddressInput] = useState('New Delhi, India');
 
-  // Contact inputs
   const [contactNameInput, setContactNameInput] = useState('');
   const [contactPhoneInput, setContactPhoneInput] = useState('');
 
-  // Load configs on Mount
   useEffect(() => {
     const wId = localStorage.getItem('workspaceId');
     fetch('/api/whatsapp/config', {
@@ -706,7 +693,6 @@ function InboxView({
     }).catch(err => console.error("Error loading configs:", err));
   }, []);
 
-  // Update Media Preview URL reactively with safe cleanup
   useEffect(() => {
     let active = true;
     const timer = setTimeout(() => {
@@ -861,7 +847,6 @@ function InboxView({
       });
       const data: any = await res.json();
       if (data.success) {
-        // Reset state
         setAttachmentType(null); setMediaFileState(null);
         setAttachmentMenuOpen(false);
         setMediaUrlInput('');
@@ -915,10 +900,8 @@ function InboxView({
   useEffect(() => {
     if (!activeChat) return;
 
-    // Load initial messages
     loadMessages(activeChat.id);
 
-    // Setup WebSocket for instant real-time updates
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/api/chat/connect/${activeChat.id}`;
     let socket: WebSocket | null = null;
@@ -934,10 +917,8 @@ function InboxView({
           try {
             const data = JSON.parse(event.data);
             if (data.type === 'new_message' && data.message) {
-              // Refresh active conversations list to bubble up updated chat
               fetchConversations();
 
-              // Append message if it belongs to this active chat
               if (data.message.conversation_id === activeChat.id) {
                 setMessages(prev => {
                   if (prev.some(m => m.id === data.message.id)) return prev;
@@ -973,7 +954,6 @@ function InboxView({
         };
 
         socket.onclose = () => {
-          // Attempt to reconnect in 3 seconds if still active
           if (active) {
             reconnectTimeout = setTimeout(connectWs, 3000);
           }
@@ -992,7 +972,6 @@ function InboxView({
 
     connectWs();
 
-    // Still poll at a larger interval (10 seconds) as a bulletproof fail-safe
     const failSafeInterval = setInterval(() => {
       loadMessages(activeChat.id);
     }, 10000);
@@ -1010,7 +989,7 @@ function InboxView({
   const sendMessage = async () => {
     if (!messageInput.trim() || !activeChat) return;
     const textToSend = messageInput.trim();
-    setMessageInput(""); // Clear field instantly
+    setMessageInput("");
 
     const tempId = `optimistic-${Date.now()}`;
     const optimisticMsg = {
@@ -1022,7 +1001,6 @@ function InboxView({
       status: 'pending'
     };
 
-    // Append optimistic message to history immediately
     setMessages(prev => [...prev, optimisticMsg]);
     
     const resolvedPhoneId = activeChat.phone_number_id || (selectedWaba && selectedWaba.phone_number_id !== 'all' ? selectedWaba.phone_number_id : undefined);
@@ -1043,12 +1021,9 @@ function InboxView({
       });
       const data: any = await res.json();
       if (data.success) {
-        // Replace optimistic message with the real one returned from DB
         setMessages(prev => prev.map(m => m.id === tempId ? { ...m, id: data.data?.id || m.id, status: 'sent' } : m));
-        // Refresh conversations to bubble up the active conversation
         fetchConversations();
       } else {
-        // Remove optimistic message on error and restore input text
         setMessages(prev => prev.filter(m => m.id !== tempId));
         alert(data.error || "संदेश भेजने में विफल");
         setMessageInput(textToSend);
@@ -1119,7 +1094,6 @@ function InboxView({
               )}
             </div>
 
-            {/* WABA Selection Dropdown */}
             <div className="mb-3">
               <label className="block text-[9px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-1">WhatsApp Line</label>
               <div className="relative">
@@ -1133,7 +1107,7 @@ function InboxView({
                       const selected = configs.find(c => c.id === e.target.value);
                       if (selected) {
                         setSelectedWaba(selected);
-                        setActiveChat(null); // Clear active chat on filter change
+                        setActiveChat(null);
                       }
                     }
                   }}
@@ -1250,7 +1224,6 @@ function InboxView({
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  {/* Phone Call Button */}
                   <button 
                     onClick={() => {
                       if (onInitiateCall) {
@@ -1277,7 +1250,6 @@ function InboxView({
                     <span className="text-[10px] font-bold uppercase tracking-wider hidden md:inline-block">{currentReplyMode === 'ai' ? 'AI ON' : 'AI OFF'}</span>
                   </button>
 
-                  {/* Close / Reopen Toggle */}
                   <button 
                     onClick={() => updateConversationStatus(activeChat.id, activeChat.status === 'closed' ? 'open' : 'closed')}
                     className={`p-2 rounded-lg transition-colors flex items-center gap-1.5 ${activeChat.status === 'closed' ? 'bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400 hover:bg-amber-100' : 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'}`}
@@ -1289,7 +1261,6 @@ function InboxView({
                     </span>
                   </button>
 
-                  {/* Delete Button */}
                   <button 
                     onClick={() => deleteConversation(activeChat.id)}
                     className="p-2 rounded-lg bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-500/20 transition-colors flex items-center gap-1.5"
@@ -1327,12 +1298,10 @@ function InboxView({
                       return (
                         <div key={msg.id} className={`flex flex-col gap-1 ${isAgent ? 'items-end' : 'items-start'}`}>
                            <div className={`px-4 py-3 rounded-2xl max-w-[85%] text-sm ${isAgent ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-tl-none'}`}>
-                             {/* Render Image */}
                              {mType === 'image' && (
                                <div className="flex flex-col gap-2">
                                  {displayMediaUrl && (
                                    <div className="group relative rounded-lg overflow-hidden border border-zinc-100/10 max-w-sm max-h-60 bg-zinc-950/20">
-                                     {/* eslint-disable-next-line @next/next/no-img-element */}
                                      <img 
                                        src={displayMediaUrl} 
                                        alt="WhatsApp Attachment"
@@ -1351,7 +1320,6 @@ function InboxView({
                                </div>
                              )}
 
-                             {/* Render Video */}
                              {mType === 'video' && (
                                <div className="flex flex-col gap-2">
                                  {displayMediaUrl && (
@@ -1371,7 +1339,6 @@ function InboxView({
                                </div>
                              )}
 
-                             {/* Render Document */}
                              {mType === 'document' && (
                                <div className="flex items-center gap-3 bg-zinc-50/10 p-3 rounded-xl border border-zinc-100/10 min-w-[200px] text-zinc-900 dark:text-zinc-100">
                                  <div className="w-10 h-10 bg-indigo-500/10 text-indigo-400 rounded-lg flex items-center justify-center shrink-0">
@@ -1393,7 +1360,6 @@ function InboxView({
                                </div>
                              )}
 
-                             {/* Render Location */}
                              {mType === 'location' && (() => {
                                try {
                                  const loc = typeof msg.content === 'string' && msg.content.startsWith('{') 
@@ -1428,7 +1394,6 @@ function InboxView({
                                }
                              })()}
 
-                             {/* Render Contacts */}
                              {mType === 'contacts' && (() => {
                                try {
                                  const contactsData = typeof msg.content === 'string' && msg.content.startsWith('[') 
@@ -1463,7 +1428,6 @@ function InboxView({
                                }
                              })()}
 
-                             {/* Render Text / Default / Interactive / Order / Reaction */}
                              {(mType === 'text' || mType === 'interactive' || mType === 'order') && (
                                <p className="leading-relaxed whitespace-pre-wrap">{msg.content}</p>
                              )}
@@ -1534,8 +1498,6 @@ function InboxView({
                           onChange={async (e) => {
                              const file = e.target.files?.[0];
                              if (file) {
-                                // Convert to base64 or object URL for preview, and we'll upload it when sending
-                                // For now, we will just use a global state or attach it to the form
                                 setMediaFileState(file);
                              }
                           }}
@@ -1652,7 +1614,6 @@ function InboxView({
               )}
 
              <div className="p-4 bg-white dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-800 relative">
-               {/* Attachment Type dropdown */}
                {attachmentMenuOpen && !attachmentType && (
                  <motion.div 
                    initial={{ opacity: 0, y: 10 }}
@@ -1818,7 +1779,7 @@ function InboxView({
              )}
            </>
           )}
-      </div>      {/* Sliding Contact Details Panel */}
+      </div>
       <AnimatePresence>
         {isContactPanelOpen && activeChat && (
           <motion.div 
@@ -2028,7 +1989,6 @@ function SettingsView() {
     const [metaConfigId, setMetaConfigId] = useState("");
     const [replyMode, setReplyMode] = useState("manual");
 
-    // Multi-WABA configs state
     const [configs, setConfigs] = useState<any[]>([]);
     const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -2099,7 +2059,6 @@ function SettingsView() {
                 version: 'v19.0'
               });
             };
-            // If FB script is already loaded and fbAsyncInit was missed
             if ((window as any).FB) {
                (window as any).FB.init({
                  appId: data.appId,
@@ -2125,7 +2084,6 @@ function SettingsView() {
           if (data.type === 'WA_EMBEDDED_SIGNUP') {
             if (data.event === 'FINISH') {
               const { phone_number_id, waba_id } = data.data;
-              console.log("Embedded Signup Finished", data.data);
               setMessage("Embedded Signup पूरा हुआ, सर्वर पर रजिस्टर किया जा रहा है...");
               
               fetch('/api/meta/embedded-signup', {
@@ -2155,7 +2113,6 @@ function SettingsView() {
             }
           }
         } catch (e) {
-          // ignore
         }
       };
 
@@ -2173,7 +2130,7 @@ function SettingsView() {
           setPhoneNumberId(data.config.phone_number_id || "");
           setWabaId(data.config.waba_id || "");
           setVerifyToken(data.config.verify_token || "");
-          setAccessToken("••••••••••••••••"); // Don't show actual token
+          setAccessToken("••••••••••••••••");
           setReplyMode(data.config.reply_mode || "manual");
         }
         if (wId) {
