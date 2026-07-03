@@ -1708,6 +1708,132 @@ app.post('/api/whatsapp/templates/send', async (c) => {
 });
 
 
+// ==========================================
+// WHATSAPP FLOWS MANAGEMENT
+// ==========================================
+
+// Get all flows for workspace
+app.get('/api/whatsapp/flows', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  try {
+    try {
+      await c.env.DB.prepare(`
+        CREATE TABLE IF NOT EXISTS whatsapp_flows (
+          id TEXT PRIMARY KEY,
+          workspace_id TEXT NOT NULL,
+          name TEXT NOT NULL,
+          status TEXT DEFAULT 'DRAFT',
+          categories TEXT DEFAULT 'UTILITY',
+          screens_json TEXT,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
+        )
+      `).run();
+    } catch(e) {}
+
+    const { results: flows } = await c.env.DB.prepare(
+      'SELECT * FROM whatsapp_flows WHERE workspace_id = ? ORDER BY created_at DESC'
+    ).bind(workspaceId).all();
+
+    return c.json({ success: true, flows: flows || [] });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+// Create or Update flow
+app.post('/api/whatsapp/flows', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  const { id, name, categories, screens_json, status } = await c.req.json();
+  if (!name) return c.json({ error: 'Name is required' }, 400);
+
+  const flowId = id || crypto.randomUUID();
+  const finalStatus = status || 'DRAFT';
+  const finalCategories = categories || 'UTILITY';
+  const finalScreens = screens_json || JSON.stringify([
+    {
+      id: "screen_1",
+      title: "First Screen",
+      layout: {
+        children: [
+          { type: "text", content: "Welcome to our Whatsapp Flow form" },
+          { type: "input", label: "Full Name", placeholder: "Enter name", required: true, name: "fullName" },
+          { type: "submit", label: "Submit" }
+        ]
+      }
+    }
+  ]);
+
+  try {
+    try {
+      await c.env.DB.prepare(`
+        CREATE TABLE IF NOT EXISTS whatsapp_flows (
+          id TEXT PRIMARY KEY,
+          workspace_id TEXT NOT NULL,
+          name TEXT NOT NULL,
+          status TEXT DEFAULT 'DRAFT',
+          categories TEXT DEFAULT 'UTILITY',
+          screens_json TEXT,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
+        )
+      `).run();
+    } catch(e) {}
+
+    let existing = null;
+    if (id) {
+      existing = await c.env.DB.prepare('SELECT id FROM whatsapp_flows WHERE id = ? AND workspace_id = ?').bind(id, workspaceId).first();
+    }
+
+    if (existing) {
+      await c.env.DB.prepare(
+        `UPDATE whatsapp_flows SET name = ?, categories = ?, screens_json = ?, status = ? WHERE id = ? AND workspace_id = ?`
+      ).bind(name, finalCategories, finalScreens, finalStatus, flowId, workspaceId).run();
+    } else {
+      await c.env.DB.prepare(
+        `INSERT INTO whatsapp_flows (id, workspace_id, name, categories, screens_json, status) VALUES (?, ?, ?, ?, ?, ?)`
+      ).bind(flowId, workspaceId, name, finalCategories, finalScreens, finalStatus).run();
+    }
+
+    return c.json({ success: true, message: 'Flow saved successfully', id: flowId });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+// Delete flow
+app.delete('/api/whatsapp/flows/:id', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+  const id = c.req.param('id');
+
+  try {
+    await c.env.DB.prepare('DELETE FROM whatsapp_flows WHERE id = ? AND workspace_id = ?').bind(id, workspaceId).run();
+    return c.json({ success: true, message: 'Flow deleted successfully' });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+// Publish flow
+app.post('/api/whatsapp/flows/:id/publish', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+  const id = c.req.param('id');
+
+  try {
+    await c.env.DB.prepare("UPDATE whatsapp_flows SET status = 'PUBLISHED' WHERE id = ? AND workspace_id = ?").bind(id, workspaceId).run();
+    return c.json({ success: true, message: 'Flow published successfully' });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+
 // Send WhatsApp Message
 app.post('/api/admin/migrate', async (c) => {
   try {
