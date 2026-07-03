@@ -2300,8 +2300,8 @@ app.post('/api/whatsapp/calls/toggle', async (c) => {
 app.get('/api/webrtc/ice-servers', async (c) => {
   try {
     // Try KV first, then env variables
-    const turnKeyId = await c.env.SECRETS_KV.get('TURN_KEY_ID') || c.env.TURN_KEY_ID;
-    const turnToken = await c.env.SECRETS_KV.get('TURN_KEY_API_TOKEN') || c.env.TURN_KEY_API_TOKEN;
+    const turnKeyId = await c.env.SECRETS_KV.get('CLOUDFLARE_CALLS_APP_ID') || await c.env.SECRETS_KV.get('TURN_KEY_ID') || c.env.TURN_KEY_ID;
+    const turnToken = await c.env.SECRETS_KV.get('CLOUDFLARE_CALLS_TOKEN') || await c.env.SECRETS_KV.get('TURN_KEY_API_TOKEN') || c.env.TURN_KEY_API_TOKEN;
 
     if (!turnKeyId || !turnToken) {
       // Fallback to free STUN only if TURN not configured
