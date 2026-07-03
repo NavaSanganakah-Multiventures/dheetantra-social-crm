@@ -50,9 +50,16 @@ export async function handleIncomingMessage(
       console.log(`[handleIncomingMessage] Contact sorted. id=${finalContactId}`);
 
       // 2. Find or create conversation
-      const existingConv = await env.DB.prepare(`
-        SELECT id FROM conversations WHERE contact_id = ? AND platform = 'whatsapp' AND (phone_number_id = ? OR phone_number_id IS NULL) ORDER BY created_at DESC LIMIT 1
+      let existingConv = await env.DB.prepare(`
+        SELECT id FROM conversations WHERE contact_id = ? AND platform = 'whatsapp' AND phone_number_id = ? ORDER BY created_at DESC LIMIT 1
       `).bind(finalContactId, phoneNumberId).first<{ id: string }>();
+
+      if (!existingConv) {
+        // Fallback for older conversations without phone_number_id set
+        existingConv = await env.DB.prepare(`
+          SELECT id FROM conversations WHERE contact_id = ? AND platform = 'whatsapp' AND phone_number_id IS NULL ORDER BY created_at DESC LIMIT 1
+        `).bind(finalContactId).first<{ id: string }>();
+      }
 
       if (existingConv) {
         conversationId = existingConv.id;

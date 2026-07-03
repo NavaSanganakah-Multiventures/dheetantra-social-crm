@@ -969,7 +969,14 @@ app.post('/api/whatsapp/templates/send', async (c) => {
         .bind(contactId, workspaceId, 'whatsapp', to, to).run();
     }
 
-    let conv = await c.env.DB.prepare('SELECT id FROM conversations WHERE workspace_id = ? AND contact_id = ?').bind(workspaceId, contactId).first();
+    let conv = await c.env.DB.prepare('SELECT id FROM conversations WHERE workspace_id = ? AND contact_id = ? AND phone_number_id = ?').bind(workspaceId, contactId, config.phone_number_id).first<{ id: string }>();
+    if (!conv) {
+      // Fallback for older conversations without phone_number_id set
+      conv = await c.env.DB.prepare('SELECT id FROM conversations WHERE workspace_id = ? AND contact_id = ? AND phone_number_id IS NULL').bind(workspaceId, contactId).first<{ id: string }>();
+      if (conv) {
+        await c.env.DB.prepare('UPDATE conversations SET phone_number_id = ? WHERE id = ?').bind(config.phone_number_id, conv.id).run();
+      }
+    }
     let convId = conv?.id;
     if (!convId) {
       convId = crypto.randomUUID();
@@ -1247,6 +1254,38 @@ app.get('/api/plans', async (c) => {
   } catch (err) {
     console.error("Error fetching plans:", err);
     return c.json({ error: 'Internal server error' }, 500);
+  }
+});
+
+// Get workspace analytics and statistics
+app.get('/api/workspace', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+  if (!c.env.DB) return c.json({ error: 'Database not connected' }, 500);
+
+  try {
+    const contactsCount = await c.env.DB.prepare(
+      'SELECT COUNT(*) as count FROM contacts WHERE workspace_id = ?'
+    ).bind(workspaceId).first<{ count: number }>();
+
+    const openConversationsCount = await c.env.DB.prepare(
+      "SELECT COUNT(*) as count FROM conversations WHERE workspace_id = ? AND status = 'open'"
+    ).bind(workspaceId).first<{ count: number }>();
+
+    const broadcastsCount = await c.env.DB.prepare(
+      'SELECT COUNT(*) as count FROM broadcast_campaigns WHERE workspace_id = ?'
+    ).bind(workspaceId).first<{ count: number }>();
+
+    return c.json({
+      stats: {
+        totalContacts: contactsCount?.count || 0,
+        openConversations: openConversationsCount?.count || 0,
+        broadcastsSent: broadcastsCount?.count || 0
+      }
+    });
+  } catch (err: any) {
+    console.error("Error fetching workspace stats:", err);
+    return c.json({ error: err.message }, 500);
   }
 });
 

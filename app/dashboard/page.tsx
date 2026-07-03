@@ -47,6 +47,7 @@ export default function DashboardWrapper() {
 function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
   const [activeTab, setActiveTab] = useState<activeTab>('dashboard');
   const [isSidebarOpen, setSidebarOpen] = useState(false);
+  const [openConversationsCount, setOpenConversationsCount] = useState<number>(0);
 
   useEffect(() => {
     const checkScreenSize = () => {
@@ -56,6 +57,27 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
     window.addEventListener('resize', checkScreenSize);
     return () => window.removeEventListener('resize', checkScreenSize);
   }, []);
+
+  useEffect(() => {
+    const fetchStats = () => {
+      const wId = localStorage.getItem('workspaceId');
+      if (!wId) return;
+      fetch('/api/workspace', {
+        headers: { 'x-workspace-id': wId }
+      })
+      .then(r => r.json())
+      .then((data: any) => {
+        if (data.stats) {
+          setOpenConversationsCount(data.stats.openConversations || 0);
+        }
+      })
+      .catch(err => console.error("Error fetching stats for badge:", err));
+    };
+
+    fetchStats();
+    const interval = setInterval(fetchStats, 10000); // refresh every 10 seconds
+    return () => clearInterval(interval);
+  }, [activeTab]);
 
   return (
     <div className="flex h-screen overflow-hidden bg-zinc-100 dark:bg-zinc-950">
@@ -97,7 +119,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
             <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
               <div className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-4 px-3">ओवरव्यू</div>
               <NavItem icon={<LayoutDashboard />} label="डैशबोर्ड" isActive={activeTab === 'dashboard'} onClick={() => { setActiveTab('dashboard'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
-              <NavItem icon={<MessageSquare />} label="इनबॉक्स" isActive={activeTab === 'inbox'} onClick={() => { setActiveTab('inbox'); if (window.innerWidth < 768) setSidebarOpen(false); }} badge="3" />
+              <NavItem icon={<MessageSquare />} label="इनबॉक्स" isActive={activeTab === 'inbox'} onClick={() => { setActiveTab('inbox'); if (window.innerWidth < 768) setSidebarOpen(false); }} badge={openConversationsCount > 0 ? openConversationsCount.toString() : undefined} />
               
               <div className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-4 mt-8 px-3">मार्केटिंग</div>
               <NavItem icon={<Megaphone />} label="ब्रॉडकास्ट" isActive={activeTab === 'broadcast'} onClick={() => { setActiveTab('broadcast'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
@@ -209,7 +231,10 @@ function DashboardOverview() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/workspace').then(r => r.json()).then((data: any) => {
+    const wId = localStorage.getItem('workspaceId');
+    fetch('/api/workspace', {
+      headers: { 'x-workspace-id': wId || '' }
+    }).then(r => r.json()).then((data: any) => {
       setStats(data.stats);
       setLoading(false);
     }).catch(() => setLoading(false));
@@ -1857,7 +1882,7 @@ function SettingsView() {
     )
 }
 
-function TemplatesView() {
+function TemplatesView({ selectedWaba }: { selectedWaba?: any }) {
   const [localTemplates, setLocalTemplates] = useState<any[]>([]);
   const [metaTemplates, setMetaTemplates] = useState<any[]>([]);
   const [metaError, setMetaError] = useState<string | null>(null);
@@ -1865,6 +1890,10 @@ function TemplatesView() {
   const [syncing, setSyncing] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showSendModal, setShowSendModal] = useState(false);
+
+  // Multi-WABA configs state
+  const [configs, setConfigs] = useState<any[]>([]);
+  const [chosenWaba, setChosenWaba] = useState<any>(null);
 
   // Create template form state
   const [templateName, setTemplateName] = useState("");
@@ -1910,6 +1939,21 @@ function TemplatesView() {
     const load = async () => {
       const wId = localStorage.getItem('workspaceId');
       try {
+        // Fetch WABA configs
+        const configRes = await fetch('/api/whatsapp/config', {
+          headers: { 'x-workspace-id': wId || '' }
+        });
+        const configData = await configRes.json();
+        if (active && configData.configs) {
+          setConfigs(configData.configs);
+          if (configData.configs.length > 0) {
+            const matched = selectedWaba && selectedWaba.phone_number_id !== 'all'
+              ? configData.configs.find((c: any) => c.phone_number_id === selectedWaba.phone_number_id)
+              : null;
+            setChosenWaba(matched || configData.configs[0]);
+          }
+        }
+
         const res = await fetch('/api/whatsapp/templates', {
           headers: { 'x-workspace-id': wId || '' }
         });
@@ -1931,7 +1975,7 @@ function TemplatesView() {
     };
     load();
     return () => { active = false; };
-  }, []);
+  }, [selectedWaba]);
 
   const handleCreateTemplate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -2028,7 +2072,8 @@ function TemplatesView() {
           to: recipient,
           templateName: selectedTemplate.name,
           languageCode: selectedTemplate.language,
-          parameters: paramValues
+          parameters: paramValues,
+          phoneNumberId: chosenWaba ? chosenWaba.phone_number_id : undefined
         })
       });
       const data = await res.json();
@@ -2231,6 +2276,25 @@ function TemplatesView() {
               </button>
             </div>
             <form onSubmit={handleSendTemplate} className="p-6 space-y-4">
+              {configs.length > 1 && (
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">प्रेषक नंबर (Sender WABA)</label>
+                  <select 
+                    value={chosenWaba?.id || ''} 
+                    onChange={e => {
+                      const selected = configs.find(c => c.id === e.target.value);
+                      setChosenWaba(selected);
+                    }}
+                    className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-indigo-500 font-mono"
+                  >
+                    {configs.map((cfg) => (
+                      <option key={cfg.id} value={cfg.id}>
+                        {cfg.phone_number_id} ({cfg.reply_mode || 'manual'})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div>
                 <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">प्राप्तकर्ता का मोबाइल नंबर (देश कोड के साथ)</label>
                 <input type="text" value={recipient} onChange={e => setRecipient(e.target.value.replace(/[^0-9+]/g, ''))} placeholder="e.g. +919876543210" className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-indigo-500 font-mono" required />
