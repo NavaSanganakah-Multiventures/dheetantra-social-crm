@@ -289,7 +289,7 @@ function InboxView() {
 
   // Multi-WABA and Preview states
   const [configs, setConfigs] = useState<any[]>([]);
-  const [selectedWaba, setSelectedWaba] = useState<any>(null);
+  const [selectedWaba, setSelectedWaba] = useState<any>({ id: 'all', phone_number_id: 'all' });
   const [mediaPreviewUrl, setMediaPreviewUrl] = useState<string | null>(null);
 
   // Rich Media Attachments State
@@ -299,7 +299,6 @@ function InboxView() {
   // Media (Image/Video/Doc) inputs
   const [mediaUrlInput, setMediaUrlInput] = useState('');
   const [mediaFileState, setMediaFileState] = useState<File | null>(null);
-  const [replyMode, setReplyMode] = useState("manual");
   const [captionInput, setCaptionInput] = useState('');
   const [docFilenameInput, setDocFilenameInput] = useState('');
 
@@ -321,9 +320,6 @@ function InboxView() {
     }).then(r => r.json()).then((data: any) => {
       if (data.configs) {
         setConfigs(data.configs);
-        if (data.configs.length > 0) {
-          setSelectedWaba(data.configs[0]);
-        }
       }
     }).catch(err => console.error("Error loading configs:", err));
   }, []);
@@ -349,23 +345,37 @@ function InboxView() {
     };
   }, [mediaFileState, mediaUrlInput]);
 
+  const activeWabaPhoneId = activeChat?.phone_number_id || (selectedWaba && selectedWaba.phone_number_id !== 'all' ? selectedWaba.phone_number_id : null);
+  const activeWabaConfig = configs.find(c => c.phone_number_id === activeWabaPhoneId);
+  const currentReplyMode = activeWabaConfig?.reply_mode || "manual";
+
   const toggleAI = async () => {
-    const newMode = replyMode === 'ai' ? 'manual' : 'ai';
-    setReplyMode(newMode);
+    const targetPhoneId = activeWabaPhoneId;
+    if (!targetPhoneId) {
+      alert("AI टॉगल करने के लिए कृपया एक विशिष्ट WhatsApp लाइन या बातचीत चुनें।");
+      return;
+    }
+
+    const targetConfig = configs.find(c => c.phone_number_id === targetPhoneId);
+    const currentMode = targetConfig?.reply_mode || "manual";
+    const newMode = currentMode === 'ai' ? 'manual' : 'ai';
+    
+    setConfigs(prev => prev.map(c => c.phone_number_id === targetPhoneId ? { ...c, reply_mode: newMode } : c));
+    if (selectedWaba && selectedWaba.phone_number_id === targetPhoneId) {
+      setSelectedWaba((prev: any) => ({ ...prev, reply_mode: newMode }));
+    }
+
     try {
       const wId = localStorage.getItem('workspaceId');
       if (!wId) return;
-      
-      const confRes = await fetch('/api/whatsapp/config', { headers: { 'x-workspace-id': wId } });
-      const confData = await confRes.json();
-      const existing = confData.config || {};
       
       await fetch('/api/whatsapp/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-workspace-id': wId },
         body: JSON.stringify({ 
-          phone_number_id: existing.phone_number_id || "", 
-          verify_token: existing.verify_token || "", 
+          id: targetConfig?.id,
+          phone_number_id: targetPhoneId, 
+          verify_token: targetConfig?.verify_token || "", 
           reply_mode: newMode 
         })
       });
@@ -377,11 +387,13 @@ function InboxView() {
   const sendRichMessage = async () => {
     if (!activeChat || sending || !attachmentType) return;
     
+    const resolvedPhoneId = activeChat.phone_number_id || (selectedWaba && selectedWaba.phone_number_id !== 'all' ? selectedWaba.phone_number_id : undefined);
+
     let payload: any = {
       to: activeChat.phone,
       conversationId: activeChat.id,
       type: attachmentType,
-      phoneNumberId: selectedWaba ? selectedWaba.phone_number_id : undefined
+      phoneNumberId: resolvedPhoneId
     };
 
     if (attachmentType === 'image' || attachmentType === 'video' || attachmentType === 'document') {
@@ -488,7 +500,7 @@ function InboxView() {
 
   const fetchConversations = (wabaId?: string) => {
     const activeWaba = wabaId || (selectedWaba ? selectedWaba.phone_number_id : '');
-    const url = activeWaba 
+    const url = activeWaba && activeWaba !== 'all'
       ? `/api/inbox/conversations?phoneNumberId=${activeWaba}` 
       : '/api/inbox/conversations';
 
@@ -524,12 +536,14 @@ function InboxView() {
       const interval = setInterval(() => loadMessages(activeChat.id), 5000);
       return () => clearInterval(interval);
     }
-  }, [activeChat]);
+  }, [activeChat, configs]);
 
   const sendMessage = async () => {
     if (!messageInput.trim() || !activeChat || sending) return;
     setSending(true);
     
+    const resolvedPhoneId = activeChat.phone_number_id || (selectedWaba && selectedWaba.phone_number_id !== 'all' ? selectedWaba.phone_number_id : undefined);
+
     try {
       const res = await fetch('/api/whatsapp/send', {
         method: 'POST',
@@ -541,7 +555,7 @@ function InboxView() {
           to: activeChat.phone,
           text: messageInput,
           conversationId: activeChat.id,
-          phoneNumberId: selectedWaba ? selectedWaba.phone_number_id : undefined
+          phoneNumberId: resolvedPhoneId
         })
       });
       const data: any = await res.json();
@@ -579,22 +593,25 @@ function InboxView() {
                 <select 
                   value={selectedWaba ? selectedWaba.id : ''} 
                   onChange={(e) => {
-                    const selected = configs.find(c => c.id === e.target.value);
-                    if (selected) {
-                      setSelectedWaba(selected);
-                      setActiveChat(null); // Clear active chat on filter change
+                    if (e.target.value === 'all') {
+                      setSelectedWaba({ id: 'all', phone_number_id: 'all' });
+                      setActiveChat(null);
+                    } else {
+                      const selected = configs.find(c => c.id === e.target.value);
+                      if (selected) {
+                        setSelectedWaba(selected);
+                        setActiveChat(null); // Clear active chat on filter change
+                      }
                     }
                   }}
                   className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 appearance-none cursor-pointer"
                 >
+                  <option value="all">🌐 सभी (All Lines)</option>
                   {configs.map((cfg) => (
                     <option key={cfg.id} value={cfg.id}>
                       📱 WABA ({cfg.phone_number_id.slice(-6)})
                     </option>
                   ))}
-                  {configs.length === 0 && (
-                    <option value="">कोई अकाउंट नहीं</option>
-                  )}
                 </select>
                 <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-zinc-400">
                   <ChevronDown className="w-3.5 h-3.5" />
@@ -602,7 +619,19 @@ function InboxView() {
               </div>
             </div>
             <div className="flex gap-2 text-xs">
-                <button className="bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 px-3 py-1.5 rounded-full font-medium">सभी</button>
+                <button 
+                  onClick={() => {
+                    setSelectedWaba({ id: 'all', phone_number_id: 'all' });
+                    setActiveChat(null);
+                  }}
+                  className={`px-3 py-1.5 rounded-full font-medium transition-all ${
+                    selectedWaba && selectedWaba.id === 'all'
+                      ? 'bg-indigo-600 text-white border-transparent'
+                      : 'bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300'
+                  }`}
+                >
+                  सभी (Show All)
+                </button>
             </div>
         </div>
         <div className="flex-1 overflow-y-auto">
@@ -660,11 +689,11 @@ function InboxView() {
                 <div className="flex items-center gap-2">
                   <button 
                     onClick={toggleAI}
-                    className={`p-2 rounded-lg transition-colors flex items-center gap-1.5 ${replyMode === 'ai' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400' : 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'}`}
+                    className={`p-2 rounded-lg transition-colors flex items-center gap-1.5 ${currentReplyMode === 'ai' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400' : 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'}`}
                     title="Toggle AI Chatbot"
                   >
                     <Bot className="w-4 h-4" />
-                    <span className="text-[10px] font-bold uppercase tracking-wider hidden md:inline-block">{replyMode === 'ai' ? 'AI ON' : 'AI OFF'}</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider hidden md:inline-block">{currentReplyMode === 'ai' ? 'AI ON' : 'AI OFF'}</span>
                   </button>
                   <button 
                     onClick={() => setIsContactPanelOpen(!isContactPanelOpen)}
