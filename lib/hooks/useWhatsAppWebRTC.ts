@@ -98,6 +98,11 @@ export function useWhatsAppWebRTC() {
     try {
       setStatus('connecting');
       setError(null);
+
+      // Validate that we have SDP before proceeding
+      if (!call.sdp) {
+        throw new Error('SDP (Session Description Protocol) डेटा उपलब्ध नहीं है। कृपया WhatsApp Cloud API की Calling Webhook सेटिंग जांचें।');
+      }
       
       // 1. Fetch Cloudflare TURN/STUN credentials
       const iceServers = await fetchIceServers();

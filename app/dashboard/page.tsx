@@ -104,6 +104,11 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
   }, [rtcRemoteStream]);
 
   // Global WebSocket listener for real-time incoming call alerts
+  const incomingCallRef = useRef(incomingCall);
+  const activeCallRef = useRef(activeCall);
+  incomingCallRef.current = incomingCall;
+  activeCallRef.current = activeCall;
+
   useEffect(() => {
     const wId = localStorage.getItem('workspaceId');
     if (!wId) return;
@@ -123,44 +128,42 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
           try {
             const data = JSON.parse(event.data);
             if ((data.type === 'incoming_call' && data.call) || data.type === 'whatsapp_incoming_call') {
-              if (callingEnabled) {
-                if (data.type === 'whatsapp_incoming_call') {
-                   setIncomingCall({
-                     id: data.callId,
-                     from: data.from,
-                     contact_name: '+' + data.from,
-                     phone: data.from,
-                     status: 'ringing',
-                     direction: 'incoming',
-                     sdp: data.sdp,
-                     phoneNumberId: data.phoneNumberId,
-                     workspace_id: user?.workspace_id || localStorage.getItem('workspaceId')
-                   });
-                } else {
-                   setIncomingCall(data.call);
-                }
-                // Simple high-fidelity Web Audio Ringtone
-                try {
-                  const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-                  let count = 0;
-                  let ringInterval = setInterval(() => {
-                    if (!active || count > 5) {
-                      clearInterval(ringInterval);
-                      return;
-                    }
-                    count++;
-                    const osc = audioCtx.createOscillator();
-                    const gain = audioCtx.createGain();
-                    osc.connect(gain);
-                    gain.connect(audioCtx.destination);
-                    osc.type = 'sine';
-                    osc.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5
-                    gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
-                    osc.start();
-                    osc.stop(audioCtx.currentTime + 1.2);
-                  }, 2000);
-                } catch(e) {}
+              if (data.type === 'whatsapp_incoming_call') {
+                 setIncomingCall({
+                   id: data.callId,
+                   from: data.from,
+                   contact_name: '+' + data.from,
+                   phone: data.from,
+                   status: 'ringing',
+                   direction: 'incoming',
+                   sdp: data.sdp,
+                   phoneNumberId: data.phoneNumberId,
+                   workspace_id: user?.workspace_id || localStorage.getItem('workspaceId')
+                 });
+              } else {
+                 setIncomingCall(data.call);
               }
+              // Simple high-fidelity Web Audio Ringtone
+              try {
+                const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+                let count = 0;
+                let ringInterval = setInterval(() => {
+                  if (!active || count > 5) {
+                    clearInterval(ringInterval);
+                    return;
+                  }
+                  count++;
+                  const osc = audioCtx.createOscillator();
+                  const gain = audioCtx.createGain();
+                  osc.connect(gain);
+                  gain.connect(audioCtx.destination);
+                  osc.type = 'sine';
+                  osc.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5
+                  gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                  osc.start();
+                  osc.stop(audioCtx.currentTime + 1.2);
+                }, 2000);
+              } catch(e) {}
             } else if (data.type === 'call_status_updated' || data.type === 'whatsapp_call_terminated') {
               const callIdToUpdate = data.call_id || data.callId;
               const newStatus = data.status || 'ended';
@@ -169,10 +172,10 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                  handleRemoteHangup();
               }
               
-              if (incomingCall && incomingCall.id === callIdToUpdate) {
+              if (incomingCallRef.current && incomingCallRef.current.id === callIdToUpdate) {
                 setIncomingCall((prev: any) => prev ? { ...prev, status: newStatus } : null);
               }
-              if (activeCall && activeCall.id === callIdToUpdate) {
+              if (activeCallRef.current && activeCallRef.current.id === callIdToUpdate) {
                 setActiveCall((prev: any) => prev ? { ...prev, status: newStatus, duration: data.duration } : null);
               }
             }
@@ -201,7 +204,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
       if (socket) socket.close();
     };
-  }, [callingEnabled, incomingCall, activeCall]); // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [callingEnabled]);
 
   useEffect(() => {
     const checkScreenSize = () => {
@@ -460,6 +463,11 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                 <button
                   onClick={async () => {
                     try {
+                      if (!incomingCall.sdp) {
+                        alert('SDP डेटा उपलब्ध नहीं है। कृपया WhatsApp Cloud API की Calling Webhook सेटिंग जांचें और सुनिश्चित करें कि "calls" field subscribed है।');
+                        setIncomingCall(null);
+                        return;
+                      }
                       await answerWebRTC({
                         id: incomingCall.id,
                         from: incomingCall.from || incomingCall.phone,
@@ -467,25 +475,26 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                         phoneNumberId: incomingCall.phoneNumberId,
                         workspace_id: incomingCall.workspace_id
                       });
+                      try {
+                        await fetch(`/api/whatsapp/calls/${incomingCall.id}/status`, {
+                          method: 'POST',
+                          headers: {
+                            'Content-Type': 'application/json',
+                            'x-workspace-id': incomingCall.workspace_id
+                          },
+                          body: JSON.stringify({ status: 'connected' })
+                        });
+                      } catch(e) {}
+                      setActiveCall({
+                        ...incomingCall,
+                        status: 'connected',
+                        connectedAt: Date.now()
+                      });
+                      setIncomingCall(null);
                     } catch(e) {
                       console.error("WebRTC answer failed", e);
+                      alert('कॉल उत्तर देने में विफल: ' + (e instanceof Error ? e.message : 'अज्ञात त्रुटि'));
                     }
-                    try {
-                      await fetch(`/api/whatsapp/calls/${incomingCall.id}/status`, {
-                        method: 'POST',
-                        headers: {
-                          'Content-Type': 'application/json',
-                          'x-workspace-id': incomingCall.workspace_id
-                        },
-                        body: JSON.stringify({ status: 'connected' })
-                      });
-                    } catch(e) {}
-                    setActiveCall({
-                      ...incomingCall,
-                      status: 'connected',
-                      connectedAt: Date.now()
-                    });
-                    setIncomingCall(null);
                   }}
                   className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white py-3.5 rounded-2xl text-xs font-bold transition-all shadow-lg shadow-emerald-500/20 active:scale-95 flex items-center justify-center gap-2"
                 >

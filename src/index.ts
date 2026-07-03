@@ -761,49 +761,47 @@ app.post('/api/whatsapp/webhook', async (c) => {
             }
 
 
-            // Send FCM and Email Notifications
-            c.executionCtx.waitUntil(
-              (async () => {
-                try {
-                  const config = await c.env.DB.prepare('SELECT workspace_id FROM whatsapp_configs WHERE phone_number_id = ?').bind(phoneNumberId).first<{ workspace_id: string }>();
-                  if (config && config.workspace_id) {
-                    // Get all members of the workspace
-                    const members = await c.env.DB.prepare('SELECT user_id FROM workspace_members WHERE workspace_id = ?').bind(config.workspace_id).all<{ user_id: string }>();
-                    if (members.results && members.results.length > 0) {
-                      const userIds = members.results.map(m => m.user_id);
+            // Skip FCM/Email notifications for system_call (handled separately via calls field or missed call logic)
+            if (messageType !== 'system_call') {
+              c.executionCtx.waitUntil(
+                (async () => {
+                  try {
+                    const config = await c.env.DB.prepare('SELECT workspace_id FROM whatsapp_configs WHERE phone_number_id = ?').bind(phoneNumberId).first<{ workspace_id: string }>();
+                    if (config && config.workspace_id) {
+                      const members = await c.env.DB.prepare('SELECT user_id FROM workspace_members WHERE workspace_id = ?').bind(config.workspace_id).all<{ user_id: string }>();
+                      if (members.results && members.results.length > 0) {
+                        const userIds = members.results.map(m => m.user_id);
+                        const placeholders = userIds.map(() => '?').join(',');
+                        const tokens = await c.env.DB.prepare(`SELECT token FROM fcm_tokens WHERE user_id IN (${placeholders})`).bind(...userIds).all<{ token: string }>();
 
-                      // Fetch FCM tokens
-                      const placeholders = userIds.map(() => '?').join(',');
-                      const tokens = await c.env.DB.prepare(`SELECT token FROM fcm_tokens WHERE user_id IN (${placeholders})`).bind(...userIds).all<{ token: string }>();
+                        const { sendPushNotification } = await import('../lib/fcm');
+                        const title = `New message from ${contact.profile.name}`;
+                        const bodyPreview = messageText.length > 100 ? messageText.substring(0, 97) + '...' : messageText;
 
-                      const { sendPushNotification } = await import('../lib/fcm');
-                      const title = `New message from ${contact.profile.name}`;
-                      const bodyPreview = messageText.length > 100 ? messageText.substring(0, 97) + '...' : messageText;
-
-                      if (tokens.results) {
-                        for (const row of tokens.results) {
-                          await sendPushNotification(c.env, row.token, title, bodyPreview, { workspaceId: config.workspace_id, contactName: contact.profile.name });
+                        if (tokens.results) {
+                          for (const row of tokens.results) {
+                            await sendPushNotification(c.env, row.token, title, bodyPreview, { workspaceId: config.workspace_id, contactName: contact.profile.name });
+                          }
                         }
-                      }
 
-                      // Fetch emails
-                      const emails = await c.env.DB.prepare(`SELECT email FROM users WHERE id IN (${placeholders})`).bind(...userIds).all<{ email: string }>();
-                      if (emails.results && c.env.EMAIL_SENDER && typeof c.env.EMAIL_SENDER.send === 'function') {
-                        const { EmailMessage } = await import('cloudflare:email');
-                        for (const row of emails.results) {
-                          const rawEmail = `From: Notifications <notifications@dhitantra.com>\r\nTo: ${row.email}\r\nSubject: [Dhitantra] ${title}\r\n\r\nYou have a new message:\n\n${bodyPreview}\n\nReply in the CRM dashboard.`;
-                          await c.env.EMAIL_SENDER.send(new EmailMessage("notifications@dhitantra.com", row.email, rawEmail));
+                        const emails = await c.env.DB.prepare(`SELECT email FROM users WHERE id IN (${placeholders})`).bind(...userIds).all<{ email: string }>();
+                        if (emails.results && c.env.EMAIL_SENDER && typeof c.env.EMAIL_SENDER.send === 'function') {
+                          const { EmailMessage } = await import('cloudflare:email');
+                          for (const row of emails.results) {
+                            const rawEmail = `From: Notifications <notifications@dhitantra.com>\r\nTo: ${row.email}\r\nSubject: [Dhitantra] ${title}\r\n\r\nYou have a new message:\n\n${bodyPreview}\n\nReply in the CRM dashboard.`;
+                            await c.env.EMAIL_SENDER.send(new EmailMessage("notifications@dhitantra.com", row.email, rawEmail));
+                          }
                         }
                       }
                     }
+                  } catch (e) {
+                    console.error('Failed to send notifications', e);
                   }
-                } catch (e) {
-                  console.error('Failed to send notifications', e);
-                }
-              })()
-            );
+                })()
+              );
+            }
 
-            // Trigger Chatbot Logic for both Cloud API & WhatsApp Business App
+            // Trigger Chatbot Logic
             c.executionCtx.waitUntil(
               handleIncomingMessage(
                 c.env,
@@ -2478,6 +2476,70 @@ app.get('/api/whatsapp/calls/config', async (c) => {
   const config = await c.env.DB.prepare('SELECT calling_enabled FROM whatsapp_configs WHERE workspace_id = ?').bind(workspaceId).first<{ calling_enabled: number }>();
 
   return c.json({ calling_enabled: config ? config.calling_enabled === 1 : true });
+});
+
+// GET calling status from Meta API — verify calling is actually enabled on Meta's side
+app.get('/api/whatsapp/calls/status', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  const configs = await c.env.DB.prepare(
+    'SELECT phone_number_id, access_token, calling_enabled FROM whatsapp_configs WHERE workspace_id = ?'
+  ).bind(workspaceId).all<{ phone_number_id: string; access_token: string; calling_enabled: number }>();
+
+  const phoneResults: any[] = [];
+
+  for (const cfg of configs.results || []) {
+    let metaStatus: any = null;
+    try {
+      const res = await fetch(`https://graph.facebook.com/v20.0/${cfg.phone_number_id}/settings`, {
+        headers: { 'Authorization': `Bearer ${cfg.access_token}` }
+      });
+      metaStatus = await res.json();
+    } catch (e) {
+      metaStatus = { error: 'Failed to query Meta API' };
+    }
+
+    phoneResults.push({
+      phone_number_id: cfg.phone_number_id,
+      db_calling_enabled: cfg.calling_enabled === 1,
+      meta_settings: metaStatus
+    });
+  }
+
+  // Check webhook subscription — note: Meta doesn't expose a simple 'calls field subscribed' endpoint
+  // User must verify this manually in Meta Business Suite > WhatsApp > Webhook > Fields
+  let webhookCallsFieldHint = false;
+  const firstConfig = configs.results?.[0];
+  if (firstConfig) {
+    try {
+      const wabaId = await c.env.DB.prepare(
+        'SELECT waba_id FROM whatsapp_configs WHERE workspace_id = ? AND waba_id IS NOT NULL LIMIT 1'
+      ).bind(workspaceId).first<{ waba_id: string }>();
+
+      if (wabaId) {
+        const subsRes = await fetch(`https://graph.facebook.com/v20.0/${wabaId}/subscribed_apps`, {
+          headers: { 'Authorization': `Bearer ${firstConfig.access_token}` }
+        });
+        const subsData: any = await subsRes.json();
+        // If the app is subscribed at all, the 'calls' field may already be active
+        webhookCallsFieldHint = subsData.data?.length > 0;
+      }
+    } catch (e) {
+      console.error('[Calling Status] Failed to check webhook subscription:', e);
+    }
+  }
+
+  // Check TURN/ICE configuration
+  const turnKeyId = await c.env.SECRETS_KV.get('CLOUDFLARE_CALLS_APP_ID').catch(() => null);
+  const turnToken = await c.env.SECRETS_KV.get('CLOUDFLARE_API_TOKEN').catch(() => null);
+
+  return c.json({
+    phone_numbers: phoneResults,
+    webhook_subscribed: webhookCallsFieldHint,
+    turn_configured: !!(turnKeyId && turnToken),
+    all_ready: phoneResults.every(p => p.db_calling_enabled) && webhookCallsFieldHint
+  });
 });
 
 // Broadcast Campaign
