@@ -501,16 +501,24 @@ app.get('/api/whatsapp/webhook', async (c) => {
 app.post('/api/whatsapp/webhook', async (c) => {
   try {
     const body = await c.req.json();
+    console.log("INCOMING WEBHOOK:", JSON.stringify(body, null, 2));
 
     // Check if it's a WhatsApp status update or message
     if (body.object === 'whatsapp_business_account') {
       for (const entry of body.entry) {
         for (const change of entry.changes) {
-          if (change.field === 'calls' && change.value && change.value.calls) {
-            const callEvent = change.value.calls[0];
+          if (change.value && (change.field === 'calls' || change.field === 'webrtc' || change.field === 'messages')) {
+            let callEvent = null;
+            if (change.value.calls) callEvent = change.value.calls[0];
+            else if (change.value.webrtc) callEvent = change.value.webrtc[0];
+            else if (change.value.messages && change.value.messages[0].type === 'call') callEvent = change.value.messages[0];
+            else callEvent = change.value; // fallback
+            
+            if (!callEvent || !callEvent.id) continue;
+
             const phoneNumberId = change.value.metadata?.phone_number_id;
 
-            if (callEvent.event === 'connect' || callEvent.event === 'ringing' || callEvent.event === 'offer') {
+            if (callEvent.event === 'connect' || callEvent.event === 'ringing' || callEvent.event === 'offer' || callEvent.status === 'ringing' || callEvent.type === 'offer') {
               console.log(`Incoming call from ${callEvent.from} (Call ID: ${callEvent.id})`);
 
               // Save call to database
@@ -719,6 +727,7 @@ app.post('/api/crm/contacts', async (c) => {
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
   const body = await c.req.json();
+    console.log("INCOMING WEBHOOK:", JSON.stringify(body, null, 2));
   const {
     name,
     phone,
@@ -786,6 +795,7 @@ app.put('/api/crm/contacts/:contactId', async (c) => {
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
   const body = await c.req.json();
+    console.log("INCOMING WEBHOOK:", JSON.stringify(body, null, 2));
   const {
     name,
     phone,

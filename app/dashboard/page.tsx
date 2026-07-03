@@ -140,7 +140,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                      direction: 'incoming',
                      sdp: data.sdp,
                      phoneNumberId: data.phoneNumberId,
-                     workspace_id: localStorage.getItem('workspaceId')
+                     workspace_id: user?.workspace_id || localStorage.getItem('workspaceId')
                    });
                 } else {
                    setIncomingCall(data.call);
