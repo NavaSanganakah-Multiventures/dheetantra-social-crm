@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Download,  Bot, MessageSquare, Megaphone, CalendarClock, Settings, LayoutDashboard, Search, Bell, Menu, Send, Paperclip, LogOut, User, Phone, X, History, MapPin, Building2, Tag, ChevronDown, ChevronRight, Activity, Users, Zap, Check, CheckCheck, FileText, Plus, Trash2, Edit } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useRouter } from 'next/navigation';
@@ -500,7 +500,7 @@ function InboxView() {
     }
   };
 
-  const fetchConversations = (wabaId?: string) => {
+  const fetchConversations = useCallback((wabaId?: string) => {
     const activeWaba = wabaId || (selectedWaba ? selectedWaba.phone_number_id : '');
     const url = activeWaba && activeWaba !== 'all'
       ? `/api/inbox/conversations?phoneNumberId=${activeWaba}` 
@@ -514,13 +514,13 @@ function InboxView() {
         }
         setLoading(false);
     }).catch(() => setLoading(false));
-  };
+  }, [selectedWaba]);
 
   useEffect(() => {
     fetchConversations();
     const interval = setInterval(() => fetchConversations(), 5000);
     return () => clearInterval(interval);
-  }, [selectedWaba]);
+  }, [fetchConversations]);
 
   const loadMessages = (conversationId: string) => {
     fetch(`/api/inbox/messages/${conversationId}`, {
@@ -730,6 +730,7 @@ function InboxView() {
                                <div className="flex flex-col gap-2">
                                  {displayMediaUrl && (
                                    <div className="group relative rounded-lg overflow-hidden border border-zinc-100/10 max-w-sm max-h-60 bg-zinc-950/20">
+                                     {/* eslint-disable-next-line @next/next/no-img-element */}
                                      <img 
                                        src={displayMediaUrl} 
                                        alt="WhatsApp Attachment"

@@ -155,13 +155,19 @@ metaOauth.post('/embedded-signup', async (c) => {
         ).run();
 
         // Also add to whatsapp_configs for backward compatibility in our app
-        await c.env.DB.prepare(`
-          INSERT INTO whatsapp_configs (id, workspace_id, phone_number_id, access_token)
-          VALUES (?, ?, ?, ?)
-          ON CONFLICT(workspace_id) DO UPDATE SET phone_number_id=excluded.phone_number_id, access_token=excluded.access_token
-        `).bind(
-          crypto.randomUUID(), workspaceId, phoneId, systemUserToken
-        ).run();
+        const existingConfig = await c.env.DB.prepare(
+          'SELECT id FROM whatsapp_configs WHERE workspace_id = ? AND phone_number_id = ?'
+        ).bind(workspaceId, phoneId).first();
+
+        if (existingConfig) {
+          await c.env.DB.prepare(
+            'UPDATE whatsapp_configs SET access_token = ?, waba_id = ? WHERE id = ?'
+          ).bind(systemUserToken, wabaId, existingConfig.id).run();
+        } else {
+          await c.env.DB.prepare(
+            'INSERT INTO whatsapp_configs (id, workspace_id, phone_number_id, waba_id, access_token) VALUES (?, ?, ?, ?, ?)'
+          ).bind(crypto.randomUUID(), workspaceId, phoneId, wabaId, systemUserToken).run();
+        }
 
         registeredNumbers.push(phoneData.display_phone_number);
       }
