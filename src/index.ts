@@ -110,6 +110,27 @@ async function ensureMultipleWabaSchema(db: any) {
       await db.prepare("ALTER TABLE whatsapp_configs ADD COLUMN waba_id TEXT").run();
     } catch(e) {}
 
+    // Add new columns to contacts dynamically for backwards compatibility
+    const columns = [
+      "phone TEXT",
+      "additional_phone TEXT",
+      "email TEXT",
+      "gender TEXT",
+      "instagram_username TEXT",
+      "facebook_username TEXT",
+      "whatsapp_username TEXT",
+      "notes TEXT",
+      "is_lead INTEGER DEFAULT 0",
+      "lead_status TEXT DEFAULT 'new'",
+      "lead_source TEXT DEFAULT 'manual'",
+      "lead_value REAL DEFAULT 0"
+    ];
+    for (const col of columns) {
+      try {
+        await db.prepare(`ALTER TABLE contacts ADD COLUMN ${col}`).run();
+      } catch (e) {}
+    }
+
     try {
       await db.prepare(`
         CREATE TABLE IF NOT EXISTS whatsapp_templates (
@@ -583,6 +604,219 @@ app.get('/api/crm/contacts', async (c) => {
   ).bind(workspaceId).all();
 
   return c.json({ contacts: results });
+});
+
+// Create contact
+app.post('/api/crm/contacts', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  const body = await c.req.json();
+  const {
+    name,
+    phone,
+    additional_phone,
+    email,
+    gender,
+    instagram_username,
+    facebook_username,
+    whatsapp_username,
+    notes,
+    is_lead,
+    lead_status,
+    lead_source,
+    lead_value
+  } = body;
+
+  if (!name) return c.json({ error: 'नाम आवश्यक है (Name is required)' }, 400);
+  if (!phone) return c.json({ error: 'फ़ोन नंबर आवश्यक है (Phone is required)' }, 400);
+
+  const platformContactId = phone.replace(/[^0-9]/g, '');
+
+  // Check if contact already exists
+  const existing = await c.env.DB.prepare(
+    'SELECT id FROM contacts WHERE workspace_id = ? AND platform = "whatsapp" AND platform_contact_id = ?'
+  ).bind(workspaceId, platformContactId).first();
+
+  if (existing) {
+    return c.json({ error: 'इस फ़ोन नंबर वाला संपर्क पहले से मौजूद है।' }, 400);
+  }
+
+  const id = crypto.randomUUID();
+  await c.env.DB.prepare(`
+    INSERT INTO contacts (
+      id, workspace_id, platform, platform_contact_id, name, phone,
+      additional_phone, email, gender, instagram_username, facebook_username,
+      whatsapp_username, notes, is_lead, lead_status, lead_source, lead_value
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).bind(
+    id,
+    workspaceId,
+    'whatsapp',
+    platformContactId,
+    name,
+    phone,
+    additional_phone || null,
+    email || null,
+    gender || null,
+    instagram_username || null,
+    facebook_username || null,
+    whatsapp_username || null,
+    notes || null,
+    is_lead ? 1 : 0,
+    lead_status || 'new',
+    lead_source || 'manual',
+    Number(lead_value || 0)
+  ).run();
+
+  return c.json({ success: true, contact: { id, name, phone } });
+});
+
+// Update contact
+app.put('/api/crm/contacts/:contactId', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  const contactId = c.req.param('contactId');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  const body = await c.req.json();
+  const {
+    name,
+    phone,
+    additional_phone,
+    email,
+    gender,
+    instagram_username,
+    facebook_username,
+    whatsapp_username,
+    notes,
+    is_lead,
+    lead_status,
+    lead_source,
+    lead_value
+  } = body;
+
+  if (!name) return c.json({ error: 'नाम आवश्यक है' }, 400);
+  if (!phone) return c.json({ error: 'फ़ोन नंबर आवश्यक है' }, 400);
+
+  const platformContactId = phone.replace(/[^0-9]/g, '');
+
+  const existing = await c.env.DB.prepare(
+    'SELECT id FROM contacts WHERE id = ? AND workspace_id = ?'
+  ).bind(contactId, workspaceId).first();
+  if (!existing) return c.json({ error: 'संपर्क नहीं मिला' }, 404);
+
+  await c.env.DB.prepare(`
+    UPDATE contacts SET
+      name = ?,
+      phone = ?,
+      platform_contact_id = ?,
+      additional_phone = ?,
+      email = ?,
+      gender = ?,
+      instagram_username = ?,
+      facebook_username = ?,
+      whatsapp_username = ?,
+      notes = ?,
+      is_lead = ?,
+      lead_status = ?,
+      lead_source = ?,
+      lead_value = ?
+    WHERE id = ? AND workspace_id = ?
+  `).bind(
+    name,
+    phone,
+    platformContactId,
+    additional_phone || null,
+    email || null,
+    gender || null,
+    instagram_username || null,
+    facebook_username || null,
+    whatsapp_username || null,
+    notes || null,
+    is_lead ? 1 : 0,
+    lead_status || 'new',
+    lead_source || 'manual',
+    Number(lead_value || 0),
+    contactId,
+    workspaceId
+  ).run();
+
+  return c.json({ success: true });
+});
+
+// Delete contact
+app.delete('/api/crm/contacts/:contactId', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  const contactId = c.req.param('contactId');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  const existing = await c.env.DB.prepare(
+    'SELECT id FROM contacts WHERE id = ? AND workspace_id = ?'
+  ).bind(contactId, workspaceId).first();
+  if (!existing) return c.json({ error: 'संपर्क नहीं मिला' }, 404);
+
+  // Delete conversations and messages associated with this contact
+  const convs = await c.env.DB.prepare('SELECT id FROM conversations WHERE contact_id = ?').bind(contactId).all<{ id: string }>();
+  if (convs.results) {
+    for (const conv of convs.results) {
+      await c.env.DB.prepare('DELETE FROM messages WHERE conversation_id = ?').bind(conv.id).run();
+      await c.env.DB.prepare('DELETE FROM conversations WHERE id = ?').bind(conv.id).run();
+    }
+  }
+
+  await c.env.DB.prepare('DELETE FROM contacts WHERE id = ? AND workspace_id = ?')
+    .bind(contactId, workspaceId).run();
+
+  return c.json({ success: true });
+});
+
+// Initiate conversation from contact list
+app.post('/api/inbox/conversations/initiate', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  const { contactId, phone_number_id } = await c.req.json();
+  if (!contactId) return c.json({ error: 'Contact ID required' }, 400);
+
+  const contact = await c.env.DB.prepare('SELECT * FROM contacts WHERE id = ? AND workspace_id = ?')
+    .bind(contactId, workspaceId).first<{ platform_contact_id: string }>();
+  if (!contact) return c.json({ error: 'संपर्क नहीं मिला' }, 404);
+
+  let finalPhoneNumberId = phone_number_id;
+  if (!finalPhoneNumberId) {
+    const config = await c.env.DB.prepare('SELECT phone_number_id FROM whatsapp_configs WHERE workspace_id = ? ORDER BY created_at DESC LIMIT 1')
+      .bind(workspaceId).first<{ phone_number_id: string }>();
+    if (config) {
+      finalPhoneNumberId = config.phone_number_id;
+    }
+  }
+
+  let conv = await c.env.DB.prepare('SELECT id FROM conversations WHERE workspace_id = ? AND contact_id = ? AND (phone_number_id = ? OR phone_number_id IS NULL)')
+    .bind(workspaceId, contactId, finalPhoneNumberId || '').first<{ id: string }>();
+
+  if (!conv) {
+    const id = crypto.randomUUID();
+    await c.env.DB.prepare('INSERT INTO conversations (id, workspace_id, contact_id, platform, status, phone_number_id) VALUES (?, ?, ?, ?, ?, ?)')
+      .bind(id, workspaceId, contactId, 'whatsapp', 'open', finalPhoneNumberId || null).run();
+    
+    const newConv = await c.env.DB.prepare(`
+      SELECT c.*, t.name as contact_name, t.platform_contact_id as phone
+      FROM conversations c
+      JOIN contacts t ON c.contact_id = t.id
+      WHERE c.id = ?
+    `).bind(id).first();
+
+    return c.json({ success: true, conversation: newConv });
+  }
+
+  const existingConv = await c.env.DB.prepare(`
+    SELECT c.*, t.name as contact_name, t.platform_contact_id as phone
+    FROM conversations c
+    JOIN contacts t ON c.contact_id = t.id
+    WHERE c.id = ?
+  `).bind(conv.id).first();
+
+  return c.json({ success: true, conversation: existingConv });
 });
 
 // 3. Real-Time Chat (Durable Objects + SQLite)
