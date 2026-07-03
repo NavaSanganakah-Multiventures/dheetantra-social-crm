@@ -13,6 +13,7 @@ export interface CloudflareEnv {
   BROADCAST_QUEUE: any; // Queue for WhatsApp bulk sending
   POST_PUBLISHER_WORKFLOW: any; // Workflow for scheduling posts
   MEDIA_BUCKET: any; // R2Bucket for image/video storage
+  FCM_SERVICE_ACCOUNT_JSON?: string; // Firebase service account JSON string
 }
 
 /**

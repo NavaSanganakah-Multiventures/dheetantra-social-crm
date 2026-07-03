@@ -198,9 +198,17 @@ CREATE TABLE IF NOT EXISTS email_templates (
   UNIQUE(workspace_id, template_type)
 );
 
--- ==========================================
--- STEP 8: META TECH PROVIDER (EMBEDDED SIGNUP)
--- ==========================================
+-- FCM Tokens
+CREATE TABLE IF NOT EXISTS fcm_tokens (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  token TEXT NOT NULL UNIQUE,
+  device_type TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+
 CREATE TABLE IF NOT EXISTS waba_accounts (
   id TEXT PRIMARY KEY,
   workspace_id TEXT NOT NULL,
