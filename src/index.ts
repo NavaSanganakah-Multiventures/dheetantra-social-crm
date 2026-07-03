@@ -526,6 +526,11 @@ app.post('/api/whatsapp/webhook', async (c) => {
           // Field: 'calls' — Meta sends call events here
           // ==========================================
           if (change.field === 'calls') {
+            // Safe access: change.value could be undefined
+            if (!change.value || typeof change.value !== 'object') {
+              console.error('[Calling] change.value is missing or not an object:', change);
+              continue;
+            }
             const callsArray = change.value.calls;
             if (!callsArray || !Array.isArray(callsArray)) continue;
 
@@ -2564,8 +2569,11 @@ app.get('/api/whatsapp/calls/status', async (c) => {
           headers: { 'Authorization': `Bearer ${firstConfig.access_token}` }
         });
         const subsData: any = await subsRes.json();
-        // If the app is subscribed at all, the 'calls' field may already be active
-        webhookCallsFieldHint = subsData.data?.length > 0;
+        // Check if 'calls' is in the subscribed fields list
+        if (subsData.data && subsData.data.length > 0) {
+          const fields = subsData.data[0].subscribed_fields || subsData.data[0].whatsapp_business_api_data?.subscribed_fields || [];
+          webhookCallsFieldHint = Array.isArray(fields) && fields.includes('calls');
+        }
       }
     } catch (e) {
       console.error('[Calling Status] Failed to check webhook subscription:', e);

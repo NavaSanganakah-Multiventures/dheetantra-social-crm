@@ -56,6 +56,8 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
   const [incomingCallNoSdp, setIncomingCallNoSdp] = useState<any>(null);
   const [activeCall, setActiveCall] = useState<any>(null);
   const [callingEnabled, setCallingEnabled] = useState<boolean>(true);
+  const [wsStatus, setWsStatus] = useState<'connecting' | 'connected' | 'disconnected'>('disconnected');
+  const [callsFieldStatus, setCallsFieldStatus] = useState<'checking' | 'subscribed' | 'not_subscribed' | 'unknown'>('unknown');
 
   const { status: rtcStatus, answer: answerWebRTC, hangup: hangupWebRTC, handleRemoteHangup, remoteStream: rtcRemoteStream, localStream: rtcLocalStream } = useWhatsAppWebRTC();
 
@@ -75,6 +77,22 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
       }
     })
     .catch(err => console.error("Error loading calling config:", err));
+
+    // Check if 'calls' field is subscribed in Meta webhook
+    fetch('/api/whatsapp/calls/status', {
+      headers: { 'x-workspace-id': wId }
+    })
+    .then(r => r.json())
+    .then((data: any) => {
+      if (data.webhook_subscribed === true) {
+        setCallsFieldStatus('subscribed');
+      } else if (data.webhook_subscribed === false) {
+        setCallsFieldStatus('not_subscribed');
+      } else {
+        setCallsFieldStatus('unknown');
+      }
+    })
+    .catch(() => setCallsFieldStatus('unknown'));
 
     // No SIP config to load anymore
   }, []);
@@ -154,7 +172,13 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
     function connectGlobalWs() {
       if (!active) return;
       try {
+        setWsStatus('connecting');
         socket = new WebSocket(wsUrl);
+
+        socket.onopen = () => {
+          console.log('[WS] Global WebSocket connected');
+          setWsStatus('connected');
+        };
 
         socket.onmessage = (event) => {
           try {
@@ -231,10 +255,13 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
         };
 
         socket.onclose = () => {
+          setWsStatus('disconnected');
           if (active) reconnectTimeout = setTimeout(connectGlobalWs, 3000);
         };
 
-        socket.onerror = () => {
+        socket.onerror = (err) => {
+          console.error('[WS] Global WebSocket error:', err);
+          setWsStatus('disconnected');
           if (socket) socket.close();
         };
       } catch (err) {
@@ -376,6 +403,13 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                 placeholder="खोजें..." 
                 className="pl-9 pr-4 py-2 w-64 text-sm bg-zinc-100 dark:bg-zinc-900 border border-transparent focus:bg-white dark:focus:bg-zinc-950 focus:border-indigo-500 rounded-full outline-none transition-all shadow-sm"
               />
+            </div>
+            {/* WebSocket Connection Status */}
+            <div className="flex items-center gap-1.5 text-[10px] font-medium" title={wsStatus === 'connecting' ? 'WebSocket कनेक्ट हो रहा है...' : wsStatus === 'connected' ? 'WebSocket कनेक्टेड' : 'WebSocket डिस्कनेक्टेड - कॉल नहीं आएंगी'}>
+              <span className={`w-2 h-2 rounded-full ${wsStatus === 'connected' ? 'bg-emerald-400' : wsStatus === 'connecting' ? 'bg-amber-400 animate-pulse' : 'bg-rose-400'}`}></span>
+              <span className="text-zinc-400 hidden sm:inline">
+                {wsStatus === 'connecting' ? 'Connecting...' : wsStatus === 'connected' ? 'Live' : 'Offline'}
+              </span>
             </div>
             <button className="p-2 relative rounded-full text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
               <Bell className="w-5 h-5" />
@@ -593,7 +627,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
           </div>
         )}
 
-        {/* 3. Missed Call Toast (from system_call without SDP — calls field not subscribed in Meta) */}
+        {/* 3. Missed Call Toast (from system_call without SDP) */}
         {incomingCallNoSdp && (
           <div className="fixed top-4 right-4 left-4 sm:left-auto sm:w-96 z-50">
             <motion.div
@@ -612,7 +646,9 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                 </p>
                 <div className="flex gap-2 mt-2">
                   <span className="text-[10px] text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-full">
-                    ⚠️ WhatsApp Cloud API में "calls" field subscribe नहीं है
+                    {callsFieldStatus === 'not_subscribed'
+                      ? '⚠️ WhatsApp Cloud API में "calls" field subscribe नहीं है — कॉल कनेक्ट नहीं हो सकती'
+                      : '⚡ WebRTC SDP उपलब्ध नहीं — केवल Missed Call ही दिखाया जा सकता है'}
                   </span>
                 </div>
               </div>
