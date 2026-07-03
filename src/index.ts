@@ -509,11 +509,17 @@ app.post('/api/whatsapp/webhook', async (c) => {
     if (body.object === 'whatsapp_business_account') {
       for (const entry of body.entry) {
         for (const change of entry.changes) {
-          if (change.value && (change.field === 'calls' || change.field === 'webrtc' || change.field === 'messages')) {
+          const isCallEvent = change.value && (
+            change.field === 'calls' || 
+            change.field === 'webrtc' || 
+            (change.field === 'messages' && change.value.messages && change.value.messages[0] && change.value.messages[0].type === 'call')
+          );
+
+          if (isCallEvent) {
             let callEvent = null;
             if (change.value.calls) callEvent = change.value.calls[0];
             else if (change.value.webrtc) callEvent = change.value.webrtc[0];
-            else if (change.value.messages && change.value.messages[0].type === 'call') callEvent = change.value.messages[0];
+            else if (change.value.messages && change.value.messages[0] && change.value.messages[0].type === 'call') callEvent = change.value.messages[0];
             else callEvent = change.value; // fallback
             
             if (!callEvent || !callEvent.id) continue;
@@ -531,8 +537,8 @@ app.post('/api/whatsapp/webhook', async (c) => {
               if (config) {
                 // Ensure contact exists or create dummy
                 const contactId = `contact-${callEvent.from}`;
-                await c.env.DB.prepare('INSERT OR IGNORE INTO contacts (id, workspace_id, name, platform_contact_id) VALUES (?, ?, ?, ?)')
-                  .bind(contactId, config.workspace_id, `+${callEvent.from}`, callEvent.from).run();
+                await c.env.DB.prepare('INSERT OR IGNORE INTO contacts (id, workspace_id, platform, name, platform_contact_id) VALUES (?, ?, ?, ?, ?)')
+                  .bind(contactId, config.workspace_id, 'whatsapp', `+${callEvent.from}`, callEvent.from).run();
 
                 await c.env.DB.prepare(`
                   INSERT OR IGNORE INTO calls (id, workspace_id, contact_id, type, direction, status, duration)
