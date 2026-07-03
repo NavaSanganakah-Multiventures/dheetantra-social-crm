@@ -51,18 +51,18 @@ export async function handleIncomingMessage(
 
       // 2. Find or create conversation
       const existingConv = await env.DB.prepare(`
-        SELECT id FROM conversations WHERE contact_id = ? AND platform = 'whatsapp' ORDER BY created_at DESC LIMIT 1
-      `).bind(finalContactId).first<{ id: string }>();
+        SELECT id FROM conversations WHERE contact_id = ? AND platform = 'whatsapp' AND (phone_number_id = ? OR phone_number_id IS NULL) ORDER BY created_at DESC LIMIT 1
+      `).bind(finalContactId, phoneNumberId).first<{ id: string }>();
 
       if (existingConv) {
         conversationId = existingConv.id;
-        await env.DB.prepare(`UPDATE conversations SET updated_at = CURRENT_TIMESTAMP, status = 'open' WHERE id = ?`).bind(conversationId).run();
+        await env.DB.prepare(`UPDATE conversations SET updated_at = CURRENT_TIMESTAMP, status = 'open', phone_number_id = ? WHERE id = ?`).bind(phoneNumberId, conversationId).run();
       } else {
         conversationId = crypto.randomUUID();
         await env.DB.prepare(`
-          INSERT INTO conversations (id, workspace_id, contact_id, platform, status)
-          VALUES (?, ?, ?, 'whatsapp', 'open')
-        `).bind(conversationId, workspaceId, finalContactId).run();
+          INSERT INTO conversations (id, workspace_id, contact_id, platform, status, phone_number_id)
+          VALUES (?, ?, ?, 'whatsapp', 'open', ?)
+        `).bind(conversationId, workspaceId, finalContactId, phoneNumberId).run();
       }
       console.log(`[handleIncomingMessage] Conversation sorted. id=${conversationId}`);
 

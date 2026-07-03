@@ -34,6 +34,63 @@ const app = new Hono<{ Bindings: Env }>();
 // Enable CORS for custom SDKs and mobile apps
 app.use('/api/*', cors());
 
+// Auto-migrate tables for Multiple WABAs
+async function ensureMultipleWabaSchema(db: any) {
+  try {
+    try {
+      await db.prepare("ALTER TABLE conversations ADD COLUMN phone_number_id TEXT").run();
+    } catch(e) {}
+
+    try {
+      await db.prepare("ALTER TABLE messages ADD COLUMN message_type TEXT DEFAULT 'text'").run();
+    } catch(e) {}
+
+    const tableSql = await db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='whatsapp_configs'").first<{ sql: string }>();
+    if (tableSql && tableSql.sql && (tableSql.sql.includes('UNIQUE') || tableSql.sql.includes('unique'))) {
+      console.log("Recreating whatsapp_configs table to support multiple manual WABAs...");
+      try {
+        await db.prepare("ALTER TABLE whatsapp_configs RENAME TO whatsapp_configs_old").run();
+        await db.prepare(`
+          CREATE TABLE whatsapp_configs (
+            id TEXT PRIMARY KEY,
+            workspace_id TEXT NOT NULL,
+            phone_number_id TEXT NOT NULL,
+            access_token TEXT NOT NULL,
+            verify_token TEXT,
+            reply_mode TEXT DEFAULT 'manual',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
+          )
+        `).run();
+        await db.prepare(`
+          INSERT OR IGNORE INTO whatsapp_configs (id, workspace_id, phone_number_id, access_token, verify_token, reply_mode, created_at)
+          SELECT id, workspace_id, phone_number_id, access_token, verify_token, COALESCE(reply_mode, 'manual'), created_at FROM whatsapp_configs_old
+        `).run();
+        await db.prepare("DROP TABLE whatsapp_configs_old").run();
+        console.log("whatsapp_configs table recreated successfully!");
+      } catch (err) {
+        console.error("Failed to migrate whatsapp_configs:", err);
+      }
+    }
+  } catch(e) {
+    console.error("Migration check error:", e);
+  }
+}
+
+app.use('/api/whatsapp/*', async (c, next) => {
+  if (c.env.DB) {
+    await ensureMultipleWabaSchema(c.env.DB);
+  }
+  await next();
+});
+
+app.use('/api/inbox/*', async (c, next) => {
+  if (c.env.DB) {
+    await ensureMultipleWabaSchema(c.env.DB);
+  }
+  await next();
+});
+
 app.route('/api/meta', metaOauth);
 
 // Health Check
@@ -570,29 +627,36 @@ app.post('/api/whatsapp/config', async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
-  const { phone_number_id, access_token, verify_token, reply_mode } = await c.req.json();
-  const id = crypto.randomUUID();
+  const { id, phone_number_id, access_token, verify_token, reply_mode } = await c.req.json();
+  const newId = id || crypto.randomUUID();
 
   try {
     try {
       await c.env.DB.prepare("ALTER TABLE whatsapp_configs ADD COLUMN reply_mode TEXT DEFAULT 'manual'").run();
     } catch(e) {}
 
-    const existing: any = await c.env.DB.prepare('SELECT id, access_token, reply_mode FROM whatsapp_configs WHERE workspace_id = ?').bind(workspaceId).first();
+    let existing: any = null;
+    if (id) {
+      existing = await c.env.DB.prepare('SELECT id, access_token, reply_mode FROM whatsapp_configs WHERE id = ?').bind(id).first();
+    } else {
+      existing = await c.env.DB.prepare('SELECT id, access_token, reply_mode FROM whatsapp_configs WHERE workspace_id = ? AND phone_number_id = ?').bind(workspaceId, phone_number_id).first();
+    }
+
+    const finalId = id || existing?.id || newId;
     const finalToken = access_token || existing?.access_token || '';
     const finalReplyMode = reply_mode || existing?.reply_mode || 'manual';
 
-    if (existing) {
+    if (existing || id) {
       await c.env.DB.prepare(
-        `UPDATE whatsapp_configs SET phone_number_id = ?, access_token = ?, verify_token = ?, reply_mode = ? WHERE workspace_id = ?`
-      ).bind(phone_number_id, finalToken, verify_token, finalReplyMode, workspaceId).run();
+        `UPDATE whatsapp_configs SET phone_number_id = ?, access_token = ?, verify_token = ?, reply_mode = ? WHERE id = ?`
+      ).bind(phone_number_id, finalToken, verify_token, finalReplyMode, finalId).run();
     } else {
       await c.env.DB.prepare(
         `INSERT INTO whatsapp_configs (id, workspace_id, phone_number_id, access_token, verify_token, reply_mode) 
          VALUES (?, ?, ?, ?, ?, ?)`
-      ).bind(id, workspaceId, phone_number_id, finalToken, verify_token, finalReplyMode).run();
+      ).bind(finalId, workspaceId, phone_number_id, finalToken, verify_token, finalReplyMode).run();
     }
-    return c.json({ success: true, message: 'WhatsApp config saved' });
+    return c.json({ success: true, message: 'WhatsApp config saved', id: finalId });
   } catch (err: any) {
     return c.json({ error: err.message }, 500);
   }
@@ -607,8 +671,24 @@ app.get('/api/whatsapp/config', async (c) => {
     try {
       await c.env.DB.prepare("ALTER TABLE whatsapp_configs ADD COLUMN reply_mode TEXT DEFAULT 'manual'").run();
     } catch(e) {}
-    const config = await c.env.DB.prepare('SELECT phone_number_id, verify_token, reply_mode FROM whatsapp_configs WHERE workspace_id = ?').bind(workspaceId).first();
-    return c.json({ config: config || null });
+    
+    const { results } = await c.env.DB.prepare('SELECT id, phone_number_id, verify_token, reply_mode, created_at FROM whatsapp_configs WHERE workspace_id = ?').bind(workspaceId).all();
+    const config = results && results.length > 0 ? results[0] : null;
+    return c.json({ config: config || null, configs: results || [] });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+// Delete WhatsApp Config
+app.delete('/api/whatsapp/config/:id', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+  const id = c.req.param('id');
+
+  try {
+    await c.env.DB.prepare('DELETE FROM whatsapp_configs WHERE id = ? AND workspace_id = ?').bind(id, workspaceId).run();
+    return c.json({ success: true, message: 'WhatsApp config deleted successfully' });
   } catch (err: any) {
     return c.json({ error: err.message }, 500);
   }
@@ -648,11 +728,17 @@ app.post('/api/whatsapp/send', async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
-  const { to, text, conversationId, type = 'text', mediaUrl, r2Url, filename, location, contacts } = await c.req.json();
+  const { to, text, conversationId, type = 'text', mediaUrl, r2Url, filename, location, contacts, phoneNumberId } = await c.req.json();
   if (!to || !conversationId) return c.json({ error: 'Missing required fields' }, 400);
 
   try {
-    const config = await c.env.DB.prepare('SELECT phone_number_id, access_token FROM whatsapp_configs WHERE workspace_id = ?').bind(workspaceId).first();
+    let config: any = null;
+    if (phoneNumberId) {
+      config = await c.env.DB.prepare('SELECT phone_number_id, access_token FROM whatsapp_configs WHERE workspace_id = ? AND phone_number_id = ?').bind(workspaceId, phoneNumberId).first();
+    }
+    if (!config) {
+      config = await c.env.DB.prepare('SELECT phone_number_id, access_token FROM whatsapp_configs WHERE workspace_id = ?').bind(workspaceId).first();
+    }
     if (!config) return c.json({ error: 'WhatsApp is not configured for this workspace' }, 400);
 
     // Build the Meta Cloud API payload
@@ -763,15 +849,23 @@ app.get('/api/inbox/conversations', async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
-  const { results } = await c.env.DB.prepare(`
-    SELECT c.id, c.status, c.updated_at, ct.name as contact_name, ct.platform_contact_id as phone
+  const phoneNumberId = c.req.query('phoneNumberId');
+  let query = `
+    SELECT c.id, c.status, c.updated_at, c.phone_number_id, ct.name as contact_name, ct.platform_contact_id as phone
     FROM conversations c
     JOIN contacts ct ON c.contact_id = ct.id
     WHERE c.workspace_id = ?
-    ORDER BY c.updated_at DESC
-  `).bind(workspaceId).all();
+  `;
+  const binds: any[] = [workspaceId];
+  if (phoneNumberId && phoneNumberId !== 'all') {
+    query += ` AND (c.phone_number_id = ? OR c.phone_number_id IS NULL)`;
+    binds.push(phoneNumberId);
+  }
+  query += ` ORDER BY c.updated_at DESC`;
 
-  return c.json({ conversations: results });
+  const { results } = await c.env.DB.prepare(query).bind(...binds).all();
+
+  return c.json({ conversations: results || [] });
 });
 
 // Get Messages for a Conversation

@@ -96,6 +96,7 @@ CREATE TABLE IF NOT EXISTS conversations (
   contact_id TEXT NOT NULL,
   platform TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'open',
+  phone_number_id TEXT,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
@@ -110,6 +111,7 @@ CREATE TABLE IF NOT EXISTS messages (
   media_url TEXT,
   platform_message_id TEXT UNIQUE,
   status TEXT DEFAULT 'sent',
+  message_type TEXT DEFAULT 'text',
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
 );
@@ -119,10 +121,11 @@ CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id
 
 CREATE TABLE IF NOT EXISTS whatsapp_configs (
   id TEXT PRIMARY KEY,
-  workspace_id TEXT NOT NULL UNIQUE,
+  workspace_id TEXT NOT NULL,
   phone_number_id TEXT NOT NULL,
   access_token TEXT NOT NULL,
   verify_token TEXT,
+  reply_mode TEXT DEFAULT 'manual',
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
 );

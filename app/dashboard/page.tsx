@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Download,  Bot, MessageSquare, Megaphone, CalendarClock, Settings, LayoutDashboard, Search, Bell, Menu, Send, Paperclip, LogOut, User, Phone, X, History, MapPin, Building2, Tag, ChevronDown, ChevronRight, Activity, Users, Zap, Check, CheckCheck, FileText, Plus  } from 'lucide-react';
+import { Download,  Bot, MessageSquare, Megaphone, CalendarClock, Settings, LayoutDashboard, Search, Bell, Menu, Send, Paperclip, LogOut, User, Phone, X, History, MapPin, Building2, Tag, ChevronDown, ChevronRight, Activity, Users, Zap, Check, CheckCheck, FileText, Plus, Trash2, Edit } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useRouter } from 'next/navigation';
 
@@ -287,6 +287,11 @@ function InboxView() {
   const [messageInput, setMessageInput] = useState("");
   const [sending, setSending] = useState(false);
 
+  // Multi-WABA and Preview states
+  const [configs, setConfigs] = useState<any[]>([]);
+  const [selectedWaba, setSelectedWaba] = useState<any>(null);
+  const [mediaPreviewUrl, setMediaPreviewUrl] = useState<string | null>(null);
+
   // Rich Media Attachments State
   const [attachmentMenuOpen, setAttachmentMenuOpen] = useState(false);
   const [attachmentType, setAttachmentType] = useState<'text' | 'image' | 'video' | 'document' | 'location' | 'contacts' | null>(null);
@@ -308,6 +313,41 @@ function InboxView() {
   const [contactNameInput, setContactNameInput] = useState('');
   const [contactPhoneInput, setContactPhoneInput] = useState('');
 
+  // Load configs on Mount
+  useEffect(() => {
+    const wId = localStorage.getItem('workspaceId');
+    fetch('/api/whatsapp/config', {
+      headers: { 'x-workspace-id': wId || '' }
+    }).then(r => r.json()).then((data: any) => {
+      if (data.configs) {
+        setConfigs(data.configs);
+        if (data.configs.length > 0) {
+          setSelectedWaba(data.configs[0]);
+        }
+      }
+    }).catch(err => console.error("Error loading configs:", err));
+  }, []);
+
+  // Update Media Preview URL reactively with safe cleanup
+  useEffect(() => {
+    let active = true;
+    const timer = setTimeout(() => {
+      if (!active) return;
+      if (mediaFileState) {
+        const url = URL.createObjectURL(mediaFileState);
+        setMediaPreviewUrl(url);
+      } else if (mediaUrlInput.trim()) {
+        setMediaPreviewUrl(mediaUrlInput.trim());
+      } else {
+        setMediaPreviewUrl(null);
+      }
+    }, 0);
+
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [mediaFileState, mediaUrlInput]);
 
   const toggleAI = async () => {
     const newMode = replyMode === 'ai' ? 'manual' : 'ai';
@@ -340,7 +380,8 @@ function InboxView() {
     let payload: any = {
       to: activeChat.phone,
       conversationId: activeChat.id,
-      type: attachmentType
+      type: attachmentType,
+      phoneNumberId: selectedWaba ? selectedWaba.phone_number_id : undefined
     };
 
     if (attachmentType === 'image' || attachmentType === 'video' || attachmentType === 'document') {
@@ -445,8 +486,13 @@ function InboxView() {
     }
   };
 
-  const fetchConversations = () => {
-    fetch('/api/inbox/conversations', {
+  const fetchConversations = (wabaId?: string) => {
+    const activeWaba = wabaId || (selectedWaba ? selectedWaba.phone_number_id : '');
+    const url = activeWaba 
+      ? `/api/inbox/conversations?phoneNumberId=${activeWaba}` 
+      : '/api/inbox/conversations';
+
+    fetch(url, {
       headers: { 'x-workspace-id': localStorage.getItem('workspaceId') || '' }
     }).then(r => r.json()).then((data: any) => {
         if (data.conversations) {
@@ -458,9 +504,9 @@ function InboxView() {
 
   useEffect(() => {
     fetchConversations();
-    const interval = setInterval(fetchConversations, 5000);
+    const interval = setInterval(() => fetchConversations(), 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [selectedWaba]);
 
   const loadMessages = (conversationId: string) => {
     fetch(`/api/inbox/messages/${conversationId}`, {
@@ -494,7 +540,8 @@ function InboxView() {
         body: JSON.stringify({
           to: activeChat.phone,
           text: messageInput,
-          conversationId: activeChat.id
+          conversationId: activeChat.id,
+          phoneNumberId: selectedWaba ? selectedWaba.phone_number_id : undefined
         })
       });
       const data: any = await res.json();
@@ -516,7 +563,44 @@ function InboxView() {
       {/* Contact List */}
       <div className={`w-full md:w-80 border-r border-zinc-200 dark:border-zinc-800 flex flex-col bg-zinc-50/50 dark:bg-zinc-900 z-10 ${activeChat ? 'hidden md:flex' : 'flex'}`}>
         <div className="p-4 border-b border-zinc-200 dark:border-zinc-800 flex-shrink-0 bg-zinc-50 dark:bg-zinc-900">
-            <h2 className="font-medium mb-3">सक्रिय बातचीत</h2>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="font-medium">सक्रिय बातचीत</h2>
+              {configs.length > 0 && (
+                <span className="text-[10px] bg-indigo-50 text-indigo-700 dark:bg-indigo-950/30 dark:text-indigo-400 font-bold px-1.5 py-0.5 rounded">
+                  {configs.length} WABAs
+                </span>
+              )}
+            </div>
+
+            {/* WABA Selection Dropdown */}
+            <div className="mb-3">
+              <label className="block text-[9px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-1">WhatsApp Line</label>
+              <div className="relative">
+                <select 
+                  value={selectedWaba ? selectedWaba.id : ''} 
+                  onChange={(e) => {
+                    const selected = configs.find(c => c.id === e.target.value);
+                    if (selected) {
+                      setSelectedWaba(selected);
+                      setActiveChat(null); // Clear active chat on filter change
+                    }
+                  }}
+                  className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 appearance-none cursor-pointer"
+                >
+                  {configs.map((cfg) => (
+                    <option key={cfg.id} value={cfg.id}>
+                      📱 WABA ({cfg.phone_number_id.slice(-6)})
+                    </option>
+                  ))}
+                  {configs.length === 0 && (
+                    <option value="">कोई अकाउंट नहीं</option>
+                  )}
+                </select>
+                <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-zinc-400">
+                  <ChevronDown className="w-3.5 h-3.5" />
+                </div>
+              </div>
+            </div>
             <div className="flex gap-2 text-xs">
                 <button className="bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 px-3 py-1.5 rounded-full font-medium">सभी</button>
             </div>
@@ -983,6 +1067,103 @@ function InboxView() {
                  </button>
                </div>
              </div>
+
+             {/* WhatsApp-Style Media Preview */}
+             {mediaPreviewUrl && (attachmentType === 'image' || attachmentType === 'video' || attachmentType === 'document') && (
+               <div className="absolute inset-x-0 bottom-0 top-16 bg-zinc-950/95 flex flex-col z-20 transition-all animate-in fade-in-50 duration-200">
+                 {/* Preview Header */}
+                 <div className="h-14 border-b border-zinc-800 px-6 flex items-center justify-between text-white flex-shrink-0">
+                   <div className="flex items-center gap-3">
+                     <span className="font-semibold text-sm">WhatsApp Media Preview</span>
+                     <span className="text-xs text-zinc-400 capitalize bg-zinc-800 px-2 py-0.5 rounded-full">{attachmentType}</span>
+                   </div>
+                   <button 
+                     onClick={() => {
+                       setMediaPreviewUrl(null);
+                       setMediaFileState(null);
+                       setMediaUrlInput('');
+                       setAttachmentType(null);
+                     }}
+                     className="p-1.5 rounded-full hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors"
+                     title="रद्द करें (Cancel)"
+                   >
+                     <X className="w-5 h-5" />
+                   </button>
+                 </div>
+
+                 {/* Preview Center */}
+                 <div className="flex-1 flex items-center justify-center p-4 overflow-hidden relative">
+                   {attachmentType === 'image' && (
+                     <img 
+                       src={mediaPreviewUrl} 
+                       alt="Preview" 
+                       className="max-h-full max-w-full object-contain rounded-lg shadow-2xl border border-zinc-800 animate-in zoom-in-95 duration-200"
+                       onError={(e) => {
+                         (e.target as HTMLElement).style.display = 'none';
+                       }}
+                     />
+                   )}
+                   {attachmentType === 'video' && (
+                     <video 
+                       src={mediaPreviewUrl} 
+                       controls 
+                       className="max-h-full max-w-full object-contain rounded-lg shadow-2xl border border-zinc-800 animate-in zoom-in-95 duration-200" 
+                     />
+                   )}
+                   {attachmentType === 'document' && (
+                     <div className="flex flex-col items-center justify-center p-8 bg-zinc-900 border border-zinc-800 rounded-2xl shadow-xl text-center animate-in zoom-in-95 duration-200">
+                       <FileText className="w-16 h-16 text-indigo-500 mb-3" />
+                       <span className="text-sm font-semibold text-zinc-200 truncate max-w-xs block">
+                         {docFilenameInput || (mediaFileState ? mediaFileState.name : "Document.pdf")}
+                       </span>
+                       <span className="text-xs text-zinc-500 mt-1">Ready to send via secure R2 storage</span>
+                     </div>
+                   )}
+                 </div>
+
+                 {/* WhatsApp-Style Bottom Input Area with green Send Button */}
+                 <div className="p-4 bg-zinc-900 border-t border-zinc-800 flex items-center justify-center flex-shrink-0">
+                   <div className="w-full max-w-2xl flex items-center gap-3">
+                     {attachmentType === 'document' ? (
+                       <div className="flex-1 bg-zinc-800/50 border border-zinc-700/50 rounded-xl px-4 py-3 text-sm text-white flex items-center gap-2">
+                         <span className="text-zinc-400 font-medium text-xs">FileName:</span>
+                         <input 
+                           type="text" 
+                           className="bg-transparent border-none outline-none flex-1 text-white placeholder-zinc-500"
+                           placeholder="दस्तावेज़ का नाम दर्ज करें (जैसे Invoice.pdf)..."
+                           value={docFilenameInput}
+                           onChange={(e) => setDocFilenameInput(e.target.value)}
+                         />
+                       </div>
+                     ) : (
+                       <div className="flex-1 bg-zinc-800/50 border border-zinc-700/50 rounded-xl px-4 py-3 text-sm text-white flex items-center gap-2">
+                         <span className="text-zinc-400 font-medium text-xs">Caption:</span>
+                         <input 
+                           type="text" 
+                           className="bg-transparent border-none outline-none flex-1 text-white placeholder-zinc-500"
+                           placeholder="कैप्शन जोड़ें (Add a caption)..."
+                           value={captionInput}
+                           onChange={(e) => setCaptionInput(e.target.value)}
+                         />
+                       </div>
+                     )}
+                     
+                     <button 
+                       onClick={sendRichMessage}
+                       disabled={sending}
+                       className="w-12 h-12 rounded-full bg-emerald-500 hover:bg-emerald-600 disabled:bg-zinc-800 text-white flex items-center justify-center transition-all shadow-lg active:scale-95"
+                       title="भेजें (Send)"
+                     >
+                       {sending ? (
+                         <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                       ) : (
+                         <Send className="w-5 h-5" />
+                       )}
+                     </button>
+                   </div>
+                 </div>
+               </div>
+             )}
            </>
           )}
       </div>      {/* Sliding Contact Details Panel */}
@@ -1194,6 +1375,58 @@ function SettingsView() {
     const [metaConfigId, setMetaConfigId] = useState("");
     const [replyMode, setReplyMode] = useState("manual");
 
+    // Multi-WABA configs state
+    const [configs, setConfigs] = useState<any[]>([]);
+    const [editingId, setEditingId] = useState<string | null>(null);
+
+    const loadAllConfigs = () => {
+      const wId = localStorage.getItem('workspaceId');
+      fetch('/api/whatsapp/config', {
+        headers: { 'x-workspace-id': wId || '' }
+      }).then(r => r.json()).then((data: any) => {
+        if (data.configs) {
+          setConfigs(data.configs);
+        }
+      }).catch(err => console.error("Error loading configs:", err));
+    };
+
+    const deleteConfig = async (id: string) => {
+      if (!confirm("क्या आप वाकई इस WhatsApp अकाउंट को हटाना चाहते हैं?")) return;
+      try {
+        const res = await fetch(`/api/whatsapp/config/${id}`, {
+          method: 'DELETE',
+          headers: { 'x-workspace-id': localStorage.getItem('workspaceId') || '' }
+        });
+        const data: any = await res.json();
+        if (data.success) {
+          setMessage("अकाउंट सफलतापूर्वक हटा दिया गया।");
+          loadAllConfigs();
+        } else {
+          alert(data.error || "हटाने में विफलता");
+        }
+      } catch (e) {
+        alert("त्रुटि हुई");
+      }
+    };
+
+    const startEditing = (cfg: any) => {
+      setEditingId(cfg.id);
+      setPhoneNumberId(cfg.phone_number_id || "");
+      setVerifyToken(cfg.verify_token || "");
+      setAccessToken("••••••••••••••••");
+      setReplyMode(cfg.reply_mode || "manual");
+      setMessage("अकाउंट संपादित किया जा रहा है...");
+    };
+
+    const cancelEditing = () => {
+      setEditingId(null);
+      setPhoneNumberId("");
+      setVerifyToken("");
+      setAccessToken("");
+      setReplyMode("manual");
+      setMessage("");
+    };
+
     useEffect(() => {
       let isSubscribed = true;
 
@@ -1277,6 +1510,9 @@ function SettingsView() {
       fetch('/api/whatsapp/config', {
         headers: { 'x-workspace-id': wId || '' }
       }).then(r => r.json()).then((data: any) => {
+        if (data.configs) {
+          setConfigs(data.configs);
+        }
         if (data.config) {
           setPhoneNumberId(data.config.phone_number_id || "");
           setVerifyToken(data.config.verify_token || "");
@@ -1331,7 +1567,12 @@ function SettingsView() {
       setSaving(true);
       setMessage("");
       try {
-        const payload: any = { phone_number_id: phoneNumberId, verify_token: verifyToken, reply_mode: replyMode };
+        const payload: any = { 
+          id: editingId,
+          phone_number_id: phoneNumberId, 
+          verify_token: verifyToken, 
+          reply_mode: replyMode 
+        };
         if (accessToken !== "••••••••••••••••") {
           payload.access_token = accessToken;
         }
@@ -1346,14 +1587,19 @@ function SettingsView() {
         });
         const data: any = await res.json();
         if (data.success) {
-          setMessage("सेटिंग्स सुरक्षित कर ली गईं!");
+          setMessage(editingId ? "कॉन्फ़िगरेशन सफलतापूर्वक अपडेट किया गया!" : "कॉन्फ़िगरेशन सफलतापूर्वक सेव किया गया!");
+          setPhoneNumberId("");
+          setAccessToken("");
+          setVerifyToken("");
+          setEditingId(null);
+          loadAllConfigs();
         } else {
           setMessage("त्रुटि: " + (data.error || "अज्ञात"));
         }
       } catch (e) {
-        setMessage("नेटवर्क त्रुटि।");
+         setMessage("सेव करने में असमर्थ।");
       } finally {
-        setSaving(false);
+         setSaving(false);
       }
     };
 
@@ -1381,9 +1627,18 @@ function SettingsView() {
                          
                          <div className="flex items-center gap-4 mb-2">
                            <div className="flex-1 h-px bg-zinc-200 dark:bg-zinc-800"></div>
-                           <span className="text-xs text-zinc-400 font-medium uppercase">या मैन्युअल कॉन्फ़िगरेशन</span>
+                           <span className="text-xs text-zinc-400 font-medium uppercase">
+                             {editingId ? "कॉन्फ़िगरेशन संपादित करें" : "या मैन्युअल कॉन्फ़िगरेशन जोड़ें"}
+                           </span>
                            <div className="flex-1 h-px bg-zinc-200 dark:bg-zinc-800"></div>
                          </div>
+
+                         {editingId && (
+                           <div className="flex items-center justify-between p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30 rounded-xl mb-2">
+                             <span className="text-xs font-semibold text-amber-800 dark:text-amber-400">संपादित किया जा रहा है: {phoneNumberId || editingId}</span>
+                             <button onClick={cancelEditing} className="text-xs text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 underline font-medium">रद्द करें (Cancel)</button>
+                           </div>
+                         )}
 
                          <div>
                            <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">WhatsApp Phone Number ID</label>
@@ -1443,13 +1698,70 @@ function SettingsView() {
                              </label>
                            </div>
                          </div>
-                         <div className="pt-2">
+                         <div className="pt-2 flex gap-3">
                            <button onClick={saveConfig} disabled={saving} className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl text-sm font-medium transition-colors shadow-md shadow-indigo-600/20 flex items-center gap-2">
-                             {saving ? "सुरक्षित किया जा रहा है..." : "सेव करें"}
+                             {saving ? "सुरक्षित किया जा रहा है..." : (editingId ? "अपडेट करें" : "नया अकाउंट जोड़ें")}
                            </button>
-                           {message && <p className="text-sm mt-3 text-emerald-600 dark:text-emerald-400 font-medium">{message}</p>}
+                           {editingId && (
+                             <button onClick={cancelEditing} className="border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900 text-zinc-700 dark:text-zinc-300 px-6 py-2.5 rounded-xl text-sm font-medium transition-all">
+                               रद्द करें
+                             </button>
+                           )}
                          </div>
+                         {message && <p className="text-sm mt-3 text-emerald-600 dark:text-emerald-400 font-medium bg-emerald-50 dark:bg-emerald-950/20 p-3 rounded-xl border border-emerald-100 dark:border-emerald-950/30">{message}</p>}
                      </div>
+                 </div>
+
+                 {/* Connected Accounts Table */}
+                 <div className="p-8 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50">
+                     <h3 className="font-bold text-lg mb-2 text-zinc-900 dark:text-white font-display flex items-center gap-2">
+                       <Phone className="w-5 h-5 text-indigo-500" /> कनेक्टेड WhatsApp अकाउंट्स (Connected WABAs)
+                     </h3>
+                     <p className="text-sm text-zinc-500 mb-6">इस वर्कस्पेस में कॉन्फ़िगर किए गए सभी सक्रिय WhatsApp नंबर और लाइन्स।</p>
+                     
+                     {configs.length === 0 ? (
+                        <div className="p-8 text-center text-zinc-400 border border-dashed border-zinc-200 dark:border-zinc-800 rounded-2xl bg-white dark:bg-zinc-950/30">
+                           कोई कनेक्टेड अकाउंट नहीं मिला। शुरू करने के लिए ऊपर से एक अकाउंट जोड़ें।
+                        </div>
+                     ) : (
+                        <div className="overflow-hidden border border-zinc-200 dark:border-zinc-800 rounded-2xl bg-white dark:bg-zinc-950">
+                           <table className="w-full text-left border-collapse text-sm">
+                              <thead>
+                                 <tr className="bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 text-zinc-400 font-semibold">
+                                    <th className="p-4">Phone Number ID</th>
+                                    <th className="p-4">ऑटो-रिप्लाई मोड</th>
+                                    <th className="p-4">कनेक्टेड तिथि</th>
+                                    <th className="p-4 text-right">कार्रवाई (Actions)</th>
+                                 </tr>
+                              </thead>
+                              <tbody>
+                                 {configs.map((cfg) => (
+                                    <tr key={cfg.id} className="border-b border-zinc-100 dark:border-zinc-900 hover:bg-zinc-50/50 dark:hover:bg-zinc-900/50 transition-colors">
+                                       <td className="p-4 font-mono text-xs font-semibold text-zinc-700 dark:text-zinc-300">{cfg.phone_number_id}</td>
+                                       <td className="p-4">
+                                          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
+                                             cfg.reply_mode === 'ai' ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/30 dark:text-indigo-400' :
+                                             cfg.reply_mode === 'rule_based' ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400' :
+                                             'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300'
+                                          }`}>
+                                             {cfg.reply_mode === 'ai' ? '🤖 AI Bot' : cfg.reply_mode === 'rule_based' ? '⚡ Rules' : '👤 Manual'}
+                                          </span>
+                                       </td>
+                                       <td className="p-4 text-xs text-zinc-500">{cfg.created_at ? new Date(cfg.created_at).toLocaleDateString() : 'N/A'}</td>
+                                       <td className="p-4 text-right flex justify-end gap-2">
+                                          <button onClick={() => startEditing(cfg)} title="बदलें" className="p-2 text-zinc-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 rounded-lg transition-all">
+                                             <Edit className="w-4 h-4" />
+                                          </button>
+                                          <button onClick={() => deleteConfig(cfg.id)} title="हटाएं" className="p-2 text-zinc-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-all">
+                                             <Trash2 className="w-4 h-4" />
+                                          </button>
+                                       </td>
+                                    </tr>
+                                 ))}
+                              </tbody>
+                           </table>
+                        </div>
+                     )}
                  </div>
 
                  <div className="p-8 border-b border-zinc-200 dark:border-zinc-800">
