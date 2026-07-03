@@ -607,69 +607,12 @@ app.post('/api/whatsapp/webhook', async (c) => {
                 } catch (e) {
                   console.error('[Calling] ❌ Failed to broadcast incoming call:', e);
                 }
-            const callsArray = change.value.calls;
-            if (!callsArray || !Array.isArray(callsArray)) continue;
-
-            const phoneNumberId = change.value.metadata?.phone_number_id;
-
-            for (const callData of callsArray) {
-              const callId = callData.id;
-              const event = callData.event; // 'connect' | 'terminate' | 'offer'
-              const callerNumber = callData.from;
-              const sdp = callData.session?.sdp;
-              const sdpType = callData.session?.sdp_type;
-              const direction = callData.direction; // 'USER_INITIATED' | 'BUSINESS_INITIATED'
-
-              if (!callId) continue;
-
-              console.log(`[Calling] Event: ${event}, Call ID: ${callId}, From: ${callerNumber}, Direction: ${direction}`);
-
-              const config = await c.env.DB.prepare('SELECT workspace_id FROM whatsapp_configs WHERE phone_number_id = ?')
-                .bind(phoneNumberId).first<{ workspace_id: string }>();
-
-              if (!config) {
-                console.error(`[Calling] No config found for phone_number_id: ${phoneNumberId}`);
-                continue;
-              }
-
-              if (event === 'connect' || event === 'offer') {
-                // Incoming call — save to DB + broadcast to frontend
-                const contactId = `contact-${callerNumber}`;
-                await c.env.DB.prepare('INSERT OR IGNORE INTO contacts (id, workspace_id, platform, name, platform_contact_id) VALUES (?, ?, ?, ?, ?)')
-                  .bind(contactId, config.workspace_id, 'whatsapp', `+${callerNumber}`, callerNumber).run();
-
-                await c.env.DB.prepare(`
-                INSERT OR IGNORE INTO calls (id, workspace_id, contact_id, phone_number_id, caller_number, type, direction, status, duration)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-              `).bind(callId, config.workspace_id, contactId, phoneNumberId, callerNumber, 'voice',
-                  direction === 'BUSINESS_INITIATED' ? 'outgoing' : 'incoming', 'ringing', 0).run();
-
-                // Broadcast to frontend
-                try {
-                  const globalDoId = c.env.CHAT_DO.idFromName(`global-${config.workspace_id}`);
-                  const globalDo = c.env.CHAT_DO.get(globalDoId);
-                  await globalDo.fetch(new Request('http://internal/broadcast', {
-                    method: 'POST',
-                    body: JSON.stringify({
-                      type: 'whatsapp_incoming_call',
-                      callId: callId,
-                      from: callerNumber,
-                      sdp: sdp,
-                      sdpType: sdpType,
-                      phoneNumberId: phoneNumberId,
-                      direction: direction
-                    })
-                  }));
-                } catch (e) {
-                  console.error('[Calling] Failed to broadcast incoming call:', e);
-                }
 
               } else if (event === 'terminate') {
                 console.log(`[Calling] Call terminated: ${callId}`);
                 const hangupCause = callData.hangup_cause || 'normal';
                 const duration = callData.duration || 0;
 
-                // Check if it was a missed call (duration 0 + incoming)
                 const existingCall = await c.env.DB.prepare('SELECT direction, status FROM calls WHERE id = ?')
                   .bind(callId).first<{ direction: string, status: string }>();
 
@@ -679,7 +622,6 @@ app.post('/api/whatsapp/webhook', async (c) => {
                 await c.env.DB.prepare('UPDATE calls SET status = ?, duration = ?, hangup_cause = ? WHERE id = ?')
                   .bind(wasMissed ? 'missed' : 'ended', duration, hangupCause, callId).run();
 
-                // Broadcast termination to frontend
                 try {
                   const globalDoId = c.env.CHAT_DO.idFromName(`global-${config.workspace_id}`);
                   const globalDo = c.env.CHAT_DO.get(globalDoId);
@@ -693,7 +635,6 @@ app.post('/api/whatsapp/webhook', async (c) => {
                   }));
                 } catch (e) { }
 
-                // Send missed call notification via FCM
                 if (wasMissed) {
                   c.executionCtx.waitUntil(
                     (async () => {
@@ -722,8 +663,8 @@ app.post('/api/whatsapp/webhook', async (c) => {
                     })()
                   );
                 }
-              } // Close if (event === 'terminate')
-            } // <-- ADDED: Close for (const callData of callsArray) loop
+              }
+            }
             continue;
           }
 
