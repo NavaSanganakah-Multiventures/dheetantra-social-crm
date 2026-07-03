@@ -502,8 +502,9 @@ app.get('/api/whatsapp/webhook', async (c) => {
 // Webhook Receiver (WhatsApp sends incoming messages via POST)
 app.post('/api/whatsapp/webhook', async (c) => {
   try {
+    if (c.env.DB) await ensureMultipleWabaSchema(c.env.DB);
     const body = await c.req.json();
-    console.log("INCOMING WEBHOOK:", JSON.stringify(body, null, 2));
+    console.log('INCOMING WEBHOOK:', JSON.stringify(body, null, 2));
 
     // Check if it's a WhatsApp status update or message
     if (body.object === 'whatsapp_business_account') {
@@ -587,7 +588,7 @@ app.post('/api/whatsapp/webhook', async (c) => {
           if (change.value && change.value.messages) {
             const message = change.value.messages[0];
             const contact = change.value.contacts[0];
-            const phoneNumberId = change.value.metadata.phone_number_id;
+            const phoneNumberId = change.value.metadata?.phone_number_id;
             
             let messageText = '';
             let messageType = 'text';
@@ -899,8 +900,8 @@ app.post('/api/crm/contacts', async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
-  const body = await c.req.json();
-    console.log("INCOMING WEBHOOK:", JSON.stringify(body, null, 2));
+    const body = await c.req.json();
+    console.log('INCOMING WEBHOOK:', JSON.stringify(body, null, 2));
   const {
     name,
     phone,
@@ -967,8 +968,8 @@ app.put('/api/crm/contacts/:contactId', async (c) => {
   const contactId = c.req.param('contactId');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
-  const body = await c.req.json();
-    console.log("INCOMING WEBHOOK:", JSON.stringify(body, null, 2));
+    const body = await c.req.json();
+    console.log('INCOMING WEBHOOK:', JSON.stringify(body, null, 2));
   const {
     name,
     phone,
