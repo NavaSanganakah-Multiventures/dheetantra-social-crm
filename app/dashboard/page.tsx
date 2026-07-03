@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Download,  Bot, MessageSquare, Megaphone, CalendarClock, Settings, LayoutDashboard, Search, Bell, Menu, Send, Paperclip, LogOut, User, Phone, PhoneCall, X, History, MapPin, Building2, Tag, ChevronDown, ChevronRight, Activity, Users, Zap, Check, CheckCheck, FileText, Plus, Trash2, Edit, Archive, RefreshCw, Instagram, Facebook, Mail, TrendingUp, Coins } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useRouter } from 'next/navigation';
@@ -55,7 +55,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
   const [activeCall, setActiveCall] = useState<any>(null);
   const [callingEnabled, setCallingEnabled] = useState<boolean>(true);
 
-  const { status: rtcStatus, answer: answerWebRTC, hangup: hangupWebRTC, handleRemoteHangup, remoteStream: rtcRemoteStream } = useWhatsAppWebRTC();
+  const { status: rtcStatus, answer: answerWebRTC, hangup: hangupWebRTC, handleRemoteHangup, remoteStream: rtcRemoteStream, localStream: rtcLocalStream } = useWhatsAppWebRTC();
 
   // Load Calling Config and SIP Settings
   useEffect(() => {
@@ -510,6 +510,8 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
               <ActiveCallManager 
                 activeCall={activeCall} 
                 setActiveCall={setActiveCall} 
+                remoteStream={rtcRemoteStream}
+                localStream={rtcLocalStream}
                 onHangup={async () => {
                    await hangupWebRTC({
                      id: activeCall.id,
@@ -4067,10 +4069,26 @@ function CallsView({
   );
 }
 
-function ActiveCallManager({ activeCall, setActiveCall, onHangup }: { activeCall: any, setActiveCall: any, onHangup?: () => void }) {
+function ActiveCallManager({ activeCall, setActiveCall, onHangup, remoteStream, localStream }: { activeCall: any, setActiveCall: any, onHangup?: () => void, remoteStream?: MediaStream | null, localStream?: MediaStream | null }) {
   const [seconds, setSeconds] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
   const [isSpeaker, setIsSpeaker] = useState(true);
+  
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    if (audioRef.current && remoteStream) {
+      audioRef.current.srcObject = remoteStream;
+    }
+  }, [remoteStream]);
+
+  useEffect(() => {
+    if (localStream) {
+      localStream.getAudioTracks().forEach(track => {
+        track.enabled = !isMuted;
+      });
+    }
+  }, [isMuted, localStream]);
 
   // Transition outgoing dialing to connected after 3 seconds (simulated if SIP doesn't connect)
   useEffect(() => {
@@ -4093,6 +4111,75 @@ function ActiveCallManager({ activeCall, setActiveCall, onHangup }: { activeCall
       return () => clearInterval(interval);
     }
   }, [activeCall.status]);
+
+  const [isRecording, setIsRecording] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<BlobPart[]>([]);
+
+  const toggleRecording = useCallback(() => {
+    if (isRecording) {
+      if (mediaRecorderRef.current) {
+        mediaRecorderRef.current.stop();
+      }
+      setIsRecording(false);
+    } else {
+      if (remoteStream || localStream) {
+        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const dest = audioContext.createMediaStreamDestination();
+        
+        if (localStream) {
+          const source1 = audioContext.createMediaStreamSource(localStream);
+          source1.connect(dest);
+        }
+        if (remoteStream) {
+          const source2 = audioContext.createMediaStreamSource(remoteStream);
+          source2.connect(dest);
+        }
+        
+        const recorder = new MediaRecorder(dest.stream);
+        chunksRef.current = [];
+        
+        recorder.ondataavailable = (e) => {
+          if (e.data && e.data.size > 0) {
+            chunksRef.current.push(e.data);
+          }
+        };
+        
+        recorder.onstop = async () => {
+          const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
+          const formData = new FormData();
+          formData.append('file', blob, `call-${activeCall.id}.webm`);
+          
+          try {
+            await fetch('/api/whatsapp/calls/recordings', {
+              method: 'POST',
+              headers: {
+                'x-workspace-id': activeCall.workspace_id
+              },
+              body: formData
+            });
+            console.log('Recording uploaded!');
+          } catch(err) {
+            console.error('Failed to upload recording:', err);
+          }
+        };
+        
+        recorder.start();
+        mediaRecorderRef.current = recorder;
+        setIsRecording(true);
+      } else {
+        alert("Audio stream not available for recording.");
+      }
+    }
+  }, [isRecording, remoteStream, localStream, activeCall]);
+
+  useEffect(() => {
+    return () => {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.stop();
+      }
+    };
+  }, []);
 
   const endCall = async () => {
     try {
@@ -4157,6 +4244,14 @@ function ActiveCallManager({ activeCall, setActiveCall, onHangup }: { activeCall
           >
             Speaker
           </button>
+          {/* Record toggle button */}
+          <button 
+            onClick={toggleRecording}
+            className={`p-1.5 px-2.5 rounded-lg text-[10px] font-bold transition-all ${isRecording ? 'bg-rose-500/20 text-rose-400 hover:bg-rose-500/30' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white'}`}
+            title={isRecording ? 'Stop Recording' : 'Record'}
+          >
+            {isRecording ? 'Recording...' : 'Record'}
+          </button>
         </div>
 
         {/* End Call Button */}
@@ -4168,6 +4263,7 @@ function ActiveCallManager({ activeCall, setActiveCall, onHangup }: { activeCall
           काटें (End)
         </button>
       </div>
+      <audio ref={audioRef} autoPlay style={{ display: 'none' }} />
     </div>
   );
 }

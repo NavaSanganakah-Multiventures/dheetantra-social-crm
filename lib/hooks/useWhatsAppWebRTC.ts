@@ -17,6 +17,8 @@ export function useWhatsAppWebRTC() {
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
 
+  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+
   const cleanup = useCallback(() => {
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach(track => track.stop());
@@ -27,6 +29,7 @@ export function useWhatsAppWebRTC() {
       peerConnectionRef.current = null;
     }
     setRemoteStream(null);
+    setLocalStream(null);
     setStatus('idle');
   }, []);
 
@@ -36,6 +39,7 @@ export function useWhatsAppWebRTC() {
       
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
       localStreamRef.current = stream;
+      setLocalStream(stream);
 
       const pc = new RTCPeerConnection({
         iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
@@ -126,6 +130,7 @@ export function useWhatsAppWebRTC() {
   return {
     status,
     remoteStream,
+    localStream,
     answer,
     hangup,
     handleRemoteHangup

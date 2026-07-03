@@ -510,7 +510,7 @@ app.post('/api/whatsapp/webhook', async (c) => {
             const callEvent = change.value.calls[0];
             const phoneNumberId = change.value.metadata?.phone_number_id;
 
-            if (callEvent.event === 'connect') {
+            if (callEvent.event === 'connect' || callEvent.event === 'ringing' || callEvent.event === 'offer') {
               console.log(`Incoming call from ${callEvent.from} (Call ID: ${callEvent.id})`);
 
               // Save call to database
@@ -1910,6 +1910,31 @@ app.post('/api/whatsapp/calls/:id/terminate', async (c) => {
     .bind('ended', callId, workspaceId).run();
 
   return c.json({ success: true, data });
+});
+
+// UPLOAD call recording
+app.post('/api/whatsapp/calls/recordings', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  try {
+    const body = await c.req.parseBody();
+    const file = body['file'];
+    
+    if (!file || !(file instanceof File)) {
+      return c.json({ error: 'No audio file provided' }, 400);
+    }
+
+    const fileName = `${workspaceId}/recordings/${Date.now()}-${file.name}`;
+    
+    await c.env.MEDIA_BUCKET.put(fileName, await file.arrayBuffer(), {
+      httpMetadata: { contentType: file.type }
+    });
+
+    return c.json({ success: true, path: fileName });
+  } catch (err) {
+    return c.json({ error: 'Failed to upload recording' }, 500);
+  }
 });
 
 // TOGGLE calling configuration
