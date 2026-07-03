@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Download,  Bot, MessageSquare, Megaphone, CalendarClock, Settings, LayoutDashboard, Search, Bell, Menu, Send, Paperclip, LogOut, User, Phone, PhoneCall, X, History, MapPin, Building2, Tag, ChevronDown, ChevronRight, Activity, Users, Zap, Check, CheckCheck, FileText, Plus, Trash2, Edit, Archive, RefreshCw, Instagram, Facebook, Mail, TrendingUp, Coins } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useRouter } from 'next/navigation';
-import { useWebRtc } from '@/lib/hooks/useWebRtc';
+import { useSip, SipConfig } from '@/lib/hooks/useSip';
 
 type activeTab = 'dashboard' | 'inbox' | 'broadcast' | 'templates' | 'schedule' | 'settings' | 'contacts' | 'calls';
 
@@ -54,15 +54,14 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
   const [incomingCall, setIncomingCall] = useState<any>(null);
   const [activeCall, setActiveCall] = useState<any>(null);
   const [callingEnabled, setCallingEnabled] = useState<boolean>(true);
-  const [workspaceId, setWorkspaceId] = useState<string | null>(null);
+  const [sipConfig, setSipConfig] = useState<SipConfig | null>(null);
 
-  const { status: callStatus, answer: answerCall, hangup: hangupCall, call: startCall, remoteStream: remoteStream } = useWebRtc(workspaceId ? { workspaceId } : null);
+  const { status: sipStatus, answer: answerSip, hangup: hangupSip, call: callSip, remoteStream: sipRemoteStream } = useSip(sipConfig);
 
-  // Load Calling Config
+  // Load Calling Config and SIP Settings
   useEffect(() => {
     const wId = localStorage.getItem('workspaceId');
     if (!wId) return;
-    setWorkspaceId(wId);
     
     // Load general calling enabled setting
     fetch('/api/whatsapp/calls/config', {
@@ -75,32 +74,50 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
       }
     })
     .catch(err => console.error("Error loading calling config:", err));
+
+    // Load SIP Credentials
+    fetch('/api/whatsapp/config', {
+      headers: { 'x-workspace-id': wId }
+    })
+    .then(r => r.json())
+    .then((data: any) => {
+      if (data.config && data.config.sip_uri && data.config.sip_ws_server) {
+        setSipConfig({
+          uri: data.config.sip_uri,
+          wsServer: data.config.sip_ws_server,
+          authorizationUsername: data.config.sip_username,
+          authorizationPassword: data.config.sip_password,
+          displayName: 'Dhitantra WhatsApp Agent'
+        });
+      }
+    })
+    .catch(err => console.error("Error loading SIP config:", err));
   }, []);
 
-  // Update activeCall state based on WebRTC status
+  // Update activeCall state based on SIP status
   useEffect(() => {
-    if (callStatus === 'calling' || callStatus === 'connected') {
+    if (sipStatus === 'calling' || sipStatus === 'connected') {
       // Handled by initiation logic
-    } else if (callStatus === 'ended') {
+    } else if (sipStatus === 'ended' || sipStatus === 'unregistered') {
       Promise.resolve().then(() => {
         setActiveCall(null);
         setIncomingCall(null);
       });
     }
-  }, [callStatus]);
+  }, [sipStatus]);
 
-  // Audio element for WebRTC remote stream
+  // Audio element for SIP remote stream
   useEffect(() => {
-    if (remoteStream) {
+    if (sipRemoteStream) {
       const audio = new Audio();
-      audio.srcObject = remoteStream;
+      audio.srcObject = sipRemoteStream;
       audio.play().catch(e => console.error("Audio play error:", e));
       return () => {
         audio.pause();
         audio.srcObject = null;
       };
     }
-  }, [remoteStream]);
+  }, [sipRemoteStream]);
 
   // Global WebSocket listener for real-time incoming call alerts
   useEffect(() => {
@@ -370,8 +387,8 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                   setActiveTab={setActiveTab} 
                   setActiveCall={setActiveCall} 
                   setPreselectedChat={setPreselectedChat} 
-                  sipConfig={null}
-                  callSip={startCall}
+                  sipConfig={sipConfig}
+                  callSip={callSip}
                 />
               )}
             </motion.div>
@@ -435,9 +452,9 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                 <button
                   onClick={async () => {
                     try {
-                      await answerCall();
+                      await answerSip();
                     } catch(e) {
-                      console.error("WebRTC answer failed", e);
+                      console.error("SIP answer failed", e);
                     }
                     try {
                       await fetch(`/api/whatsapp/calls/${incomingCall.id}/status`, {
@@ -479,7 +496,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                 activeCall={activeCall} 
                 setActiveCall={setActiveCall} 
                 onHangup={async () => {
-                   await hangupCall();
+                   await hangupSip();
                    setActiveCall(null);
                 }}
               />
@@ -1962,6 +1979,12 @@ function SettingsView() {
     const [metaConfigId, setMetaConfigId] = useState("");
     const [replyMode, setReplyMode] = useState("manual");
     
+    // SIP Configuration
+    const [sipUri, setSipUri] = useState("");
+    const [sipWsServer, setSipWsServer] = useState("");
+    const [sipUsername, setSipUsername] = useState("");
+    const [sipPassword, setSipPassword] = useState("");
+
     // Multi-WABA configs state
     const [configs, setConfigs] = useState<any[]>([]);
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -2003,6 +2026,10 @@ function SettingsView() {
       setVerifyToken(cfg.verify_token || "");
       setAccessToken("••••••••••••••••");
       setReplyMode(cfg.reply_mode || "manual");
+      setSipUri(cfg.sip_uri || "");
+      setSipWsServer(cfg.sip_ws_server || "");
+      setSipUsername(cfg.sip_username || "");
+      setSipPassword(cfg.sip_password || "");
       setMessage("अकाउंट संपादित किया जा रहा है...");
     };
 
@@ -2013,6 +2040,10 @@ function SettingsView() {
       setVerifyToken("");
       setAccessToken("");
       setReplyMode("manual");
+      setSipUri("");
+      setSipWsServer("");
+      setSipUsername("");
+      setSipPassword("");
       setMessage("");
     };
 
@@ -2109,6 +2140,10 @@ function SettingsView() {
           setVerifyToken(data.config.verify_token || "");
           setAccessToken("••••••••••••••••"); // Don't show actual token
           setReplyMode(data.config.reply_mode || "manual");
+          setSipUri(data.config.sip_uri || "");
+          setSipWsServer(data.config.sip_ws_server || "");
+          setSipUsername(data.config.sip_username || "");
+          setSipPassword(data.config.sip_password || "");
         }
         if (wId) {
           setWebhookUrl(`${window.location.origin}/api/whatsapp/webhook`);
@@ -2163,7 +2198,11 @@ function SettingsView() {
           phone_number_id: phoneNumberId, 
           waba_id: wabaId,
           verify_token: verifyToken, 
-          reply_mode: replyMode
+          reply_mode: replyMode,
+          sip_uri: sipUri,
+          sip_ws_server: sipWsServer,
+          sip_username: sipUsername,
+          sip_password: sipPassword
         };
         if (accessToken !== "••••••••••••••••") {
           payload.access_token = accessToken;
@@ -2184,6 +2223,10 @@ function SettingsView() {
           setWabaId("");
           setAccessToken("");
           setVerifyToken("");
+          setSipUri("");
+          setSipWsServer("");
+          setSipUsername("");
+          setSipPassword("");
           setEditingId(null);
           loadAllConfigs();
         } else {
@@ -2248,6 +2291,32 @@ function SettingsView() {
                          <div>
                            <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">Webhook Verify Token</label>
                            <input type="text" value={verifyToken} onChange={e => setVerifyToken(e.target.value)} placeholder="अपनी पसंद का कोई भी सीक्रेट टोकन डालें" className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all" />
+                         </div>
+
+                         <div className="mt-6 pt-6 border-t border-zinc-100 dark:border-zinc-800">
+                           <h4 className="block text-sm font-bold text-zinc-900 dark:text-zinc-100 tracking-wider mb-4 flex items-center gap-2">
+                             <PhoneCall className="w-4 h-4 text-emerald-500" /> WhatsApp Voice Calling (SIP WebRTC)
+                           </h4>
+                           <div className="space-y-4">
+                             <div>
+                               <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">SIP URI</label>
+                               <input type="text" value={sipUri} onChange={e => setSipUri(e.target.value)} placeholder="e.g. sip:1234@your-sip-provider.com" className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all" />
+                             </div>
+                             <div>
+                               <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">SIP WebSocket Server</label>
+                               <input type="text" value={sipWsServer} onChange={e => setSipWsServer(e.target.value)} placeholder="e.g. wss://your-sip-provider.com:8089/ws" className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all" />
+                             </div>
+                             <div className="grid grid-cols-2 gap-4">
+                               <div>
+                                 <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">SIP Username</label>
+                                 <input type="text" value={sipUsername} onChange={e => setSipUsername(e.target.value)} placeholder="Username" className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all" />
+                               </div>
+                               <div>
+                                 <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">SIP Password</label>
+                                 <input type="password" value={sipPassword} onChange={e => setSipPassword(e.target.value)} placeholder="Password" className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all" />
+                               </div>
+                             </div>
+                           </div>
                          </div>
 
                          {webhookUrl && (
@@ -3665,14 +3734,17 @@ function CallsView({
       });
       const data: any = await res.json();
       if (data.success && data.callId) {
-        // 2. Start WebRTC call if configured
+        // 2. Start SIP call if configured
         const phone = contact.phone || contact.platform_contact_id || '';
-        if (wId && phone) {
+        if (sipConfig && phone) {
            try {
-              console.log("Initiating WebRTC call via Socket.io to:", phone);
-              await callSip(phone);
+              // Try to construct a SIP target from the phone number and SIP domain
+              const domain = sipConfig.uri.split('@')[1];
+              const target = `sip:${phone}@${domain}`;
+              console.log("Initiating SIP call to:", target);
+              await callSip(target);
            } catch(e) {
-              console.error("WebRTC call failed", e);
+              console.error("SIP call failed", e);
            }
         }
 

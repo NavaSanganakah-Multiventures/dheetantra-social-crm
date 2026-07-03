@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next build && wrangler dev --port 3000",
+    "dev": "NODE_ENV=production next build && wrangler dev --port 3000",
     "build": "next build",
     "deploy": "wrangler d1 migrations apply dhitantra_db_prod --remote && wrangler deploy",
     "start": "next start",
