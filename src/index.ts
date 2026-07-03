@@ -1301,6 +1301,77 @@ app.get('/api/inbox/messages/:conversationId', async (c) => {
   return c.json({ messages: results });
 });
 
+// Update conversation status (open/closed)
+app.post('/api/inbox/conversations/:conversationId/status', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  const conversationId = c.req.param('conversationId');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  const { status } = await c.req.json();
+  if (status !== 'open' && status !== 'closed') {
+    return c.json({ error: 'Invalid status. Must be "open" or "closed"' }, 400);
+  }
+
+  // Validate conversation belongs to workspace
+  const conv = await c.env.DB.prepare('SELECT id FROM conversations WHERE id = ? AND workspace_id = ?').bind(conversationId, workspaceId).first();
+  if (!conv) return c.json({ error: 'Conversation not found or forbidden' }, 404);
+
+  await c.env.DB.prepare('UPDATE conversations SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+    .bind(status, conversationId).run();
+
+  // Broadcast status change via Durable Object
+  try {
+    const doId = c.env.CHAT_DO.idFromName(conversationId);
+    const stub = c.env.CHAT_DO.get(doId);
+    await stub.fetch(new Request('http://do/broadcast', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'conversation_status_updated',
+        conversation_id: conversationId,
+        status
+      })
+    }));
+  } catch (doErr) {
+    console.error("Failed to broadcast status update to DO:", doErr);
+  }
+
+  return c.json({ success: true, status });
+});
+
+// Delete conversation
+app.delete('/api/inbox/conversations/:conversationId', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  const conversationId = c.req.param('conversationId');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  // Validate conversation belongs to workspace
+  const conv = await c.env.DB.prepare('SELECT id FROM conversations WHERE id = ? AND workspace_id = ?').bind(conversationId, workspaceId).first();
+  if (!conv) return c.json({ error: 'Conversation not found or forbidden' }, 404);
+
+  // Delete messages first to maintain database cleanliness
+  await c.env.DB.prepare('DELETE FROM messages WHERE conversation_id = ?').bind(conversationId).run();
+  await c.env.DB.prepare('DELETE FROM conversations WHERE id = ?').bind(conversationId).run();
+
+  // Broadcast deletion via Durable Object
+  try {
+    const doId = c.env.CHAT_DO.idFromName(conversationId);
+    const stub = c.env.CHAT_DO.get(doId);
+    await stub.fetch(new Request('http://do/broadcast', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'conversation_deleted',
+        conversation_id: conversationId
+      })
+    }));
+  } catch (doErr) {
+    console.error("Failed to broadcast deletion to DO:", doErr);
+  }
+
+  return c.json({ success: true, message: 'Conversation deleted successfully' });
+});
+
 // Broadcast Campaign
 app.post('/api/broadcast', async (c) => {
   const { workspaceId, campaignName, textBody, contactIds } = await c.req.json();

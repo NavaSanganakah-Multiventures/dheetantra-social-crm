@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Download,  Bot, MessageSquare, Megaphone, CalendarClock, Settings, LayoutDashboard, Search, Bell, Menu, Send, Paperclip, LogOut, User, Phone, X, History, MapPin, Building2, Tag, ChevronDown, ChevronRight, Activity, Users, Zap, Check, CheckCheck, FileText, Plus, Trash2, Edit } from 'lucide-react';
+import { Download,  Bot, MessageSquare, Megaphone, CalendarClock, Settings, LayoutDashboard, Search, Bell, Menu, Send, Paperclip, LogOut, User, Phone, X, History, MapPin, Building2, Tag, ChevronDown, ChevronRight, Activity, Users, Zap, Check, CheckCheck, FileText, Plus, Trash2, Edit, Archive, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useRouter } from 'next/navigation';
 
@@ -313,6 +313,7 @@ function InboxView() {
   const [isContactPanelOpen, setIsContactPanelOpen] = useState(false);
   const [messageInput, setMessageInput] = useState("");
   const [sending, setSending] = useState(false);
+  const [filterStatus, setFilterStatus] = useState<'open' | 'closed'>('open');
 
   // Multi-WABA and Preview states
   const [configs, setConfigs] = useState<any[]>([]);
@@ -589,6 +590,16 @@ function InboxView() {
                   return [...prev, data.message];
                 });
               }
+            } else if (data.type === 'conversation_status_updated') {
+              fetchConversations();
+              if (activeChat && activeChat.id === data.conversation_id) {
+                setActiveChat((prev: any) => prev ? { ...prev, status: data.status } : null);
+              }
+            } else if (data.type === 'conversation_deleted') {
+              fetchConversations();
+              if (activeChat && activeChat.id === data.conversation_id) {
+                setActiveChat(null);
+              }
             }
           } catch (e) {
             console.error("Error handling ws message", e);
@@ -664,6 +675,51 @@ function InboxView() {
     }
   };
 
+  const updateConversationStatus = async (convId: string, newStatus: 'open' | 'closed') => {
+    try {
+      const wId = localStorage.getItem('workspaceId');
+      const res = await fetch(`/api/inbox/conversations/${convId}/status`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-workspace-id': wId || ''
+        },
+        body: JSON.stringify({ status: newStatus })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setActiveChat((prev: any) => prev && prev.id === convId ? { ...prev, status: newStatus } : prev);
+        setConversations((prev: any[]) => prev.map((c: any) => c.id === convId ? { ...c, status: newStatus } : c));
+      } else {
+        alert(data.error || "अपडेट करने में विफल");
+      }
+    } catch (e) {
+      alert("त्रुटि हुई");
+    }
+  };
+
+  const deleteConversation = async (convId: string) => {
+    if (!confirm("क्या आप वाकई इस बातचीत और इसके सभी संदेशों को हटाना चाहते हैं?")) return;
+    try {
+      const wId = localStorage.getItem('workspaceId');
+      const res = await fetch(`/api/inbox/conversations/${convId}`, {
+        method: 'DELETE',
+        headers: {
+          'x-workspace-id': wId || ''
+        }
+      });
+      const data = await res.json();
+      if (data.success) {
+        setActiveChat(null);
+        setConversations(prev => prev.filter(c => c.id !== convId));
+      } else {
+        alert(data.error || "हटाने में विफल");
+      }
+    } catch (e) {
+      alert("त्रुटि हुई");
+    }
+  };
+
   return (
     <div className="flex h-full bg-white dark:bg-zinc-900 overflow-hidden relative">
       {/* Contact List */}
@@ -710,13 +766,13 @@ function InboxView() {
                 </div>
               </div>
             </div>
-            <div className="flex gap-2 text-xs">
+            <div className="flex gap-2 text-xs items-center justify-between mt-3 pt-2 border-t border-zinc-100 dark:border-zinc-800">
                 <button 
                   onClick={() => {
                     setSelectedWaba({ id: 'all', phone_number_id: 'all' });
                     setActiveChat(null);
                   }}
-                  className={`px-3 py-1.5 rounded-full font-medium transition-all ${
+                  className={`px-3 py-1 rounded-full font-medium transition-all ${
                     selectedWaba && selectedWaba.id === 'all'
                       ? 'bg-indigo-600 text-white border-transparent'
                       : 'bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300'
@@ -724,26 +780,56 @@ function InboxView() {
                 >
                   सभी (Show All)
                 </button>
+
+                <div className="flex bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-lg border border-zinc-200/50 dark:border-zinc-700/50">
+                  <button
+                    onClick={() => { setFilterStatus('open'); setActiveChat(null); }}
+                    className={`px-2.5 py-1 text-[11px] rounded-md font-semibold transition-all ${
+                      filterStatus === 'open'
+                        ? 'bg-white dark:bg-zinc-700 text-indigo-600 dark:text-indigo-400 shadow-xs'
+                        : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'
+                    }`}
+                  >
+                    सक्रिय (Open)
+                  </button>
+                  <button
+                    onClick={() => { setFilterStatus('closed'); setActiveChat(null); }}
+                    className={`px-2.5 py-1 text-[11px] rounded-md font-semibold transition-all ${
+                      filterStatus === 'closed'
+                        ? 'bg-white dark:bg-zinc-700 text-indigo-600 dark:text-indigo-400 shadow-xs'
+                        : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'
+                    }`}
+                  >
+                    बंद (Closed)
+                  </button>
+                </div>
             </div>
         </div>
         <div className="flex-1 overflow-y-auto">
             {loading ? (
                 <div className="p-4 text-sm text-zinc-500">इनबॉक्स लोड हो रहा है...</div>
             ) : conversations.length === 0 ? (
-                 <div className="p-4 text-sm text-zinc-500 border-b border-zinc-100 dark:border-zinc-800/50">कोई सक्रिय संदेश नहीं है। WhatsApp API से कनेक्ट करें।</div>
+                 <div className="p-4 text-sm text-zinc-500 border-b border-zinc-100 dark:border-zinc-800/50">कोई बातचीत नहीं है। WhatsApp API से कनेक्ट करें।</div>
+            ) : conversations.filter(chat => (chat.status || 'open') === filterStatus).length === 0 ? (
+                 <div className="p-4 text-xs text-zinc-400 text-center mt-6">इस श्रेणी में कोई बातचीत नहीं है।</div>
             ) : (
-                conversations.map((chat) => (
+                conversations
+                  .filter(chat => (chat.status || 'open') === filterStatus)
+                  .map((chat) => (
                     <button 
                       key={chat.id} 
                       onClick={() => { setActiveChat(chat); setIsContactPanelOpen(false); }}
                       className={`w-full text-left p-4 border-b border-zinc-100 dark:border-zinc-800/50 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors ${activeChat?.id === chat.id ? 'bg-zinc-100 dark:bg-zinc-800' : ''}`}
                     >
                         <div className="flex justify-between items-start mb-1">
-                          <span className="font-medium text-sm text-zinc-900 dark:text-zinc-100">{chat.contact_name || chat.phone || "अज्ञात"}</span>
+                          <span className="font-medium text-sm text-zinc-900 dark:text-zinc-100">{chat.contact_name || chat.phone || "अमार्ग निर्देशित"}</span>
                           <span className="text-[10px] text-zinc-500">{new Date(chat.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                         </div>
                         <div className="flex justify-between items-center">
                           <span className="text-xs text-zinc-500 truncate pr-4">{chat.phone}</span>
+                          <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase ${chat.status === 'closed' ? 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400' : 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400'}`}>
+                            {chat.status === 'closed' ? 'Closed' : 'Open'}
+                          </span>
                         </div>
                     </button>
                 ))
@@ -787,6 +873,29 @@ function InboxView() {
                     <Bot className="w-4 h-4" />
                     <span className="text-[10px] font-bold uppercase tracking-wider hidden md:inline-block">{currentReplyMode === 'ai' ? 'AI ON' : 'AI OFF'}</span>
                   </button>
+
+                  {/* Close / Reopen Toggle */}
+                  <button 
+                    onClick={() => updateConversationStatus(activeChat.id, activeChat.status === 'closed' ? 'open' : 'closed')}
+                    className={`p-2 rounded-lg transition-colors flex items-center gap-1.5 ${activeChat.status === 'closed' ? 'bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400 hover:bg-amber-100' : 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'}`}
+                    title={activeChat.status === 'closed' ? 'Reopen Conversation' : 'Close Conversation'}
+                  >
+                    <Archive className="w-4 h-4" />
+                    <span className="text-[10px] font-bold uppercase tracking-wider hidden md:inline-block">
+                      {activeChat.status === 'closed' ? 'खोले (Reopen)' : 'बंद करें (Close)'}
+                    </span>
+                  </button>
+
+                  {/* Delete Button */}
+                  <button 
+                    onClick={() => deleteConversation(activeChat.id)}
+                    className="p-2 rounded-lg bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-500/20 transition-colors flex items-center gap-1.5"
+                    title="Delete Conversation"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span className="text-[10px] font-bold uppercase tracking-wider hidden md:inline-block">हटाएं (Delete)</span>
+                  </button>
+
                   <button 
                     onClick={() => setIsContactPanelOpen(!isContactPanelOpen)}
                     className={`p-2 rounded-lg transition-colors ${isContactPanelOpen ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400' : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}
