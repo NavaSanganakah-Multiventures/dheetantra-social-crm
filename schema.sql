@@ -108,11 +108,24 @@ CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id
 -- WhatsApp API Configurations
 CREATE TABLE IF NOT EXISTS whatsapp_configs (
   id TEXT PRIMARY KEY,
-  workspace_id TEXT NOT NULL UNIQUE,
+  workspace_id TEXT NOT NULL,
   phone_number_id TEXT NOT NULL,
+  waba_id TEXT,
   access_token TEXT NOT NULL,
   verify_token TEXT,
   reply_mode TEXT DEFAULT 'manual',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS whatsapp_templates (
+  id TEXT PRIMARY KEY,
+  workspace_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  category TEXT DEFAULT 'UTILITY',
+  language TEXT DEFAULT 'en_US',
+  body_text TEXT NOT NULL,
+  status TEXT DEFAULT 'APPROVED',
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
 );

@@ -45,6 +45,26 @@ async function ensureMultipleWabaSchema(db: any) {
       await db.prepare("ALTER TABLE messages ADD COLUMN message_type TEXT DEFAULT 'text'").run();
     } catch(e) {}
 
+    try {
+      await db.prepare("ALTER TABLE whatsapp_configs ADD COLUMN waba_id TEXT").run();
+    } catch(e) {}
+
+    try {
+      await db.prepare(`
+        CREATE TABLE IF NOT EXISTS whatsapp_templates (
+          id TEXT PRIMARY KEY,
+          workspace_id TEXT NOT NULL,
+          name TEXT NOT NULL,
+          category TEXT DEFAULT 'UTILITY',
+          language TEXT DEFAULT 'en_US',
+          body_text TEXT NOT NULL,
+          status TEXT DEFAULT 'APPROVED',
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
+        )
+      `).run();
+    } catch(e) {}
+
     const tableSql = await db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='whatsapp_configs'").first<{ sql: string }>();
     if (tableSql && tableSql.sql && (tableSql.sql.includes('UNIQUE') || tableSql.sql.includes('unique'))) {
       console.log("Recreating whatsapp_configs table to support multiple manual WABAs...");
@@ -55,6 +75,7 @@ async function ensureMultipleWabaSchema(db: any) {
             id TEXT PRIMARY KEY,
             workspace_id TEXT NOT NULL,
             phone_number_id TEXT NOT NULL,
+            waba_id TEXT,
             access_token TEXT NOT NULL,
             verify_token TEXT,
             reply_mode TEXT DEFAULT 'manual',
@@ -63,8 +84,8 @@ async function ensureMultipleWabaSchema(db: any) {
           )
         `).run();
         await db.prepare(`
-          INSERT OR IGNORE INTO whatsapp_configs (id, workspace_id, phone_number_id, access_token, verify_token, reply_mode, created_at)
-          SELECT id, workspace_id, phone_number_id, access_token, verify_token, COALESCE(reply_mode, 'manual'), created_at FROM whatsapp_configs_old
+          INSERT OR IGNORE INTO whatsapp_configs (id, workspace_id, phone_number_id, waba_id, access_token, verify_token, reply_mode, created_at)
+          SELECT id, workspace_id, phone_number_id, NULL, access_token, verify_token, COALESCE(reply_mode, 'manual'), created_at FROM whatsapp_configs_old
         `).run();
         await db.prepare("DROP TABLE whatsapp_configs_old").run();
         console.log("whatsapp_configs table recreated successfully!");
@@ -627,12 +648,15 @@ app.post('/api/whatsapp/config', async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
-  const { id, phone_number_id, access_token, verify_token, reply_mode } = await c.req.json();
+  const { id, phone_number_id, waba_id, access_token, verify_token, reply_mode } = await c.req.json();
   const newId = id || crypto.randomUUID();
 
   try {
     try {
       await c.env.DB.prepare("ALTER TABLE whatsapp_configs ADD COLUMN reply_mode TEXT DEFAULT 'manual'").run();
+    } catch(e) {}
+    try {
+      await c.env.DB.prepare("ALTER TABLE whatsapp_configs ADD COLUMN waba_id TEXT").run();
     } catch(e) {}
 
     let existing: any = null;
@@ -648,13 +672,13 @@ app.post('/api/whatsapp/config', async (c) => {
 
     if (existing || id) {
       await c.env.DB.prepare(
-        `UPDATE whatsapp_configs SET phone_number_id = ?, access_token = ?, verify_token = ?, reply_mode = ? WHERE id = ?`
-      ).bind(phone_number_id, finalToken, verify_token, finalReplyMode, finalId).run();
+        `UPDATE whatsapp_configs SET phone_number_id = ?, waba_id = ?, access_token = ?, verify_token = ?, reply_mode = ? WHERE id = ?`
+      ).bind(phone_number_id, waba_id || null, finalToken, verify_token, finalReplyMode, finalId).run();
     } else {
       await c.env.DB.prepare(
-        `INSERT INTO whatsapp_configs (id, workspace_id, phone_number_id, access_token, verify_token, reply_mode) 
-         VALUES (?, ?, ?, ?, ?, ?)`
-      ).bind(finalId, workspaceId, phone_number_id, finalToken, verify_token, finalReplyMode).run();
+        `INSERT INTO whatsapp_configs (id, workspace_id, phone_number_id, waba_id, access_token, verify_token, reply_mode) 
+         VALUES (?, ?, ?, ?, ?, ?, ?)`
+      ).bind(finalId, workspaceId, phone_number_id, waba_id || null, finalToken, verify_token, finalReplyMode).run();
     }
     return c.json({ success: true, message: 'WhatsApp config saved', id: finalId });
   } catch (err: any) {
@@ -671,8 +695,11 @@ app.get('/api/whatsapp/config', async (c) => {
     try {
       await c.env.DB.prepare("ALTER TABLE whatsapp_configs ADD COLUMN reply_mode TEXT DEFAULT 'manual'").run();
     } catch(e) {}
+    try {
+      await c.env.DB.prepare("ALTER TABLE whatsapp_configs ADD COLUMN waba_id TEXT").run();
+    } catch(e) {}
     
-    const { results } = await c.env.DB.prepare('SELECT id, phone_number_id, verify_token, reply_mode, created_at FROM whatsapp_configs WHERE workspace_id = ?').bind(workspaceId).all();
+    const { results } = await c.env.DB.prepare('SELECT id, phone_number_id, waba_id, verify_token, reply_mode, created_at FROM whatsapp_configs WHERE workspace_id = ?').bind(workspaceId).all();
     const config = results && results.length > 0 ? results[0] : null;
     return c.json({ config: config || null, configs: results || [] });
   } catch (err: any) {
@@ -689,6 +716,273 @@ app.delete('/api/whatsapp/config/:id', async (c) => {
   try {
     await c.env.DB.prepare('DELETE FROM whatsapp_configs WHERE id = ? AND workspace_id = ?').bind(id, workspaceId).run();
     return c.json({ success: true, message: 'WhatsApp config deleted successfully' });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+// ==========================================
+// WHATSAPP TEMPLATE MANAGEMENT
+// ==========================================
+
+// Get all local and Meta templates
+app.get('/api/whatsapp/templates', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  try {
+    try {
+      await c.env.DB.prepare(`
+        CREATE TABLE IF NOT EXISTS whatsapp_templates (
+          id TEXT PRIMARY KEY,
+          workspace_id TEXT NOT NULL,
+          name TEXT NOT NULL,
+          category TEXT DEFAULT 'UTILITY',
+          language TEXT DEFAULT 'en_US',
+          body_text TEXT NOT NULL,
+          status TEXT DEFAULT 'APPROVED',
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
+        )
+      `).run();
+    } catch(e) {}
+
+    const { results: localTemplates } = await c.env.DB.prepare(
+      'SELECT * FROM whatsapp_templates WHERE workspace_id = ? ORDER BY created_at DESC'
+    ).bind(workspaceId).all();
+
+    const config = await c.env.DB.prepare(
+      'SELECT waba_id, access_token FROM whatsapp_configs WHERE workspace_id = ? ORDER BY created_at DESC'
+    ).bind(workspaceId).first();
+
+    let metaTemplates: any[] = [];
+    let fetchError = null;
+
+    if (config && config.waba_id && config.access_token && config.access_token !== '••••••••••••••••') {
+      try {
+        const res = await fetch(`https://graph.facebook.com/v19.0/${config.waba_id}/message_templates`, {
+          headers: { 'Authorization': `Bearer ${config.access_token}` }
+        });
+        const data: any = await res.json();
+        if (data && data.data) {
+          metaTemplates = data.data.map((t: any) => {
+            const bodyComp = t.components?.find((comp: any) => comp.type === 'BODY');
+            return {
+              id: t.id,
+              name: t.name,
+              category: t.category,
+              language: t.language,
+              body_text: bodyComp ? bodyComp.text : '',
+              status: t.status,
+              is_meta: true
+            };
+          });
+        } else if (data && data.error) {
+          fetchError = data.error.message;
+        }
+      } catch (e: any) {
+        fetchError = e.message;
+      }
+    }
+
+    return c.json({ 
+      success: true, 
+      local: localTemplates || [], 
+      meta: metaTemplates || [],
+      metaError: fetchError
+    });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+// Create/Submit WhatsApp Template
+app.post('/api/whatsapp/templates', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  const { name, category, language, body_text } = await c.req.json();
+  if (!name || !body_text) return c.json({ error: 'Name and body text are required' }, 400);
+
+  const cleanName = name.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_');
+  const templateId = crypto.randomUUID();
+
+  try {
+    try {
+      await c.env.DB.prepare(`
+        CREATE TABLE IF NOT EXISTS whatsapp_templates (
+          id TEXT PRIMARY KEY,
+          workspace_id TEXT NOT NULL,
+          name TEXT NOT NULL,
+          category TEXT DEFAULT 'UTILITY',
+          language TEXT DEFAULT 'en_US',
+          body_text TEXT NOT NULL,
+          status TEXT DEFAULT 'APPROVED',
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
+        )
+      `).run();
+    } catch(e) {}
+
+    const config = await c.env.DB.prepare(
+      'SELECT waba_id, access_token FROM whatsapp_configs WHERE workspace_id = ? ORDER BY created_at DESC'
+    ).bind(workspaceId).first();
+
+    let metaSuccess = false;
+    let metaError = null;
+
+    if (config && config.waba_id && config.access_token && config.access_token !== '••••••••••••••••') {
+      try {
+        const payload = {
+          name: cleanName,
+          category: category || 'UTILITY',
+          language: language || 'en_US',
+          components: [
+            {
+              type: 'BODY',
+              text: body_text
+            }
+          ]
+        };
+
+        const res = await fetch(`https://graph.facebook.com/v19.0/${config.waba_id}/message_templates`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${config.access_token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(payload)
+        });
+        const data: any = await res.json();
+        if (data && data.id) {
+          metaSuccess = true;
+        } else if (data && data.error) {
+          metaError = data.error.message;
+        }
+      } catch (e: any) {
+        metaError = e.message;
+      }
+    }
+
+    await c.env.DB.prepare(
+      `INSERT INTO whatsapp_templates (id, workspace_id, name, category, language, body_text, status) 
+       VALUES (?, ?, ?, ?, ?, ?, ?)`
+    ).bind(
+      templateId, 
+      workspaceId, 
+      cleanName, 
+      category || 'UTILITY', 
+      language || 'en_US', 
+      body_text, 
+      metaSuccess ? 'PENDING' : 'APPROVED'
+    ).run();
+
+    return c.json({ 
+      success: true, 
+      message: metaSuccess ? 'Template submitted to Meta and saved locally!' : 'Template saved locally!',
+      id: templateId,
+      metaSubmitted: metaSuccess,
+      metaError: metaError
+    });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+// Delete local template
+app.delete('/api/whatsapp/templates/:id', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+  const id = c.req.param('id');
+
+  try {
+    await c.env.DB.prepare('DELETE FROM whatsapp_templates WHERE id = ? AND workspace_id = ?').bind(id, workspaceId).run();
+    return c.json({ success: true, message: 'Template deleted successfully' });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+// Send Template Message
+app.post('/api/whatsapp/templates/send', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  const { to, templateName, languageCode, parameters, phoneNumberId } = await c.req.json();
+  if (!to || !templateName) return c.json({ error: 'Missing to or templateName' }, 400);
+
+  try {
+    let config: any = null;
+    if (phoneNumberId) {
+      config = await c.env.DB.prepare('SELECT phone_number_id, access_token FROM whatsapp_configs WHERE workspace_id = ? AND phone_number_id = ?').bind(workspaceId, phoneNumberId).first();
+    }
+    if (!config) {
+      config = await c.env.DB.prepare('SELECT phone_number_id, access_token FROM whatsapp_configs WHERE workspace_id = ?').bind(workspaceId).first();
+    }
+    if (!config) return c.json({ error: 'WhatsApp is not configured for this workspace' }, 400);
+
+    const components: any[] = [];
+    if (parameters && Array.isArray(parameters) && parameters.length > 0) {
+      components.push({
+        type: 'body',
+        parameters: parameters.map(p => ({
+          type: 'text',
+          text: p
+        }))
+      });
+    }
+
+    const payload = {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: to,
+      type: 'template',
+      template: {
+        name: templateName,
+        language: {
+          code: languageCode || 'en_US'
+        },
+        components: components.length > 0 ? components : undefined
+      }
+    };
+
+    const res = await fetch(`https://graph.facebook.com/v19.0/${config.phone_number_id}/messages`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${config.access_token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const data: any = await res.json();
+    if (data.error) {
+      return c.json({ error: data.error.message }, 400);
+    }
+
+    // Save to database as a sent message
+    let contact = await c.env.DB.prepare('SELECT id FROM contacts WHERE workspace_id = ? AND platform_contact_id = ?').bind(workspaceId, to).first();
+    let contactId = contact?.id;
+    if (!contactId) {
+      contactId = crypto.randomUUID();
+      await c.env.DB.prepare('INSERT INTO contacts (id, workspace_id, platform, platform_contact_id, name) VALUES (?, ?, ?, ?, ?)')
+        .bind(contactId, workspaceId, 'whatsapp', to, to).run();
+    }
+
+    let conv = await c.env.DB.prepare('SELECT id FROM conversations WHERE workspace_id = ? AND contact_id = ?').bind(workspaceId, contactId).first();
+    let convId = conv?.id;
+    if (!convId) {
+      convId = crypto.randomUUID();
+      await c.env.DB.prepare('INSERT INTO conversations (id, workspace_id, contact_id, platform, status, phone_number_id) VALUES (?, ?, ?, ?, ?, ?)')
+        .bind(convId, workspaceId, contactId, 'whatsapp', 'open', config.phone_number_id).run();
+    }
+
+    const msgId = crypto.randomUUID();
+    const content = `[Template Message] ${templateName}`;
+    await c.env.DB.prepare('INSERT INTO messages (id, conversation_id, sender_type, message_type, content, platform_message_id) VALUES (?, ?, ?, ?, ?, ?)')
+      .bind(msgId, convId, 'agent', 'text', content, data.messages?.[0]?.id || crypto.randomUUID()).run();
+
+    return c.json({ success: true, message: 'Template message sent successfully!', data });
   } catch (err: any) {
     return c.json({ error: err.message }, 500);
   }
