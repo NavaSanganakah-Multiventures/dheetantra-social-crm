@@ -22,15 +22,20 @@ export class ChatDurableObject extends DurableObject {
       try {
         const data = await request.json();
         const sockets = this.ctx.getWebSockets();
+        console.log(`[DO Broadcast] Sending type=${data.type} to ${sockets.length} WebSocket(s)`);
+        let sent = 0;
         for (const socket of sockets) {
           try {
             socket.send(JSON.stringify(data));
+            sent++;
           } catch (e) {
-            // Ignore closed or dead sockets
+            console.error('[DO Broadcast] Failed to send to WebSocket:', e);
           }
         }
+        console.log(`[DO Broadcast] Successfully sent to ${sent}/${sockets.length} WebSocket(s)`);
         return new Response('OK');
       } catch (err: any) {
+        console.error('[DO Broadcast] Error:', err);
         return new Response(err.message, { status: 500 });
       }
     }
@@ -43,6 +48,8 @@ export class ChatDurableObject extends DurableObject {
 
       // Accept the server end of the WebSocket
       this.ctx.acceptWebSocket(server);
+
+      console.log(`[DO] WebSocket connected. Total sockets after accept: ${this.ctx.getWebSockets().length}`);
 
       return new Response(null, {
         status: 101,
@@ -531,6 +538,71 @@ app.post('/api/whatsapp/webhook', async (c) => {
               console.error('[Calling] change.value is missing or not an object:', change);
               continue;
             }
+            const callsArray = change.value.calls;
+            if (!callsArray || !Array.isArray(callsArray)) continue;
+
+            console.log(`[Calling] ✅ calls field handler FIRED. phone_number_id from payload: ${change.value.metadata?.phone_number_id}`);
+
+            const phoneNumberId = change.value.metadata?.phone_number_id;
+
+            for (const callData of callsArray) {
+              const callId = callData.id;
+              const event = callData.event; // 'connect' | 'terminate' | 'offer'
+              const callerNumber = callData.from;
+              const sdp = callData.session?.sdp;
+              const sdpType = callData.session?.sdp_type;
+              const direction = callData.direction; // 'USER_INITIATED' | 'BUSINESS_INITIATED'
+
+              if (!callId) continue;
+
+              console.log(`[Calling] Event: ${event}, Call ID: ${callId}, From: ${callerNumber}, Direction: ${direction}, HasSDP: ${!!sdp}`);
+
+              const config = await c.env.DB.prepare('SELECT workspace_id FROM whatsapp_configs WHERE phone_number_id = ?')
+                .bind(phoneNumberId).first<{ workspace_id: string }>();
+
+              if (!config) {
+                console.error(`[Calling] ❌ No config found for phone_number_id: ${phoneNumberId}`);
+                continue;
+              }
+
+              console.log(`[Calling] Found workspace_id: ${config.workspace_id} for phone_number_id: ${phoneNumberId}`);
+
+              if (event === 'connect' || event === 'offer') {
+                // Incoming call — save to DB + broadcast to frontend
+                const contactId = `contact-${callerNumber}`;
+                await c.env.DB.prepare('INSERT OR IGNORE INTO contacts (id, workspace_id, platform, name, platform_contact_id) VALUES (?, ?, ?, ?, ?)')
+                  .bind(contactId, config.workspace_id, 'whatsapp', `+${callerNumber}`, callerNumber).run();
+                console.log(`[Calling] Contact saved: ${contactId}`);
+
+                await c.env.DB.prepare(`
+                INSERT OR IGNORE INTO calls (id, workspace_id, contact_id, phone_number_id, caller_number, type, direction, status, duration)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+              `).bind(callId, config.workspace_id, contactId, phoneNumberId, callerNumber, 'voice',
+                  direction === 'BUSINESS_INITIATED' ? 'outgoing' : 'incoming', 'ringing', 0).run();
+                console.log(`[Calling] Call saved to DB: ${callId}`);
+
+                // Broadcast to frontend via Durable Object
+                try {
+                  console.log(`[Calling] Broadcasting to DO: global-${config.workspace_id}`);
+                  const globalDoId = c.env.CHAT_DO.idFromName(`global-${config.workspace_id}`);
+                  const globalDo = c.env.CHAT_DO.get(globalDoId);
+                  const broadcastResp = await globalDo.fetch(new Request('http://internal/broadcast', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                      type: 'whatsapp_incoming_call',
+                      callId: callId,
+                      from: callerNumber,
+                      sdp: sdp,
+                      sdpType: sdpType,
+                      phoneNumberId: phoneNumberId,
+                      direction: direction
+                    })
+                  }));
+                  const broadcastBody = await broadcastResp.text();
+                  console.log(`[Calling] ✅ Broadcast response from DO: ${broadcastBody}`);
+                } catch (e) {
+                  console.error('[Calling] ❌ Failed to broadcast incoming call:', e);
+                }
             const callsArray = change.value.calls;
             if (!callsArray || !Array.isArray(callsArray)) continue;
 
