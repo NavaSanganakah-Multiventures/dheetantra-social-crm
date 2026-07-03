@@ -2468,6 +2468,48 @@ app.get('/api/webrtc/ice-servers', async (c) => {
   }
 });
 
+// POST re-enable calling for a phone number (in case auto-enable failed during config save)
+app.post('/api/whatsapp/calls/re-enable', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  const { phoneNumberId } = await c.req.json();
+  if (!phoneNumberId) return c.json({ error: 'phoneNumberId required' }, 400);
+
+  const config = await c.env.DB.prepare(
+    'SELECT access_token FROM whatsapp_configs WHERE phone_number_id = ? AND workspace_id = ?'
+  ).bind(phoneNumberId, workspaceId).first<{ access_token: string }>();
+
+  if (!config) return c.json({ error: 'WhatsApp config not found' }, 404);
+
+  try {
+    const res = await fetch(`https://graph.facebook.com/v20.0/${phoneNumberId}/settings`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${config.access_token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        calling: {
+          status: 'ENABLED',
+          call_icon_visibility: 'DEFAULT',
+          callback_permission_status: 'ENABLED'
+        }
+      })
+    });
+    const data = await res.json();
+    console.log(`[Calling] Re-enabled calling for ${phoneNumberId}:`, data);
+
+    await c.env.DB.prepare(
+      'UPDATE whatsapp_configs SET calling_enabled = 1 WHERE phone_number_id = ? AND workspace_id = ?'
+    ).bind(phoneNumberId, workspaceId).run();
+
+    return c.json({ success: true, meta_response: data });
+  } catch (e: any) {
+    return c.json({ error: e.message }, 500);
+  }
+});
+
 // GET calling configuration
 app.get('/api/whatsapp/calls/config', async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
