@@ -344,11 +344,42 @@ function InboxView() {
     };
 
     if (attachmentType === 'image' || attachmentType === 'video' || attachmentType === 'document') {
-      if (!mediaUrlInput.trim()) {
-        alert("कृपया मीडिया यूआरएल प्रदान करें");
+      let finalMediaUrl = mediaUrlInput.trim();
+      let finalR2Url = null;
+      if (mediaFileState) {
+         setSending(true);
+         const formData = new FormData();
+         formData.append('file', mediaFileState);
+         
+         try {
+            const uploadRes = await fetch('/api/whatsapp/upload', {
+               method: 'POST',
+               headers: { 'x-workspace-id': localStorage.getItem('workspaceId') || '' },
+               body: formData
+            });
+            const uploadData = await uploadRes.json();
+            if (uploadData.success && uploadData.mediaUrl) {
+               finalMediaUrl = uploadData.mediaUrl;
+               finalR2Url = uploadData.r2Url;
+            } else {
+               alert('File upload failed: ' + uploadData.error);
+               setSending(false);
+               return;
+            }
+         } catch(e) {
+            alert('File upload error');
+            setSending(false);
+            return;
+         }
+      }
+      
+      if (!finalMediaUrl) {
+        alert("कृपया मीडिया चुनें या यूआरएल प्रदान करें");
+        setSending(false);
         return;
       }
-      payload.mediaUrl = mediaUrlInput.trim();
+      payload.mediaUrl = finalMediaUrl;
+      payload.r2Url = finalR2Url;
       if (attachmentType === 'document') {
         payload.filename = docFilenameInput.trim() || 'Document.pdf';
         payload.text = docFilenameInput.trim() || 'Document.pdf';
@@ -568,7 +599,7 @@ function InboxView() {
                   ) : (
                     messages.map(msg => {
                       let displayMediaUrl = msg.media_url;
-                      if (displayMediaUrl && (!displayMediaUrl.startsWith('http') || displayMediaUrl.includes('graph.facebook.com'))) {
+                      if (displayMediaUrl && displayMediaUrl.includes('graph.facebook.com')) {
                           const wId = localStorage.getItem('workspaceId');
                           displayMediaUrl = `/api/whatsapp/media?workspaceId=${wId}&url=${encodeURIComponent(displayMediaUrl)}`;
                       }

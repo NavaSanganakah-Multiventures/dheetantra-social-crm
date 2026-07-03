@@ -319,15 +319,15 @@ app.post('/api/whatsapp/webhook', async (c) => {
             } else if (message.image) {
               messageText = message.image.caption || 'Image Message';
               messageType = 'image';
-              mediaUrl = `https://graph.facebook.com/v19.0/${message.image.id}`;
+              mediaUrl = message.image.id;
             } else if (message.video) {
               messageText = message.video.caption || 'Video Message';
               messageType = 'video';
-              mediaUrl = `https://graph.facebook.com/v19.0/${message.video.id}`;
+              mediaUrl = message.video.id;
             } else if (message.document) {
               messageText = message.document.caption || message.document.filename || 'Document Message';
               messageType = 'document';
-              mediaUrl = `https://graph.facebook.com/v19.0/${message.document.id}`;
+              mediaUrl = message.document.id;
             } else if (message.location) {
               messageText = message.location.name 
                 ? `${message.location.name} (${message.location.address || ''})` 
@@ -352,6 +352,38 @@ app.post('/api/whatsapp/webhook', async (c) => {
 
             console.log(`New ${messageType} message from ${contact.profile.name} (${message.from}):`, messageText);
             
+            // Download media to R2 if needed
+            let finalMediaUrl = mediaUrl;
+            if (['image', 'video', 'document'].includes(messageType) && mediaUrl) {
+               try {
+                  const config = await c.env.DB.prepare('SELECT access_token FROM whatsapp_configs WHERE phone_number_id = ?').bind(phoneNumberId).first();
+                  if (config && config.access_token) {
+                     const res = await fetch(`https://graph.facebook.com/v19.0/${mediaUrl}`, {
+                        headers: { 'Authorization': `Bearer ${config.access_token}` }
+                     });
+                     const data = await res.json();
+                     if (data.url) {
+                        const binaryRes = await fetch(data.url, {
+                           headers: { 'Authorization': `Bearer ${config.access_token}` }
+                        });
+                        const arrayBuffer = await binaryRes.arrayBuffer();
+                        let extension = 'bin';
+                        if (messageType === 'image') extension = 'jpg';
+                        if (messageType === 'video') extension = 'mp4';
+                        if (messageType === 'document') extension = 'pdf';
+                        const key = `${crypto.randomUUID()}.${extension}`;
+                        await c.env.MEDIA_BUCKET.put(key, arrayBuffer, {
+                           httpMetadata: { contentType: binaryRes.headers.get('Content-Type') || 'application/octet-stream' }
+                        });
+                        finalMediaUrl = `/api/public/media/${key}`;
+                     }
+                  }
+               } catch(e) {
+                  console.error("Failed to download media to R2", e);
+                  finalMediaUrl = `https://graph.facebook.com/v19.0/${mediaUrl}`;
+               }
+            }
+
             // Trigger Chatbot Logic for both Cloud API & WhatsApp Business App
             c.executionCtx.waitUntil(
               handleIncomingMessage(
@@ -362,7 +394,7 @@ app.post('/api/whatsapp/webhook', async (c) => {
                 contact.profile.name,
                 message.id,
                 messageType,
-                mediaUrl
+                finalMediaUrl
               )
             );
           } else if (change.value && change.value.statuses) {
@@ -425,11 +457,28 @@ app.get('/api/chat/connect/:roomId', (c) => {
 
 // 4. Media Upload (R2 Storage)
 app.post('/api/media/upload', async (c) => {
-  const body = await c.req.parseBody();
-  const file = body['file'];
-  // Save to R2 bucket
-  // await c.env.MEDIA_BUCKET.put(fileName, file.stream());
-  return c.json({ success: true, url: 'r2_asset_url' });
+  try {
+    const body = await c.req.parseBody();
+    const file = body['file'];
+    
+    if (!file || typeof file === 'string') {
+       return c.json({ error: 'No file uploaded' }, 400);
+    }
+    
+    const arrayBuffer = await file.arrayBuffer();
+    const extension = file.name ? file.name.split('.').pop() : 'bin';
+    const key = `${crypto.randomUUID()}.${extension}`;
+    await c.env.MEDIA_BUCKET.put(key, arrayBuffer, {
+      httpMetadata: { contentType: file.type || 'application/octet-stream' }
+    });
+    
+    const origin = new URL(c.req.url).origin;
+    const r2Url = `${origin}/api/public/media/${key}`;
+    return c.json({ success: true, url: r2Url, mediaUrl: r2Url, r2Url: r2Url });
+  } catch(e: any) {
+    console.error("R2 upload error", e);
+    return c.json({ error: 'Internal Server Error', details: e.message }, 500);
+  }
 });
 
 // 5. Trigger Background Workflow (FCM Notifications / Scheduling)
@@ -599,7 +648,7 @@ app.post('/api/whatsapp/send', async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
-  const { to, text, conversationId, type = 'text', mediaUrl, filename, location, contacts } = await c.req.json();
+  const { to, text, conversationId, type = 'text', mediaUrl, r2Url, filename, location, contacts } = await c.req.json();
   if (!to || !conversationId) return c.json({ error: 'Missing required fields' }, 400);
 
   try {
@@ -615,8 +664,17 @@ app.post('/api/whatsapp/send', async (c) => {
     };
 
 
-    const isMediaId = mediaUrl && !mediaUrl.startsWith('http');
-    const mediaObj = isMediaId ? { id: mediaUrl } : { link: mediaUrl };
+    // Check if it's a relative path starting with / or an absolute URL starting with http
+    const isMediaId = mediaUrl && !mediaUrl.startsWith('http') && !mediaUrl.startsWith('/');
+    
+    // Ensure relative R2 paths are converted to fully qualified absolute public URLs for Meta Cloud API
+    let finalMediaUrl = mediaUrl;
+    if (mediaUrl && mediaUrl.startsWith('/')) {
+      const origin = new URL(c.req.url).origin;
+      finalMediaUrl = `${origin}${mediaUrl}`;
+    }
+    
+    const mediaObj = isMediaId ? { id: mediaUrl } : { link: finalMediaUrl };
 
     if (type === 'text') {
       if (!text) return c.json({ error: 'Text content is required for text messages' }, 400);
@@ -686,7 +744,7 @@ app.post('/api/whatsapp/send', async (c) => {
         'agent', 
         type, 
         contentToSave || null, 
-        mediaUrl || null, 
+        r2Url || mediaUrl || null, 
         metaData.messages?.[0]?.id || crypto.randomUUID()
       ).run();
 
@@ -912,20 +970,12 @@ app.get('/api/whatsapp/media', async (c) => {
 });
 
 
-// Upload media to WhatsApp API
+// Upload media to WhatsApp API (Uses Cloudflare R2 bucket for high reliability and instant URL generation)
 app.post('/api/whatsapp/upload', async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
   try {
-    const config = await c.env.DB.prepare('SELECT access_token, phone_number_id FROM whatsapp_configs WHERE workspace_id = ?').bind(workspaceId).first();
-    if (!config || !config.access_token || !config.phone_number_id) {
-      return c.json({ error: 'WhatsApp not configured' }, 400);
-    }
-    
-    const token = config.access_token;
-    const phoneNumberId = config.phone_number_id;
-
     const body = await c.req.parseBody();
     const file = body['file'];
     
@@ -933,28 +983,43 @@ app.post('/api/whatsapp/upload', async (c) => {
        return c.json({ error: 'No file uploaded' }, 400);
     }
     
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('type', file.type);
-    formData.append('messaging_product', 'whatsapp');
-    
-    const uploadRes = await fetch(`https://graph.facebook.com/v19.0/${phoneNumberId}/media`, {
-       method: 'POST',
-       headers: {
-          'Authorization': `Bearer ${token}`
-       },
-       body: formData
+    // Save to Cloudflare R2 bucket
+    const arrayBuffer = await file.arrayBuffer();
+    const extension = file.name ? file.name.split('.').pop() : 'bin';
+    const key = `${crypto.randomUUID()}.${extension}`;
+    await c.env.MEDIA_BUCKET.put(key, arrayBuffer, {
+      httpMetadata: { contentType: file.type || 'application/octet-stream' }
     });
     
-    const uploadData = await uploadRes.json();
-    if (uploadData.id) {
-       return c.json({ success: true, mediaUrl: uploadData.id });
-    } else {
-       console.error("WA Upload Error", uploadData);
-       return c.json({ error: 'WhatsApp API upload failed', details: uploadData }, 400);
-    }
-  } catch (e) {
+    const origin = new URL(c.req.url).origin;
+    const r2Url = `${origin}/api/public/media/${key}`;
+
+    // Return the absolute public R2 URL for maximum compatibility with Meta API and client dashboard
+    return c.json({ success: true, mediaUrl: r2Url, r2Url: r2Url });
+  } catch (e: any) {
     console.error('Media upload error:', e);
-    return c.json({ error: 'Internal Server Error' }, 500);
+    return c.json({ error: 'Internal Server Error', details: e.message }, 500);
+  }
+});
+
+
+// Serve R2 media publicly
+app.get('/api/public/media/:key', async (c) => {
+  const key = c.req.param('key');
+  try {
+    const object = await c.env.MEDIA_BUCKET.get(key);
+    if (!object) {
+      return c.text('Not found', 404);
+    }
+    const headers = new Headers();
+    object.writeHttpMetadata(headers);
+    headers.set('etag', object.httpEtag);
+    
+    return new Response(object.body, {
+      headers
+    });
+  } catch(e) {
+    console.error("R2 get error", e);
+    return c.text('Internal Server Error', 500);
   }
 });
