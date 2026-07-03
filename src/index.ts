@@ -723,8 +723,27 @@ app.post('/api/whatsapp/webhook', async (c) => {
             const status = statusObj.status; // 'sent', 'delivered', 'read'
             
             try {
-              await c.env.DB.prepare('UPDATE messages SET status = ? WHERE platform_message_id = ?')
-                .bind(status, platformMsgId).run();
+              const msg = await c.env.DB.prepare('SELECT id, conversation_id FROM messages WHERE platform_message_id = ?').bind(platformMsgId).first<{ id: string, conversation_id: string }>();
+              
+              if (msg) {
+                await c.env.DB.prepare('UPDATE messages SET status = ? WHERE id = ?')
+                  .bind(status, msg.id).run();
+                  
+                // Broadcast to conversation DO
+                const doId = c.env.CHAT_DO.idFromName(msg.conversation_id);
+                const stub = c.env.CHAT_DO.get(doId);
+                await stub.fetch(new Request('http://do/broadcast', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    type: 'message_status_updated',
+                    message_id: msg.id,
+                    conversation_id: msg.conversation_id,
+                    status: status,
+                    platformMessageId: platformMsgId
+                  })
+                }));
+              }
             } catch (err: any) {
               console.error("Webhook status error:", err);
             }
@@ -1707,6 +1726,7 @@ app.post('/api/whatsapp/send', async (c) => {
             content: contentToSave || null,
             media_url: mediaUrlToSave,
             platform_message_id: platformMsgId,
+            status: 'sent',
             created_at: new Date().toISOString()
           }
         })

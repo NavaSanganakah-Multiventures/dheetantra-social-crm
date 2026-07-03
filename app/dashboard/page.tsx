@@ -952,6 +952,12 @@ function InboxView({
               if (activeChat && activeChat.id === data.conversation_id) {
                 setActiveChat((prev: any) => prev ? { ...prev, status: data.status } : null);
               }
+            } else if (data.type === 'message_status_updated') {
+              if (activeChat && activeChat.id === data.conversation_id) {
+                setMessages((prev: any[]) => prev.map(m => 
+                  m.id === data.message_id ? { ...m, status: data.status } : m
+                ));
+              }
             } else if (data.type === 'conversation_deleted') {
               fetchConversations();
               if (activeChat && activeChat.id === data.conversation_id) {
