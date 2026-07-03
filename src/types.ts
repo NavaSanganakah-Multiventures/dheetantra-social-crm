@@ -11,4 +11,6 @@ export interface Env {
   WHATSAPP_VERIFY_TOKEN: string;
   WHATSAPP_API_TOKEN: string;
   EMAIL_SENDER: any; // Cloudflare Send Email Binding
+  TURN_KEY_ID: string; // Cloudflare Realtime TURN Key ID
+  TURN_KEY_API_TOKEN: string; // Cloudflare Realtime TURN API Token
 }

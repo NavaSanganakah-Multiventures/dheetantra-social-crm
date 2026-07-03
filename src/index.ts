@@ -189,18 +189,7 @@ async function ensureMultipleWabaSchema(db: any) {
       await db.prepare("ALTER TABLE whatsapp_configs ADD COLUMN calling_enabled INTEGER DEFAULT 1").run();
     } catch(e) {}
 
-    try {
-      await db.prepare("ALTER TABLE whatsapp_configs ADD COLUMN sip_uri TEXT").run();
-    } catch(e) {}
-    try {
-      await db.prepare("ALTER TABLE whatsapp_configs ADD COLUMN sip_ws_server TEXT").run();
-    } catch(e) {}
-    try {
-      await db.prepare("ALTER TABLE whatsapp_configs ADD COLUMN sip_username TEXT").run();
-    } catch(e) {}
-    try {
-      await db.prepare("ALTER TABLE whatsapp_configs ADD COLUMN sip_password TEXT").run();
-    } catch(e) {}
+    // SIP columns removed — using Cloudflare Realtime TURN instead
 
     try {
       await db.prepare(`
@@ -208,16 +197,33 @@ async function ensureMultipleWabaSchema(db: any) {
           id TEXT PRIMARY KEY,
           workspace_id TEXT NOT NULL,
           contact_id TEXT NOT NULL,
+          phone_number_id TEXT,
+          caller_number TEXT,
           type TEXT NOT NULL DEFAULT 'voice',
           direction TEXT NOT NULL DEFAULT 'incoming',
           status TEXT NOT NULL DEFAULT 'missed',
           duration INTEGER DEFAULT 0,
+          recording_url TEXT,
+          hangup_cause TEXT,
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
           FOREIGN KEY (contact_id) REFERENCES contacts(id) ON DELETE CASCADE
         )
       `).run();
     } catch(e) {}
+
+    // Add new columns to existing calls table
+    const callColumns = [
+      "phone_number_id TEXT",
+      "caller_number TEXT",
+      "recording_url TEXT",
+      "hangup_cause TEXT"
+    ];
+    for (const col of callColumns) {
+      try {
+        await db.prepare(`ALTER TABLE calls ADD COLUMN ${col}`).run();
+      } catch (e) {}
+    }
   } catch(e) {
     console.error("Migration check error:", e);
   }
@@ -510,77 +516,122 @@ app.post('/api/whatsapp/webhook', async (c) => {
     if (body.object === 'whatsapp_business_account') {
       for (const entry of body.entry) {
         for (const change of entry.changes) {
-          const isCallEvent = change.value && (
-            change.field === 'calls' || 
-            change.field === 'webrtc' || 
-            (change.field === 'messages' && change.value.messages && change.value.messages[0] && change.value.messages[0].type === 'call')
-          );
+          // ==========================================
+          // OFFICIAL WhatsApp Cloud API Calling Webhook Handler
+          // Field: 'calls' — Meta sends call events here
+          // ==========================================
+          if (change.field === 'calls') {
+            const callData = change.value;
+            const callId = callData.call_id;
+            const event = callData.event; // 'connect' | 'terminate'
+            const callerNumber = callData.from;
+            const phoneNumberId = callData.metadata?.phone_number_id;
+            const sdp = callData.session?.sdp;
+            const sdpType = callData.session?.sdp_type;
+            const direction = callData.direction; // 'USER_INITIATED' | 'BUSINESS_INITIATED'
 
-          if (isCallEvent) {
-            let callEvent = null;
-            if (change.value.calls) callEvent = change.value.calls[0];
-            else if (change.value.webrtc) callEvent = change.value.webrtc[0];
-            else if (change.value.messages && change.value.messages[0] && change.value.messages[0].type === 'call') callEvent = change.value.messages[0];
-            else callEvent = change.value; // fallback
-            
-            if (!callEvent || !callEvent.id) continue;
+            if (!callId) continue;
 
-            const phoneNumberId = change.value.metadata?.phone_number_id;
+            console.log(`[Calling] Event: ${event}, Call ID: ${callId}, From: ${callerNumber}, Direction: ${direction}`);
 
-            if (callEvent.event === 'connect' || callEvent.event === 'ringing' || callEvent.event === 'offer' || callEvent.status === 'ringing' || callEvent.type === 'offer') {
-              console.log(`Incoming call from ${callEvent.from} (Call ID: ${callEvent.id})`);
+            const config = await c.env.DB.prepare('SELECT workspace_id FROM whatsapp_configs WHERE phone_number_id = ?')
+              .bind(phoneNumberId).first<{ workspace_id: string }>();
 
-              // Save call to database
-              const callId = callEvent.id;
-              // We need to find workspace for this phone number
-              const config = await c.env.DB.prepare('SELECT workspace_id FROM whatsapp_configs WHERE phone_number_id = ?').bind(phoneNumberId).first<{ workspace_id: string }>();
-              
-              if (config) {
-                // Ensure contact exists or create dummy
-                const contactId = `contact-${callEvent.from}`;
-                await c.env.DB.prepare('INSERT OR IGNORE INTO contacts (id, workspace_id, platform, name, platform_contact_id) VALUES (?, ?, ?, ?, ?)')
-                  .bind(contactId, config.workspace_id, 'whatsapp', `+${callEvent.from}`, callEvent.from).run();
+            if (!config) {
+              console.error(`[Calling] No config found for phone_number_id: ${phoneNumberId}`);
+              continue;
+            }
 
-                await c.env.DB.prepare(`
-                  INSERT OR IGNORE INTO calls (id, workspace_id, contact_id, type, direction, status, duration)
-                  VALUES (?, ?, ?, ?, ?, ?, ?)
-                `).bind(callId, config.workspace_id, contactId, 'voice', 'incoming', 'ringing', 0).run();
+            if (event === 'connect') {
+              // Incoming call — save to DB + broadcast to frontend
+              const contactId = `contact-${callerNumber}`;
+              await c.env.DB.prepare('INSERT OR IGNORE INTO contacts (id, workspace_id, platform, name, platform_contact_id) VALUES (?, ?, ?, ?, ?)')
+                .bind(contactId, config.workspace_id, 'whatsapp', `+${callerNumber}`, callerNumber).run();
 
-                // Broadcast to frontend to ring!
-                try {
-                  const globalDoId = c.env.CHAT_DO.idFromName(`global-${config.workspace_id}`);
-                  const globalDo = c.env.CHAT_DO.get(globalDoId);
-                  await globalDo.fetch(new Request('http://internal/broadcast', {
-                    method: 'POST',
-                    body: JSON.stringify({
-                      type: 'whatsapp_incoming_call',
-                      callId: callId,
-                      from: callEvent.from,
-                      sdp: callEvent.session?.sdp,
-                      phoneNumberId: phoneNumberId
-                    })
-                  }));
-                } catch (e) {
-                  console.error('Failed to broadcast incoming call:', e);
-                }
+              await c.env.DB.prepare(`
+                INSERT OR IGNORE INTO calls (id, workspace_id, contact_id, phone_number_id, caller_number, type, direction, status, duration)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+              `).bind(callId, config.workspace_id, contactId, phoneNumberId, callerNumber, 'voice', 
+                direction === 'BUSINESS_INITIATED' ? 'outgoing' : 'incoming', 'ringing', 0).run();
+
+              // Broadcast to frontend
+              try {
+                const globalDoId = c.env.CHAT_DO.idFromName(`global-${config.workspace_id}`);
+                const globalDo = c.env.CHAT_DO.get(globalDoId);
+                await globalDo.fetch(new Request('http://internal/broadcast', {
+                  method: 'POST',
+                  body: JSON.stringify({
+                    type: 'whatsapp_incoming_call',
+                    callId: callId,
+                    from: callerNumber,
+                    sdp: sdp,
+                    sdpType: sdpType,
+                    phoneNumberId: phoneNumberId,
+                    direction: direction
+                  })
+                }));
+              } catch (e) {
+                console.error('[Calling] Failed to broadcast incoming call:', e);
               }
-            } else if (callEvent.event === 'terminate') {
-               console.log(`Call terminated: ${callEvent.id}`);
-               const config = await c.env.DB.prepare('SELECT workspace_id FROM whatsapp_configs WHERE phone_number_id = ?').bind(phoneNumberId).first<{ workspace_id: string }>();
-               if (config) {
-                 await c.env.DB.prepare('UPDATE calls SET status = ? WHERE id = ?').bind('ended', callEvent.id).run();
-                 try {
-                  const globalDoId = c.env.CHAT_DO.idFromName(`global-${config.workspace_id}`);
-                  const globalDo = c.env.CHAT_DO.get(globalDoId);
-                  await globalDo.fetch(new Request('http://internal/broadcast', {
-                    method: 'POST',
-                    body: JSON.stringify({
-                      type: 'whatsapp_call_terminated',
-                      callId: callEvent.id
-                    })
-                  }));
-                 } catch(e) {}
-               }
+
+            } else if (event === 'terminate') {
+              console.log(`[Calling] Call terminated: ${callId}`);
+              const hangupCause = callData.hangup_cause || 'normal';
+              const duration = callData.duration || 0;
+
+              // Check if it was a missed call (duration 0 + incoming)
+              const existingCall = await c.env.DB.prepare('SELECT direction, status FROM calls WHERE id = ?')
+                .bind(callId).first<{ direction: string, status: string }>();
+              
+              const wasMissed = existingCall && existingCall.direction === 'incoming' && 
+                existingCall.status === 'ringing' && duration === 0;
+
+              await c.env.DB.prepare('UPDATE calls SET status = ?, duration = ?, hangup_cause = ? WHERE id = ?')
+                .bind(wasMissed ? 'missed' : 'ended', duration, hangupCause, callId).run();
+
+              // Broadcast termination to frontend
+              try {
+                const globalDoId = c.env.CHAT_DO.idFromName(`global-${config.workspace_id}`);
+                const globalDo = c.env.CHAT_DO.get(globalDoId);
+                await globalDo.fetch(new Request('http://internal/broadcast', {
+                  method: 'POST',
+                  body: JSON.stringify({
+                    type: 'whatsapp_call_terminated',
+                    callId: callId,
+                    duration: duration
+                  })
+                }));
+              } catch(e) {}
+
+              // Send missed call notification via FCM
+              if (wasMissed) {
+                c.executionCtx.waitUntil(
+                  (async () => {
+                    try {
+                      const members = await c.env.DB.prepare('SELECT user_id FROM workspace_members WHERE workspace_id = ?')
+                        .bind(config.workspace_id).all<{ user_id: string }>();
+                      if (members.results && members.results.length > 0) {
+                        const userIds = members.results.map(m => m.user_id);
+                        const placeholders = userIds.map(() => '?').join(',');
+                        const tokens = await c.env.DB.prepare(`SELECT token FROM fcm_tokens WHERE user_id IN (${placeholders})`)
+                          .bind(...userIds).all<{ token: string }>();
+                        
+                        const { sendPushNotification } = await import('../lib/fcm');
+                        if (tokens.results) {
+                          for (const row of tokens.results) {
+                            await sendPushNotification(c.env, row.token, 
+                              `मिस्ड कॉल +${callerNumber}`, 
+                              'आपकी एक WhatsApp वॉयस कॉल मिस हो गई', 
+                              { workspaceId: config.workspace_id, type: 'missed_call' });
+                          }
+                        }
+                      }
+                    } catch(e) {
+                      console.error('[Calling] Failed to send missed call notification:', e);
+                    }
+                  })()
+                );
+              }
             }
             continue;
           }
@@ -1235,8 +1286,7 @@ app.post('/api/whatsapp/config', async (c) => {
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
   const { 
-    id, phone_number_id, waba_id, access_token, verify_token, reply_mode,
-    sip_uri, sip_ws_server, sip_username, sip_password 
+    id, phone_number_id, waba_id, access_token, verify_token, reply_mode
   } = await c.req.json();
   const newId = id || crypto.randomUUID();
 
@@ -1247,18 +1297,7 @@ app.post('/api/whatsapp/config', async (c) => {
     try {
       await c.env.DB.prepare("ALTER TABLE whatsapp_configs ADD COLUMN waba_id TEXT").run();
     } catch(e) {}
-    try {
-      await c.env.DB.prepare("ALTER TABLE whatsapp_configs ADD COLUMN sip_uri TEXT").run();
-    } catch(e) {}
-    try {
-      await c.env.DB.prepare("ALTER TABLE whatsapp_configs ADD COLUMN sip_ws_server TEXT").run();
-    } catch(e) {}
-    try {
-      await c.env.DB.prepare("ALTER TABLE whatsapp_configs ADD COLUMN sip_username TEXT").run();
-    } catch(e) {}
-    try {
-      await c.env.DB.prepare("ALTER TABLE whatsapp_configs ADD COLUMN sip_password TEXT").run();
-    } catch(e) {}
+    // SIP columns removed — using Cloudflare Realtime TURN instead
 
     let existing: any = null;
     if (id) {
@@ -1274,25 +1313,49 @@ app.post('/api/whatsapp/config', async (c) => {
     if (existing || id) {
       await c.env.DB.prepare(
         `UPDATE whatsapp_configs SET 
-          phone_number_id = ?, waba_id = ?, access_token = ?, verify_token = ?, reply_mode = ?,
-          sip_uri = ?, sip_ws_server = ?, sip_username = ?, sip_password = ?
+          phone_number_id = ?, waba_id = ?, access_token = ?, verify_token = ?, reply_mode = ?
         WHERE id = ?`
       ).bind(
         phone_number_id, waba_id || null, finalToken, verify_token, finalReplyMode,
-        sip_uri || null, sip_ws_server || null, sip_username || null, sip_password || null,
         finalId
       ).run();
     } else {
       await c.env.DB.prepare(
         `INSERT INTO whatsapp_configs (
-          id, workspace_id, phone_number_id, waba_id, access_token, verify_token, reply_mode,
-          sip_uri, sip_ws_server, sip_username, sip_password
+          id, workspace_id, phone_number_id, waba_id, access_token, verify_token, reply_mode
         ) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+         VALUES (?, ?, ?, ?, ?, ?, ?)`
       ).bind(
-        finalId, workspaceId, phone_number_id, waba_id || null, finalToken, verify_token, finalReplyMode,
-        sip_uri || null, sip_ws_server || null, sip_username || null, sip_password || null
+        finalId, workspaceId, phone_number_id, waba_id || null, finalToken, verify_token, finalReplyMode
       ).run();
+    }
+
+    // Auto-enable calling for this phone number via Meta Graph API
+    if (finalToken && phone_number_id) {
+      c.executionCtx.waitUntil(
+        (async () => {
+          try {
+            const enableRes = await fetch(`https://graph.facebook.com/v20.0/${phone_number_id}/settings`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${finalToken}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                calling: {
+                  status: 'ENABLED',
+                  call_icon_visibility: 'DEFAULT',
+                  callback_permission_status: 'ENABLED'
+                }
+              })
+            });
+            const enableData = await enableRes.json();
+            console.log(`[Calling] Auto-enabled calling for ${phone_number_id}:`, enableData);
+          } catch (e) {
+            console.error(`[Calling] Failed to auto-enable calling for ${phone_number_id}:`, e);
+          }
+        })()
+      );
     }
     return c.json({ success: true, message: 'WhatsApp config saved', id: finalId });
   } catch (err: any) {
@@ -1313,7 +1376,7 @@ app.get('/api/whatsapp/config', async (c) => {
       await c.env.DB.prepare("ALTER TABLE whatsapp_configs ADD COLUMN waba_id TEXT").run();
     } catch(e) {}
     
-    const { results } = await c.env.DB.prepare('SELECT id, phone_number_id, waba_id, verify_token, reply_mode, sip_uri, sip_ws_server, sip_username, sip_password, created_at FROM whatsapp_configs WHERE workspace_id = ?').bind(workspaceId).all();
+    const { results } = await c.env.DB.prepare('SELECT id, phone_number_id, waba_id, verify_token, reply_mode, calling_enabled, created_at FROM whatsapp_configs WHERE workspace_id = ?').bind(workspaceId).all();
     const config = results && results.length > 0 ? results[0] : null;
     return c.json({ config: config || null, configs: results || [] });
   } catch (err: any) {
@@ -2030,60 +2093,73 @@ app.post('/api/whatsapp/calls/:id/status', async (c) => {
   return c.json({ success: true });
 });
 
-// ANSWER a WhatsApp WebRTC call
+// ANSWER a WhatsApp WebRTC call (Official Meta Graph API)
 app.post('/api/whatsapp/calls/:id/answer', async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
   const callId = c.req.param('id');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
-  const { sdp, phoneNumberId, from } = await c.req.json();
-  const config = await c.env.DB.prepare('SELECT access_token FROM whatsapp_configs WHERE workspace_id = ?').bind(workspaceId).first<{ access_token: string }>();
+  const { sdp, phoneNumberId } = await c.req.json();
+  
+  // Find config by phoneNumberId first, then fallback to workspace
+  let config = await c.env.DB.prepare('SELECT access_token FROM whatsapp_configs WHERE phone_number_id = ?')
+    .bind(phoneNumberId).first<{ access_token: string }>();
+  if (!config) {
+    config = await c.env.DB.prepare('SELECT access_token FROM whatsapp_configs WHERE workspace_id = ?')
+      .bind(workspaceId).first<{ access_token: string }>();
+  }
   if (!config) return c.json({ error: 'WhatsApp not configured' }, 400);
 
   const url = `https://graph.facebook.com/v20.0/${phoneNumberId}/calls`;
+  const headers = { 'Authorization': `Bearer ${config.access_token}`, 'Content-Type': 'application/json' };
   
-  // pre_accept
-  await fetch(url, {
+  // Step 1: pre_accept — signal readiness and establish media connection
+  const preAcceptRes = await fetch(url, {
     method: 'POST',
-    headers: { 'Authorization': `Bearer ${config.access_token}`, 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify({
       messaging_product: 'whatsapp',
-      to: from,
+      call_id: callId,
       action: 'pre_accept',
-      call_id: callId,
       session: { sdp: sdp, sdp_type: 'answer' }
     })
   });
+  const preAcceptData: any = await preAcceptRes.json();
+  console.log('[Calling] pre_accept response:', JSON.stringify(preAcceptData));
 
-  // accept
-  const res = await fetch(url, {
+  // Step 2: accept — formally answer the call
+  const acceptRes = await fetch(url, {
     method: 'POST',
-    headers: { 'Authorization': `Bearer ${config.access_token}`, 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify({
       messaging_product: 'whatsapp',
-      to: from,
-      action: 'accept',
       call_id: callId,
+      action: 'accept',
       session: { sdp: sdp, sdp_type: 'answer' }
     })
   });
-
-  const data = await res.json();
+  const acceptData: any = await acceptRes.json();
+  console.log('[Calling] accept response:', JSON.stringify(acceptData));
   
   await c.env.DB.prepare('UPDATE calls SET status = ? WHERE id = ? AND workspace_id = ?')
     .bind('in_progress', callId, workspaceId).run();
 
-  return c.json({ success: true, data });
+  return c.json({ success: true, preAccept: preAcceptData, accept: acceptData });
 });
 
-// TERMINATE a WhatsApp WebRTC call
+// TERMINATE a WhatsApp WebRTC call (Official Meta Graph API)
 app.post('/api/whatsapp/calls/:id/terminate', async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
   const callId = c.req.param('id');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
   const { phoneNumberId } = await c.req.json();
-  const config = await c.env.DB.prepare('SELECT access_token FROM whatsapp_configs WHERE workspace_id = ?').bind(workspaceId).first<{ access_token: string }>();
+  let config = await c.env.DB.prepare('SELECT access_token FROM whatsapp_configs WHERE phone_number_id = ?')
+    .bind(phoneNumberId).first<{ access_token: string }>();
+  if (!config) {
+    config = await c.env.DB.prepare('SELECT access_token FROM whatsapp_configs WHERE workspace_id = ?')
+      .bind(workspaceId).first<{ access_token: string }>();
+  }
   if (!config) return c.json({ error: 'WhatsApp not configured' }, 400);
 
   const url = `https://graph.facebook.com/v20.0/${phoneNumberId}/calls`;
@@ -2093,15 +2169,52 @@ app.post('/api/whatsapp/calls/:id/terminate', async (c) => {
     headers: { 'Authorization': `Bearer ${config.access_token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       messaging_product: 'whatsapp',
-      action: 'terminate', // or reject depending on state, but terminate works for active calls
-      call_id: callId
+      call_id: callId,
+      action: 'terminate'
     })
   });
 
-  const data = await res.json();
+  const data: any = await res.json();
+  console.log('[Calling] terminate response:', JSON.stringify(data));
 
   await c.env.DB.prepare('UPDATE calls SET status = ? WHERE id = ? AND workspace_id = ?')
     .bind('ended', callId, workspaceId).run();
+
+  return c.json({ success: true, data });
+});
+
+// REJECT an incoming WhatsApp call (Official Meta Graph API)
+app.post('/api/whatsapp/calls/:id/reject', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  const callId = c.req.param('id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  const { phoneNumberId } = await c.req.json();
+  let config = await c.env.DB.prepare('SELECT access_token FROM whatsapp_configs WHERE phone_number_id = ?')
+    .bind(phoneNumberId).first<{ access_token: string }>();
+  if (!config) {
+    config = await c.env.DB.prepare('SELECT access_token FROM whatsapp_configs WHERE workspace_id = ?')
+      .bind(workspaceId).first<{ access_token: string }>();
+  }
+  if (!config) return c.json({ error: 'WhatsApp not configured' }, 400);
+
+  const url = `https://graph.facebook.com/v20.0/${phoneNumberId}/calls`;
+  
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${config.access_token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      messaging_product: 'whatsapp',
+      call_id: callId,
+      action: 'reject'
+    })
+  });
+
+  const data: any = await res.json();
+  console.log('[Calling] reject response:', JSON.stringify(data));
+
+  await c.env.DB.prepare('UPDATE calls SET status = ? WHERE id = ? AND workspace_id = ?')
+    .bind('declined', callId, workspaceId).run();
 
   return c.json({ success: true, data });
 });
@@ -2131,7 +2244,7 @@ app.post('/api/whatsapp/calls/recordings', async (c) => {
   }
 });
 
-// TOGGLE calling configuration
+// TOGGLE calling configuration — syncs with Meta Graph API
 app.post('/api/whatsapp/calls/toggle', async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
@@ -2142,7 +2255,83 @@ app.post('/api/whatsapp/calls/toggle', async (c) => {
   await c.env.DB.prepare('UPDATE whatsapp_configs SET calling_enabled = ? WHERE workspace_id = ?')
     .bind(enabledValue, workspaceId).run();
 
+  // Sync with Meta Graph API for all phone numbers in this workspace
+  c.executionCtx.waitUntil(
+    (async () => {
+      try {
+        const configs = await c.env.DB.prepare('SELECT phone_number_id, access_token FROM whatsapp_configs WHERE workspace_id = ?')
+          .bind(workspaceId).all<{ phone_number_id: string, access_token: string }>();
+        if (configs.results) {
+          for (const cfg of configs.results) {
+            await fetch(`https://graph.facebook.com/v20.0/${cfg.phone_number_id}/settings`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${cfg.access_token}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                calling: { status: calling_enabled ? 'ENABLED' : 'DISABLED' }
+              })
+            });
+          }
+        }
+      } catch (e) {
+        console.error('[Calling] Failed to sync calling toggle with Meta:', e);
+      }
+    })()
+  );
+
   return c.json({ success: true, calling_enabled: enabledValue === 1 });
+});
+
+// ==========================================
+// CLOUDFLARE REALTIME TURN CREDENTIALS
+// ==========================================
+app.get('/api/webrtc/ice-servers', async (c) => {
+  try {
+    // Try KV first, then env variables
+    const turnKeyId = await c.env.SECRETS_KV.get('TURN_KEY_ID') || c.env.TURN_KEY_ID;
+    const turnToken = await c.env.SECRETS_KV.get('TURN_KEY_API_TOKEN') || c.env.TURN_KEY_API_TOKEN;
+
+    if (!turnKeyId || !turnToken) {
+      // Fallback to free STUN only if TURN not configured
+      return c.json({
+        iceServers: [
+          { urls: 'stun:stun.cloudflare.com:3478' },
+          { urls: 'stun:stun.l.google.com:19302' }
+        ]
+      });
+    }
+
+    const res = await fetch(
+      `https://rtc.live.cloudflare.com/v1/turn/keys/${turnKeyId}/credentials/generate-ice-servers`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${turnToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ ttl: 86400 }) // 24 hours
+      }
+    );
+
+    const data: any = await res.json();
+
+    // Add Cloudflare STUN as fallback
+    const iceServers = data.iceServers || [];
+    iceServers.unshift({ urls: 'stun:stun.cloudflare.com:3478' });
+
+    return c.json({ iceServers });
+  } catch (err: any) {
+    console.error('[TURN] Failed to generate ICE servers:', err);
+    // Fallback to STUN only
+    return c.json({
+      iceServers: [
+        { urls: 'stun:stun.cloudflare.com:3478' },
+        { urls: 'stun:stun.l.google.com:19302' }
+      ]
+    });
+  }
 });
 
 // GET calling configuration

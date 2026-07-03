@@ -87,7 +87,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
 
   // Update activeCall state based on WebRTC status
   useEffect(() => {
-    if (rtcStatus === 'calling' || rtcStatus === 'connected') {
+    if (rtcStatus === 'connecting' || rtcStatus === 'connected') {
       // Handled by initiation logic
     } else if (rtcStatus === 'ended' || rtcStatus === 'idle') {
       Promise.resolve().then(() => {
@@ -2027,12 +2027,6 @@ function SettingsView() {
     const [webhookUrl, setWebhookUrl] = useState("");
     const [metaConfigId, setMetaConfigId] = useState("");
     const [replyMode, setReplyMode] = useState("manual");
-    
-    // SIP Configuration
-    const [sipUri, setSipUri] = useState("");
-    const [sipWsServer, setSipWsServer] = useState("");
-    const [sipUsername, setSipUsername] = useState("");
-    const [sipPassword, setSipPassword] = useState("");
 
     // Multi-WABA configs state
     const [configs, setConfigs] = useState<any[]>([]);
@@ -2075,10 +2069,6 @@ function SettingsView() {
       setVerifyToken(cfg.verify_token || "");
       setAccessToken("••••••••••••••••");
       setReplyMode(cfg.reply_mode || "manual");
-      setSipUri(cfg.sip_uri || "");
-      setSipWsServer(cfg.sip_ws_server || "");
-      setSipUsername(cfg.sip_username || "");
-      setSipPassword(cfg.sip_password || "");
       setMessage("अकाउंट संपादित किया जा रहा है...");
     };
 
@@ -2089,10 +2079,6 @@ function SettingsView() {
       setVerifyToken("");
       setAccessToken("");
       setReplyMode("manual");
-      setSipUri("");
-      setSipWsServer("");
-      setSipUsername("");
-      setSipPassword("");
       setMessage("");
     };
 
@@ -2189,10 +2175,6 @@ function SettingsView() {
           setVerifyToken(data.config.verify_token || "");
           setAccessToken("••••••••••••••••"); // Don't show actual token
           setReplyMode(data.config.reply_mode || "manual");
-          setSipUri(data.config.sip_uri || "");
-          setSipWsServer(data.config.sip_ws_server || "");
-          setSipUsername(data.config.sip_username || "");
-          setSipPassword(data.config.sip_password || "");
         }
         if (wId) {
           setWebhookUrl(`${window.location.origin}/api/whatsapp/webhook`);
@@ -2247,11 +2229,7 @@ function SettingsView() {
           phone_number_id: phoneNumberId, 
           waba_id: wabaId,
           verify_token: verifyToken, 
-          reply_mode: replyMode,
-          sip_uri: sipUri,
-          sip_ws_server: sipWsServer,
-          sip_username: sipUsername,
-          sip_password: sipPassword
+          reply_mode: replyMode
         };
         if (accessToken !== "••••••••••••••••") {
           payload.access_token = accessToken;
@@ -2272,10 +2250,6 @@ function SettingsView() {
           setWabaId("");
           setAccessToken("");
           setVerifyToken("");
-          setSipUri("");
-          setSipWsServer("");
-          setSipUsername("");
-          setSipPassword("");
           setEditingId(null);
           loadAllConfigs();
         } else {
@@ -2349,20 +2323,20 @@ function SettingsView() {
                            <div className="space-y-4">
                              <div>
                                <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">SIP URI</label>
-                               <input type="text" value={sipUri} onChange={e => setSipUri(e.target.value)} placeholder="e.g. sip:1234@your-sip-provider.com" className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all" />
+                               <input type="text" value={""} onChange={e => {}} placeholder="e.g. sip:1234@your-sip-provider.com" className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all" />
                              </div>
                              <div>
                                <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">SIP WebSocket Server</label>
-                               <input type="text" value={sipWsServer} onChange={e => setSipWsServer(e.target.value)} placeholder="e.g. wss://your-sip-provider.com:8089/ws" className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all" />
+                               <input type="text" value={""} onChange={e => {}} placeholder="e.g. wss://your-sip-provider.com:8089/ws" className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all" />
                              </div>
                              <div className="grid grid-cols-2 gap-4">
                                <div>
                                  <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">SIP Username</label>
-                                 <input type="text" value={sipUsername} onChange={e => setSipUsername(e.target.value)} placeholder="Username" className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all" />
+                                 <input type="text" value={""} onChange={e => {}} placeholder="Username" className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all" />
                                </div>
                                <div>
                                  <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">SIP Password</label>
-                                 <input type="password" value={sipPassword} onChange={e => setSipPassword(e.target.value)} placeholder="Password" className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all" />
+                                 <input type="password" value={""} onChange={e => {}} placeholder="Password" className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all" />
                                </div>
                              </div>
                            </div>
@@ -4178,17 +4152,7 @@ function ActiveCallManager({ activeCall, setActiveCall, onHangup, remoteStream, 
     }
   }, [isMuted, localStream]);
 
-  // Transition outgoing dialing to connected after 3 seconds (simulated if SIP doesn't connect)
-  useEffect(() => {
-    if (activeCall.direction === 'outgoing' && activeCall.status === 'ringing') {
-      const connectTimeout = setTimeout(async () => {
-        if (activeCall.status === 'ringing') {
-          setActiveCall((prev: any) => prev ? { ...prev, status: 'connected', connectedAt: Date.now() } : null);
-        }
-      }, 5000);
-      return () => clearTimeout(connectTimeout);
-    }
-  }, [activeCall.status, activeCall.direction, setActiveCall]);
+  // Outgoing calls will be connected by WebRTC events, no fake simulation needed
 
   // Live seconds timer
   useEffect(() => {
