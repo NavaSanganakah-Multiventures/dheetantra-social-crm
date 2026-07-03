@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Download,  Bot, MessageSquare, Megaphone, CalendarClock, Settings, LayoutDashboard, Search, Bell, Menu, Send, Paperclip, LogOut, User, Phone, PhoneCall, X, History, MapPin, Building2, Tag, ChevronDown, ChevronRight, Activity, Users, Zap, Check, CheckCheck, FileText, Plus, Trash2, Edit, Archive, RefreshCw, Instagram, Facebook, Mail, TrendingUp, Coins } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useRouter } from 'next/navigation';
-import { useSip, SipConfig } from '@/lib/hooks/useSip';
+import { useWhatsAppWebRTC } from '@/lib/hooks/useWhatsAppWebRTC';
 
 type activeTab = 'dashboard' | 'inbox' | 'broadcast' | 'templates' | 'schedule' | 'settings' | 'contacts' | 'calls';
 
@@ -54,9 +54,8 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
   const [incomingCall, setIncomingCall] = useState<any>(null);
   const [activeCall, setActiveCall] = useState<any>(null);
   const [callingEnabled, setCallingEnabled] = useState<boolean>(true);
-  const [sipConfig, setSipConfig] = useState<SipConfig | null>(null);
 
-  const { status: sipStatus, answer: answerSip, hangup: hangupSip, call: callSip, remoteStream: sipRemoteStream } = useSip(sipConfig);
+  const { status: rtcStatus, answer: answerWebRTC, hangup: hangupWebRTC, handleRemoteHangup, remoteStream: rtcRemoteStream } = useWhatsAppWebRTC();
 
   // Load Calling Config and SIP Settings
   useEffect(() => {
@@ -81,43 +80,34 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
     })
     .then(r => r.json())
     .then((data: any) => {
-      if (data.config && data.config.sip_uri && data.config.sip_ws_server) {
-        setSipConfig({
-          uri: data.config.sip_uri,
-          wsServer: data.config.sip_ws_server,
-          authorizationUsername: data.config.sip_username,
-          authorizationPassword: data.config.sip_password,
-          displayName: 'Dhitantra WhatsApp Agent'
-        });
-      }
     })
     .catch(err => console.error("Error loading SIP config:", err));
   }, []);
 
-  // Update activeCall state based on SIP status
+  // Update activeCall state based on WebRTC status
   useEffect(() => {
-    if (sipStatus === 'calling' || sipStatus === 'connected') {
+    if (rtcStatus === 'calling' || rtcStatus === 'connected') {
       // Handled by initiation logic
-    } else if (sipStatus === 'ended' || sipStatus === 'unregistered') {
+    } else if (rtcStatus === 'ended' || rtcStatus === 'idle') {
       Promise.resolve().then(() => {
         setActiveCall(null);
         setIncomingCall(null);
       });
     }
-  }, [sipStatus]);
+  }, [rtcStatus]);
 
   // Audio element for SIP remote stream
   useEffect(() => {
-    if (sipRemoteStream) {
+    if (rtcRemoteStream) {
       const audio = new Audio();
-      audio.srcObject = sipRemoteStream;
+      audio.srcObject = rtcRemoteStream;
       audio.play().catch(e => console.error("Audio play error:", e));
       return () => {
         audio.pause();
         audio.srcObject = null;
       };
     }
-  }, [sipRemoteStream]);
+  }, [rtcRemoteStream]);
 
   // Global WebSocket listener for real-time incoming call alerts
   useEffect(() => {
@@ -138,9 +128,23 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
         socket.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data);
-            if (data.type === 'incoming_call' && data.call) {
+            if ((data.type === 'incoming_call' && data.call) || data.type === 'whatsapp_incoming_call') {
               if (callingEnabled) {
-                setIncomingCall(data.call);
+                if (data.type === 'whatsapp_incoming_call') {
+                   setIncomingCall({
+                     id: data.callId,
+                     from: data.from,
+                     contact_name: '+' + data.from,
+                     phone: data.from,
+                     status: 'ringing',
+                     direction: 'incoming',
+                     sdp: data.sdp,
+                     phoneNumberId: data.phoneNumberId,
+                     workspace_id: localStorage.getItem('workspaceId')
+                   });
+                } else {
+                   setIncomingCall(data.call);
+                }
                 // Simple high-fidelity Web Audio Ringtone
                 try {
                   const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -163,12 +167,19 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                   }, 2000);
                 } catch(e) {}
               }
-            } else if (data.type === 'call_status_updated') {
-              if (incomingCall && incomingCall.id === data.call_id) {
-                setIncomingCall((prev: any) => prev ? { ...prev, status: data.status } : null);
+            } else if (data.type === 'call_status_updated' || data.type === 'whatsapp_call_terminated') {
+              const callIdToUpdate = data.call_id || data.callId;
+              const newStatus = data.status || 'ended';
+              
+              if (data.type === 'whatsapp_call_terminated') {
+                 handleRemoteHangup();
               }
-              if (activeCall && activeCall.id === data.call_id) {
-                setActiveCall((prev: any) => prev ? { ...prev, status: data.status, duration: data.duration } : null);
+              
+              if (incomingCall && incomingCall.id === callIdToUpdate) {
+                setIncomingCall((prev: any) => prev ? { ...prev, status: newStatus } : null);
+              }
+              if (activeCall && activeCall.id === callIdToUpdate) {
+                setActiveCall((prev: any) => prev ? { ...prev, status: newStatus, duration: data.duration } : null);
               }
             }
           } catch (e) {
@@ -387,8 +398,6 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                   setActiveTab={setActiveTab} 
                   setActiveCall={setActiveCall} 
                   setPreselectedChat={setPreselectedChat} 
-                  sipConfig={sipConfig}
-                  callSip={callSip}
                 />
               )}
             </motion.div>
@@ -452,9 +461,15 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                 <button
                   onClick={async () => {
                     try {
-                      await answerSip();
+                      await answerWebRTC({
+                        id: incomingCall.id,
+                        from: incomingCall.from || incomingCall.phone,
+                        sdp: incomingCall.sdp,
+                        phoneNumberId: incomingCall.phoneNumberId,
+                        workspace_id: incomingCall.workspace_id
+                      });
                     } catch(e) {
-                      console.error("SIP answer failed", e);
+                      console.error("WebRTC answer failed", e);
                     }
                     try {
                       await fetch(`/api/whatsapp/calls/${incomingCall.id}/status`, {
@@ -496,7 +511,13 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                 activeCall={activeCall} 
                 setActiveCall={setActiveCall} 
                 onHangup={async () => {
-                   await hangupSip();
+                   await hangupWebRTC({
+                     id: activeCall.id,
+                     from: activeCall.from || activeCall.phone,
+                     sdp: activeCall.sdp,
+                     phoneNumberId: activeCall.phoneNumberId,
+                     workspace_id: activeCall.workspace_id
+                   });
                    setActiveCall(null);
                 }}
               />
@@ -3628,14 +3649,10 @@ function CallsView({
   setActiveTab, 
   setActiveCall, 
   setPreselectedChat,
-  sipConfig,
-  callSip
 }: { 
   setActiveTab: (tab: activeTab) => void, 
   setActiveCall: (call: any) => void, 
   setPreselectedChat: (chat: any) => void,
-  sipConfig: any,
-  callSip: (target: string) => Promise<void>
 }) {
   const [calls, setCalls] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -3734,32 +3751,7 @@ function CallsView({
       });
       const data: any = await res.json();
       if (data.success && data.callId) {
-        // 2. Start SIP call if configured
-        const phone = contact.phone || contact.platform_contact_id || '';
-        if (sipConfig && phone) {
-           try {
-              // Try to construct a SIP target from the phone number and SIP domain
-              const domain = sipConfig.uri.split('@')[1];
-              const target = `sip:${phone}@${domain}`;
-              console.log("Initiating SIP call to:", target);
-              await callSip(target);
-           } catch(e) {
-              console.error("SIP call failed", e);
-           }
-        }
-
-        setActiveCall({
-          id: data.callId,
-          workspace_id: wId,
-          contact_id: contact.id,
-          contact_name: contact.name,
-          phone: phone,
-          type: 'voice',
-          direction: 'outgoing',
-          status: 'ringing',
-          created_at: new Date().toISOString()
-        });
-        setShowDialer(false);
+        alert("Outbound calls are currently not supported by the WhatsApp Business API. You can only receive incoming calls.");
       }
     } catch(e) {
       console.error(e);

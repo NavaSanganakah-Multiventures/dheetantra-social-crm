@@ -506,6 +506,68 @@ app.post('/api/whatsapp/webhook', async (c) => {
     if (body.object === 'whatsapp_business_account') {
       for (const entry of body.entry) {
         for (const change of entry.changes) {
+          if (change.field === 'calls' && change.value && change.value.calls) {
+            const callEvent = change.value.calls[0];
+            const phoneNumberId = change.value.metadata?.phone_number_id;
+
+            if (callEvent.event === 'connect') {
+              console.log(`Incoming call from ${callEvent.from} (Call ID: ${callEvent.id})`);
+
+              // Save call to database
+              const callId = callEvent.id;
+              // We need to find workspace for this phone number
+              const config = await c.env.DB.prepare('SELECT workspace_id FROM whatsapp_configs WHERE phone_number_id = ?').bind(phoneNumberId).first<{ workspace_id: string }>();
+              
+              if (config) {
+                // Ensure contact exists or create dummy
+                const contactId = `contact-${callEvent.from}`;
+                await c.env.DB.prepare('INSERT OR IGNORE INTO contacts (id, workspace_id, name, platform_contact_id) VALUES (?, ?, ?, ?)')
+                  .bind(contactId, config.workspace_id, `+${callEvent.from}`, callEvent.from).run();
+
+                await c.env.DB.prepare(`
+                  INSERT OR IGNORE INTO calls (id, workspace_id, contact_id, type, direction, status, duration)
+                  VALUES (?, ?, ?, ?, ?, ?, ?)
+                `).bind(callId, config.workspace_id, contactId, 'voice', 'incoming', 'ringing', 0).run();
+
+                // Broadcast to frontend to ring!
+                try {
+                  const globalDoId = c.env.CHAT_DO.idFromName(`global-${config.workspace_id}`);
+                  const globalDo = c.env.CHAT_DO.get(globalDoId);
+                  await globalDo.fetch(new Request('http://internal/broadcast', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                      type: 'whatsapp_incoming_call',
+                      callId: callId,
+                      from: callEvent.from,
+                      sdp: callEvent.session?.sdp,
+                      phoneNumberId: phoneNumberId
+                    })
+                  }));
+                } catch (e) {
+                  console.error('Failed to broadcast incoming call:', e);
+                }
+              }
+            } else if (callEvent.event === 'terminate') {
+               console.log(`Call terminated: ${callEvent.id}`);
+               const config = await c.env.DB.prepare('SELECT workspace_id FROM whatsapp_configs WHERE phone_number_id = ?').bind(phoneNumberId).first<{ workspace_id: string }>();
+               if (config) {
+                 await c.env.DB.prepare('UPDATE calls SET status = ? WHERE id = ?').bind('ended', callEvent.id).run();
+                 try {
+                  const globalDoId = c.env.CHAT_DO.idFromName(`global-${config.workspace_id}`);
+                  const globalDo = c.env.CHAT_DO.get(globalDoId);
+                  await globalDo.fetch(new Request('http://internal/broadcast', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                      type: 'whatsapp_call_terminated',
+                      callId: callEvent.id
+                    })
+                  }));
+                 } catch(e) {}
+               }
+            }
+            continue;
+          }
+
           if (change.value && change.value.messages) {
             const message = change.value.messages[0];
             const contact = change.value.contacts[0];
@@ -1772,6 +1834,82 @@ app.post('/api/whatsapp/calls/:id/status', async (c) => {
   } catch (e) {}
 
   return c.json({ success: true });
+});
+
+// ANSWER a WhatsApp WebRTC call
+app.post('/api/whatsapp/calls/:id/answer', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  const callId = c.req.param('id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  const { sdp, phoneNumberId, from } = await c.req.json();
+  const config = await c.env.DB.prepare('SELECT access_token FROM whatsapp_configs WHERE workspace_id = ?').bind(workspaceId).first<{ access_token: string }>();
+  if (!config) return c.json({ error: 'WhatsApp not configured' }, 400);
+
+  const url = `https://graph.facebook.com/v20.0/${phoneNumberId}/calls`;
+  
+  // pre_accept
+  await fetch(url, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${config.access_token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      messaging_product: 'whatsapp',
+      to: from,
+      action: 'pre_accept',
+      call_id: callId,
+      session: { sdp: sdp, sdp_type: 'answer' }
+    })
+  });
+
+  // accept
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${config.access_token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      messaging_product: 'whatsapp',
+      to: from,
+      action: 'accept',
+      call_id: callId,
+      session: { sdp: sdp, sdp_type: 'answer' }
+    })
+  });
+
+  const data = await res.json();
+  
+  await c.env.DB.prepare('UPDATE calls SET status = ? WHERE id = ? AND workspace_id = ?')
+    .bind('in_progress', callId, workspaceId).run();
+
+  return c.json({ success: true, data });
+});
+
+// TERMINATE a WhatsApp WebRTC call
+app.post('/api/whatsapp/calls/:id/terminate', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  const callId = c.req.param('id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  const { phoneNumberId } = await c.req.json();
+  const config = await c.env.DB.prepare('SELECT access_token FROM whatsapp_configs WHERE workspace_id = ?').bind(workspaceId).first<{ access_token: string }>();
+  if (!config) return c.json({ error: 'WhatsApp not configured' }, 400);
+
+  const url = `https://graph.facebook.com/v20.0/${phoneNumberId}/calls`;
+  
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${config.access_token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      messaging_product: 'whatsapp',
+      action: 'terminate', // or reject depending on state, but terminate works for active calls
+      call_id: callId
+    })
+  });
+
+  const data = await res.json();
+
+  await c.env.DB.prepare('UPDATE calls SET status = ? WHERE id = ? AND workspace_id = ?')
+    .bind('ended', callId, workspaceId).run();
+
+  return c.json({ success: true, data });
 });
 
 // TOGGLE calling configuration
