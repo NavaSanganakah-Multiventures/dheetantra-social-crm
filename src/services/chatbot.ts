@@ -85,6 +85,31 @@ export async function handleIncomingMessage(
           VALUES (?, ?, 'contact', ?, ?, ?, ?)
         `).bind(incomingMessageId, conversationId, messageType, messageText, mediaUrl || null, messageId).run();
         console.log(`[handleIncomingMessage] Incoming message saved. id=${incomingMessageId}`);
+
+        // Broadcast incoming message via Durable Object
+        try {
+          const doId = env.CHAT_DO.idFromName(conversationId);
+          const stub = env.CHAT_DO.get(doId);
+          await stub.fetch(new Request('http://do/broadcast', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: 'new_message',
+              message: {
+                id: incomingMessageId,
+                conversation_id: conversationId,
+                sender_type: 'contact',
+                message_type: messageType,
+                content: messageText || null,
+                media_url: mediaUrl || null,
+                platform_message_id: messageId,
+                created_at: new Date().toISOString()
+              }
+            })
+          }));
+        } catch (doErr) {
+          console.error("Failed to broadcast incoming message to DO:", doErr);
+        }
       }
 
     } catch (error) {
@@ -252,6 +277,31 @@ export async function sendWhatsAppMessage(
             INSERT INTO messages (id, conversation_id, sender_type, message_type, content, media_url, platform_message_id)
             VALUES (?, ?, 'bot', ?, ?, ?, ?)
           `).bind(sentMessageId, conversationId, messageType, message, mediaUrl || null, platformMsgId).run();
+
+          // Broadcast bot reply via Durable Object
+          try {
+            const doId = env.CHAT_DO.idFromName(conversationId);
+            const stub = env.CHAT_DO.get(doId);
+            await stub.fetch(new Request('http://do/broadcast', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                type: 'new_message',
+                message: {
+                  id: sentMessageId,
+                  conversation_id: conversationId,
+                  sender_type: 'bot',
+                  message_type: messageType,
+                  content: message || null,
+                  media_url: mediaUrl || null,
+                  platform_message_id: platformMsgId,
+                  created_at: new Date().toISOString()
+                }
+              })
+            }));
+          } catch (doErr) {
+            console.error("Failed to broadcast bot reply to DO:", doErr);
+          }
         } catch (dbError) {
            console.error('Failed to save bot reply to DB:', dbError);
         }

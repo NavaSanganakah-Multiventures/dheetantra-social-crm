@@ -14,7 +14,68 @@ export class ChatDurableObject extends DurableObject {
   }
 
   async fetch(request: Request) {
-    return new Response('Chat Durable Object Not Implemented Yet', { status: 501 });
+    const url = new URL(request.url);
+
+    // If it's a POST to /broadcast, broadcast the JSON body to all connected WebSockets
+    if (request.method === 'POST' && url.pathname.endsWith('/broadcast')) {
+      try {
+        const data = await request.json();
+        const sockets = this.ctx.getWebSockets();
+        for (const socket of sockets) {
+          try {
+            socket.send(JSON.stringify(data));
+          } catch (e) {
+            // Ignore closed or dead sockets
+          }
+        }
+        return new Response('OK');
+      } catch (err: any) {
+        return new Response(err.message, { status: 500 });
+      }
+    }
+
+    // Handle WebSocket upgrade
+    const upgradeHeader = request.headers.get('Upgrade');
+    if (upgradeHeader === 'websocket') {
+      const pair = new WebSocketPair();
+      const [client, server] = Object.values(pair);
+
+      // Accept the server end of the WebSocket
+      this.ctx.acceptWebSocket(server);
+
+      return new Response(null, {
+        status: 101,
+        webSocket: client,
+      });
+    }
+
+    return new Response('Chat Durable Object Endpoint', { status: 200 });
+  }
+
+  async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer) {
+    // Forward message to all other connected clients
+    const text = typeof message === 'string' ? message : new TextDecoder().decode(message);
+    try {
+      const data = JSON.parse(text);
+      const sockets = this.ctx.getWebSockets();
+      for (const socket of sockets) {
+        if (socket !== ws) {
+          try {
+            socket.send(JSON.stringify(data));
+          } catch (e) {}
+        }
+      }
+    } catch (e) {
+      console.error("Error parsing/relaying WebSocket message:", e);
+    }
+  }
+
+  async webSocketClose(ws: WebSocket, code: number, reason: string, wasClean: boolean) {
+    ws.close(code, reason);
+  }
+
+  async webSocketError(ws: WebSocket, error: any) {
+    console.error("WebSocket error:", error);
   }
 }
 
@@ -986,8 +1047,33 @@ app.post('/api/whatsapp/templates/send', async (c) => {
 
     const msgId = crypto.randomUUID();
     const content = `[Template Message] ${templateName}`;
+    const platformMsgId = data.messages?.[0]?.id || crypto.randomUUID();
     await c.env.DB.prepare('INSERT INTO messages (id, conversation_id, sender_type, message_type, content, platform_message_id) VALUES (?, ?, ?, ?, ?, ?)')
-      .bind(msgId, convId, 'agent', 'text', content, data.messages?.[0]?.id || crypto.randomUUID()).run();
+      .bind(msgId, convId, 'agent', 'text', content, platformMsgId).run();
+
+    // Broadcast template message via Durable Object
+    try {
+      const doId = c.env.CHAT_DO.idFromName(convId);
+      const stub = c.env.CHAT_DO.get(doId);
+      await stub.fetch(new Request('http://do/broadcast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'new_message',
+          message: {
+            id: msgId,
+            conversation_id: convId,
+            sender_type: 'agent',
+            message_type: 'text',
+            content,
+            platform_message_id: platformMsgId,
+            created_at: new Date().toISOString()
+          }
+        })
+      }));
+    } catch (doErr) {
+      console.error("Failed to broadcast template message to DO:", doErr);
+    }
 
     return c.json({ success: true, message: 'Template message sent successfully!', data });
   } catch (err: any) {
@@ -1124,20 +1210,49 @@ app.post('/api/whatsapp/send', async (c) => {
       contentToSave = filename || 'Document.pdf';
     }
 
+    const savedMessageId = crypto.randomUUID();
+    const platformMsgId = metaData.messages?.[0]?.id || crypto.randomUUID();
+    const mediaUrlToSave = r2Url || mediaUrl || null;
+
     await c.env.DB.prepare('INSERT INTO messages (id, conversation_id, sender_type, message_type, content, media_url, platform_message_id) VALUES (?, ?, ?, ?, ?, ?, ?)')
       .bind(
-        crypto.randomUUID(), 
+        savedMessageId, 
         conversationId, 
         'agent', 
         type, 
         contentToSave || null, 
-        r2Url || mediaUrl || null, 
-        metaData.messages?.[0]?.id || crypto.randomUUID()
+        mediaUrlToSave, 
+        platformMsgId
       ).run();
 
     // Update conversation
     await c.env.DB.prepare('UPDATE conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = ?')
       .bind(conversationId).run();
+
+    // Broadcast message via Durable Object
+    try {
+      const doId = c.env.CHAT_DO.idFromName(conversationId);
+      const stub = c.env.CHAT_DO.get(doId);
+      await stub.fetch(new Request('http://do/broadcast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'new_message',
+          message: {
+            id: savedMessageId,
+            conversation_id: conversationId,
+            sender_type: 'agent',
+            message_type: type,
+            content: contentToSave || null,
+            media_url: mediaUrlToSave,
+            platform_message_id: platformMsgId,
+            created_at: new Date().toISOString()
+          }
+        })
+      }));
+    } catch (doErr) {
+      console.error("Failed to broadcast message to DO:", doErr);
+    }
 
     return c.json({ success: true, message: 'Message sent successfully' });
   } catch (err: any) {

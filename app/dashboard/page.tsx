@@ -558,12 +558,77 @@ function InboxView() {
   };
 
   useEffect(() => {
-    if (activeChat) {
-      loadMessages(activeChat.id);
-      const interval = setInterval(() => loadMessages(activeChat.id), 5000);
-      return () => clearInterval(interval);
+    if (!activeChat) return;
+
+    // Load initial messages
+    loadMessages(activeChat.id);
+
+    // Setup WebSocket for instant real-time updates
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/api/chat/connect/${activeChat.id}`;
+    let socket: WebSocket | null = null;
+    let reconnectTimeout: any = null;
+    let active = true;
+
+    function connectWs() {
+      if (!active) return;
+      try {
+        socket = new WebSocket(wsUrl);
+
+        socket.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data.type === 'new_message' && data.message) {
+              // Refresh active conversations list to bubble up updated chat
+              fetchConversations();
+
+              // Append message if it belongs to this active chat
+              if (data.message.conversation_id === activeChat.id) {
+                setMessages(prev => {
+                  if (prev.some(m => m.id === data.message.id)) return prev;
+                  return [...prev, data.message];
+                });
+              }
+            }
+          } catch (e) {
+            console.error("Error handling ws message", e);
+          }
+        };
+
+        socket.onclose = () => {
+          // Attempt to reconnect in 3 seconds if still active
+          if (active) {
+            reconnectTimeout = setTimeout(connectWs, 3000);
+          }
+        };
+
+        socket.onerror = () => {
+          if (socket) socket.close();
+        };
+      } catch (err) {
+        console.error("WebSocket connection error:", err);
+        if (active) {
+          reconnectTimeout = setTimeout(connectWs, 3000);
+        }
+      }
     }
-  }, [activeChat, configs]);
+
+    connectWs();
+
+    // Still poll at a larger interval (10 seconds) as a bulletproof fail-safe
+    const failSafeInterval = setInterval(() => {
+      loadMessages(activeChat.id);
+    }, 10000);
+
+    return () => {
+      active = false;
+      clearInterval(failSafeInterval);
+      if (reconnectTimeout) clearTimeout(reconnectTimeout);
+      if (socket) {
+        socket.close();
+      }
+    };
+  }, [activeChat, fetchConversations]);
 
   const sendMessage = async () => {
     if (!messageInput.trim() || !activeChat || sending) return;
