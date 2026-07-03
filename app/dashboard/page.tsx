@@ -53,6 +53,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
   const [preselectedChat, setPreselectedChat] = useState<any>(null);
 
   const [incomingCall, setIncomingCall] = useState<any>(null);
+  const [incomingCallNoSdp, setIncomingCallNoSdp] = useState<any>(null);
   const [activeCall, setActiveCall] = useState<any>(null);
   const [callingEnabled, setCallingEnabled] = useState<boolean>(true);
 
@@ -86,6 +87,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
       Promise.resolve().then(() => {
         setActiveCall(null);
         setIncomingCall(null);
+        setIncomingCallNoSdp(null);
       });
     }
   }, [rtcStatus]);
@@ -102,6 +104,36 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
       };
     }
   }, [rtcRemoteStream]);
+
+  // Call timeout ref for auto-dismiss after 30s
+  const callTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Auto-dismiss incoming call after 30 seconds (Meta timeout)
+  useEffect(() => {
+    if (incomingCall && incomingCall.status === 'ringing') {
+      callTimeoutRef.current = setTimeout(async () => {
+        const wId = localStorage.getItem('workspaceId');
+        if (wId && incomingCall.phoneNumberId) {
+          try {
+            await fetch(`/api/whatsapp/calls/${incomingCall.id}/reject`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'x-workspace-id': wId },
+              body: JSON.stringify({ phoneNumberId: incomingCall.phoneNumberId })
+            });
+          } catch(e) {}
+          await fetch(`/api/whatsapp/calls/${incomingCall.id}/status`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-workspace-id': wId },
+            body: JSON.stringify({ status: 'missed', duration: 0 })
+          }).catch(() => {});
+        }
+        setIncomingCall(null);
+      }, 30000);
+    }
+    return () => {
+      if (callTimeoutRef.current) clearTimeout(callTimeoutRef.current);
+    };
+  }, [incomingCall?.id, incomingCall?.status]);
 
   // Global WebSocket listener for real-time incoming call alerts
   const incomingCallRef = useRef(incomingCall);
@@ -127,23 +159,22 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
         socket.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data);
-            if ((data.type === 'incoming_call' && data.call) || data.type === 'whatsapp_incoming_call') {
-              if (data.type === 'whatsapp_incoming_call') {
-                 setIncomingCall({
-                   id: data.callId,
-                   from: data.from,
-                   contact_name: '+' + data.from,
-                   phone: data.from,
-                   status: 'ringing',
-                   direction: 'incoming',
-                   sdp: data.sdp,
-                   phoneNumberId: data.phoneNumberId,
-                   workspace_id: user?.workspace_id || localStorage.getItem('workspaceId')
-                 });
-              } else {
-                 setIncomingCall(data.call);
-              }
-              // Simple high-fidelity Web Audio Ringtone
+            if (data.type === 'whatsapp_incoming_call') {
+              // Calls field handler — has SDP, user can answer
+              setIncomingCall({
+                id: data.callId,
+                from: data.from,
+                contact_name: '+' + data.from,
+                phone: data.from,
+                status: 'ringing',
+                direction: 'incoming',
+                sdp: data.sdp,
+                phoneNumberId: data.phoneNumberId,
+                workspace_id: user?.workspace_id || localStorage.getItem('workspaceId')
+              });
+              // Clear any no-sdp notification
+              setIncomingCallNoSdp(null);
+              // Play ringtone for answerable call
               try {
                 const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
                 let count = 0;
@@ -158,12 +189,24 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                   osc.connect(gain);
                   gain.connect(audioCtx.destination);
                   osc.type = 'sine';
-                  osc.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5
+                  osc.frequency.setValueAtTime(587.33, audioCtx.currentTime);
                   gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
                   osc.start();
                   osc.stop(audioCtx.currentTime + 1.2);
                 }, 2000);
               } catch(e) {}
+            } else if (data.type === 'incoming_call' && data.call) {
+              // System message fallback — NO SDP, show as missed call notification
+              setIncomingCallNoSdp({
+                id: data.call.id,
+                contact_name: data.call.contact_name,
+                phone: data.call.phone,
+                phoneNumberId: data.call.phoneNumberId,
+                workspace_id: data.call.workspace_id,
+                created_at: data.call.created_at
+              });
+              // Auto-dismiss after 8 seconds
+              setTimeout(() => setIncomingCallNoSdp(null), 8000);
             } else if (data.type === 'call_status_updated' || data.type === 'whatsapp_call_terminated') {
               const callIdToUpdate = data.call_id || data.callId;
               const newStatus = data.status || 'ended';
@@ -172,6 +215,9 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                  handleRemoteHangup();
               }
               
+              if (incomingCallNoSdp && incomingCallNoSdp.id === callIdToUpdate) {
+                setIncomingCallNoSdp(null);
+              }
               if (incomingCallRef.current && incomingCallRef.current.id === callIdToUpdate) {
                 setIncomingCall((prev: any) => prev ? { ...prev, status: newStatus } : null);
               }
@@ -443,6 +489,18 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                 <button
                   onClick={async () => {
                     try {
+                      // Meta API reject (stops ringing on caller's side)
+                      if (incomingCall.phoneNumberId) {
+                        await fetch(`/api/whatsapp/calls/${incomingCall.id}/reject`, {
+                          method: 'POST',
+                          headers: {
+                            'Content-Type': 'application/json',
+                            'x-workspace-id': incomingCall.workspace_id
+                          },
+                          body: JSON.stringify({ phoneNumberId: incomingCall.phoneNumberId })
+                        });
+                      }
+                      // Local DB status update
                       await fetch(`/api/whatsapp/calls/${incomingCall.id}/status`, {
                         method: 'POST',
                         headers: {
@@ -530,7 +588,37 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                    });
                    setActiveCall(null);
                 }}
-              />
+               />
+            </motion.div>
+          </div>
+        )}
+
+        {/* 3. Missed Call Toast (from system_call without SDP — calls field not subscribed in Meta) */}
+        {incomingCallNoSdp && (
+          <div className="fixed top-4 right-4 left-4 sm:left-auto sm:w-96 z-50">
+            <motion.div
+              initial={{ x: 100, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: 100, opacity: 0 }}
+              className="bg-zinc-950 border border-zinc-800/80 rounded-2xl p-4 shadow-2xl text-white flex items-start gap-3"
+            >
+              <div className="w-10 h-10 rounded-full bg-rose-500/20 flex items-center justify-center flex-shrink-0">
+                <Phone className="w-5 h-5 text-rose-400" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h4 className="text-sm font-bold text-white">मिस्ड कॉल (Missed Call)</h4>
+                <p className="text-xs text-zinc-400 mt-0.5 truncate">
+                  {incomingCallNoSdp.contact_name || 'अज्ञात'} ({incomingCallNoSdp.phone || 'unknown'})
+                </p>
+                <div className="flex gap-2 mt-2">
+                  <span className="text-[10px] text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-full">
+                    ⚠️ WhatsApp Cloud API में "calls" field subscribe नहीं है
+                  </span>
+                </div>
+              </div>
+              <button onClick={() => setIncomingCallNoSdp(null)} className="text-zinc-500 hover:text-white flex-shrink-0">
+                <X className="w-4 h-4" />
+              </button>
             </motion.div>
           </div>
         )}
@@ -4132,74 +4220,7 @@ function ActiveCallManager({ activeCall, setActiveCall, onHangup, remoteStream, 
     }
   }, [activeCall.status]);
 
-  const [isRecording, setIsRecording] = useState(false);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<BlobPart[]>([]);
-
-  const toggleRecording = useCallback(() => {
-    if (isRecording) {
-      if (mediaRecorderRef.current) {
-        mediaRecorderRef.current.stop();
-      }
-      setIsRecording(false);
-    } else {
-      if (remoteStream || localStream) {
-        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-        const dest = audioContext.createMediaStreamDestination();
-        
-        if (localStream) {
-          const source1 = audioContext.createMediaStreamSource(localStream);
-          source1.connect(dest);
-        }
-        if (remoteStream) {
-          const source2 = audioContext.createMediaStreamSource(remoteStream);
-          source2.connect(dest);
-        }
-        
-        const recorder = new MediaRecorder(dest.stream);
-        chunksRef.current = [];
-        
-        recorder.ondataavailable = (e) => {
-          if (e.data && e.data.size > 0) {
-            chunksRef.current.push(e.data);
-          }
-        };
-        
-        recorder.onstop = async () => {
-          const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
-          const formData = new FormData();
-          formData.append('file', blob, `call-${activeCall.id}.webm`);
-          
-          try {
-            await fetch('/api/whatsapp/calls/recordings', {
-              method: 'POST',
-              headers: {
-                'x-workspace-id': activeCall.workspace_id
-              },
-              body: formData
-            });
-            console.log('Recording uploaded!');
-          } catch(err) {
-            console.error('Failed to upload recording:', err);
-          }
-        };
-        
-        recorder.start();
-        mediaRecorderRef.current = recorder;
-        setIsRecording(true);
-      } else {
-        alert("Audio stream not available for recording.");
-      }
-    }
-  }, [isRecording, remoteStream, localStream, activeCall]);
-
-  useEffect(() => {
-    return () => {
-      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-        mediaRecorderRef.current.stop();
-      }
-    };
-  }, []);
+  // Recording handled by useWhatsAppWebRTC hook (uploaded on hangup)
 
   const endCall = async () => {
     try {
@@ -4264,14 +4285,7 @@ function ActiveCallManager({ activeCall, setActiveCall, onHangup, remoteStream, 
           >
             Speaker
           </button>
-          {/* Record toggle button */}
-          <button 
-            onClick={toggleRecording}
-            className={`p-1.5 px-2.5 rounded-lg text-[10px] font-bold transition-all ${isRecording ? 'bg-rose-500/20 text-rose-400 hover:bg-rose-500/30' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white'}`}
-            title={isRecording ? 'Stop Recording' : 'Record'}
-          >
-            {isRecording ? 'Recording...' : 'Record'}
-          </button>
+          {/* Recording handled by useWhatsAppWebRTC hook */}
         </div>
 
         {/* End Call Button */}
