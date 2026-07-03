@@ -6,6 +6,7 @@ import { handleIncomingMessage } from './services/chatbot';
 import { DurableObject, WorkflowEntrypoint } from 'cloudflare:workers';
 import { EmailMessage } from 'cloudflare:email';
 import metaOauth from './routes/meta-oauth';
+import adminRouter from './routes/admin';
 import { schemaSql, dropSql } from './schema';
 
 export class ChatDurableObject extends DurableObject {
@@ -237,6 +238,7 @@ app.use('/api/inbox/*', async (c, next) => {
 });
 
 app.route('/api/meta', metaOauth);
+app.route('/api/admin', adminRouter);
 
 // Health Check
 app.get('/api/health', (c) => {
