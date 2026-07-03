@@ -1192,12 +1192,13 @@ app.post('/api/inbox/conversations/initiate', async (c) => {
 });
 
 // 3. Real-Time Chat (Durable Objects + SQLite)
-app.get('/api/chat/connect/:roomId', (c) => {
+app.get('/api/chat/connect/:roomId', async (c) => {
   const roomId = c.req.param('roomId');
   // Route WebSocket upgrade request to the Durable Object
   const id = c.env.CHAT_DO.idFromName(roomId);
   const stub = c.env.CHAT_DO.get(id);
-  return stub.fetch(c.req.raw);
+  const resp = await stub.fetch(c.req.raw);
+  return resp;
 });
 
 // 4. Media Upload (R2 Storage)
