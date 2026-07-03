@@ -5,7 +5,7 @@ import { Download,  Bot, MessageSquare, Megaphone, CalendarClock, Settings, Layo
 import { motion, AnimatePresence } from 'motion/react';
 import { useRouter } from 'next/navigation';
 
-type activeTab = 'dashboard' | 'inbox' | 'broadcast' | 'templates' | 'schedule' | 'settings' | 'contacts';
+type activeTab = 'dashboard' | 'inbox' | 'broadcast' | 'templates' | 'schedule' | 'settings' | 'contacts' | 'calls';
 
 export default function DashboardWrapper() {
   const [user, setUser] = useState<any>(null);
@@ -49,6 +49,105 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [openConversationsCount, setOpenConversationsCount] = useState<number>(0);
   const [preselectedChat, setPreselectedChat] = useState<any>(null);
+
+  const [incomingCall, setIncomingCall] = useState<any>(null);
+  const [activeCall, setActiveCall] = useState<any>(null);
+  const [callingEnabled, setCallingEnabled] = useState<boolean>(true);
+
+  // Load Calling Config
+  useEffect(() => {
+    const wId = localStorage.getItem('workspaceId');
+    if (!wId) return;
+    fetch('/api/whatsapp/calls/config', {
+      headers: { 'x-workspace-id': wId }
+    })
+    .then(r => r.json())
+    .then((data: any) => {
+      if (data.calling_enabled !== undefined) {
+        setCallingEnabled(data.calling_enabled);
+      }
+    })
+    .catch(err => console.error("Error loading calling config:", err));
+  }, []);
+
+  // Global WebSocket listener for real-time incoming call alerts
+  useEffect(() => {
+    const wId = localStorage.getItem('workspaceId');
+    if (!wId) return;
+
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/api/chat/connect/global-${wId}`;
+    let socket: WebSocket | null = null;
+    let reconnectTimeout: any = null;
+    let active = true;
+
+    function connectGlobalWs() {
+      if (!active) return;
+      try {
+        socket = new WebSocket(wsUrl);
+
+        socket.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data.type === 'incoming_call' && data.call) {
+              if (callingEnabled) {
+                setIncomingCall(data.call);
+                // Simple high-fidelity Web Audio Ringtone
+                try {
+                  const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+                  let count = 0;
+                  let ringInterval = setInterval(() => {
+                    if (!active || count > 5) {
+                      clearInterval(ringInterval);
+                      return;
+                    }
+                    count++;
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5
+                    gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 1.2);
+                  }, 2000);
+                } catch(e) {}
+              }
+            } else if (data.type === 'call_status_updated') {
+              if (incomingCall && incomingCall.id === data.call_id) {
+                setIncomingCall((prev: any) => prev ? { ...prev, status: data.status } : null);
+              }
+              if (activeCall && activeCall.id === data.call_id) {
+                setActiveCall((prev: any) => prev ? { ...prev, status: data.status, duration: data.duration } : null);
+              }
+            }
+          } catch (e) {
+            console.error("Error handling global WS message:", e);
+          }
+        };
+
+        socket.onclose = () => {
+          if (active) reconnectTimeout = setTimeout(connectGlobalWs, 3000);
+        };
+
+        socket.onerror = () => {
+          if (socket) socket.close();
+        };
+      } catch (err) {
+        console.error("Global WS connection error:", err);
+        if (active) reconnectTimeout = setTimeout(connectGlobalWs, 3000);
+      }
+    }
+
+    connectGlobalWs();
+
+    return () => {
+      active = false;
+      if (reconnectTimeout) clearTimeout(reconnectTimeout);
+      if (socket) socket.close();
+    };
+  }, [callingEnabled, incomingCall, activeCall]);
 
   useEffect(() => {
     const checkScreenSize = () => {
@@ -122,6 +221,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
               <NavItem icon={<LayoutDashboard />} label="डैशबोर्ड" isActive={activeTab === 'dashboard'} onClick={() => { setActiveTab('dashboard'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
               <NavItem icon={<MessageSquare />} label="इनबॉक्स" isActive={activeTab === 'inbox'} onClick={() => { setActiveTab('inbox'); if (window.innerWidth < 768) setSidebarOpen(false); }} badge={openConversationsCount > 0 ? openConversationsCount.toString() : undefined} />
               <NavItem icon={<Users />} label="संपर्क और लीड्स" isActive={activeTab === 'contacts'} onClick={() => { setActiveTab('contacts'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
+              <NavItem icon={<Phone />} label="कॉल लॉग्स" isActive={activeTab === 'calls'} onClick={() => { setActiveTab('calls'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
               
               <div className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-4 mt-8 px-3">मार्केटिंग</div>
               <NavItem icon={<Megaphone />} label="ब्रॉडकास्ट" isActive={activeTab === 'broadcast'} onClick={() => { setActiveTab('broadcast'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
@@ -158,7 +258,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
               <Menu className="w-5 h-5" />
             </button>
             <h1 className="text-lg font-bold capitalize text-zinc-900 dark:text-white font-display">
-              {activeTab === 'dashboard' ? 'डैशबोर्ड' : activeTab === 'inbox' ? 'इनबॉक्स' : activeTab === 'broadcast' ? 'ब्रॉडकास्ट' : activeTab === 'schedule' ? 'शेड्यूलर' : activeTab === 'contacts' ? 'संपर्क और लीड्स' : activeTab === 'templates' ? 'टेंपलेट्स' : 'सेटिंग्स'}
+              {activeTab === 'dashboard' ? 'डैशबोर्ड' : activeTab === 'inbox' ? 'इनबॉक्स' : activeTab === 'broadcast' ? 'ब्रॉडकास्ट' : activeTab === 'schedule' ? 'शेड्यूलर' : activeTab === 'contacts' ? 'संपर्क और लीड्स' : activeTab === 'templates' ? 'टेंपलेट्स' : activeTab === 'calls' ? 'कॉल लॉग्स' : 'सेटिंग्स'}
             </h1>
           </div>
           
@@ -179,7 +279,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
         </header>
 
         {/* Dynamic View Area */}
-        <main className="flex-1 overflow-y-auto relative bg-zinc-50 dark:bg-zinc-950/50">
+        <main className={`flex-1 relative bg-zinc-50 dark:bg-zinc-950/50 ${activeTab === 'inbox' ? 'h-[calc(100vh-4rem)] overflow-hidden flex flex-col' : 'overflow-y-auto'}`}>
           <AnimatePresence mode="wait">
             <motion.div
               key={activeTab}
@@ -187,19 +287,155 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.2 }}
-              className="min-h-full flex flex-col"
+              className={`flex flex-col ${activeTab === 'inbox' ? 'h-full overflow-hidden flex-1' : 'min-h-full'}`}
             >
               {activeTab === 'dashboard' && <DashboardOverview />}
-              {activeTab === 'inbox' && <InboxView preselectedChat={preselectedChat} setPreselectedChat={setPreselectedChat} />}
+              {activeTab === 'inbox' && (
+                <InboxView 
+                  preselectedChat={preselectedChat} 
+                  setPreselectedChat={setPreselectedChat} 
+                  onInitiateCall={(contact: any) => {
+                    const wId = localStorage.getItem('workspaceId');
+                    fetch('/api/whatsapp/calls', {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        'x-workspace-id': wId || ''
+                      },
+                      body: JSON.stringify({
+                        contactId: contact.id,
+                        type: 'voice',
+                        direction: 'outgoing',
+                        status: 'ringing'
+                      })
+                    })
+                    .then(r => r.json())
+                    .then((data: any) => {
+                      if (data.success && data.callId) {
+                        setActiveCall({
+                          id: data.callId,
+                          workspace_id: wId,
+                          contact_id: contact.id,
+                          contact_name: contact.name,
+                          phone: contact.phone,
+                          type: 'voice',
+                          direction: 'outgoing',
+                          status: 'ringing',
+                          created_at: new Date().toISOString()
+                        });
+                      }
+                    });
+                  }}
+                />
+              )}
               {activeTab === 'broadcast' && <BroadcastView />}
               {activeTab === 'templates' && <TemplatesView />}
               {activeTab === 'schedule' && <ScheduleView />}
               {activeTab === 'settings' && <SettingsView />}
               {activeTab === 'contacts' && <ContactsView setActiveTab={setActiveTab} setActiveChat={setPreselectedChat} />}
+              {activeTab === 'calls' && <CallsView setActiveTab={setActiveTab} setActiveCall={setActiveCall} setPreselectedChat={setPreselectedChat} />}
             </motion.div>
           </AnimatePresence>
         </main>
       </div>
+
+      {/* Floating Calling Overlays */}
+      <AnimatePresence>
+        {/* 1. Incoming Call Alert */}
+        {incomingCall && incomingCall.status === 'ringing' && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-fade-in">
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-zinc-900 border border-zinc-800 rounded-3xl max-w-sm w-full p-8 text-center text-white shadow-2xl relative overflow-hidden"
+            >
+              {/* Pulsing visual glow */}
+              <div className="absolute inset-0 bg-gradient-to-b from-indigo-500/10 to-transparent pointer-events-none"></div>
+
+              {/* Glowing animated wave rings */}
+              <div className="relative w-24 h-24 mx-auto mb-6 flex items-center justify-center">
+                <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-20 animate-ping"></span>
+                <span className="absolute inline-flex h-20 w-20 rounded-full bg-indigo-500 opacity-15 animate-pulse"></span>
+                <div className="w-16 h-16 rounded-full bg-indigo-600 flex items-center justify-center text-2xl font-bold shadow-lg shadow-indigo-500/30">
+                  {incomingCall.contact_name?.[0] || '?'}
+                </div>
+              </div>
+
+              <span className="inline-block px-3 py-1 bg-emerald-500/15 text-emerald-400 text-[10px] font-bold uppercase tracking-widest rounded-full mb-3">
+                व्हाट्सएप वॉयस कॉल आ रहा है...
+              </span>
+
+              <h3 className="text-xl font-bold font-display tracking-tight text-white truncate">{incomingCall.contact_name || 'अज्ञात'}</h3>
+              <p className="text-xs text-zinc-400 font-mono mt-1">+{incomingCall.phone}</p>
+
+              <div className="flex gap-4 mt-8">
+                {/* Decline Button */}
+                <button
+                  onClick={async () => {
+                    try {
+                      await fetch(`/api/whatsapp/calls/${incomingCall.id}/status`, {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          'x-workspace-id': incomingCall.workspace_id
+                        },
+                        body: JSON.stringify({ status: 'declined' })
+                      });
+                    } catch(e) {}
+                    setIncomingCall(null);
+                  }}
+                  className="flex-1 bg-rose-500 hover:bg-rose-600 text-white py-3.5 rounded-2xl text-xs font-bold transition-all shadow-lg shadow-rose-500/20 active:scale-95 flex items-center justify-center gap-2"
+                >
+                  <X className="w-4 h-4" />
+                  काटें (Decline)
+                </button>
+
+                {/* Attend Button */}
+                <button
+                  onClick={async () => {
+                    try {
+                      await fetch(`/api/whatsapp/calls/${incomingCall.id}/status`, {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          'x-workspace-id': incomingCall.workspace_id
+                        },
+                        body: JSON.stringify({ status: 'connected' })
+                      });
+                    } catch(e) {}
+                    setActiveCall({
+                      ...incomingCall,
+                      status: 'connected',
+                      connectedAt: Date.now()
+                    });
+                    setIncomingCall(null);
+                  }}
+                  className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white py-3.5 rounded-2xl text-xs font-bold transition-all shadow-lg shadow-emerald-500/20 active:scale-95 flex items-center justify-center gap-2"
+                >
+                  <Phone className="w-4 h-4" />
+                  उठाएं (Accept)
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
+        {/* 2. Active/Outgoing Call Widget */}
+        {activeCall && (
+          <div className="fixed bottom-6 right-6 z-50">
+            <motion.div
+              initial={{ y: 50, scale: 0.95, opacity: 0 }}
+              animate={{ y: 0, scale: 1, opacity: 1 }}
+              exit={{ y: 50, scale: 0.95, opacity: 0 }}
+              className="bg-zinc-950 border border-zinc-800/80 rounded-2xl p-5 shadow-2xl w-80 text-white flex flex-col relative overflow-hidden backdrop-blur-xl animate-slide-up"
+            >
+              {/* Dialing simulated timer trigger */}
+              <ActiveCallManager activeCall={activeCall} setActiveCall={setActiveCall} />
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -310,10 +546,12 @@ function StatCard({ title, value, trend, icon }: { title: string, value: string,
 
 function InboxView({
   preselectedChat,
-  setPreselectedChat
+  setPreselectedChat,
+  onInitiateCall
 }: {
   preselectedChat?: any,
-  setPreselectedChat?: (chat: any) => void
+  setPreselectedChat?: (chat: any) => void,
+  onInitiateCall?: (contact: any) => void
 }) {
   const [conversations, setConversations] = useState<any[]>([]);
   const [messages, setMessages] = useState<any[]>([]);
@@ -609,6 +847,12 @@ function InboxView({
               if (data.message.conversation_id === activeChat.id) {
                 setMessages(prev => {
                   if (prev.some(m => m.id === data.message.id)) return prev;
+                  const matchedOptimisticIndex = prev.findIndex(m => m.id.startsWith('optimistic-') && m.content === data.message.content);
+                  if (matchedOptimisticIndex !== -1) {
+                    const next = [...prev];
+                    next[matchedOptimisticIndex] = data.message;
+                    return next;
+                  }
                   return [...prev, data.message];
                 });
               }
@@ -664,8 +908,22 @@ function InboxView({
   }, [activeChat, fetchConversations]);
 
   const sendMessage = async () => {
-    if (!messageInput.trim() || !activeChat || sending) return;
-    setSending(true);
+    if (!messageInput.trim() || !activeChat) return;
+    const textToSend = messageInput.trim();
+    setMessageInput(""); // Clear field instantly
+
+    const tempId = `optimistic-${Date.now()}`;
+    const optimisticMsg = {
+      id: tempId,
+      content: textToSend,
+      sender_type: 'agent',
+      message_type: 'text',
+      created_at: new Date().toISOString(),
+      status: 'pending'
+    };
+
+    // Append optimistic message to history immediately
+    setMessages(prev => [...prev, optimisticMsg]);
     
     const resolvedPhoneId = activeChat.phone_number_id || (selectedWaba && selectedWaba.phone_number_id !== 'all' ? selectedWaba.phone_number_id : undefined);
 
@@ -678,22 +936,27 @@ function InboxView({
         },
         body: JSON.stringify({
           to: activeChat.phone,
-          text: messageInput,
+          text: textToSend,
           conversationId: activeChat.id,
           phoneNumberId: resolvedPhoneId
         })
       });
       const data: any = await res.json();
       if (data.success) {
-        setMessageInput("");
-        loadMessages(activeChat.id);
+        // Replace optimistic message with the real one returned from DB
+        setMessages(prev => prev.map(m => m.id === tempId ? { ...m, id: data.message?.id || m.id, status: 'sent' } : m));
+        // Refresh conversations to bubble up the active conversation
+        fetchConversations();
       } else {
+        // Remove optimistic message on error and restore input text
+        setMessages(prev => prev.filter(m => m.id !== tempId));
         alert(data.error || "संदेश भेजने में विफल");
+        setMessageInput(textToSend);
       }
     } catch (e) {
+      setMessages(prev => prev.filter(m => m.id !== tempId));
       alert("त्रुटि हुई");
-    } finally {
-      setSending(false);
+      setMessageInput(textToSend);
     }
   };
 
@@ -887,6 +1150,24 @@ function InboxView({
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
+                  {/* Phone Call Button */}
+                  <button 
+                    onClick={() => {
+                      if (onInitiateCall) {
+                        onInitiateCall({
+                          id: activeChat.contact_id || activeChat.id,
+                          name: activeChat.contact_name || 'Contact',
+                          phone: activeChat.phone
+                        });
+                      }
+                    }}
+                    className="p-2 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400 dark:hover:bg-indigo-500/20 transition-colors flex items-center gap-1.5"
+                    title="कॉल करें (Voice Call)"
+                  >
+                    <Phone className="w-4 h-4" />
+                    <span className="text-[10px] font-bold uppercase tracking-wider hidden md:inline-block">कॉल</span>
+                  </button>
+
                   <button 
                     onClick={toggleAI}
                     className={`p-2 rounded-lg transition-colors flex items-center gap-1.5 ${currentReplyMode === 'ai' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400' : 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'}`}
@@ -1092,6 +1373,7 @@ function InboxView({
                              {isAgent && (
                                msg.status === 'read' ? <CheckCheck className="w-3.5 h-3.5 text-indigo-500" /> :
                                msg.status === 'delivered' ? <CheckCheck className="w-3.5 h-3.5 text-zinc-400" /> :
+                               msg.status === 'pending' ? <div className="w-3 h-3 border-2 border-zinc-400 dark:border-zinc-500 border-t-transparent rounded-full animate-spin"></div> :
                                <Check className="w-3.5 h-3.5 text-zinc-400" />
                              )}
                            </div>
@@ -3214,6 +3496,552 @@ function ContactsView({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ==========================================
+// CALLING FEATURES COMPONENT IMPLEMENTATIONS
+// ==========================================
+
+function CallsView({ 
+  setActiveTab, 
+  setActiveCall, 
+  setPreselectedChat 
+}: { 
+  setActiveTab: (tab: activeTab) => void, 
+  setActiveCall: (call: any) => void, 
+  setPreselectedChat: (chat: any) => void 
+}) {
+  const [calls, setCalls] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [callingEnabled, setCallingEnabled] = useState(true);
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<"all" | "incoming" | "outgoing" | "missed">("all");
+  const [contacts, setContacts] = useState<any[]>([]);
+  const [showDialer, setShowDialer] = useState(false);
+
+  const fetchCallsAndConfigs = useCallback(() => {
+    const wId = localStorage.getItem('workspaceId');
+    if (!wId) return;
+
+    // Fetch calls
+    fetch('/api/whatsapp/calls', {
+      headers: { 'x-workspace-id': wId }
+    })
+    .then(r => r.json())
+    .then((data: any) => {
+      if (data.calls) setCalls(data.calls);
+    })
+    .catch(err => console.error(err));
+
+    // Fetch config
+    fetch('/api/whatsapp/calls/config', {
+      headers: { 'x-workspace-id': wId }
+    })
+    .then(r => r.json())
+    .then((data: any) => {
+      if (data.calling_enabled !== undefined) {
+        setCallingEnabled(data.calling_enabled);
+      }
+      setLoading(false);
+    })
+    .catch(err => {
+      console.error(err);
+      setLoading(false);
+    });
+
+    // Fetch contacts for outbound call dialer
+    fetch(`/api/contacts?limit=100`, {
+      headers: { 'x-workspace-id': wId }
+    })
+    .then(r => r.json())
+    .then((data: any) => {
+      if (data.contacts) setContacts(data.contacts);
+    })
+    .catch(err => console.error(err));
+  }, []);
+
+  useEffect(() => {
+    fetchCallsAndConfigs();
+  }, [fetchCallsAndConfigs]);
+
+  const toggleCalling = async () => {
+    const wId = localStorage.getItem('workspaceId');
+    if (!wId) return;
+
+    try {
+      const nextVal = !callingEnabled;
+      const res = await fetch('/api/whatsapp/calls/toggle', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-workspace-id': wId
+        },
+        body: JSON.stringify({ calling_enabled: nextVal })
+      });
+      const data: any = await res.json();
+      if (data.success) {
+        setCallingEnabled(nextVal);
+      }
+    } catch(e) {
+      console.error(e);
+    }
+  };
+
+  const startOutgoingCall = async (contact: any) => {
+    const wId = localStorage.getItem('workspaceId');
+    if (!wId) return;
+
+    try {
+      const res = await fetch('/api/whatsapp/calls', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-workspace-id': wId
+        },
+        body: JSON.stringify({
+          contactId: contact.id,
+          type: 'voice',
+          direction: 'outgoing',
+          status: 'ringing'
+        })
+      });
+      const data: any = await res.json();
+      if (data.success && data.callId) {
+        setActiveCall({
+          id: data.callId,
+          workspace_id: wId,
+          contact_id: contact.id,
+          contact_name: contact.name,
+          phone: contact.phone || contact.platform_contact_id || '',
+          type: 'voice',
+          direction: 'outgoing',
+          status: 'ringing',
+          created_at: new Date().toISOString()
+        });
+        setShowDialer(false);
+      }
+    } catch(e) {
+      console.error(e);
+    }
+  };
+
+  const filteredCalls = calls.filter(c => {
+    const matchesSearch = 
+      (c.contact_name || "").toLowerCase().includes(search.toLowerCase()) || 
+      (c.phone || "").includes(search);
+    
+    if (!matchesSearch) return false;
+
+    if (filter === "all") return true;
+    if (filter === "incoming") return c.direction === "incoming";
+    if (filter === "outgoing") return c.direction === "outgoing";
+    if (filter === "missed") return c.status === "missed";
+    return true;
+  });
+
+  const totalCalls = calls.length;
+  const missedCalls = calls.filter(c => c.status === 'missed').length;
+  const completedCalls = calls.filter(c => c.status === 'completed' || c.status === 'answered').length;
+  const outgoingCalls = calls.filter(c => c.direction === 'outgoing').length;
+
+  return (
+    <div className="p-6 max-w-6xl mx-auto space-y-6 w-full animate-fade-in">
+      {/* Top Banner & Calling Switch */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
+        <div>
+          <h2 className="text-xl font-bold text-zinc-900 dark:text-white font-display">कॉल प्रबंधन और इतिहास (Calling Management)</h2>
+          <p className="text-xs text-zinc-500 mt-1">व्हाट्सएप बिजनेस क्लाउड एपीआई के माध्यम से सभी कॉल्स को सक्षम/अक्षम करें और ट्रैक करें</p>
+        </div>
+        <div className="flex items-center gap-4 shrink-0">
+          <button
+            onClick={() => setShowDialer(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-indigo-500/10"
+          >
+            <Phone className="w-3.5 h-3.5" />
+            नया कॉल डायल करें
+          </button>
+          
+          <div className="flex items-center gap-3 bg-zinc-50 dark:bg-zinc-950 p-2 rounded-xl border border-zinc-200/50 dark:border-zinc-800">
+            <span className="text-xs font-semibold text-zinc-600 dark:text-zinc-400">कॉलिंग सेवा</span>
+            <button
+              onClick={toggleCalling}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-300 outline-none ${
+                callingEnabled ? 'bg-emerald-500' : 'bg-zinc-300 dark:bg-zinc-800'
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-300 ${
+                  callingEnabled ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+            <span className={`text-[10px] font-bold uppercase tracking-wider ${callingEnabled ? 'text-emerald-500' : 'text-zinc-400'}`}>
+              {callingEnabled ? 'सक्रिय' : 'बंद'}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-white dark:bg-zinc-900 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm flex items-center gap-4">
+          <div className="p-3 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 rounded-xl">
+            <Phone className="w-5 h-5" />
+          </div>
+          <div>
+            <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">कुल कॉल्स</p>
+            <p className="text-xl font-bold text-zinc-900 dark:text-white mt-0.5">{totalCalls}</p>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-zinc-900 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm flex items-center gap-4">
+          <div className="p-3 bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 rounded-xl">
+            <X className="w-5 h-5" />
+          </div>
+          <div>
+            <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">मिस्ड कॉल्स</p>
+            <p className="text-xl font-bold text-zinc-900 dark:text-white mt-0.5">{missedCalls}</p>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-zinc-900 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm flex items-center gap-4">
+          <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 rounded-xl">
+            <Check className="w-5 h-5" />
+          </div>
+          <div>
+            <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">सफल उत्तर</p>
+            <p className="text-xl font-bold text-zinc-900 dark:text-white mt-0.5">{completedCalls}</p>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-zinc-900 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm flex items-center gap-4">
+          <div className="p-3 bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 rounded-xl">
+            <Phone className="w-5 h-5" />
+          </div>
+          <div>
+            <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">आउटगोइंग</p>
+            <p className="text-xl font-bold text-zinc-900 dark:text-white mt-0.5">{outgoingCalls}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Table Container */}
+      <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden">
+        {/* Filters and Search */}
+        <div className="p-4 border-b border-zinc-200 dark:border-zinc-800 flex flex-col sm:flex-row justify-between items-center gap-4">
+          <div className="flex bg-zinc-50 dark:bg-zinc-950 p-1 rounded-xl border border-zinc-200/50 dark:border-zinc-800 w-full sm:w-auto">
+            {(["all", "incoming", "outgoing", "missed"] as const).map(type => (
+              <button
+                key={type}
+                onClick={() => setFilter(type)}
+                className={`flex-1 sm:flex-initial px-4 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all ${
+                  filter === type 
+                    ? 'bg-white dark:bg-zinc-800 text-indigo-600 dark:text-indigo-400 shadow-sm border border-zinc-200/50 dark:border-zinc-700/50' 
+                    : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
+                }`}
+              >
+                {type === 'all' ? 'सभी' : type === 'incoming' ? 'इनकमिंग' : type === 'outgoing' ? 'आउटगोइंग' : 'मिस्ड'}
+              </button>
+            ))}
+          </div>
+
+          <div className="relative w-full sm:w-64">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+            <input
+              type="text"
+              placeholder="नाम या नंबर से खोजें..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 text-xs bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 focus:bg-white dark:focus:bg-zinc-900 focus:border-indigo-500 rounded-xl outline-none transition-all"
+            />
+          </div>
+        </div>
+
+        {/* Call Logs List */}
+        {loading ? (
+          <div className="p-12 text-center">
+            <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+            <p className="text-xs text-zinc-500">कॉल लॉग्स लोड हो रहे हैं...</p>
+          </div>
+        ) : filteredCalls.length === 0 ? (
+          <div className="p-16 text-center">
+            <Phone className="w-10 h-10 text-zinc-300 dark:text-zinc-700 mx-auto mb-3" />
+            <p className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">कोई कॉल लॉग नहीं मिला</p>
+            <p className="text-xs text-zinc-400 mt-1">इस फ़िल्टर के साथ कोई रिकॉर्ड नहीं है।</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-zinc-50 dark:bg-zinc-950 text-[10px] font-bold text-zinc-500 uppercase tracking-wider border-b border-zinc-200 dark:border-zinc-800">
+                  <th className="px-6 py-3">सम्पर्क</th>
+                  <th className="px-6 py-3">दिशा/प्रकार</th>
+                  <th className="px-6 py-3">स्थिति</th>
+                  <th className="px-6 py-3">कॉल की तारीख और समय</th>
+                  <th className="px-6 py-3">अवधि (Duration)</th>
+                  <th className="px-6 py-3 text-right">कार्रवाई</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800 text-xs">
+                {filteredCalls.map((call) => {
+                  const dateStr = new Date(call.created_at).toLocaleString('hi-IN', {
+                    day: 'numeric', month: 'short', year: 'numeric',
+                    hour: '2-digit', minute: '2-digit'
+                  });
+
+                  return (
+                    <tr key={call.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-950/20 transition-colors">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center font-bold text-zinc-700 dark:text-zinc-300">
+                            {call.contact_name?.[0] || '?'}
+                          </div>
+                          <div>
+                            <p className="font-semibold text-zinc-800 dark:text-zinc-200">{call.contact_name || 'अज्ञात संपर्क'}</p>
+                            <p className="text-[10px] text-zinc-400">+{call.phone}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          {call.direction === 'incoming' ? (
+                            <span className="flex items-center gap-1.5 px-2 py-1 bg-teal-50 dark:bg-teal-950/20 text-teal-600 dark:text-teal-400 rounded-lg text-[10px] font-bold">
+                              <span className="w-1.5 h-1.5 rounded-full bg-teal-500"></span>
+                              इनकमिंग
+                            </span>
+                          ) : (
+                            <span className="flex items-center gap-1.5 px-2 py-1 bg-blue-50 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400 rounded-lg text-[10px] font-bold">
+                              <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                              आउटगोइंग
+                            </span>
+                          )}
+                          <span className="text-[10px] text-zinc-500 dark:text-zinc-400 capitalize">
+                            {call.type === 'voice' ? 'वॉयस कॉल' : 'वीडियो कॉल'}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          call.status === 'completed' || call.status === 'answered'
+                            ? 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600'
+                            : call.status === 'missed'
+                            ? 'bg-rose-50 dark:bg-rose-950/20 text-rose-600'
+                            : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500'
+                        }`}>
+                          {call.status === 'completed' || call.status === 'answered' ? 'सफल' : call.status === 'missed' ? 'छूट गया (Missed)' : 'अस्वीकृत'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-zinc-500 dark:text-zinc-400">{dateStr}</td>
+                      <td className="px-6 py-4 font-mono text-[11px] text-zinc-600 dark:text-zinc-400">
+                        {call.status === 'missed' ? '-' : `${Math.floor(call.duration / 60)}m ${call.duration % 60}s`}
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => {
+                              fetch(`/api/inbox/conversations/initiate`, {
+                                method: 'POST',
+                                headers: {
+                                  'Content-Type': 'application/json',
+                                  'x-workspace-id': localStorage.getItem('workspaceId') || ''
+                                },
+                                body: JSON.stringify({ contactId: call.contact_id, platform: 'whatsapp' })
+                              })
+                              .then(r => r.json())
+                              .then((res: any) => {
+                                if (res.conversation) {
+                                  setPreselectedChat(res.conversation);
+                                  setActiveTab('inbox');
+                                }
+                              });
+                            }}
+                            className="p-1.5 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
+                            title="इनबॉक्स चैट खोलें"
+                          >
+                            <MessageSquare className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => startOutgoingCall({ id: call.contact_id, name: call.contact_name, phone: call.phone })}
+                            className="p-1.5 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 rounded-lg transition-colors"
+                            title="कॉल बैक करें"
+                          >
+                            <Phone className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Dialer Overlay / Modal */}
+      <AnimatePresence>
+        {showDialer && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 max-w-sm w-full p-6 shadow-2xl relative"
+            >
+              <button
+                onClick={() => setShowDialer(false)}
+                className="absolute top-4 right-4 p-1.5 text-zinc-400 hover:text-zinc-600 dark:hover:text-white rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+
+              <div className="text-center mb-6">
+                <div className="w-12 h-12 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <Phone className="w-6 h-6" />
+                </div>
+                <h3 className="font-bold text-zinc-950 dark:text-white">नया कॉल शुरू करें</h3>
+                <p className="text-[10px] text-zinc-400 mt-1">अपने किसी भी व्हाट्सएप कांटेक्ट को डायल करें</p>
+              </div>
+
+              {/* Contact List */}
+              <div className="max-h-60 overflow-y-auto space-y-2 pr-1">
+                {contacts.length === 0 ? (
+                  <p className="text-center text-xs text-zinc-400 py-6">कोई भी व्हाट्सएप कांटेक्ट उपलब्ध नहीं है।</p>
+                ) : (
+                  contacts.map(c => (
+                    <button
+                      key={c.id}
+                      onClick={() => startOutgoingCall(c)}
+                      className="w-full flex items-center gap-3 p-2.5 rounded-xl border border-zinc-100 dark:border-zinc-800/50 hover:bg-zinc-50 dark:hover:bg-zinc-800/40 transition-colors text-left"
+                    >
+                      <div className="w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center font-bold text-xs text-zinc-700 dark:text-zinc-300 shrink-0">
+                        {c.name?.[0] || '?'}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-zinc-900 dark:text-white truncate">{c.name}</p>
+                        <p className="text-[10px] text-zinc-400 font-mono">+{c.phone || c.platform_contact_id}</p>
+                      </div>
+                      <Phone className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                    </button>
+                  ))
+                )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function ActiveCallManager({ activeCall, setActiveCall }: { activeCall: any, setActiveCall: any }) {
+  const [seconds, setSeconds] = useState(0);
+  const [isMuted, setIsMuted] = useState(false);
+  const [isSpeaker, setIsSpeaker] = useState(true);
+
+  // Transition outgoing dialing to connected after 3 seconds
+  useEffect(() => {
+    if (activeCall.direction === 'outgoing' && activeCall.status === 'ringing') {
+      const connectTimeout = setTimeout(async () => {
+        try {
+          await fetch(`/api/whatsapp/calls/${activeCall.id}/status`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-workspace-id': activeCall.workspace_id
+            },
+            body: JSON.stringify({ status: 'connected' })
+          });
+        } catch(e) {}
+        setActiveCall((prev: any) => prev ? { ...prev, status: 'connected', connectedAt: Date.now() } : null);
+      }, 3000);
+      return () => clearTimeout(connectTimeout);
+    }
+  }, [activeCall.status, activeCall.direction, activeCall.id, activeCall.workspace_id, setActiveCall]);
+
+  // Live seconds timer
+  useEffect(() => {
+    if (activeCall.status === 'connected') {
+      const interval = setInterval(() => {
+        setSeconds(prev => prev + 1);
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [activeCall.status]);
+
+  const endCall = async () => {
+    try {
+      await fetch(`/api/whatsapp/calls/${activeCall.id}/status`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-workspace-id': activeCall.workspace_id
+        },
+        body: JSON.stringify({ status: 'completed', duration: seconds })
+      });
+    } catch(e) {}
+    setActiveCall(null);
+  };
+
+  const formatDuration = (sec: number) => {
+    const mins = Math.floor(sec / 60);
+    const secs = sec % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center font-bold text-sm text-indigo-400 shadow-inner">
+          {activeCall.contact_name?.[0] || '?'}
+        </div>
+        <div className="flex-1 min-w-0">
+          <h4 className="text-xs font-bold text-white truncate">{activeCall.contact_name || 'अज्ञात'}</h4>
+          <p className="text-[10px] text-zinc-400 truncate mt-0.5">
+            {activeCall.status === 'ringing' 
+              ? (activeCall.direction === 'incoming' ? 'कॉल आ रही है...' : 'डायल हो रहा है...') 
+              : 'कॉल कनेक्टेड'}
+          </p>
+        </div>
+        <div className="text-right">
+          <span className="font-mono text-xs font-bold text-emerald-400">
+            {activeCall.status === 'ringing' ? '00:00' : formatDuration(seconds)}
+          </span>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between pt-2 border-t border-zinc-800/60">
+        <div className="flex gap-2">
+          {/* Mute toggle button */}
+          <button 
+            onClick={() => setIsMuted(!isMuted)}
+            className="p-1.5 px-2.5 rounded-lg text-[10px] font-bold transition-all bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white"
+            title={isMuted ? 'Unmute' : 'Mute'}
+          >
+            {isMuted ? 'Unmute' : 'Mute'}
+          </button>
+
+          {/* Speaker toggle button */}
+          <button 
+            onClick={() => setIsSpeaker(!isSpeaker)}
+            className="p-1.5 px-2.5 rounded-lg text-[10px] font-bold transition-all bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white"
+            title="Speaker"
+          >
+            Speaker
+          </button>
+        </div>
+
+        {/* End Call Button */}
+        <button
+          onClick={endCall}
+          className="bg-rose-500 hover:bg-rose-600 text-white px-3 py-1.5 rounded-xl text-[11px] font-bold transition-colors shadow-lg shadow-rose-500/20 flex items-center gap-1.5"
+        >
+          <X className="w-3 h-3" />
+          काटें (End)
+        </button>
+      </div>
     </div>
   );
 }

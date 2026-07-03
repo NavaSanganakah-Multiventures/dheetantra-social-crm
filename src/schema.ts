@@ -1,4 +1,5 @@
 export const dropSql = `
+DROP TABLE IF EXISTS calls;
 DROP TABLE IF EXISTS whatsapp_templates;
 DROP TABLE IF EXISTS waba_phone_numbers;
 DROP TABLE IF EXISTS waba_accounts;
@@ -235,5 +236,18 @@ CREATE TABLE IF NOT EXISTS waba_phone_numbers (
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (waba_id) REFERENCES waba_accounts(waba_id) ON DELETE CASCADE,
   FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS calls (
+  id TEXT PRIMARY KEY,
+  workspace_id TEXT NOT NULL,
+  contact_id TEXT NOT NULL,
+  type TEXT NOT NULL DEFAULT 'voice',
+  direction TEXT NOT NULL DEFAULT 'incoming',
+  status TEXT NOT NULL DEFAULT 'missed',
+  duration INTEGER DEFAULT 0,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
+  FOREIGN KEY (contact_id) REFERENCES contacts(id) ON DELETE CASCADE
 );
 `;

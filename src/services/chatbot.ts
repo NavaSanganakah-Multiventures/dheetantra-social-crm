@@ -86,6 +86,55 @@ export async function handleIncomingMessage(
         `).bind(incomingMessageId, conversationId, messageType, messageText, mediaUrl || null, messageId).run();
         console.log(`[handleIncomingMessage] Incoming message saved. id=${incomingMessageId}`);
 
+        // Check if calling is enabled for this phone number/config
+        let callingEnabled = 1;
+        try {
+          const cfg = await env.DB.prepare("SELECT calling_enabled FROM whatsapp_configs WHERE phone_number_id = ?").bind(phoneNumberId).first();
+          if (cfg && cfg.calling_enabled !== undefined) {
+            callingEnabled = cfg.calling_enabled;
+          }
+        } catch(e) {}
+
+        if (messageType === 'system_call' && callingEnabled === 1) {
+          try {
+            const callId = crypto.randomUUID();
+            await env.DB.prepare(`
+              INSERT INTO calls (id, workspace_id, contact_id, type, direction, status)
+              VALUES (?, ?, ?, 'voice', 'incoming', 'ringing')
+            `).bind(callId, workspaceId, finalContactId).run();
+
+            const callPayload = {
+              type: 'incoming_call',
+              call: {
+                id: callId,
+                workspace_id: workspaceId,
+                contact_id: finalContactId,
+                contact_name: contactName,
+                phone: from,
+                type: 'voice',
+                direction: 'incoming',
+                status: 'ringing',
+                created_at: new Date().toISOString()
+              }
+            };
+
+            // Broadcast to global DO for real-time overlay
+            try {
+              const globalDoId = env.CHAT_DO.idFromName(`global-${workspaceId}`);
+              const globalStub = env.CHAT_DO.get(globalDoId);
+              await globalStub.fetch(new Request('http://do/broadcast', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(callPayload)
+              }));
+            } catch (e) {
+              console.error("Global DO broadcast error:", e);
+            }
+          } catch(err) {
+            console.error("Error creating/broadcasting call log:", err);
+          }
+        }
+
         // Broadcast incoming message via Durable Object
         try {
           const doId = env.CHAT_DO.idFromName(conversationId);

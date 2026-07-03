@@ -175,6 +175,27 @@ async function ensureMultipleWabaSchema(db: any) {
         console.error("Failed to migrate whatsapp_configs:", err);
       }
     }
+
+    try {
+      await db.prepare("ALTER TABLE whatsapp_configs ADD COLUMN calling_enabled INTEGER DEFAULT 1").run();
+    } catch(e) {}
+
+    try {
+      await db.prepare(`
+        CREATE TABLE IF NOT EXISTS calls (
+          id TEXT PRIMARY KEY,
+          workspace_id TEXT NOT NULL,
+          contact_id TEXT NOT NULL,
+          type TEXT NOT NULL DEFAULT 'voice',
+          direction TEXT NOT NULL DEFAULT 'incoming',
+          status TEXT NOT NULL DEFAULT 'missed',
+          duration INTEGER DEFAULT 0,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
+          FOREIGN KEY (contact_id) REFERENCES contacts(id) ON DELETE CASCADE
+        )
+      `).run();
+    } catch(e) {}
   } catch(e) {
     console.error("Migration check error:", e);
   }
@@ -505,6 +526,9 @@ app.post('/api/whatsapp/webhook', async (c) => {
               messageText = `Contact: ${contactName} (${contactPhone})`;
               messageType = 'contacts';
               mediaUrl = JSON.stringify(message.contacts);
+            } else if (message.type === 'system' && message.system && message.system.type === 'user_initiated_call') {
+              messageText = 'इनकमिंग कॉल (Incoming Voice Call)';
+              messageType = 'system_call';
             } else {
               messageText = `Unsupported message type: ${message.type}`;
               messageType = message.type || 'unknown';
@@ -1501,7 +1525,7 @@ app.get('/api/inbox/conversations', async (c) => {
 
   const phoneNumberId = c.req.query('phoneNumberId');
   let query = `
-    SELECT c.id, c.status, c.updated_at, c.phone_number_id, ct.name as contact_name, ct.platform_contact_id as phone
+    SELECT c.id, c.status, c.updated_at, c.phone_number_id, ct.name as contact_name, ct.platform_contact_id as phone, ct.id as contact_id
     FROM conversations c
     JOIN contacts ct ON c.contact_id = ct.id
     WHERE c.workspace_id = ?
@@ -1604,6 +1628,125 @@ app.delete('/api/inbox/conversations/:conversationId', async (c) => {
   }
 
   return c.json({ success: true, message: 'Conversation deleted successfully' });
+});
+
+// ==========================================
+// CALLING FEATURES API ENDPOINTS
+// ==========================================
+
+// GET call history
+app.get('/api/whatsapp/calls', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  const { results } = await c.env.DB.prepare(`
+    SELECT cl.*, ct.name as contact_name, ct.platform_contact_id as phone
+    FROM calls cl
+    LEFT JOIN contacts ct ON cl.contact_id = ct.id
+    WHERE cl.workspace_id = ?
+    ORDER BY cl.created_at DESC
+  `).bind(workspaceId).all();
+
+  return c.json({ calls: results || [] });
+});
+
+// CREATE a manual or outgoing call log
+app.post('/api/whatsapp/calls', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  const { contactId, type, direction, status, duration } = await c.req.json();
+  if (!contactId) return c.json({ error: 'Contact ID required' }, 400);
+
+  const callId = crypto.randomUUID();
+  await c.env.DB.prepare(`
+    INSERT INTO calls (id, workspace_id, contact_id, type, direction, status, duration)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).bind(callId, workspaceId, contactId, type || 'voice', direction || 'outgoing', status || 'ringing', duration || 0).run();
+
+  const contact = await c.env.DB.prepare('SELECT name, platform_contact_id FROM contacts WHERE id = ?').bind(contactId).first<{ name: string, platform_contact_id: string }>();
+
+  // Broadcast call event to global DO so UI updates
+  const payload = {
+    type: 'incoming_call',
+    call: {
+      id: callId,
+      workspace_id: workspaceId,
+      contact_id: contactId,
+      contact_name: contact?.name || 'Contact',
+      phone: contact?.platform_contact_id || '',
+      type: type || 'voice',
+      direction: direction || 'outgoing',
+      status: status || 'ringing',
+      created_at: new Date().toISOString()
+    }
+  };
+
+  try {
+    const globalDoId = c.env.CHAT_DO.idFromName(`global-${workspaceId}`);
+    const globalStub = c.env.CHAT_DO.get(globalDoId);
+    await globalStub.fetch(new Request('http://do/broadcast', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }));
+  } catch (e) {}
+
+  return c.json({ success: true, callId });
+});
+
+// UPDATE call status (answered, ended, duration, etc.)
+app.post('/api/whatsapp/calls/:id/status', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  const callId = c.req.param('id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  const { status, duration } = await c.req.json();
+
+  await c.env.DB.prepare('UPDATE calls SET status = ?, duration = COALESCE(?, duration) WHERE id = ? AND workspace_id = ?')
+    .bind(status, duration, callId, workspaceId).run();
+
+  // Broadcast update via global DO
+  try {
+    const globalDoId = c.env.CHAT_DO.idFromName(`global-${workspaceId}`);
+    const globalStub = c.env.CHAT_DO.get(globalDoId);
+    await globalStub.fetch(new Request('http://do/broadcast', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'call_status_updated',
+        call_id: callId,
+        status,
+        duration
+      })
+    }));
+  } catch (e) {}
+
+  return c.json({ success: true });
+});
+
+// TOGGLE calling configuration
+app.post('/api/whatsapp/calls/toggle', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  const { calling_enabled } = await c.req.json();
+  const enabledValue = calling_enabled ? 1 : 0;
+
+  await c.env.DB.prepare('UPDATE whatsapp_configs SET calling_enabled = ? WHERE workspace_id = ?')
+    .bind(enabledValue, workspaceId).run();
+
+  return c.json({ success: true, calling_enabled: enabledValue === 1 });
+});
+
+// GET calling configuration
+app.get('/api/whatsapp/calls/config', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  const config = await c.env.DB.prepare('SELECT calling_enabled FROM whatsapp_configs WHERE workspace_id = ?').bind(workspaceId).first<{ calling_enabled: number }>();
+
+  return c.json({ calling_enabled: config ? config.calling_enabled === 1 : true });
 });
 
 // Broadcast Campaign
