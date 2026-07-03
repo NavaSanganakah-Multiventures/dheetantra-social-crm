@@ -181,6 +181,19 @@ async function ensureMultipleWabaSchema(db: any) {
     } catch(e) {}
 
     try {
+      await db.prepare("ALTER TABLE whatsapp_configs ADD COLUMN sip_uri TEXT").run();
+    } catch(e) {}
+    try {
+      await db.prepare("ALTER TABLE whatsapp_configs ADD COLUMN sip_ws_server TEXT").run();
+    } catch(e) {}
+    try {
+      await db.prepare("ALTER TABLE whatsapp_configs ADD COLUMN sip_username TEXT").run();
+    } catch(e) {}
+    try {
+      await db.prepare("ALTER TABLE whatsapp_configs ADD COLUMN sip_password TEXT").run();
+    } catch(e) {}
+
+    try {
       await db.prepare(`
         CREATE TABLE IF NOT EXISTS calls (
           id TEXT PRIMARY KEY,
@@ -967,7 +980,10 @@ app.post('/api/whatsapp/config', async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
-  const { id, phone_number_id, waba_id, access_token, verify_token, reply_mode } = await c.req.json();
+  const { 
+    id, phone_number_id, waba_id, access_token, verify_token, reply_mode,
+    sip_uri, sip_ws_server, sip_username, sip_password 
+  } = await c.req.json();
   const newId = id || crypto.randomUUID();
 
   try {
@@ -976,6 +992,18 @@ app.post('/api/whatsapp/config', async (c) => {
     } catch(e) {}
     try {
       await c.env.DB.prepare("ALTER TABLE whatsapp_configs ADD COLUMN waba_id TEXT").run();
+    } catch(e) {}
+    try {
+      await c.env.DB.prepare("ALTER TABLE whatsapp_configs ADD COLUMN sip_uri TEXT").run();
+    } catch(e) {}
+    try {
+      await c.env.DB.prepare("ALTER TABLE whatsapp_configs ADD COLUMN sip_ws_server TEXT").run();
+    } catch(e) {}
+    try {
+      await c.env.DB.prepare("ALTER TABLE whatsapp_configs ADD COLUMN sip_username TEXT").run();
+    } catch(e) {}
+    try {
+      await c.env.DB.prepare("ALTER TABLE whatsapp_configs ADD COLUMN sip_password TEXT").run();
     } catch(e) {}
 
     let existing: any = null;
@@ -991,13 +1019,26 @@ app.post('/api/whatsapp/config', async (c) => {
 
     if (existing || id) {
       await c.env.DB.prepare(
-        `UPDATE whatsapp_configs SET phone_number_id = ?, waba_id = ?, access_token = ?, verify_token = ?, reply_mode = ? WHERE id = ?`
-      ).bind(phone_number_id, waba_id || null, finalToken, verify_token, finalReplyMode, finalId).run();
+        `UPDATE whatsapp_configs SET 
+          phone_number_id = ?, waba_id = ?, access_token = ?, verify_token = ?, reply_mode = ?,
+          sip_uri = ?, sip_ws_server = ?, sip_username = ?, sip_password = ?
+        WHERE id = ?`
+      ).bind(
+        phone_number_id, waba_id || null, finalToken, verify_token, finalReplyMode,
+        sip_uri || null, sip_ws_server || null, sip_username || null, sip_password || null,
+        finalId
+      ).run();
     } else {
       await c.env.DB.prepare(
-        `INSERT INTO whatsapp_configs (id, workspace_id, phone_number_id, waba_id, access_token, verify_token, reply_mode) 
-         VALUES (?, ?, ?, ?, ?, ?, ?)`
-      ).bind(finalId, workspaceId, phone_number_id, waba_id || null, finalToken, verify_token, finalReplyMode).run();
+        `INSERT INTO whatsapp_configs (
+          id, workspace_id, phone_number_id, waba_id, access_token, verify_token, reply_mode,
+          sip_uri, sip_ws_server, sip_username, sip_password
+        ) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      ).bind(
+        finalId, workspaceId, phone_number_id, waba_id || null, finalToken, verify_token, finalReplyMode,
+        sip_uri || null, sip_ws_server || null, sip_username || null, sip_password || null
+      ).run();
     }
     return c.json({ success: true, message: 'WhatsApp config saved', id: finalId });
   } catch (err: any) {
@@ -1018,7 +1059,7 @@ app.get('/api/whatsapp/config', async (c) => {
       await c.env.DB.prepare("ALTER TABLE whatsapp_configs ADD COLUMN waba_id TEXT").run();
     } catch(e) {}
     
-    const { results } = await c.env.DB.prepare('SELECT id, phone_number_id, waba_id, verify_token, reply_mode, created_at FROM whatsapp_configs WHERE workspace_id = ?').bind(workspaceId).all();
+    const { results } = await c.env.DB.prepare('SELECT id, phone_number_id, waba_id, verify_token, reply_mode, sip_uri, sip_ws_server, sip_username, sip_password, created_at FROM whatsapp_configs WHERE workspace_id = ?').bind(workspaceId).all();
     const config = results && results.length > 0 ? results[0] : null;
     return c.json({ config: config || null, configs: results || [] });
   } catch (err: any) {

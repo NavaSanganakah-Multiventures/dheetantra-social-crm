@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Download,  Bot, MessageSquare, Megaphone, CalendarClock, Settings, LayoutDashboard, Search, Bell, Menu, Send, Paperclip, LogOut, User, Phone, X, History, MapPin, Building2, Tag, ChevronDown, ChevronRight, Activity, Users, Zap, Check, CheckCheck, FileText, Plus, Trash2, Edit, Archive, RefreshCw, Instagram, Facebook, Mail, TrendingUp, Coins } from 'lucide-react';
+import { Download,  Bot, MessageSquare, Megaphone, CalendarClock, Settings, LayoutDashboard, Search, Bell, Menu, Send, Paperclip, LogOut, User, Phone, PhoneCall, X, History, MapPin, Building2, Tag, ChevronDown, ChevronRight, Activity, Users, Zap, Check, CheckCheck, FileText, Plus, Trash2, Edit, Archive, RefreshCw, Instagram, Facebook, Mail, TrendingUp, Coins } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useRouter } from 'next/navigation';
+import { useSip, SipConfig } from '@/lib/hooks/useSip';
 
 type activeTab = 'dashboard' | 'inbox' | 'broadcast' | 'templates' | 'schedule' | 'settings' | 'contacts' | 'calls';
 
@@ -53,11 +54,16 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
   const [incomingCall, setIncomingCall] = useState<any>(null);
   const [activeCall, setActiveCall] = useState<any>(null);
   const [callingEnabled, setCallingEnabled] = useState<boolean>(true);
+  const [sipConfig, setSipConfig] = useState<SipConfig | null>(null);
 
-  // Load Calling Config
+  const { status: sipStatus, answer: answerSip, hangup: hangupSip, call: callSip, remoteStream: sipRemoteStream } = useSip(sipConfig);
+
+  // Load Calling Config and SIP Settings
   useEffect(() => {
     const wId = localStorage.getItem('workspaceId');
     if (!wId) return;
+    
+    // Load general calling enabled setting
     fetch('/api/whatsapp/calls/config', {
       headers: { 'x-workspace-id': wId }
     })
@@ -68,7 +74,54 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
       }
     })
     .catch(err => console.error("Error loading calling config:", err));
+
+    // Load SIP Credentials
+    fetch('/api/whatsapp/config', {
+      headers: { 'x-workspace-id': wId }
+    })
+    .then(r => r.json())
+    .then((data: any) => {
+      if (data.config && data.config.sip_uri && data.config.sip_ws_server) {
+        setSipConfig({
+          uri: data.config.sip_uri,
+          wsServer: data.config.sip_ws_server,
+          authorizationUsername: data.config.sip_username,
+          authorizationPassword: data.config.sip_password,
+          displayName: 'Dhitantra WhatsApp Agent'
+        });
+      }
+    })
+    .catch(err => console.error("Error loading SIP config:", err));
   }, []);
+
+  // Update activeCall state based on SIP status
+  useEffect(() => {
+    if (sipStatus === 'calling' || sipStatus === 'connected') {
+      // If we don't have an active call but SIP is active, it's likely an incoming SIP call 
+      // or one we just started.
+      if (!activeCall && !incomingCall) {
+        // We'll let the global WS trigger incomingCall if it's from WhatsApp
+      }
+    } else if (sipStatus === 'ended' || sipStatus === 'unregistered') {
+      Promise.resolve().then(() => {
+        setActiveCall(null);
+        setIncomingCall(null);
+      });
+    }
+  }, [sipStatus, activeCall, incomingCall]);
+
+  // Audio element for SIP remote stream
+  useEffect(() => {
+    if (sipRemoteStream) {
+      const audio = new Audio();
+      audio.srcObject = sipRemoteStream;
+      audio.play().catch(e => console.error("Audio play error:", e));
+      return () => {
+        audio.pause();
+        audio.srcObject = null;
+      };
+    }
+  }, [sipRemoteStream]);
 
   // Global WebSocket listener for real-time incoming call alerts
   useEffect(() => {
@@ -333,7 +386,15 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
               {activeTab === 'schedule' && <ScheduleView />}
               {activeTab === 'settings' && <SettingsView />}
               {activeTab === 'contacts' && <ContactsView setActiveTab={setActiveTab} setActiveChat={setPreselectedChat} />}
-              {activeTab === 'calls' && <CallsView setActiveTab={setActiveTab} setActiveCall={setActiveCall} setPreselectedChat={setPreselectedChat} />}
+              {activeTab === 'calls' && (
+                <CallsView 
+                  setActiveTab={setActiveTab} 
+                  setActiveCall={setActiveCall} 
+                  setPreselectedChat={setPreselectedChat} 
+                  sipConfig={sipConfig}
+                  callSip={callSip}
+                />
+              )}
             </motion.div>
           </AnimatePresence>
         </main>
@@ -395,6 +456,11 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                 <button
                   onClick={async () => {
                     try {
+                      await answerSip();
+                    } catch(e) {
+                      console.error("SIP answer failed", e);
+                    }
+                    try {
                       await fetch(`/api/whatsapp/calls/${incomingCall.id}/status`, {
                         method: 'POST',
                         headers: {
@@ -423,15 +489,21 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
 
         {/* 2. Active/Outgoing Call Widget */}
         {activeCall && (
-          <div className="fixed bottom-6 right-6 z-50">
+          <div className="fixed bottom-4 right-4 left-4 sm:left-auto sm:bottom-6 sm:right-6 sm:w-80 z-50">
             <motion.div
               initial={{ y: 50, scale: 0.95, opacity: 0 }}
               animate={{ y: 0, scale: 1, opacity: 1 }}
               exit={{ y: 50, scale: 0.95, opacity: 0 }}
-              className="bg-zinc-950 border border-zinc-800/80 rounded-2xl p-5 shadow-2xl w-80 text-white flex flex-col relative overflow-hidden backdrop-blur-xl animate-slide-up"
+              className="bg-zinc-950 border border-zinc-800/80 rounded-2xl p-5 shadow-2xl w-full text-white flex flex-col relative overflow-hidden backdrop-blur-xl animate-slide-up"
             >
-              {/* Dialing simulated timer trigger */}
-              <ActiveCallManager activeCall={activeCall} setActiveCall={setActiveCall} />
+              <ActiveCallManager 
+                activeCall={activeCall} 
+                setActiveCall={setActiveCall} 
+                onHangup={async () => {
+                   await hangupSip();
+                   setActiveCall(null);
+                }}
+              />
             </motion.div>
           </div>
         )}
@@ -1910,6 +1982,12 @@ function SettingsView() {
     const [webhookUrl, setWebhookUrl] = useState("");
     const [metaConfigId, setMetaConfigId] = useState("");
     const [replyMode, setReplyMode] = useState("manual");
+    
+    // SIP Configuration
+    const [sipUri, setSipUri] = useState("");
+    const [sipWsServer, setSipWsServer] = useState("");
+    const [sipUsername, setSipUsername] = useState("");
+    const [sipPassword, setSipPassword] = useState("");
 
     // Multi-WABA configs state
     const [configs, setConfigs] = useState<any[]>([]);
@@ -1952,6 +2030,10 @@ function SettingsView() {
       setVerifyToken(cfg.verify_token || "");
       setAccessToken("••••••••••••••••");
       setReplyMode(cfg.reply_mode || "manual");
+      setSipUri(cfg.sip_uri || "");
+      setSipWsServer(cfg.sip_ws_server || "");
+      setSipUsername(cfg.sip_username || "");
+      setSipPassword(cfg.sip_password || "");
       setMessage("अकाउंट संपादित किया जा रहा है...");
     };
 
@@ -1962,6 +2044,10 @@ function SettingsView() {
       setVerifyToken("");
       setAccessToken("");
       setReplyMode("manual");
+      setSipUri("");
+      setSipWsServer("");
+      setSipUsername("");
+      setSipPassword("");
       setMessage("");
     };
 
@@ -2058,6 +2144,10 @@ function SettingsView() {
           setVerifyToken(data.config.verify_token || "");
           setAccessToken("••••••••••••••••"); // Don't show actual token
           setReplyMode(data.config.reply_mode || "manual");
+          setSipUri(data.config.sip_uri || "");
+          setSipWsServer(data.config.sip_ws_server || "");
+          setSipUsername(data.config.sip_username || "");
+          setSipPassword(data.config.sip_password || "");
         }
         if (wId) {
           setWebhookUrl(`${window.location.origin}/api/whatsapp/webhook`);
@@ -2112,7 +2202,11 @@ function SettingsView() {
           phone_number_id: phoneNumberId, 
           waba_id: wabaId,
           verify_token: verifyToken, 
-          reply_mode: replyMode 
+          reply_mode: replyMode,
+          sip_uri: sipUri,
+          sip_ws_server: sipWsServer,
+          sip_username: sipUsername,
+          sip_password: sipPassword
         };
         if (accessToken !== "••••••••••••••••") {
           payload.access_token = accessToken;
@@ -2133,6 +2227,10 @@ function SettingsView() {
           setWabaId("");
           setAccessToken("");
           setVerifyToken("");
+          setSipUri("");
+          setSipWsServer("");
+          setSipUsername("");
+          setSipPassword("");
           setEditingId(null);
           loadAllConfigs();
         } else {
@@ -3507,11 +3605,15 @@ function ContactsView({
 function CallsView({ 
   setActiveTab, 
   setActiveCall, 
-  setPreselectedChat 
+  setPreselectedChat,
+  sipConfig,
+  callSip
 }: { 
   setActiveTab: (tab: activeTab) => void, 
   setActiveCall: (call: any) => void, 
-  setPreselectedChat: (chat: any) => void 
+  setPreselectedChat: (chat: any) => void,
+  sipConfig: SipConfig | null,
+  callSip: (target: string) => Promise<void>
 }) {
   const [calls, setCalls] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -3594,6 +3696,7 @@ function CallsView({
     if (!wId) return;
 
     try {
+      // 1. Create call record in DB
       const res = await fetch('/api/whatsapp/calls', {
         method: 'POST',
         headers: {
@@ -3609,12 +3712,26 @@ function CallsView({
       });
       const data: any = await res.json();
       if (data.success && data.callId) {
+        // 2. Start SIP call if configured
+        const phone = contact.phone || contact.platform_contact_id || '';
+        if (sipConfig && phone) {
+           try {
+              // Try to construct a SIP target from the phone number and SIP domain
+              const domain = sipConfig.uri.split('@')[1];
+              const target = `sip:${phone}@${domain}`;
+              console.log("Initiating SIP call to:", target);
+              await callSip(target);
+           } catch(e) {
+              console.error("SIP call failed", e);
+           }
+        }
+
         setActiveCall({
           id: data.callId,
           workspace_id: wId,
           contact_id: contact.id,
           contact_name: contact.name,
-          phone: contact.phone || contact.platform_contact_id || '',
+          phone: phone,
           type: 'voice',
           direction: 'outgoing',
           status: 'ringing',
@@ -3936,30 +4053,22 @@ function CallsView({
   );
 }
 
-function ActiveCallManager({ activeCall, setActiveCall }: { activeCall: any, setActiveCall: any }) {
+function ActiveCallManager({ activeCall, setActiveCall, onHangup }: { activeCall: any, setActiveCall: any, onHangup?: () => void }) {
   const [seconds, setSeconds] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
   const [isSpeaker, setIsSpeaker] = useState(true);
 
-  // Transition outgoing dialing to connected after 3 seconds
+  // Transition outgoing dialing to connected after 3 seconds (simulated if SIP doesn't connect)
   useEffect(() => {
     if (activeCall.direction === 'outgoing' && activeCall.status === 'ringing') {
       const connectTimeout = setTimeout(async () => {
-        try {
-          await fetch(`/api/whatsapp/calls/${activeCall.id}/status`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-workspace-id': activeCall.workspace_id
-            },
-            body: JSON.stringify({ status: 'connected' })
-          });
-        } catch(e) {}
-        setActiveCall((prev: any) => prev ? { ...prev, status: 'connected', connectedAt: Date.now() } : null);
-      }, 3000);
+        if (activeCall.status === 'ringing') {
+          setActiveCall((prev: any) => prev ? { ...prev, status: 'connected', connectedAt: Date.now() } : null);
+        }
+      }, 5000);
       return () => clearTimeout(connectTimeout);
     }
-  }, [activeCall.status, activeCall.direction, activeCall.id, activeCall.workspace_id, setActiveCall]);
+  }, [activeCall.status, activeCall.direction, setActiveCall]);
 
   // Live seconds timer
   useEffect(() => {
@@ -3973,6 +4082,9 @@ function ActiveCallManager({ activeCall, setActiveCall }: { activeCall: any, set
 
   const endCall = async () => {
     try {
+      if (onHangup) {
+        await onHangup();
+      }
       await fetch(`/api/whatsapp/calls/${activeCall.id}/status`, {
         method: 'POST',
         headers: {
