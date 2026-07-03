@@ -853,6 +853,41 @@ app.get('/api/crm/contacts', async (c) => {
   return c.json({ contacts: results });
 });
 
+
+// Import Contacts
+app.post('/api/crm/contacts/import', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  const { contacts } = await c.req.json();
+  if (!contacts || !Array.isArray(contacts)) return c.json({ error: 'Invalid data format' }, 400);
+
+  try {
+    let imported = 0;
+    for (const contact of contacts) {
+      if (!contact.phone && !contact.Phone) continue;
+      
+      let rawPhone = contact.phone || contact.Phone || "";
+      rawPhone = rawPhone.toString().replace(/\D/g, ''); // Remove non-numeric
+      if (!rawPhone) continue;
+
+      const contactId = crypto.randomUUID();
+      const name = contact.name || contact.Name || `Contact ${rawPhone}`;
+      const email = contact.email || contact.Email || null;
+      const platformContactId = rawPhone;
+
+      await c.env.DB.prepare(
+        'INSERT OR IGNORE INTO contacts (id, workspace_id, platform, platform_contact_id, name, phone, email) VALUES (?, ?, ?, ?, ?, ?, ?)'
+      ).bind(contactId, workspaceId, 'whatsapp', platformContactId, name, rawPhone, email).run();
+      
+      imported++;
+    }
+
+    return c.json({ success: true, imported });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
 // Create contact
 app.post('/api/crm/contacts', async (c) => {
   const workspaceId = c.req.header('x-workspace-id');

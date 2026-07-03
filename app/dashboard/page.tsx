@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Download,  Bot, MessageSquare, Megaphone, CalendarClock, Settings, LayoutDashboard, Search, Bell, Menu, Send, Paperclip, LogOut, User, Phone, PhoneCall, X, History, MapPin, Building2, Tag, ChevronDown, ChevronRight, Activity, Users, Zap, Check, CheckCheck, FileText, Plus, Trash2, Edit, Archive, RefreshCw, Instagram, Facebook, Mail, TrendingUp, Coins } from 'lucide-react';
+import { Download,  Upload, Bot, MessageSquare, Megaphone, CalendarClock, Settings, LayoutDashboard, Search, Bell, Menu, Send, Paperclip, LogOut, User, Phone, PhoneCall, X, History, MapPin, Building2, Tag, ChevronDown, ChevronRight, Activity, Users, Zap, Check, CheckCheck, FileText, Plus, Trash2, Edit, Archive, RefreshCw, Instagram, Facebook, Mail, TrendingUp, Coins } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useRouter } from 'next/navigation';
+import Papa from 'papaparse';
 import { useWhatsAppWebRTC } from '@/lib/hooks/useWhatsAppWebRTC';
 
 type activeTab = 'dashboard' | 'inbox' | 'broadcast' | 'templates' | 'schedule' | 'settings' | 'contacts' | 'calls';
@@ -3010,6 +3011,8 @@ function ContactsView({
   const [isEdit, setIsEdit] = useState(false);
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importing, setImporting] = useState(false);
   const [formName, setFormName] = useState("");
   const [formPhone, setFormPhone] = useState("");
   const [formAdditionalPhone, setFormAdditionalPhone] = useState("");
@@ -3024,6 +3027,50 @@ function ContactsView({
   const [formLeadSource, setFormLeadSource] = useState("manual");
   const [formLeadValue, setFormLeadValue] = useState("0");
 
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setImporting(true);
+
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: async (results) => {
+        const parsedContacts = results.data;
+        const wId = localStorage.getItem('workspaceId');
+
+        try {
+          const res = await fetch('/api/crm/contacts/import', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-workspace-id': wId || ''
+            },
+            body: JSON.stringify({ contacts: parsedContacts })
+          });
+
+          const data = await res.json();
+          if (data.success) {
+            alert(`सफलतापूर्वक ${data.imported} संपर्क आयात किए गए (Successfully imported ${data.imported} contacts)`);
+            loadContacts();
+          } else {
+            alert(data.error || 'संपर्क आयात करने में विफल');
+          }
+        } catch (error) {
+          alert('संपर्क आयात करते समय त्रुटि हुई');
+        } finally {
+          setImporting(false);
+          if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+      },
+      error: (error: any) => {
+        alert('CSV पार्स करने में विफल: ' + error.message);
+        setImporting(false);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      }
+    });
+  };
   const loadContacts = () => {
     const wId = localStorage.getItem('workspaceId');
     fetch('/api/crm/contacts', {
@@ -3234,12 +3281,28 @@ function ContactsView({
           </button>
         </div>
 
-        <button
-          onClick={openAddModal}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-md shadow-indigo-600/15 flex items-center gap-2 transition-all self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" /> नया संपर्क जोड़ें (Add Contact)
-        </button>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <input
+            type="file"
+            accept=".csv"
+            ref={fileInputRef}
+            onChange={handleFileUpload}
+            className="hidden"
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={importing}
+            className="bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 px-4 py-2 rounded-xl text-xs font-semibold shadow-sm border border-zinc-200 dark:border-zinc-700 flex items-center gap-2 transition-all disabled:opacity-50"
+          >
+            <Upload className={`w-4 h-4 ${importing ? 'animate-pulse' : ''}`} /> {importing ? 'आयात हो रहा है...' : 'CSV से आयात करें (Import)'}
+          </button>
+          <button
+            onClick={openAddModal}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-md shadow-indigo-600/15 flex items-center gap-2 transition-all"
+          >
+            <Plus className="w-4 h-4" /> नया संपर्क जोड़ें (Add Contact)
+          </button>
+        </div>
       </div>
 
       {subTab === 'all' ? (
