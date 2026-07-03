@@ -526,16 +526,20 @@ app.post('/api/whatsapp/webhook', async (c) => {
           // Field: 'calls' — Meta sends call events here
           // ==========================================
           if (change.field === 'calls') {
-            const callData = change.value;
-            const callId = callData.call_id;
-            const event = callData.event; // 'connect' | 'terminate'
-            const callerNumber = callData.from;
-            const phoneNumberId = callData.metadata?.phone_number_id;
-            const sdp = callData.session?.sdp;
-            const sdpType = callData.session?.sdp_type;
-            const direction = callData.direction; // 'USER_INITIATED' | 'BUSINESS_INITIATED'
+            const callsArray = change.value.calls;
+            if (!callsArray || !Array.isArray(callsArray)) continue;
 
-            if (!callId) continue;
+            const phoneNumberId = change.value.metadata?.phone_number_id;
+
+            for (const callData of callsArray) {
+              const callId = callData.id;
+              const event = callData.event; // 'connect' | 'terminate' | 'offer'
+              const callerNumber = callData.from;
+              const sdp = callData.session?.sdp;
+              const sdpType = callData.session?.sdp_type;
+              const direction = callData.direction; // 'USER_INITIATED' | 'BUSINESS_INITIATED'
+
+              if (!callId) continue;
 
             console.log(`[Calling] Event: ${event}, Call ID: ${callId}, From: ${callerNumber}, Direction: ${direction}`);
 
@@ -547,7 +551,7 @@ app.post('/api/whatsapp/webhook', async (c) => {
               continue;
             }
 
-            if (event === 'connect') {
+            if (event === 'connect' || event === 'offer') {
               // Incoming call — save to DB + broadcast to frontend
               const contactId = `contact-${callerNumber}`;
               await c.env.DB.prepare('INSERT OR IGNORE INTO contacts (id, workspace_id, platform, name, platform_contact_id) VALUES (?, ?, ?, ?, ?)')
@@ -637,7 +641,8 @@ app.post('/api/whatsapp/webhook', async (c) => {
                   })()
                 );
               }
-            }
+            } // Close if (event === 'terminate')
+            } // <-- ADDED: Close for (const callData of callsArray) loop
             continue;
           }
 
