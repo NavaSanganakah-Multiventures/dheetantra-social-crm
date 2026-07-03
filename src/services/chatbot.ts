@@ -97,38 +97,48 @@ export async function handleIncomingMessage(
 
         if (messageType === 'system_call' && callingEnabled === 1) {
           try {
-            const callId = crypto.randomUUID();
-            await env.DB.prepare(`
-              INSERT INTO calls (id, workspace_id, contact_id, type, direction, status)
-              VALUES (?, ?, ?, 'voice', 'incoming', 'ringing')
-            `).bind(callId, workspaceId, finalContactId).run();
+            // Dedup: check if a call was already created by the calls field webhook within last 60s
+            const existingCall = await env.DB.prepare(
+              "SELECT id FROM calls WHERE caller_number = ? AND workspace_id = ? AND status = 'ringing' AND created_at > datetime('now', '-60 seconds') ORDER BY created_at DESC LIMIT 1"
+            ).bind(from, workspaceId).first<{ id: string }>();
 
-            const callPayload = {
-              type: 'incoming_call',
-              call: {
-                id: callId,
-                workspace_id: workspaceId,
-                contact_id: finalContactId,
-                contact_name: contactName,
-                phone: from,
-                type: 'voice',
-                direction: 'incoming',
-                status: 'ringing',
-                created_at: new Date().toISOString()
+            if (!existingCall) {
+              const callId = crypto.randomUUID();
+              await env.DB.prepare(`
+                INSERT INTO calls (id, workspace_id, contact_id, phone_number_id, caller_number, type, direction, status)
+                VALUES (?, ?, ?, ?, ?, 'voice', 'incoming', 'ringing')
+              `).bind(callId, workspaceId, finalContactId, phoneNumberId, from).run();
+
+              const callPayload = {
+                type: 'incoming_call',
+                call: {
+                  id: callId,
+                  workspace_id: workspaceId,
+                  contact_id: finalContactId,
+                  contact_name: contactName,
+                  phone: from,
+                  phoneNumberId: phoneNumberId,
+                  type: 'voice',
+                  direction: 'incoming',
+                  status: 'ringing',
+                  created_at: new Date().toISOString()
+                }
+              };
+
+              // Broadcast to global DO for real-time overlay
+              try {
+                const globalDoId = env.CHAT_DO.idFromName(`global-${workspaceId}`);
+                const globalStub = env.CHAT_DO.get(globalDoId);
+                await globalStub.fetch(new Request('http://do/broadcast', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(callPayload)
+                }));
+              } catch (e) {
+                console.error("Global DO broadcast error:", e);
               }
-            };
-
-            // Broadcast to global DO for real-time overlay
-            try {
-              const globalDoId = env.CHAT_DO.idFromName(`global-${workspaceId}`);
-              const globalStub = env.CHAT_DO.get(globalDoId);
-              await globalStub.fetch(new Request('http://do/broadcast', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(callPayload)
-              }));
-            } catch (e) {
-              console.error("Global DO broadcast error:", e);
+            } else {
+              console.log(`[handleIncomingMessage] Call already exists for ${from}, skipping system_call duplicate: ${existingCall.id}`);
             }
           } catch(err) {
             console.error("Error creating/broadcasting call log:", err);
@@ -164,6 +174,11 @@ export async function handleIncomingMessage(
     } catch (error) {
       console.error('[handleIncomingMessage] Error saving incoming message:', error);
     }
+  }
+
+  // Skip auto-reply for system_call messages (voice calls)
+  if (messageType === 'system_call') {
+    return;
   }
 
   // Check Bot Settings

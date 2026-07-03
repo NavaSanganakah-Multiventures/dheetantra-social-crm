@@ -1,13 +1,13 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Download,  Upload, Bot, MessageSquare, Megaphone, CalendarClock, Settings, LayoutDashboard, Search, Bell, Menu, Send, Paperclip, LogOut, User, Phone, PhoneCall, X, History, MapPin, Building2, Tag, ChevronDown, ChevronRight, Activity, Users, Zap, Check, CheckCheck, FileText, Plus, Trash2, Edit, Archive, RefreshCw, Instagram, Facebook, Mail, TrendingUp, Coins } from 'lucide-react';
+import { Download,  Upload, Bot, MessageSquare, Megaphone, CalendarClock, Settings, LayoutDashboard, Search, Bell, Menu, Send, Paperclip, LogOut, User, Blocks, AlertCircle, Phone, PhoneCall, X, History, MapPin, Building2, Tag, ChevronDown, ChevronRight, Activity, Users, Zap, Check, CheckCheck, FileText, Plus, Trash2, Edit, Archive, RefreshCw, Instagram, Facebook, Mail, TrendingUp, Coins } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useRouter } from 'next/navigation';
 import Papa from 'papaparse';
 import { useWhatsAppWebRTC } from '@/lib/hooks/useWhatsAppWebRTC';
 
-type activeTab = 'dashboard' | 'inbox' | 'broadcast' | 'templates' | 'schedule' | 'settings' | 'contacts' | 'calls';
+type activeTab = 'dashboard' | 'inbox' | 'broadcast' | 'templates' | 'schedule' | 'settings' | 'contacts' | 'calls' | 'integrations' | 'accounts-whatsapp';
 
 export default function DashboardWrapper() {
   const [user, setUser] = useState<any>(null);
@@ -58,7 +58,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
 
   const { status: rtcStatus, answer: answerWebRTC, hangup: hangupWebRTC, handleRemoteHangup, remoteStream: rtcRemoteStream, localStream: rtcLocalStream } = useWhatsAppWebRTC();
 
-  // Load Calling Config and SIP Settings
+  // Load Calling Config
   useEffect(() => {
     const wId = localStorage.getItem('workspaceId');
     if (!wId) return;
@@ -75,19 +75,12 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
     })
     .catch(err => console.error("Error loading calling config:", err));
 
-    // Load SIP Credentials
-    fetch('/api/whatsapp/config', {
-      headers: { 'x-workspace-id': wId }
-    })
-    .then(r => r.json())
-    .then((data: any) => {
-    })
-    .catch(err => console.error("Error loading SIP config:", err));
+    // No SIP config to load anymore
   }, []);
 
   // Update activeCall state based on WebRTC status
   useEffect(() => {
-    if (rtcStatus === 'calling' || rtcStatus === 'connected') {
+    if (rtcStatus === 'connecting' || rtcStatus === 'connected') {
       // Handled by initiation logic
     } else if (rtcStatus === 'ended' || rtcStatus === 'idle') {
       Promise.resolve().then(() => {
@@ -97,7 +90,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
     }
   }, [rtcStatus]);
 
-  // Audio element for SIP remote stream
+  // Audio element for WebRTC remote stream
   useEffect(() => {
     if (rtcRemoteStream) {
       const audio = new Audio();
@@ -111,6 +104,11 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
   }, [rtcRemoteStream]);
 
   // Global WebSocket listener for real-time incoming call alerts
+  const incomingCallRef = useRef(incomingCall);
+  const activeCallRef = useRef(activeCall);
+  incomingCallRef.current = incomingCall;
+  activeCallRef.current = activeCall;
+
   useEffect(() => {
     const wId = localStorage.getItem('workspaceId');
     if (!wId) return;
@@ -130,44 +128,42 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
           try {
             const data = JSON.parse(event.data);
             if ((data.type === 'incoming_call' && data.call) || data.type === 'whatsapp_incoming_call') {
-              if (callingEnabled) {
-                if (data.type === 'whatsapp_incoming_call') {
-                   setIncomingCall({
-                     id: data.callId,
-                     from: data.from,
-                     contact_name: '+' + data.from,
-                     phone: data.from,
-                     status: 'ringing',
-                     direction: 'incoming',
-                     sdp: data.sdp,
-                     phoneNumberId: data.phoneNumberId,
-                     workspace_id: user?.workspace_id || localStorage.getItem('workspaceId')
-                   });
-                } else {
-                   setIncomingCall(data.call);
-                }
-                // Simple high-fidelity Web Audio Ringtone
-                try {
-                  const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-                  let count = 0;
-                  let ringInterval = setInterval(() => {
-                    if (!active || count > 5) {
-                      clearInterval(ringInterval);
-                      return;
-                    }
-                    count++;
-                    const osc = audioCtx.createOscillator();
-                    const gain = audioCtx.createGain();
-                    osc.connect(gain);
-                    gain.connect(audioCtx.destination);
-                    osc.type = 'sine';
-                    osc.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5
-                    gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
-                    osc.start();
-                    osc.stop(audioCtx.currentTime + 1.2);
-                  }, 2000);
-                } catch(e) {}
+              if (data.type === 'whatsapp_incoming_call') {
+                 setIncomingCall({
+                   id: data.callId,
+                   from: data.from,
+                   contact_name: '+' + data.from,
+                   phone: data.from,
+                   status: 'ringing',
+                   direction: 'incoming',
+                   sdp: data.sdp,
+                   phoneNumberId: data.phoneNumberId,
+                   workspace_id: user?.workspace_id || localStorage.getItem('workspaceId')
+                 });
+              } else {
+                 setIncomingCall(data.call);
               }
+              // Simple high-fidelity Web Audio Ringtone
+              try {
+                const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+                let count = 0;
+                let ringInterval = setInterval(() => {
+                  if (!active || count > 5) {
+                    clearInterval(ringInterval);
+                    return;
+                  }
+                  count++;
+                  const osc = audioCtx.createOscillator();
+                  const gain = audioCtx.createGain();
+                  osc.connect(gain);
+                  gain.connect(audioCtx.destination);
+                  osc.type = 'sine';
+                  osc.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5
+                  gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                  osc.start();
+                  osc.stop(audioCtx.currentTime + 1.2);
+                }, 2000);
+              } catch(e) {}
             } else if (data.type === 'call_status_updated' || data.type === 'whatsapp_call_terminated') {
               const callIdToUpdate = data.call_id || data.callId;
               const newStatus = data.status || 'ended';
@@ -176,10 +172,10 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                  handleRemoteHangup();
               }
               
-              if (incomingCall && incomingCall.id === callIdToUpdate) {
+              if (incomingCallRef.current && incomingCallRef.current.id === callIdToUpdate) {
                 setIncomingCall((prev: any) => prev ? { ...prev, status: newStatus } : null);
               }
-              if (activeCall && activeCall.id === callIdToUpdate) {
+              if (activeCallRef.current && activeCallRef.current.id === callIdToUpdate) {
                 setActiveCall((prev: any) => prev ? { ...prev, status: newStatus, duration: data.duration } : null);
               }
             }
@@ -208,7 +204,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
       if (socket) socket.close();
     };
-  }, [callingEnabled, incomingCall, activeCall]); // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [callingEnabled]);
 
   useEffect(() => {
     const checkScreenSize = () => {
@@ -284,13 +280,16 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
               <NavItem icon={<Users />} label="संपर्क और लीड्स" isActive={activeTab === 'contacts'} onClick={() => { setActiveTab('contacts'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
               <NavItem icon={<Phone />} label="कॉल लॉग्स" isActive={activeTab === 'calls'} onClick={() => { setActiveTab('calls'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
               
+              <div className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-4 mt-8 px-3">अकाउंट्स (Accounts)</div>
+              <NavItem icon={<Phone />} label="WhatsApp" isActive={activeTab === 'accounts-whatsapp'} onClick={() => { setActiveTab('accounts-whatsapp'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
+
               <div className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-4 mt-8 px-3">मार्केटिंग</div>
               <NavItem icon={<Megaphone />} label="ब्रॉडकास्ट" isActive={activeTab === 'broadcast'} onClick={() => { setActiveTab('broadcast'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
-              <NavItem icon={<FileText />} label="टेंपलेट्स" isActive={activeTab === 'templates'} onClick={() => { setActiveTab('templates'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
               <NavItem icon={<CalendarClock />} label="शेड्यूल्ड पोस्ट्स" isActive={activeTab === 'schedule'} onClick={() => { setActiveTab('schedule'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
             </nav>
 
             <div className="p-4 bg-zinc-900/50 dark:bg-zinc-950/50 mt-auto border-t border-zinc-800">
+              <NavItem icon={<Blocks />} label="इंटीग्रेशन्स (Integrations)" isActive={activeTab === 'integrations'} onClick={() => { setActiveTab('integrations'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
               <NavItem icon={<Settings />} label="सेटिंग्स" isActive={activeTab === 'settings'} onClick={() => { setActiveTab('settings'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
               
               <div className="mt-4 pt-4 border-t border-zinc-800 flex items-center gap-3 px-3">
@@ -319,7 +318,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
               <Menu className="w-5 h-5" />
             </button>
             <h1 className="text-lg font-bold capitalize text-zinc-900 dark:text-white font-display">
-              {activeTab === 'dashboard' ? 'डैशबोर्ड' : activeTab === 'inbox' ? 'इनबॉक्स' : activeTab === 'broadcast' ? 'ब्रॉडकास्ट' : activeTab === 'schedule' ? 'शेड्यूलर' : activeTab === 'contacts' ? 'संपर्क और लीड्स' : activeTab === 'templates' ? 'टेंपलेट्स' : activeTab === 'calls' ? 'कॉल लॉग्स' : 'सेटिंग्स'}
+              {activeTab === 'dashboard' ? 'डैशबोर्ड' : activeTab === 'inbox' ? 'इनबॉक्स' : activeTab === 'broadcast' ? 'ब्रॉडकास्ट' : activeTab === 'schedule' ? 'शेड्यूलर' : activeTab === 'contacts' ? 'संपर्क और लीड्स' : activeTab === 'accounts-whatsapp' ? 'WhatsApp अकाउंट्स' : activeTab === 'calls' ? 'कॉल लॉग्स' : 'सेटिंग्स'}
             </h1>
           </div>
           
@@ -390,8 +389,9 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                 />
               )}
               {activeTab === 'broadcast' && <BroadcastView />}
-              {activeTab === 'templates' && <TemplatesView />}
+              {activeTab === 'accounts-whatsapp' && <WhatsAppManagerView />}
               {activeTab === 'schedule' && <ScheduleView />}
+              {activeTab === 'integrations' && <IntegrationsView />}
               {activeTab === 'settings' && <SettingsView />}
               {activeTab === 'contacts' && <ContactsView setActiveTab={setActiveTab} setActiveChat={setPreselectedChat} />}
               {activeTab === 'calls' && (
@@ -417,10 +417,8 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
               exit={{ scale: 0.9, opacity: 0 }}
               className="bg-zinc-900 border border-zinc-800 rounded-3xl max-w-sm w-full p-8 text-center text-white shadow-2xl relative overflow-hidden"
             >
-              {/* Pulsing visual glow */}
               <div className="absolute inset-0 bg-gradient-to-b from-indigo-500/10 to-transparent pointer-events-none"></div>
 
-              {/* Glowing animated wave rings */}
               <div className="relative w-24 h-24 mx-auto mb-6 flex items-center justify-center">
                 <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-20 animate-ping"></span>
                 <span className="absolute inline-flex h-20 w-20 rounded-full bg-indigo-500 opacity-15 animate-pulse"></span>
@@ -429,15 +427,19 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                 </div>
               </div>
 
-              <span className="inline-block px-3 py-1 bg-emerald-500/15 text-emerald-400 text-[10px] font-bold uppercase tracking-widest rounded-full mb-3">
-                व्हाट्सएप वॉयस कॉल आ रहा है...
-              </span>
+              <div className="flex flex-col items-center mb-3 gap-2">
+                <span className="inline-block px-3 py-1 bg-emerald-500/15 text-emerald-400 text-[10px] font-bold uppercase tracking-widest rounded-full">
+                  इनकमिंग कॉल (Incoming Call)
+                </span>
+                <span className="inline-block px-2 py-1 bg-amber-500/10 text-amber-500 text-[10px] font-semibold rounded-md border border-amber-500/20">
+                  ⚠️ कृपया 30 सेकंड के अंदर जवाब दें
+                </span>
+              </div>
 
               <h3 className="text-xl font-bold font-display tracking-tight text-white truncate">{incomingCall.contact_name || 'अज्ञात'}</h3>
               <p className="text-xs text-zinc-400 font-mono mt-1">+{incomingCall.phone}</p>
 
               <div className="flex gap-4 mt-8">
-                {/* Decline Button */}
                 <button
                   onClick={async () => {
                     try {
@@ -458,10 +460,14 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                   काटें (Decline)
                 </button>
 
-                {/* Attend Button */}
                 <button
                   onClick={async () => {
                     try {
+                      if (!incomingCall.sdp) {
+                        alert('SDP डेटा उपलब्ध नहीं है। कृपया WhatsApp Cloud API की Calling Webhook सेटिंग जांचें और सुनिश्चित करें कि "calls" field subscribed है।');
+                        setIncomingCall(null);
+                        return;
+                      }
                       await answerWebRTC({
                         id: incomingCall.id,
                         from: incomingCall.from || incomingCall.phone,
@@ -469,25 +475,26 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                         phoneNumberId: incomingCall.phoneNumberId,
                         workspace_id: incomingCall.workspace_id
                       });
+                      try {
+                        await fetch(`/api/whatsapp/calls/${incomingCall.id}/status`, {
+                          method: 'POST',
+                          headers: {
+                            'Content-Type': 'application/json',
+                            'x-workspace-id': incomingCall.workspace_id
+                          },
+                          body: JSON.stringify({ status: 'connected' })
+                        });
+                      } catch(e) {}
+                      setActiveCall({
+                        ...incomingCall,
+                        status: 'connected',
+                        connectedAt: Date.now()
+                      });
+                      setIncomingCall(null);
                     } catch(e) {
                       console.error("WebRTC answer failed", e);
+                      alert('कॉल उत्तर देने में विफल: ' + (e instanceof Error ? e.message : 'अज्ञात त्रुटि'));
                     }
-                    try {
-                      await fetch(`/api/whatsapp/calls/${incomingCall.id}/status`, {
-                        method: 'POST',
-                        headers: {
-                          'Content-Type': 'application/json',
-                          'x-workspace-id': incomingCall.workspace_id
-                        },
-                        body: JSON.stringify({ status: 'connected' })
-                      });
-                    } catch(e) {}
-                    setActiveCall({
-                      ...incomingCall,
-                      status: 'connected',
-                      connectedAt: Date.now()
-                    });
-                    setIncomingCall(null);
                   }}
                   className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white py-3.5 rounded-2xl text-xs font-bold transition-all shadow-lg shadow-emerald-500/20 active:scale-95 flex items-center justify-center gap-2"
                 >
@@ -654,7 +661,6 @@ function InboxView({
   const [sending, setSending] = useState(false);
   const [filterStatus, setFilterStatus] = useState<'open' | 'closed'>('open');
 
-  // Handle preselectedChat from parent component
   useEffect(() => {
     if (preselectedChat) {
       const timer = setTimeout(() => {
@@ -667,32 +673,26 @@ function InboxView({
     }
   }, [preselectedChat, setPreselectedChat]);
 
-  // Multi-WABA and Preview states
   const [configs, setConfigs] = useState<any[]>([]);
   const [selectedWaba, setSelectedWaba] = useState<any>({ id: 'all', phone_number_id: 'all' });
   const [mediaPreviewUrl, setMediaPreviewUrl] = useState<string | null>(null);
 
-  // Rich Media Attachments State
   const [attachmentMenuOpen, setAttachmentMenuOpen] = useState(false);
   const [attachmentType, setAttachmentType] = useState<'text' | 'image' | 'video' | 'document' | 'location' | 'contacts' | null>(null);
 
-  // Media (Image/Video/Doc) inputs
   const [mediaUrlInput, setMediaUrlInput] = useState('');
   const [mediaFileState, setMediaFileState] = useState<File | null>(null);
   const [captionInput, setCaptionInput] = useState('');
   const [docFilenameInput, setDocFilenameInput] = useState('');
 
-  // Location inputs
-  const [latInput, setLatInput] = useState('28.6139'); // New Delhi Latitude
-  const [lngInput, setLngInput] = useState('77.2090'); // New Delhi Longitude
+  const [latInput, setLatInput] = useState('28.6139');
+  const [lngInput, setLngInput] = useState('77.2090');
   const [locNameInput, setLocNameInput] = useState('Dhitantra Headquarters');
   const [locAddressInput, setLocAddressInput] = useState('New Delhi, India');
 
-  // Contact inputs
   const [contactNameInput, setContactNameInput] = useState('');
   const [contactPhoneInput, setContactPhoneInput] = useState('');
 
-  // Load configs on Mount
   useEffect(() => {
     const wId = localStorage.getItem('workspaceId');
     fetch('/api/whatsapp/config', {
@@ -704,7 +704,6 @@ function InboxView({
     }).catch(err => console.error("Error loading configs:", err));
   }, []);
 
-  // Update Media Preview URL reactively with safe cleanup
   useEffect(() => {
     let active = true;
     const timer = setTimeout(() => {
@@ -859,7 +858,6 @@ function InboxView({
       });
       const data: any = await res.json();
       if (data.success) {
-        // Reset state
         setAttachmentType(null); setMediaFileState(null);
         setAttachmentMenuOpen(false);
         setMediaUrlInput('');
@@ -913,10 +911,8 @@ function InboxView({
   useEffect(() => {
     if (!activeChat) return;
 
-    // Load initial messages
     loadMessages(activeChat.id);
 
-    // Setup WebSocket for instant real-time updates
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/api/chat/connect/${activeChat.id}`;
     let socket: WebSocket | null = null;
@@ -932,10 +928,8 @@ function InboxView({
           try {
             const data = JSON.parse(event.data);
             if (data.type === 'new_message' && data.message) {
-              // Refresh active conversations list to bubble up updated chat
               fetchConversations();
 
-              // Append message if it belongs to this active chat
               if (data.message.conversation_id === activeChat.id) {
                 setMessages(prev => {
                   if (prev.some(m => m.id === data.message.id)) return prev;
@@ -971,7 +965,6 @@ function InboxView({
         };
 
         socket.onclose = () => {
-          // Attempt to reconnect in 3 seconds if still active
           if (active) {
             reconnectTimeout = setTimeout(connectWs, 3000);
           }
@@ -990,7 +983,6 @@ function InboxView({
 
     connectWs();
 
-    // Still poll at a larger interval (10 seconds) as a bulletproof fail-safe
     const failSafeInterval = setInterval(() => {
       loadMessages(activeChat.id);
     }, 10000);
@@ -1008,7 +1000,7 @@ function InboxView({
   const sendMessage = async () => {
     if (!messageInput.trim() || !activeChat) return;
     const textToSend = messageInput.trim();
-    setMessageInput(""); // Clear field instantly
+    setMessageInput("");
 
     const tempId = `optimistic-${Date.now()}`;
     const optimisticMsg = {
@@ -1020,7 +1012,6 @@ function InboxView({
       status: 'pending'
     };
 
-    // Append optimistic message to history immediately
     setMessages(prev => [...prev, optimisticMsg]);
     
     const resolvedPhoneId = activeChat.phone_number_id || (selectedWaba && selectedWaba.phone_number_id !== 'all' ? selectedWaba.phone_number_id : undefined);
@@ -1041,12 +1032,9 @@ function InboxView({
       });
       const data: any = await res.json();
       if (data.success) {
-        // Replace optimistic message with the real one returned from DB
         setMessages(prev => prev.map(m => m.id === tempId ? { ...m, id: data.data?.id || m.id, status: 'sent' } : m));
-        // Refresh conversations to bubble up the active conversation
         fetchConversations();
       } else {
-        // Remove optimistic message on error and restore input text
         setMessages(prev => prev.filter(m => m.id !== tempId));
         alert(data.error || "संदेश भेजने में विफल");
         setMessageInput(textToSend);
@@ -1117,7 +1105,6 @@ function InboxView({
               )}
             </div>
 
-            {/* WABA Selection Dropdown */}
             <div className="mb-3">
               <label className="block text-[9px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-1">WhatsApp Line</label>
               <div className="relative">
@@ -1131,7 +1118,7 @@ function InboxView({
                       const selected = configs.find(c => c.id === e.target.value);
                       if (selected) {
                         setSelectedWaba(selected);
-                        setActiveChat(null); // Clear active chat on filter change
+                        setActiveChat(null);
                       }
                     }
                   }}
@@ -1248,7 +1235,6 @@ function InboxView({
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  {/* Phone Call Button */}
                   <button 
                     onClick={() => {
                       if (onInitiateCall) {
@@ -1275,7 +1261,6 @@ function InboxView({
                     <span className="text-[10px] font-bold uppercase tracking-wider hidden md:inline-block">{currentReplyMode === 'ai' ? 'AI ON' : 'AI OFF'}</span>
                   </button>
 
-                  {/* Close / Reopen Toggle */}
                   <button 
                     onClick={() => updateConversationStatus(activeChat.id, activeChat.status === 'closed' ? 'open' : 'closed')}
                     className={`p-2 rounded-lg transition-colors flex items-center gap-1.5 ${activeChat.status === 'closed' ? 'bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400 hover:bg-amber-100' : 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'}`}
@@ -1287,7 +1272,6 @@ function InboxView({
                     </span>
                   </button>
 
-                  {/* Delete Button */}
                   <button 
                     onClick={() => deleteConversation(activeChat.id)}
                     className="p-2 rounded-lg bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-500/20 transition-colors flex items-center gap-1.5"
@@ -1325,12 +1309,10 @@ function InboxView({
                       return (
                         <div key={msg.id} className={`flex flex-col gap-1 ${isAgent ? 'items-end' : 'items-start'}`}>
                            <div className={`px-4 py-3 rounded-2xl max-w-[85%] text-sm ${isAgent ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-tl-none'}`}>
-                             {/* Render Image */}
                              {mType === 'image' && (
                                <div className="flex flex-col gap-2">
                                  {displayMediaUrl && (
                                    <div className="group relative rounded-lg overflow-hidden border border-zinc-100/10 max-w-sm max-h-60 bg-zinc-950/20">
-                                     {/* eslint-disable-next-line @next/next/no-img-element */}
                                      <img 
                                        src={displayMediaUrl} 
                                        alt="WhatsApp Attachment"
@@ -1349,7 +1331,6 @@ function InboxView({
                                </div>
                              )}
 
-                             {/* Render Video */}
                              {mType === 'video' && (
                                <div className="flex flex-col gap-2">
                                  {displayMediaUrl && (
@@ -1369,7 +1350,6 @@ function InboxView({
                                </div>
                              )}
 
-                             {/* Render Document */}
                              {mType === 'document' && (
                                <div className="flex items-center gap-3 bg-zinc-50/10 p-3 rounded-xl border border-zinc-100/10 min-w-[200px] text-zinc-900 dark:text-zinc-100">
                                  <div className="w-10 h-10 bg-indigo-500/10 text-indigo-400 rounded-lg flex items-center justify-center shrink-0">
@@ -1391,7 +1371,6 @@ function InboxView({
                                </div>
                              )}
 
-                             {/* Render Location */}
                              {mType === 'location' && (() => {
                                try {
                                  const loc = typeof msg.content === 'string' && msg.content.startsWith('{') 
@@ -1426,7 +1405,6 @@ function InboxView({
                                }
                              })()}
 
-                             {/* Render Contacts */}
                              {mType === 'contacts' && (() => {
                                try {
                                  const contactsData = typeof msg.content === 'string' && msg.content.startsWith('[') 
@@ -1461,7 +1439,6 @@ function InboxView({
                                }
                              })()}
 
-                             {/* Render Text / Default / Interactive / Order / Reaction */}
                              {(mType === 'text' || mType === 'interactive' || mType === 'order') && (
                                <p className="leading-relaxed whitespace-pre-wrap">{msg.content}</p>
                              )}
@@ -1485,6 +1462,7 @@ function InboxView({
                            <div className={`flex items-center gap-1 mt-0.5 ${isAgent ? 'mr-1' : 'ml-1'}`}>
                              <span className="text-[10px] text-zinc-400">{new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                              {isAgent && (
+                               msg.status === 'failed' ? <AlertCircle className="w-3.5 h-3.5 text-rose-500" /> :
                                msg.status === 'read' ? <CheckCheck className="w-3.5 h-3.5 text-indigo-500" /> :
                                msg.status === 'delivered' ? <CheckCheck className="w-3.5 h-3.5 text-zinc-400" /> :
                                msg.status === 'pending' ? <div className="w-3 h-3 border-2 border-zinc-400 dark:border-zinc-500 border-t-transparent rounded-full animate-spin"></div> :
@@ -1531,8 +1509,6 @@ function InboxView({
                           onChange={async (e) => {
                              const file = e.target.files?.[0];
                              if (file) {
-                                // Convert to base64 or object URL for preview, and we'll upload it when sending
-                                // For now, we will just use a global state or attach it to the form
                                 setMediaFileState(file);
                              }
                           }}
@@ -1649,7 +1625,6 @@ function InboxView({
               )}
 
              <div className="p-4 bg-white dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-800 relative">
-               {/* Attachment Type dropdown */}
                {attachmentMenuOpen && !attachmentType && (
                  <motion.div 
                    initial={{ opacity: 0, y: 10 }}
@@ -1815,7 +1790,7 @@ function InboxView({
              )}
            </>
           )}
-      </div>      {/* Sliding Contact Details Panel */}
+      </div>
       <AnimatePresence>
         {isContactPanelOpen && activeChat && (
           <motion.div 
@@ -2024,14 +1999,7 @@ function SettingsView() {
     const [webhookUrl, setWebhookUrl] = useState("");
     const [metaConfigId, setMetaConfigId] = useState("");
     const [replyMode, setReplyMode] = useState("manual");
-    
-    // SIP Configuration
-    const [sipUri, setSipUri] = useState("");
-    const [sipWsServer, setSipWsServer] = useState("");
-    const [sipUsername, setSipUsername] = useState("");
-    const [sipPassword, setSipPassword] = useState("");
 
-    // Multi-WABA configs state
     const [configs, setConfigs] = useState<any[]>([]);
     const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -2072,10 +2040,6 @@ function SettingsView() {
       setVerifyToken(cfg.verify_token || "");
       setAccessToken("••••••••••••••••");
       setReplyMode(cfg.reply_mode || "manual");
-      setSipUri(cfg.sip_uri || "");
-      setSipWsServer(cfg.sip_ws_server || "");
-      setSipUsername(cfg.sip_username || "");
-      setSipPassword(cfg.sip_password || "");
       setMessage("अकाउंट संपादित किया जा रहा है...");
     };
 
@@ -2086,10 +2050,6 @@ function SettingsView() {
       setVerifyToken("");
       setAccessToken("");
       setReplyMode("manual");
-      setSipUri("");
-      setSipWsServer("");
-      setSipUsername("");
-      setSipPassword("");
       setMessage("");
     };
 
@@ -2110,7 +2070,6 @@ function SettingsView() {
                 version: 'v19.0'
               });
             };
-            // If FB script is already loaded and fbAsyncInit was missed
             if ((window as any).FB) {
                (window as any).FB.init({
                  appId: data.appId,
@@ -2136,7 +2095,6 @@ function SettingsView() {
           if (data.type === 'WA_EMBEDDED_SIGNUP') {
             if (data.event === 'FINISH') {
               const { phone_number_id, waba_id } = data.data;
-              console.log("Embedded Signup Finished", data.data);
               setMessage("Embedded Signup पूरा हुआ, सर्वर पर रजिस्टर किया जा रहा है...");
               
               fetch('/api/meta/embedded-signup', {
@@ -2166,7 +2124,6 @@ function SettingsView() {
             }
           }
         } catch (e) {
-          // ignore
         }
       };
 
@@ -2184,12 +2141,8 @@ function SettingsView() {
           setPhoneNumberId(data.config.phone_number_id || "");
           setWabaId(data.config.waba_id || "");
           setVerifyToken(data.config.verify_token || "");
-          setAccessToken("••••••••••••••••"); // Don't show actual token
+          setAccessToken("••••••••••••••••");
           setReplyMode(data.config.reply_mode || "manual");
-          setSipUri(data.config.sip_uri || "");
-          setSipWsServer(data.config.sip_ws_server || "");
-          setSipUsername(data.config.sip_username || "");
-          setSipPassword(data.config.sip_password || "");
         }
         if (wId) {
           setWebhookUrl(`${window.location.origin}/api/whatsapp/webhook`);
@@ -2244,11 +2197,7 @@ function SettingsView() {
           phone_number_id: phoneNumberId, 
           waba_id: wabaId,
           verify_token: verifyToken, 
-          reply_mode: replyMode,
-          sip_uri: sipUri,
-          sip_ws_server: sipWsServer,
-          sip_username: sipUsername,
-          sip_password: sipPassword
+          reply_mode: replyMode
         };
         if (accessToken !== "••••••••••••••••") {
           payload.access_token = accessToken;
@@ -2269,10 +2218,6 @@ function SettingsView() {
           setWabaId("");
           setAccessToken("");
           setVerifyToken("");
-          setSipUri("");
-          setSipWsServer("");
-          setSipUsername("");
-          setSipPassword("");
           setEditingId(null);
           loadAllConfigs();
         } else {
@@ -2346,20 +2291,20 @@ function SettingsView() {
                            <div className="space-y-4">
                              <div>
                                <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">SIP URI</label>
-                               <input type="text" value={sipUri} onChange={e => setSipUri(e.target.value)} placeholder="e.g. sip:1234@your-sip-provider.com" className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all" />
+                               <input type="text" value={""} onChange={e => {}} placeholder="e.g. sip:1234@your-sip-provider.com" className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all" />
                              </div>
                              <div>
                                <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">SIP WebSocket Server</label>
-                               <input type="text" value={sipWsServer} onChange={e => setSipWsServer(e.target.value)} placeholder="e.g. wss://your-sip-provider.com:8089/ws" className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all" />
+                               <input type="text" value={""} onChange={e => {}} placeholder="e.g. wss://your-sip-provider.com:8089/ws" className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all" />
                              </div>
                              <div className="grid grid-cols-2 gap-4">
                                <div>
                                  <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">SIP Username</label>
-                                 <input type="text" value={sipUsername} onChange={e => setSipUsername(e.target.value)} placeholder="Username" className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all" />
+                                 <input type="text" value={""} onChange={e => {}} placeholder="Username" className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all" />
                                </div>
                                <div>
                                  <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">SIP Password</label>
-                                 <input type="password" value={sipPassword} onChange={e => setSipPassword(e.target.value)} placeholder="Password" className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all" />
+                                 <input type="password" value={""} onChange={e => {}} placeholder="Password" className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all" />
                                </div>
                              </div>
                            </div>
@@ -4175,17 +4120,7 @@ function ActiveCallManager({ activeCall, setActiveCall, onHangup, remoteStream, 
     }
   }, [isMuted, localStream]);
 
-  // Transition outgoing dialing to connected after 3 seconds (simulated if SIP doesn't connect)
-  useEffect(() => {
-    if (activeCall.direction === 'outgoing' && activeCall.status === 'ringing') {
-      const connectTimeout = setTimeout(async () => {
-        if (activeCall.status === 'ringing') {
-          setActiveCall((prev: any) => prev ? { ...prev, status: 'connected', connectedAt: Date.now() } : null);
-        }
-      }, 5000);
-      return () => clearTimeout(connectTimeout);
-    }
-  }, [activeCall.status, activeCall.direction, setActiveCall]);
+  // Outgoing calls will be connected by WebRTC events, no fake simulation needed
 
   // Live seconds timer
   useEffect(() => {
@@ -4349,6 +4284,1128 @@ function ActiveCallManager({ activeCall, setActiveCall, onHangup, remoteStream, 
         </button>
       </div>
       <audio ref={audioRef} autoPlay style={{ display: 'none' }} />
+    </div>
+  );
+}
+
+function IntegrationsView() {
+  return (
+    <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-zinc-900 dark:text-white">इंटीग्रेशन्स (Integrations)</h2>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
+            अपने अकाउंट को अन्य सेवाओं से कनेक्ट करें। (Connect your account with other services)
+          </p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="bg-white dark:bg-zinc-900 rounded-2xl p-6 border border-zinc-200 dark:border-zinc-800 flex flex-col gap-4">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-xl flex items-center justify-center shrink-0">
+              <Users className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-zinc-900 dark:text-white">Google Contacts</h3>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                अपने Google Contacts को सिंक करें। (Sync your Google Contacts)
+              </p>
+            </div>
+          </div>
+          <div className="mt-auto pt-4 flex gap-3">
+             <button disabled className="w-full bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 py-2 rounded-xl text-sm font-medium cursor-not-allowed">
+               Coming Soon
+             </button>
+          </div>
+        </div>
+        
+        {/* Placeholder for future integrations */}
+        <div className="bg-white dark:bg-zinc-900 rounded-2xl p-6 border border-zinc-200 dark:border-zinc-800 border-dashed flex flex-col gap-4 opacity-50">
+           <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-zinc-100 dark:bg-zinc-800 text-zinc-400 rounded-xl flex items-center justify-center shrink-0">
+              <Blocks className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-zinc-900 dark:text-white">Future Integration</h3>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                More integrations coming soon
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function WhatsAppManagerView() {
+  const [activeSubTab, setActiveSubTab] = useState<'profiles' | 'templates' | 'flows'>('profiles');
+  
+  // Profiles states
+  const [configs, setConfigs] = useState<any[]>([]);
+  const [loadingConfigs, setLoadingConfigs] = useState(true);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [editingConfig, setEditingConfig] = useState<any>(null);
+  const [message, setMessage] = useState("");
+  
+  // Profile Form fields
+  const [phoneNumberId, setPhoneNumberId] = useState("");
+  const [wabaId, setWabaId] = useState("");
+  const [accessToken, setAccessToken] = useState("");
+  const [verifyToken, setVerifyToken] = useState("");
+  const [replyMode, setReplyMode] = useState("manual");
+  const [sipUri, setSipUri] = useState("");
+  const [sipWsServer, setSipWsServer] = useState("");
+  const [sipUsername, setSipUsername] = useState("");
+  const [sipPassword, setSipPassword] = useState("");
+  const [savingConfig, setSavingConfig] = useState(false);
+  const [metaConfigId, setMetaConfigId] = useState("");
+
+  // Flows states
+  const [flows, setFlows] = useState<any[]>([]);
+  const [loadingFlows, setLoadingFlows] = useState(true);
+  const [showFlowModal, setShowFlowModal] = useState(false);
+  const [editingFlow, setEditingFlow] = useState<any>(null);
+  
+  // Flow Builder states
+  const [flowName, setFlowName] = useState("");
+  const [flowCategory, setFlowCategory] = useState("UTILITY");
+  const [flowScreens, setFlowScreens] = useState<any[]>([
+    {
+      id: "screen_1",
+      title: "मुख्य स्क्रीन (Main)",
+      components: [
+        { id: "c1", type: "text", label: "विवरण", content: "कृप्या अपनी जानकारी दर्ज करें।" },
+        { id: "c2", type: "input", label: "आपका नाम (Full Name)", name: "fullName", placeholder: "उदा. राहुल कुमार", required: true },
+        { id: "c3", type: "input", label: "ईमेल पता (Email)", name: "email", placeholder: "उदा. rahul@example.com", required: true },
+        { id: "c4", type: "submit", label: "प्रस्तुत करें (Submit)" }
+      ]
+    }
+  ]);
+  const [activeScreenId, setActiveScreenId] = useState("screen_1");
+  const [selectedCompId, setSelectedCompId] = useState<string | null>(null);
+
+  // Load configs
+  const loadConfigs = async (showLoading = false) => {
+    if (showLoading) setLoadingConfigs(true);
+    const wId = localStorage.getItem('workspaceId');
+    try {
+      const res = await fetch('/api/whatsapp/config', {
+        headers: { 'x-workspace-id': wId || '' }
+      });
+      const data = await res.json();
+      if (data.configs) {
+        setConfigs(data.configs);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingConfigs(false);
+    }
+  };
+
+  // Load flows
+  const loadFlows = async (showLoading = false) => {
+    if (showLoading) setLoadingFlows(true);
+    const wId = localStorage.getItem('workspaceId');
+    try {
+      const res = await fetch('/api/whatsapp/flows', {
+        headers: { 'x-workspace-id': wId || '' }
+      });
+      const data = await res.json();
+      if (data.flows) {
+        setFlows(data.flows);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingFlows(false);
+    }
+  };
+
+  useEffect(() => {
+    setTimeout(() => {
+      loadConfigs();
+      loadFlows();
+      
+      // Meta Config loading
+      fetch('/api/config/meta')
+        .then(r => r.json())
+        .then(data => {
+          if (data.configId) setMetaConfigId(data.configId);
+        }).catch(err => console.error(err));
+    }, 0);
+  }, []);
+
+  // Facebook Signup Listener
+  useEffect(() => {
+    const sessionInfoListener = (event: MessageEvent) => {
+      if (event.origin !== "https://www.facebook.com" && event.origin !== "https://web.facebook.com") {
+        return;
+      }
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === 'WA_EMBEDDED_SIGNUP') {
+          if (data.event === 'FINISH') {
+            const { phone_number_id, waba_id } = data.data;
+            setMessage("Embedded Signup पूरा हुआ, सर्वर पर रजिस्टर किया जा रहा है...");
+            
+            fetch('/api/meta/embedded-signup', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    workspaceId: localStorage.getItem('workspaceId'),
+                    accessToken: 'handled_by_system_user_in_backend',
+                    wabaId: waba_id,
+                    phoneNumberIds: Array.isArray(phone_number_id) ? phone_number_id : [phone_number_id]
+                })
+            }).then(r => r.json()).then((res: any) => {
+                if (res.success) {
+                    setMessage(`सफल! WhatsApp खाता जोड़ा गया: ${res.waba}`);
+                    loadConfigs();
+                } else {
+                    setMessage(`त्रुटि: ${res.error}`);
+                }
+            }).catch(() => {
+                setMessage("सर्वर से संपर्क करने में त्रुटि।");
+            });
+          }
+        }
+      } catch (e) {}
+    };
+    window.addEventListener('message', sessionInfoListener);
+    return () => window.removeEventListener('message', sessionInfoListener);
+  }, []);
+
+  // Profile Save
+  const handleSaveProfile = async () => {
+    setSavingConfig(true);
+    setMessage("");
+    try {
+      const payload: any = {
+        id: editingConfig?.id || null,
+        phone_number_id: phoneNumberId,
+        waba_id: wabaId,
+        verify_token: verifyToken,
+        reply_mode: replyMode,
+        sip_uri: sipUri,
+        sip_ws_server: sipWsServer,
+        sip_username: sipUsername,
+        sip_password: sipPassword
+      };
+      if (accessToken && accessToken !== "••••••••••••••••") {
+        payload.access_token = accessToken;
+      }
+
+      const res = await fetch('/api/whatsapp/config', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-workspace-id': localStorage.getItem('workspaceId') || ''
+        },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (data.success) {
+        setMessage("सफलतापूर्वक सहेज लिया गया!");
+        setShowProfileModal(false);
+        loadConfigs();
+      } else {
+        setMessage("त्रुटि: " + (data.error || "सहेजने में असमर्थ"));
+      }
+    } catch (e) {
+      setMessage("सर्वर त्रुटि");
+    } finally {
+      setSavingConfig(false);
+    }
+  };
+
+  const handleEditProfile = (cfg: any) => {
+    setEditingConfig(cfg);
+    setPhoneNumberId(cfg.phone_number_id || "");
+    setWabaId(cfg.waba_id || "");
+    setAccessToken("••••••••••••••••");
+    setVerifyToken(cfg.verify_token || "");
+    setReplyMode(cfg.reply_mode || "manual");
+    setSipUri(cfg.sip_uri || "");
+    setSipWsServer(cfg.sip_ws_server || "");
+    setSipUsername(cfg.sip_username || "");
+    setSipPassword(cfg.sip_password || "");
+    setShowProfileModal(true);
+  };
+
+  const handleDeleteProfile = async (id: string) => {
+    if (!confirm("क्या आप वाकई इस प्रोफाइल को हटाना चाहते हैं?")) return;
+    try {
+      const res = await fetch(`/api/whatsapp/config/${id}`, {
+        method: 'DELETE',
+        headers: { 'x-workspace-id': localStorage.getItem('workspaceId') || '' }
+      });
+      const data = await res.json();
+      if (data.success) {
+        loadConfigs();
+      } else {
+        alert(data.error);
+      }
+    } catch (e) {
+      alert("त्रुटि हुई");
+    }
+  };
+
+  const handleCreateFlow = () => {
+    setEditingFlow(null);
+    setFlowName("");
+    setFlowCategory("UTILITY");
+    setFlowScreens([
+      {
+        id: "screen_1",
+        title: "मुख्य स्क्रीन (Main)",
+        components: [
+          { id: "c1", type: "text", label: "विवरण", content: "कृप्या अपनी जानकारी दर्ज करें।" },
+          { id: "c2", type: "input", label: "आपका नाम (Full Name)", name: "fullName", placeholder: "उदा. राहुल कुमार", required: true },
+          { id: "c3", type: "input", label: "ईमेल पता (Email)", name: "email", placeholder: "उदा. rahul@example.com", required: true },
+          { id: "c4", type: "submit", label: "प्रस्तुत करें (Submit)" }
+        ]
+      }
+    ]);
+    setActiveScreenId("screen_1");
+    setSelectedCompId(null);
+    setShowFlowModal(true);
+  };
+
+  const handleEditFlow = (flow: any) => {
+    setEditingFlow(flow);
+    setFlowName(flow.name);
+    setFlowCategory(flow.categories || "UTILITY");
+    try {
+      const parsed = JSON.parse(flow.screens_json);
+      setFlowScreens(parsed);
+      if (parsed.length > 0) {
+        setActiveScreenId(parsed[0].id);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    setSelectedCompId(null);
+    setShowFlowModal(true);
+  };
+
+  const handleSaveFlow = async () => {
+    if (!flowName.trim()) {
+      alert("फ़्लो का नाम आवश्यक है");
+      return;
+    }
+    try {
+      const payload = {
+        id: editingFlow?.id || null,
+        name: flowName,
+        categories: flowCategory,
+        screens_json: JSON.stringify(flowScreens),
+        status: editingFlow?.status || 'DRAFT'
+      };
+      const res = await fetch('/api/whatsapp/flows', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-workspace-id': localStorage.getItem('workspaceId') || ''
+        },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (data.success) {
+        setShowFlowModal(false);
+        loadFlows();
+      } else {
+        alert(data.error);
+      }
+    } catch (e) {
+      alert("सहेजने में विफलता");
+    }
+  };
+
+  const handleDeleteFlow = async (id: string) => {
+    if (!confirm("क्या आप वाकई इस फ़्लो को हटाना चाहते हैं?")) return;
+    try {
+      const res = await fetch(`/api/whatsapp/flows/${id}`, {
+        method: 'DELETE',
+        headers: { 'x-workspace-id': localStorage.getItem('workspaceId') || '' }
+      });
+      const data = await res.json();
+      if (data.success) {
+        loadFlows();
+      } else {
+        alert(data.error);
+      }
+    } catch (e) {
+      alert("त्रुटि हुई");
+    }
+  };
+
+  const handlePublishFlow = async (id: string) => {
+    if (!confirm("क्या आप इस फ़्लो को लाइव/प्रकाशित करना चाहते हैं?")) return;
+    try {
+      const res = await fetch(`/api/whatsapp/flows/${id}/publish`, {
+        method: 'POST',
+        headers: { 'x-workspace-id': localStorage.getItem('workspaceId') || '' }
+      });
+      const data = await res.json();
+      if (data.success) {
+        loadFlows();
+      } else {
+        alert(data.error);
+      }
+    } catch (e) {
+      alert("त्रुटि हुई");
+    }
+  };
+
+  // Add Component to current active screen
+  const addFlowComponent = (type: string) => {
+    const activeScreen = flowScreens.find(s => s.id === activeScreenId);
+    if (!activeScreen) return;
+
+    const newComp: any = {
+      id: crypto.randomUUID().substring(0, 8),
+      type
+    };
+
+    if (type === 'text') {
+      newComp.label = "विवरण";
+      newComp.content = "यहाँ विवरण दर्ज करें...";
+    } else if (type === 'input' || type === 'textarea') {
+      newComp.label = "नई इनपुट फील्ड";
+      newComp.placeholder = "दर्ज करें...";
+      newComp.name = "field_" + newComp.id;
+      newComp.required = false;
+    } else if (type === 'select') {
+      newComp.label = "ड्रॉपडाउन फील्ड";
+      newComp.name = "select_" + newComp.id;
+      newComp.options = "विकल्प 1, विकल्प 2, विकल्प 3";
+    } else if (type === 'submit') {
+      newComp.label = "प्रस्तुत करें (Submit)";
+    }
+
+    const updatedScreens = flowScreens.map(s => {
+      if (s.id === activeScreenId) {
+        return {
+          ...s,
+          components: [...s.components, newComp]
+        };
+      }
+      return s;
+    });
+    setFlowScreens(updatedScreens);
+    setSelectedCompId(newComp.id);
+  };
+
+  const updateComponentProperty = (compId: string, key: string, value: any) => {
+    const updatedScreens = flowScreens.map(s => {
+      if (s.id === activeScreenId) {
+        const updatedComps = s.components.map((c: any) => {
+          if (c.id === compId) {
+            return { ...c, [key]: value };
+          }
+          return c;
+        });
+        return { ...s, components: updatedComps };
+      }
+      return s;
+    });
+    setFlowScreens(updatedScreens);
+  };
+
+  const deleteComponent = (compId: string) => {
+    const updatedScreens = flowScreens.map(s => {
+      if (s.id === activeScreenId) {
+        return {
+          ...s,
+          components: s.components.filter((c: any) => c.id !== compId)
+        };
+      }
+      return s;
+    });
+    setFlowScreens(updatedScreens);
+    if (selectedCompId === compId) {
+      setSelectedCompId(null);
+    }
+  };
+
+  const activeScreen = flowScreens.find(s => s.id === activeScreenId);
+  const selectedComponent = activeScreen?.components.find((c: any) => c.id === selectedCompId);
+
+  return (
+    <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
+      {/* Upper Navigation & Tab Bar */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
+        <div>
+          <h2 className="text-2xl font-bold text-zinc-900 dark:text-white flex items-center gap-2">
+            <Phone className="w-6 h-6 text-emerald-500" /> WhatsApp हब (WhatsApp Hub)
+          </h2>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
+            अपने कनेक्टेड प्रोफ़ाइल, टेम्पलेट्स और इंटरेक्टिव फ़्लो को प्रबंधित करें।
+          </p>
+        </div>
+        
+        {/* Sub Navigation Tabs */}
+        <div className="flex bg-zinc-100 dark:bg-zinc-950 p-1 rounded-xl border border-zinc-200 dark:border-zinc-800 shrink-0 w-full md:w-auto">
+          <button 
+            onClick={() => setActiveSubTab('profiles')}
+            className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 ${activeSubTab === 'profiles' ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-800'}`}
+          >
+            <User className="w-4 h-4 text-emerald-500" /> प्रोफ़ाइल (Profiles)
+          </button>
+          <button 
+            onClick={() => setActiveSubTab('templates')}
+            className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 ${activeSubTab === 'templates' ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-800'}`}
+          >
+            <FileText className="w-4 h-4 text-indigo-500" /> टेम्पलेट्स (Templates)
+          </button>
+          <button 
+            onClick={() => setActiveSubTab('flows')}
+            className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 ${activeSubTab === 'flows' ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-800'}`}
+          >
+            <Blocks className="w-4 h-4 text-amber-500" /> फ़्लो (Flows)
+          </button>
+        </div>
+      </div>
+
+      {/* Main SubTab Contents */}
+      {activeSubTab === 'profiles' && (
+        <div className="space-y-6">
+          <div className="flex justify-between items-center bg-zinc-50 dark:bg-zinc-900/40 p-4 rounded-xl border border-zinc-100 dark:border-zinc-800/60">
+            <h3 className="font-bold text-zinc-800 dark:text-zinc-200 flex items-center gap-1.5">
+              कनेक्टेड WhatsApp प्रोफ़ाइल ({configs.length})
+            </h3>
+            <div className="flex gap-3">
+              {/* Meta Onboarding button */}
+              <button 
+                onClick={() => {
+                  if (typeof window !== 'undefined' && (window as any).FB) {
+                    (window as any).FB.login((response: any) => {
+                      if (response.authResponse) {
+                        setMessage("Meta login सफल, Embedded Onboarding शुरू...");
+                      } else {
+                        setMessage("Meta login रद्द या त्रुटि।");
+                      }
+                    }, {
+                      scope: 'whatsapp_business_management,whatsapp_business_messaging',
+                      extras: {
+                        feature: 'whatsapp_embedded_signup',
+                        setup: {
+                          prefill: {
+                            business: {
+                              name: 'Dhita CRM Workspace'
+                            }
+                          }
+                        }
+                      }
+                    });
+                  } else {
+                    alert("Meta Facebook SDK लोड नहीं हुआ है। कृपया पेज रीलोड करें।");
+                  }
+                }}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all shadow-sm flex items-center gap-2"
+              >
+                <Blocks className="w-4 h-4" /> ऑटो कनेक्ट (Embedded Signup)
+              </button>
+              
+              <button 
+                onClick={() => {
+                  setEditingConfig(null);
+                  setPhoneNumberId("");
+                  setWabaId("");
+                  setAccessToken("");
+                  setVerifyToken("");
+                  setReplyMode("manual");
+                  setSipUri("");
+                  setSipWsServer("");
+                  setSipUsername("");
+                  setSipPassword("");
+                  setShowProfileModal(true);
+                }}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all shadow-sm flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" /> मैन्युअल जोड़ें (Add Manual)
+              </button>
+            </div>
+          </div>
+
+          {message && (
+            <div className="bg-emerald-50 dark:bg-emerald-950/20 text-emerald-800 dark:text-emerald-300 p-4 rounded-xl border border-emerald-100 dark:border-emerald-900 flex justify-between items-center">
+              <span className="text-sm font-medium">{message}</span>
+              <button onClick={() => setMessage("")} className="text-emerald-400 hover:text-emerald-600"><X className="w-4 h-4" /></button>
+            </div>
+          )}
+
+          {loadingConfigs ? (
+            <div className="p-12 text-center text-zinc-400">प्रोफ़ाइल लोड की जा रही हैं...</div>
+          ) : configs.length === 0 ? (
+            <div className="p-16 text-center border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-3xl bg-white dark:bg-zinc-950/30 flex flex-col items-center">
+              <Phone className="w-12 h-12 text-zinc-300 dark:text-zinc-700 mb-4 animate-bounce" />
+              <h4 className="font-bold text-lg mb-1">कोई सक्रिय खाता नहीं मिला</h4>
+              <p className="text-sm text-zinc-500 max-w-sm mb-6">WhatsApp API का उपयोग शुरू करने के लिए एक खाता मैन्युअल रूप से जोड़ें या एम्बेडेड साइनअप का उपयोग करें।</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {configs.map((cfg) => (
+                <div key={cfg.id} className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-sm hover:border-zinc-300 dark:hover:border-zinc-700 transition-all flex flex-col justify-between">
+                  <div className="p-6 space-y-4">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h4 className="font-bold text-zinc-900 dark:text-white flex items-center gap-1.5 font-display">
+                          {cfg.phone_number_id ? `+${cfg.phone_number_id.substring(0,2)}...` : "WhatsApp API Line"}
+                        </h4>
+                        <p className="text-[11px] text-zinc-400 font-mono mt-1">ID: {cfg.id}</p>
+                      </div>
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                        cfg.reply_mode === 'ai' ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-400' :
+                        cfg.reply_mode === 'rule_based' ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400' :
+                        'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-400'
+                      }`}>
+                        {cfg.reply_mode === 'ai' ? 'AI Bot' : cfg.reply_mode === 'rule_based' ? 'Rules' : 'Manual'}
+                      </span>
+                    </div>
+
+                    <div className="space-y-2 border-t border-zinc-100 dark:border-zinc-800 pt-3 text-xs">
+                      <div className="flex justify-between"><span className="text-zinc-400">Phone ID:</span> <span className="font-mono text-zinc-700 dark:text-zinc-300">{cfg.phone_number_id || "None"}</span></div>
+                      <div className="flex justify-between"><span className="text-zinc-400">WABA ID:</span> <span className="font-mono text-zinc-700 dark:text-zinc-300">{cfg.waba_id || "None"}</span></div>
+                      {cfg.sip_uri && (
+                        <div className="flex justify-between"><span className="text-emerald-500 font-medium">Calling Enabled:</span> <span className="font-mono text-emerald-500">SIP Active</span></div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-zinc-50 dark:bg-zinc-950/50 border-t border-zinc-100 dark:border-zinc-800 flex gap-2">
+                    <button onClick={() => handleEditProfile(cfg)} className="flex-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 py-2 rounded-xl text-xs font-semibold hover:bg-zinc-50 dark:hover:bg-zinc-850 transition-all flex items-center justify-center gap-1.5 shadow-sm">
+                      <Edit className="w-3.5 h-3.5" /> संपादित करें (Edit)
+                    </button>
+                    <button onClick={() => handleDeleteProfile(cfg.id)} className="p-2 border border-zinc-200 dark:border-zinc-800 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl transition-all">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Profile Editor Modal */}
+          {showProfileModal && (
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+              <div className="bg-white dark:bg-zinc-900 rounded-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto border border-zinc-200 dark:border-zinc-800 shadow-xl animate-in zoom-in-95 duration-250">
+                <div className="p-6 border-b border-zinc-100 dark:border-zinc-800 flex justify-between items-center">
+                  <h3 className="text-lg font-bold text-zinc-900 dark:text-white">
+                    {editingConfig ? "WhatsApp खाता संपादित करें" : "नया WhatsApp खाता जोड़ें"}
+                  </h3>
+                  <button onClick={() => setShowProfileModal(false)} className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"><X className="w-5 h-5" /></button>
+                </div>
+
+                <div className="p-6 space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-1">Phone Number ID</label>
+                      <input 
+                        type="text" 
+                        value={phoneNumberId} 
+                        onChange={(e) => setPhoneNumberId(e.target.value)}
+                        placeholder="e.g. 104523912..."
+                        className="w-full text-sm p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 focus:border-indigo-500 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-1">WABA ID</label>
+                      <input 
+                        type="text" 
+                        value={wabaId} 
+                        onChange={(e) => setWabaId(e.target.value)}
+                        placeholder="e.g. 104234059..."
+                        className="w-full text-sm p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 focus:border-indigo-500 outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-1">Permanent Access Token</label>
+                    <input 
+                      type="password" 
+                      value={accessToken} 
+                      onChange={(e) => setAccessToken(e.target.value)}
+                      placeholder={editingConfig ? "••••••••••••••••" : "EAA..."}
+                      className="w-full text-sm p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 focus:border-indigo-500 outline-none"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-1">Webhook Verify Token</label>
+                      <input 
+                        type="text" 
+                        value={verifyToken} 
+                        onChange={(e) => setVerifyToken(e.target.value)}
+                        placeholder="e.g. secureToken123"
+                        className="w-full text-sm p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 focus:border-indigo-500 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-1">ऑटो-रिप्लाई मोड</label>
+                      <select 
+                        value={replyMode} 
+                        onChange={(e) => setReplyMode(e.target.value)}
+                        className="w-full text-sm p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 focus:border-indigo-500 outline-none"
+                      >
+                        <option value="manual">मैन्युअल (Manual Reply Only)</option>
+                        <option value="ai">AI चैटबॉट (AI Automated Answers)</option>
+                        <option value="rule_based">रूल्स आधारित (Rule-based Answers)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Calling and WebRTC configuration sub-panel */}
+                  <div className="border-t border-zinc-100 dark:border-zinc-800 pt-4 mt-2">
+                    <h4 className="text-xs font-bold text-zinc-800 dark:text-zinc-200 uppercase tracking-wider mb-3">SIP Calling / WebRTC Settings (Optional)</h4>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-zinc-400 mb-1">SIP Server WS Address</label>
+                        <input 
+                          type="text" 
+                          value={sipWsServer} 
+                          onChange={(e) => setSipWsServer(e.target.value)}
+                          placeholder="wss://sip.example.com:443"
+                          className="w-full text-xs p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 focus:border-indigo-500 outline-none"
+                        />
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div className="md:col-span-2">
+                          <label className="block text-[11px] font-semibold text-zinc-400 mb-1">SIP URI</label>
+                          <input 
+                            type="text" 
+                            value={sipUri} 
+                            onChange={(e) => setSipUri(e.target.value)}
+                            placeholder="sip:100@sip.example.com"
+                            className="w-full text-xs p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 focus:border-indigo-500 outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-semibold text-zinc-400 mb-1">SIP Username</label>
+                          <input 
+                            type="text" 
+                            value={sipUsername} 
+                            onChange={(e) => setSipUsername(e.target.value)}
+                            placeholder="100"
+                            className="w-full text-xs p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 focus:border-indigo-500 outline-none"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-zinc-400 mb-1">SIP Password</label>
+                        <input 
+                          type="password" 
+                          value={sipPassword} 
+                          onChange={(e) => setSipPassword(e.target.value)}
+                          placeholder="••••••••"
+                          className="w-full text-xs p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 focus:border-indigo-500 outline-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-6 border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/50 flex gap-3 justify-end">
+                  <button 
+                    onClick={() => setShowProfileModal(false)}
+                    className="px-4 py-2 text-sm text-zinc-500 hover:text-zinc-700 bg-zinc-100 dark:bg-zinc-800 rounded-xl font-semibold"
+                  >
+                    रद्द करें (Cancel)
+                  </button>
+                  <button 
+                    onClick={handleSaveProfile}
+                    disabled={savingConfig}
+                    className="px-6 py-2 text-sm bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition-all"
+                  >
+                    {savingConfig ? "सहेजा जा रहा है..." : "सुरक्षित करें (Save)"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeSubTab === 'templates' && (
+        <div className="bg-zinc-50 dark:bg-zinc-900/10 p-4 rounded-3xl border border-zinc-100 dark:border-zinc-850">
+          <TemplatesView />
+        </div>
+      )}
+
+      {activeSubTab === 'flows' && (
+        <div className="space-y-6">
+          <div className="flex justify-between items-center bg-zinc-50 dark:bg-zinc-900/40 p-4 rounded-xl border border-zinc-100 dark:border-zinc-800/60">
+            <h3 className="font-bold text-zinc-800 dark:text-zinc-200 flex items-center gap-1.5">
+              WhatsApp फ़्लो / फॉर्म सूची ({flows.length})
+            </h3>
+            <button 
+              onClick={handleCreateFlow}
+              className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all shadow-sm flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" /> नया फ़्लो बनाएँ (New Flow)
+            </button>
+          </div>
+
+          {loadingFlows ? (
+            <div className="p-12 text-center text-zinc-400">फ़्लो लोड किए जा रहे हैं...</div>
+          ) : flows.length === 0 ? (
+            <div className="p-16 text-center border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-3xl bg-white dark:bg-zinc-950/30 flex flex-col items-center">
+              <Blocks className="w-12 h-12 text-zinc-300 dark:text-zinc-700 mb-4 animate-pulse" />
+              <h4 className="font-bold text-lg mb-1">कोई फ़्लो/फॉर्म नहीं मिला</h4>
+              <p className="text-sm text-zinc-500 max-w-sm mb-6">WhatsApp पर ग्राहकों से सीधे फॉर्म / जानकारी एकत्र करने के लिए एक फ़्लो डिज़ाइन करें।</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {flows.map((flow) => (
+                <div key={flow.id} className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-sm hover:border-zinc-300 dark:hover:border-zinc-700 transition-all flex flex-col justify-between">
+                  <div className="p-6 space-y-4">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h4 className="font-bold text-zinc-900 dark:text-white font-display">{flow.name}</h4>
+                        <p className="text-[11px] text-zinc-400 font-mono mt-1">ID: {flow.id}</p>
+                      </div>
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                        flow.status === 'PUBLISHED' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400' :
+                        'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-400'
+                      }`}>
+                        {flow.status === 'PUBLISHED' ? 'Live' : 'Draft'}
+                      </span>
+                    </div>
+
+                    <div className="text-xs text-zinc-500 bg-zinc-50 dark:bg-zinc-950 p-3 rounded-xl border border-zinc-100 dark:border-zinc-900 flex justify-between items-center">
+                      <span>श्रेणी: <strong>{flow.categories || "UTILITY"}</strong></span>
+                      <span>स्क्रीन संख्या: <strong>{JSON.parse(flow.screens_json || '[]').length || 1}</strong></span>
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-zinc-50 dark:bg-zinc-950/50 border-t border-zinc-100 dark:border-zinc-800 flex gap-2">
+                    <button onClick={() => handleEditFlow(flow)} className="flex-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 py-2 rounded-xl text-xs font-semibold hover:bg-zinc-50 dark:hover:bg-zinc-850 transition-all flex items-center justify-center gap-1.5 shadow-sm">
+                      <Edit className="w-3.5 h-3.5" /> संपादित करें (Build)
+                    </button>
+                    {flow.status !== 'PUBLISHED' && (
+                      <button onClick={() => handlePublishFlow(flow.id)} className="px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold transition-all">
+                        लाइव करें (Publish)
+                      </button>
+                    )}
+                    <button onClick={() => handleDeleteFlow(flow.id)} className="p-2 border border-zinc-200 dark:border-zinc-800 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl transition-all">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Flow Visual Editor Builder Modal */}
+          {showFlowModal && (
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+              <div className="bg-white dark:bg-zinc-900 rounded-2xl w-full max-w-6xl h-[90vh] overflow-hidden border border-zinc-200 dark:border-zinc-800 shadow-xl animate-in zoom-in-95 duration-250 flex flex-col">
+                
+                {/* Header */}
+                <div className="p-4 md:p-6 border-b border-zinc-100 dark:border-zinc-800 flex justify-between items-center shrink-0">
+                  <div className="flex items-center gap-3">
+                    <Blocks className="w-5 h-5 text-amber-500" />
+                    <div>
+                      <h3 className="text-lg font-bold text-zinc-900 dark:text-white">
+                        {editingFlow ? "WhatsApp फ़्लो संपादित करें (Builder)" : "नया WhatsApp फ़्लो बनाएँ (Builder)"}
+                      </h3>
+                      <p className="text-xs text-zinc-400 mt-0.5">बिना कोडिंग के WhatsApp फॉर्म्स और इंटरएक्टिव स्क्रीन डिज़ाइन करें</p>
+                    </div>
+                  </div>
+                  <button onClick={() => setShowFlowModal(false)} className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"><X className="w-5 h-5" /></button>
+                </div>
+
+                {/* Main Body Grid */}
+                <div className="flex-1 overflow-hidden grid grid-cols-1 lg:grid-cols-12">
+                  
+                  {/* Left Column: Screen Structure & Fields insertion (4 cols) */}
+                  <div className="lg:col-span-4 border-r border-zinc-100 dark:border-zinc-800 p-4 overflow-y-auto space-y-4">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-zinc-400 uppercase tracking-wider mb-1">फ़्लो का नाम (Flow Name)</label>
+                      <input 
+                        type="text" 
+                        value={flowName} 
+                        onChange={(e) => setFlowName(e.target.value)}
+                        placeholder="e.g. Lead Form, Survey"
+                        className="w-full text-sm p-2 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 focus:border-amber-500 outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-zinc-400 uppercase tracking-wider mb-1">श्रेणी (Category)</label>
+                      <select 
+                        value={flowCategory} 
+                        onChange={(e) => setFlowCategory(e.target.value)}
+                        className="w-full text-sm p-2 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 focus:border-amber-500 outline-none"
+                      >
+                        <option value="UTILITY">UTILITY (उपयोगिता)</option>
+                        <option value="MARKETING">MARKETING (मार्केटिंग)</option>
+                      </select>
+                    </div>
+
+                    {/* Component Actions Palette */}
+                    <div className="border-t border-zinc-100 dark:border-zinc-800 pt-3">
+                      <h4 className="text-xs font-bold text-zinc-800 dark:text-zinc-200 uppercase tracking-wider mb-2">कंपोनेंट्स जोड़ें (Add Fields)</h4>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button onClick={() => addFlowComponent('text')} className="flex items-center gap-1.5 p-2 bg-zinc-50 dark:bg-zinc-950 hover:bg-zinc-100 dark:hover:bg-zinc-850 rounded-lg border border-zinc-200 dark:border-zinc-800 text-xs font-semibold text-zinc-700 dark:text-zinc-300 text-left transition-all">
+                          <span className="text-indigo-500 font-bold font-mono">T</span> विवरण / निर्देश
+                        </button>
+                        <button onClick={() => addFlowComponent('input')} className="flex items-center gap-1.5 p-2 bg-zinc-50 dark:bg-zinc-950 hover:bg-zinc-100 dark:hover:bg-zinc-850 rounded-lg border border-zinc-200 dark:border-zinc-800 text-xs font-semibold text-zinc-700 dark:text-zinc-300 text-left transition-all">
+                          <Plus className="w-3.5 h-3.5 text-emerald-500" /> टेक्स्ट इनपुट
+                        </button>
+                        <button onClick={() => addFlowComponent('textarea')} className="flex items-center gap-1.5 p-2 bg-zinc-50 dark:bg-zinc-950 hover:bg-zinc-100 dark:hover:bg-zinc-850 rounded-lg border border-zinc-200 dark:border-zinc-800 text-xs font-semibold text-zinc-700 dark:text-zinc-300 text-left transition-all">
+                          <Plus className="w-3.5 h-3.5 text-blue-500" /> लंबा संदेश
+                        </button>
+                        <button onClick={() => addFlowComponent('select')} className="flex items-center gap-1.5 p-2 bg-zinc-50 dark:bg-zinc-950 hover:bg-zinc-100 dark:hover:bg-zinc-850 rounded-lg border border-zinc-200 dark:border-zinc-800 text-xs font-semibold text-zinc-700 dark:text-zinc-300 text-left transition-all">
+                          <Plus className="w-3.5 h-3.5 text-amber-500" /> ड्रॉपडाउन लिस्ट
+                        </button>
+                        <button onClick={() => addFlowComponent('submit')} className="col-span-2 flex items-center justify-center gap-1.5 p-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-bold transition-all">
+                          <Check className="w-3.5 h-3.5" /> सबमिट बटन (Submit)
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Field Properties Panel */}
+                    {selectedComponent ? (
+                      <div className="border-t border-zinc-100 dark:border-zinc-800 pt-3 space-y-3 bg-zinc-50/50 dark:bg-zinc-950/20 p-3 rounded-xl border border-dashed">
+                        <div className="flex justify-between items-center">
+                          <h4 className="text-xs font-bold text-amber-500 uppercase tracking-wider">फ़ील्ड गुण (Properties)</h4>
+                          <button onClick={() => deleteComponent(selectedComponent.id)} className="text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 p-1.5 rounded-lg transition-all" title="Delete Field">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-bold text-zinc-400 mb-1">लेबल (Label)</label>
+                          <input 
+                            type="text"
+                            value={selectedComponent.label || ""}
+                            onChange={(e) => updateComponentProperty(selectedComponent.id, 'label', e.target.value)}
+                            className="w-full text-xs p-2 rounded border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 outline-none"
+                          />
+                        </div>
+
+                        {selectedComponent.type === 'text' && (
+                          <div>
+                            <label className="block text-[10px] font-bold text-zinc-400 mb-1">विवरण सामग्री (Content)</label>
+                            <textarea 
+                              rows={2}
+                              value={selectedComponent.content || ""}
+                              onChange={(e) => updateComponentProperty(selectedComponent.id, 'content', e.target.value)}
+                              className="w-full text-xs p-2 rounded border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 outline-none resize-none"
+                            />
+                          </div>
+                        )}
+
+                        {(selectedComponent.type === 'input' || selectedComponent.type === 'textarea') && (
+                          <>
+                            <div>
+                              <label className="block text-[10px] font-bold text-zinc-400 mb-1">प्लेसहोल्डर (Placeholder)</label>
+                              <input 
+                                type="text"
+                                value={selectedComponent.placeholder || ""}
+                                onChange={(e) => updateComponentProperty(selectedComponent.id, 'placeholder', e.target.value)}
+                                className="w-full text-xs p-2 rounded border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 outline-none"
+                              />
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <input 
+                                type="checkbox"
+                                checked={!!selectedComponent.required}
+                                onChange={(e) => updateComponentProperty(selectedComponent.id, 'required', e.target.checked)}
+                                id="chk_req"
+                              />
+                              <label htmlFor="chk_req" className="text-xs text-zinc-600 dark:text-zinc-400 font-semibold cursor-pointer">भरना आवश्यक है? (Required)</label>
+                            </div>
+                          </>
+                        )}
+
+                        {selectedComponent.type === 'select' && (
+                          <div>
+                            <label className="block text-[10px] font-bold text-zinc-400 mb-1">विकल्प सूची (कोमा से अलग करें)</label>
+                            <input 
+                              type="text"
+                              value={selectedComponent.options || ""}
+                              onChange={(e) => updateComponentProperty(selectedComponent.id, 'options', e.target.value)}
+                              placeholder="उदा. हाँ, नहीं, शायद"
+                              className="w-full text-xs p-2 rounded border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 outline-none"
+                            />
+                          </div>
+                        )}
+
+                        <div>
+                          <label className="block text-[10px] font-bold text-zinc-400 mb-1">वैरिएबल कुंजी (Database Key)</label>
+                          <input 
+                            type="text"
+                            value={selectedComponent.name || ""}
+                            onChange={(e) => updateComponentProperty(selectedComponent.id, 'name', e.target.value)}
+                            className="w-full text-xs p-2 rounded border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 outline-none font-mono"
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center p-6 border-2 border-dashed border-zinc-100 dark:border-zinc-800 rounded-2xl text-zinc-400 text-xs">
+                        संपादित करने के लिए लाइव प्रीव्यू स्क्रीन पर किसी फील्ड/अवयव पर क्लिक करें।
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Middle/Right Column: Live Simulated Phone Screen & Layout Preview (8 cols) */}
+                  <div className="lg:col-span-8 bg-zinc-50 dark:bg-zinc-950 p-6 flex flex-col md:flex-row gap-6 overflow-y-auto items-center justify-center">
+                    
+                    {/* Visual Layout Reorder List */}
+                    <div className="w-full md:w-1/2 space-y-3 shrink-0">
+                      <h4 className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">स्क्रीन अवयव क्रम (Layout Fields)</h4>
+                      <div className="space-y-2">
+                        {activeScreen?.components.map((comp: any) => (
+                          <div 
+                            key={comp.id}
+                            onClick={() => setSelectedCompId(comp.id)}
+                            className={`p-3 rounded-xl border transition-all flex justify-between items-center cursor-pointer ${selectedCompId === comp.id ? 'bg-amber-500/15 border-amber-500' : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700'}`}
+                          >
+                            <div className="min-w-0">
+                              <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-500 font-mono">{comp.type}</span>
+                              <h5 className="text-xs font-bold text-zinc-800 dark:text-zinc-200 mt-1 truncate">{comp.label || comp.content || "बिना नाम की फील्ड"}</h5>
+                            </div>
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); deleteComponent(comp.id); }}
+                              className="text-zinc-400 hover:text-red-500 p-1 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-850"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* WhatsApp Device Mockup frame */}
+                    <div className="w-[300px] h-[580px] bg-zinc-950 rounded-[40px] border-[8px] border-zinc-800 shadow-2xl relative shrink-0 overflow-hidden flex flex-col">
+                      {/* Topnotch speaker and camera */}
+                      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-28 h-5 bg-zinc-800 rounded-b-xl z-20 flex items-center justify-center gap-1.5">
+                        <div className="w-2 h-2 rounded-full bg-zinc-900"></div>
+                        <div className="w-10 h-1 bg-zinc-900 rounded-full"></div>
+                      </div>
+
+                      {/* Screen Header */}
+                      <div className="bg-[#075e54] text-white pt-7 pb-3 px-4 flex items-center gap-2 z-10">
+                        <Phone className="w-4 h-4 text-emerald-300" />
+                        <div className="min-w-0">
+                          <h5 className="text-xs font-bold truncate">Dhita CRM Forms</h5>
+                          <p className="text-[9px] text-emerald-200">Active Form Screen</p>
+                        </div>
+                      </div>
+
+                      {/* Chat / Flow Form Screen area */}
+                      <div className="flex-1 bg-[#efeae2] dark:bg-zinc-900/40 p-4 space-y-4 overflow-y-auto relative">
+                        {/* Custom background pattern simulation */}
+                        <div className="absolute inset-0 opacity-5 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle, #000 10%, transparent 11%)', backgroundSize: '12px 12px' }}></div>
+                        
+                        {/* Elegant Form Window simulating WhatsApp Native Flow screen */}
+                        <div className="bg-white dark:bg-zinc-950 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-3 relative z-10">
+                          <h4 className="font-bold text-sm text-zinc-800 dark:text-zinc-200 pb-2 border-b border-zinc-100 dark:border-zinc-900 flex items-center justify-between">
+                            <span>{activeScreen?.title || "शीर्षक"}</span>
+                            <span className="text-[10px] text-zinc-400 uppercase tracking-widest font-bold">1 of 1</span>
+                          </h4>
+
+                          {/* Dynamic components rendering inside Mockup */}
+                          <div className="space-y-3">
+                            {activeScreen?.components.map((c: any) => {
+                              if (c.type === 'text') {
+                                return (
+                                  <div key={c.id} className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed whitespace-pre-wrap bg-zinc-50 dark:bg-zinc-900 p-2 rounded border border-zinc-100 dark:border-zinc-850">
+                                    {c.content || "निर्देश प्रविष्ट करें..."}
+                                  </div>
+                                );
+                              }
+                              if (c.type === 'input') {
+                                return (
+                                  <div key={c.id} className="space-y-1">
+                                    <label className="block text-[10px] font-semibold text-zinc-500">
+                                      {c.label || "इनपुट"} {c.required && <span className="text-red-500">*</span>}
+                                    </label>
+                                    <input 
+                                      type="text"
+                                      disabled
+                                      placeholder={c.placeholder || "विवरण..."}
+                                      className="w-full text-xs p-2 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50 outline-none"
+                                    />
+                                  </div>
+                                );
+                              }
+                              if (c.type === 'textarea') {
+                                return (
+                                  <div key={c.id} className="space-y-1">
+                                    <label className="block text-[10px] font-semibold text-zinc-500">
+                                      {c.label || "लंबा संदेश"} {c.required && <span className="text-red-500">*</span>}
+                                    </label>
+                                    <textarea 
+                                      rows={2}
+                                      disabled
+                                      placeholder={c.placeholder || "विवरण..."}
+                                      className="w-full text-xs p-2 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50 outline-none resize-none"
+                                    />
+                                  </div>
+                                );
+                              }
+                              if (c.type === 'select') {
+                                const opts = (c.options || "").split(",").map((o: string) => o.trim()).filter((o: string) => o.length > 0);
+                                return (
+                                  <div key={c.id} className="space-y-1">
+                                    <label className="block text-[10px] font-semibold text-zinc-500">{c.label || "ड्रॉपडाउन"}</label>
+                                    <select disabled className="w-full text-xs p-2 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50 outline-none">
+                                      {opts.map((o: string, idx: number) => <option key={idx}>{o}</option>)}
+                                    </select>
+                                  </div>
+                                );
+                              }
+                              if (c.type === 'submit') {
+                                return (
+                                  <button key={c.id} disabled className="w-full py-2 bg-[#075e54] text-white font-bold text-xs rounded-lg shadow-sm hover:opacity-95 mt-4">
+                                    {c.label || "प्रस्तुत करें"}
+                                  </button>
+                                );
+                              }
+                              return null;
+                            })}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Screen footer bar / Home line */}
+                      <div className="h-10 bg-zinc-950 flex items-center justify-center shrink-0">
+                        <div className="w-24 h-1 bg-zinc-700 rounded-full"></div>
+                      </div>
+                    </div>
+
+                  </div>
+                </div>
+
+                {/* Footer Controls */}
+                <div className="p-4 border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/50 shrink-0 flex gap-3 justify-end">
+                  <button 
+                    onClick={() => setShowFlowModal(false)}
+                    className="px-4 py-2 text-sm text-zinc-500 hover:text-zinc-700 bg-zinc-100 dark:bg-zinc-800 rounded-xl font-semibold"
+                  >
+                    रद्द करें (Cancel)
+                  </button>
+                  <button 
+                    onClick={handleSaveFlow}
+                    className="px-6 py-2 text-sm bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold transition-all shadow-sm"
+                  >
+                    सहेजें और बंद करें (Save Flow)
+                  </button>
+                </div>
+
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
