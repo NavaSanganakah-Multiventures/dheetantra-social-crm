@@ -2696,24 +2696,6 @@ app.post('/api/whatsapp/webhook/subscribe', async (c) => {
     console.error('[Webhook Subscribe] Error:', err);
     return c.json({ error: err.message }, 500);
   }
-});fields.includes('calls');
-        }
-      }
-    } catch (e) {
-      console.error('[Calling Status] Failed to check webhook subscription:', e);
-    }
-  }
-
-  // Check TURN/ICE configuration
-  const turnKeyId = await c.env.SECRETS_KV.get('CLOUDFLARE_CALLS_APP_ID').catch(() => null);
-  const turnToken = await c.env.SECRETS_KV.get('CLOUDFLARE_API_TOKEN').catch(() => null);
-
-  return c.json({
-    phone_numbers: phoneResults,
-    webhook_subscribed: webhookCallsFieldHint,
-    turn_configured: !!(turnKeyId && turnToken),
-    all_ready: phoneResults.every(p => p.db_calling_enabled) && webhookCallsFieldHint
-  });
 });
 
 // Broadcast Campaign
