@@ -156,8 +156,11 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
   // Global WebSocket listener for real-time incoming call alerts
   const incomingCallRef = useRef(incomingCall);
   const activeCallRef = useRef(activeCall);
-  incomingCallRef.current = incomingCall;
-  activeCallRef.current = activeCall;
+
+  useEffect(() => {
+    incomingCallRef.current = incomingCall;
+    activeCallRef.current = activeCall;
+  }, [incomingCall, activeCall]);
 
   // Play ringtone instantly and robustly
   useEffect(() => {
@@ -808,6 +811,7 @@ function InboxView({
   const [messageInput, setMessageInput] = useState("");
   const [sending, setSending] = useState(false);
   const [filterStatus, setFilterStatus] = useState<'open' | 'closed'>('open');
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (preselectedChat) {
@@ -1193,6 +1197,12 @@ function InboxView({
       setMessageInput(textToSend);
     }
   };
+
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages]);
 
   const updateConversationStatus = async (convId: string, newStatus: 'open' | 'closed') => {
     try {
@@ -1621,6 +1631,7 @@ function InboxView({
                       );
                     })
                   )}
+                 <div ref={messagesEndRef} />
               </div>
 
               {/* Message Input Drawer and Input field */}
