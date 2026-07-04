@@ -3864,14 +3864,7 @@ function CallsView({
     })
     .catch(err => console.error(err));
 
-    // Fetch calling health status
-    fetch('/api/whatsapp/calls/status', {
-      headers: { 'x-workspace-id': wId }
-    })
-    .then(r => r.json())
-    .then((data: any) => setHealth(data))
-    .catch(() => {});
-  }, []);
+      }, []);
 
   useEffect(() => {
     fetchCallsAndConfigs();
@@ -4028,69 +4021,7 @@ function CallsView({
         </div>
       </div>
 
-      {/* Calling Health Card */}
-      <div className="bg-white dark:bg-zinc-900 p-5 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
-        <div className="flex items-center gap-2 mb-3">
-          <Activity className="w-4 h-4 text-indigo-500" />
-          <h3 className="text-xs font-bold text-zinc-800 dark:text-zinc-200 uppercase tracking-wider">कॉलिंग हेल्थ (Calling Health)</h3>
-        </div>
-        {!health ? (
-          <div className="flex items-center gap-2 text-xs text-zinc-400">
-            <div className="w-3 h-3 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-            जांच हो रही है...
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="flex items-center gap-2 p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-950/50 border border-zinc-100 dark:border-zinc-800/50">
-              <div className={`w-2 h-2 rounded-full ${health.webhook_subscribed ? 'bg-emerald-500' : 'bg-rose-500'}`}></div>
-              <div className="min-w-0">
-                <p className="text-[10px] font-bold text-zinc-500">Webhook</p>
-                <p className={`text-[10px] font-semibold ${health.webhook_subscribed ? 'text-emerald-600' : 'text-rose-600'}`}>
-                  {health.webhook_subscribed ? '✅ calls field OK' : '❌ calls field missing'}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-950/50 border border-zinc-100 dark:border-zinc-800/50">
-              <div className={`w-2 h-2 rounded-full ${callingEnabled ? 'bg-emerald-500' : 'bg-rose-500'}`}></div>
-              <div className="min-w-0">
-                <p className="text-[10px] font-bold text-zinc-500">Calling Enabled</p>
-                <p className={`text-[10px] font-semibold ${callingEnabled ? 'text-emerald-600' : 'text-rose-600'}`}>
-                  {callingEnabled ? '✅ Active' : '❌ Disabled'}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-950/50 border border-zinc-100 dark:border-zinc-800/50">
-              <div className={`w-2 h-2 rounded-full ${health.turn_configured ? 'bg-emerald-500' : 'bg-amber-500'}`}></div>
-              <div className="min-w-0">
-                <p className="text-[10px] font-bold text-zinc-500">TURN/ICE</p>
-                <p className={`text-[10px] font-semibold ${health.turn_configured ? 'text-emerald-600' : 'text-amber-600'}`}>
-                  {health.turn_configured ? '✅ Configured' : '⚠️ Not set'}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-950/50 border border-zinc-100 dark:border-zinc-800/50">
-              <div className={`w-2 h-2 rounded-full ${health.all_ready ? 'bg-emerald-500' : 'bg-rose-500'}`}></div>
-              <div className="min-w-0">
-                <p className="text-[10px] font-bold text-zinc-500">Overall</p>
-                <p className={`text-[10px] font-semibold ${health.all_ready ? 'text-emerald-600' : 'text-rose-600'}`}>
-                  {health.all_ready ? '✅ Ready' : '❌ Issues found'}
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-        {health && !health.webhook_subscribed && (
-          <div className="mt-3 p-2.5 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 rounded-xl flex items-start gap-2">
-            <AlertCircle className="w-3.5 h-3.5 text-amber-600 mt-0.5 shrink-0" />
-            <p className="text-[10px] text-amber-800 dark:text-amber-300">
-              ⚠️ WhatsApp Cloud API Webhook में <strong>"calls" field subscribe नहीं है</strong>। 
-              इसके बिना कॉल कनेक्ट नहीं हो सकती। 
-              Meta Business Suite → WhatsApp → Webhook Settings → <strong>calls field add करें</strong> और Test Call करके देखें।
-            </p>
-          </div>
-        )}
-      </div>
-
+      
       {/* Main Table Container */}
       <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden">
         {/* Filters and Search */}
