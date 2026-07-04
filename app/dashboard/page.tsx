@@ -159,6 +159,40 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
   incomingCallRef.current = incomingCall;
   activeCallRef.current = activeCall;
 
+  // Play ringtone instantly and robustly
+  useEffect(() => {
+    let interval: any;
+    let audioCtx: any = null;
+    if (incomingCall && incomingCall.status === 'ringing') {
+      try {
+        audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const playRing = () => {
+          if (!audioCtx) return;
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(587.33, audioCtx.currentTime);
+          gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+          osc.start();
+          osc.stop(audioCtx.currentTime + 1.2);
+        };
+        playRing();
+        interval = setInterval(playRing, 2000);
+      } catch (e) {
+        console.error("Audio playback error", e);
+      }
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+      if (audioCtx) {
+        audioCtx.close().catch(() => {});
+      }
+    };
+  }, [incomingCall?.status]);
+
   useEffect(() => {
     const wId = localStorage.getItem('workspaceId');
     if (!wId) return;
@@ -198,27 +232,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
               });
               // Clear any no-sdp notification
               setIncomingCallNoSdp(null);
-              // Play ringtone for answerable call
-              try {
-                const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-                let count = 0;
-                let ringInterval = setInterval(() => {
-                  if (!active || count > 5) {
-                    clearInterval(ringInterval);
-                    return;
-                  }
-                  count++;
-                  const osc = audioCtx.createOscillator();
-                  const gain = audioCtx.createGain();
-                  osc.connect(gain);
-                  gain.connect(audioCtx.destination);
-                  osc.type = 'sine';
-                  osc.frequency.setValueAtTime(587.33, audioCtx.currentTime);
-                  gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
-                  osc.start();
-                  osc.stop(audioCtx.currentTime + 1.2);
-                }, 2000);
-              } catch(e) {}
+              // Ringtone is now handled by the useEffect watching incomingCall.status
             } else if (data.type === 'incoming_call' && data.call) {
               // System message fallback — NO SDP, show as missed call notification
               setIncomingCallNoSdp({
@@ -237,16 +251,26 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
               
               if (data.type === 'whatsapp_call_terminated') {
                  handleRemoteHangup();
-              }
-              
-              if (incomingCallNoSdp && incomingCallNoSdp.id === callIdToUpdate) {
-                setIncomingCallNoSdp(null);
-              }
-              if (incomingCallRef.current && incomingCallRef.current.id === callIdToUpdate) {
-                setIncomingCall((prev: any) => prev ? { ...prev, status: newStatus } : null);
-              }
-              if (activeCallRef.current && activeCallRef.current.id === callIdToUpdate) {
-                setActiveCall((prev: any) => prev ? { ...prev, status: newStatus, duration: data.duration } : null);
+                 // Instant cut
+                 if (incomingCallNoSdp && incomingCallNoSdp.id === callIdToUpdate) {
+                   setIncomingCallNoSdp(null);
+                 }
+                 if (incomingCallRef.current && incomingCallRef.current.id === callIdToUpdate) {
+                   setIncomingCall(null);
+                 }
+                 if (activeCallRef.current && activeCallRef.current.id === callIdToUpdate) {
+                   setActiveCall(null);
+                 }
+              } else {
+                 if (incomingCallNoSdp && incomingCallNoSdp.id === callIdToUpdate) {
+                   setIncomingCallNoSdp(null);
+                 }
+                 if (incomingCallRef.current && incomingCallRef.current.id === callIdToUpdate) {
+                   setIncomingCall((prev: any) => prev ? { ...prev, status: newStatus } : null);
+                 }
+                 if (activeCallRef.current && activeCallRef.current.id === callIdToUpdate) {
+                   setActiveCall((prev: any) => prev ? { ...prev, status: newStatus, duration: data.duration } : null);
+                 }
               }
             }
           } catch (e) {
