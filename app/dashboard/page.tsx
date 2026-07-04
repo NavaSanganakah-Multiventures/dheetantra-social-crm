@@ -156,8 +156,11 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
   // Global WebSocket listener for real-time incoming call alerts
   const incomingCallRef = useRef(incomingCall);
   const activeCallRef = useRef(activeCall);
-  incomingCallRef.current = incomingCall;
-  activeCallRef.current = activeCall;
+
+  useEffect(() => {
+    incomingCallRef.current = incomingCall;
+    activeCallRef.current = activeCall;
+  }, [incomingCall, activeCall]);
 
   // Play ringtone instantly and robustly
   useEffect(() => {

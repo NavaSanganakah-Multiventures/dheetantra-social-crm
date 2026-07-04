@@ -45,6 +45,40 @@ admin.get('/check', async (c) => {
 });
 
 // GET overall admin statistics
+import { schemaSql, dropSql } from '../schema';
+
+admin.post('/migrate', async (c) => {
+  const isAdmin = await verifyAdmin(c);
+  if (!isAdmin) return c.json({ error: 'Unauthorized' }, 403);
+  if (!c.env.DB) return c.json({ error: 'Database not connected' }, 500);
+
+  try {
+    const reset = c.req.query('reset') === 'true';
+
+    // Disable foreign keys temporarily
+    try { await c.env.DB.prepare('PRAGMA foreign_keys = OFF').run(); } catch (e) { }
+
+    if (reset) {
+      const dropStatements = dropSql.split(';').map(s => s.trim()).filter(s => s.length > 0);
+      for (const stmt of dropStatements) {
+        await c.env.DB.prepare(stmt).run();
+      }
+    }
+
+    const statements = schemaSql.split(';').map(s => s.trim()).filter(s => s.length > 0);
+    for (const stmt of statements) {
+      await c.env.DB.prepare(stmt).run();
+    }
+
+    // Re-enable foreign keys
+    try { await c.env.DB.prepare('PRAGMA foreign_keys = ON').run(); } catch (e) { }
+
+    return c.json({ success: true, message: reset ? 'Database completely reset and migrated successfully!' : 'Database schema migrated successfully!' });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
 admin.get('/stats', async (c) => {
   const isAdmin = await verifyAdmin(c);
   if (!isAdmin) return c.json({ error: 'Unauthorized' }, 403);

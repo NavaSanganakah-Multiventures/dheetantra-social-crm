@@ -113,8 +113,64 @@ export class AutomationWorkflow extends WorkflowEntrypoint<Env, any> {
 
 const app = new Hono<{ Bindings: Env }>();
 
-// Enable CORS for custom SDKs and mobile apps
-app.use('/api/*', cors());
+// Enable CORS for custom SDKs and mobile apps with strict origin check
+app.use('/api/*', cors({
+  origin: (origin) => {
+    // Only allow specific domains or local development
+    if (!origin || origin.includes('localhost') || origin.includes('dhitantra.com') || origin.includes('navasanganakah.com')) {
+      return origin || '*';
+    }
+    return 'https://dhitantra.com';
+  },
+  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowHeaders: ['Content-Type', 'Authorization', 'x-workspace-id'],
+  exposeHeaders: ['Content-Length'],
+  maxAge: 600,
+  credentials: true,
+}));
+
+// Authentication and Authorization Middleware
+async function authMiddleware(c: any, next: any) {
+  const sessionId = getCookie(c, 'auth_session');
+  if (!sessionId) {
+    return c.json({ error: 'Unauthorized: No session found' }, 401);
+  }
+
+  let user = null;
+  if (c.env.SECRETS_KV) {
+    const userDataStr = await c.env.SECRETS_KV.get(`SESSION:${sessionId}`);
+    if (userDataStr) {
+      user = JSON.parse(userDataStr);
+    }
+  }
+
+  if (!user) {
+    return c.json({ error: 'Unauthorized: Invalid or expired session' }, 401);
+  }
+
+  const workspaceId = c.req.header('x-workspace-id');
+  if (workspaceId && c.env.DB) {
+    // Check if the user is a member of the requested workspace
+    const member = await c.env.DB.prepare('SELECT role FROM workspace_members WHERE workspace_id = ? AND user_id = ?').bind(workspaceId, user.id).first();
+    if (!member) {
+      return c.json({ error: 'Forbidden: You do not have access to this workspace' }, 403);
+    }
+    // Attach workspace role to context
+    c.set('workspaceRole', member.role);
+  }
+
+  c.set('user', user);
+  await next();
+}
+
+app.use('/api/crm/*', authMiddleware);
+app.use('/api/whatsapp/config*', authMiddleware);
+app.use('/api/whatsapp/templates*', authMiddleware);
+app.use('/api/whatsapp/flows*', authMiddleware);
+app.use('/api/whatsapp/send', authMiddleware);
+app.use('/api/whatsapp/calls*', authMiddleware);
+app.use('/api/inbox/*', authMiddleware);
+app.use('/api/media/upload', authMiddleware);
 
 // Auto-migrate tables for Multiple WABAs
 async function ensureMultipleWabaSchema(db: any) {
@@ -241,24 +297,6 @@ async function ensureMultipleWabaSchema(db: any) {
   }
 }
 
-app.use('/api/whatsapp/*', async (c, next) => {
-  if (c.env.DB) {
-    const t0 = Date.now();
-    await ensureMultipleWabaSchema(c.env.DB);
-    if (Date.now() - t0 > 100) {
-      console.log(`[Migration] ensureMultipleWabaSchema took ${Date.now() - t0}ms`);
-    }
-  }
-  await next();
-});
-
-app.use('/api/inbox/*', async (c, next) => {
-  if (c.env.DB) {
-    await ensureMultipleWabaSchema(c.env.DB);
-  }
-  await next();
-});
-
 app.route('/api/meta', metaOauth);
 app.route('/api/admin', adminRouter);
 
@@ -340,7 +378,10 @@ app.post('/api/auth/send-otp', async (c) => {
     await c.env.SECRETS_KV.put(cooldownKey, '1', { expirationTtl: 60 });
   }
 
-  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  // Generate a secure 6 digit OTP
+  const array = new Uint32Array(1);
+  crypto.getRandomValues(array);
+  const otp = (array[0] % 900000 + 100000).toString();
 
   // Save OTP in Database
   if (c.env.DB) {
@@ -423,11 +464,6 @@ app.post('/api/auth/verify-otp', async (c) => {
         }
       }
     }
-  }
-
-  // 3. Bypass OTP for local/testing
-  if (!isVerified && otp === '123456') {
-    isVerified = true;
   }
 
   if (!isVerified) {
@@ -524,7 +560,6 @@ app.get('/api/whatsapp/webhook', async (c) => {
 // Webhook Receiver (WhatsApp sends incoming messages via POST)
 app.post('/api/whatsapp/webhook', async (c) => {
   try {
-    if (c.env.DB) await ensureMultipleWabaSchema(c.env.DB);
     const body = await c.req.json();
     console.log('INCOMING WEBHOOK:', JSON.stringify(body, null, 2));
 
@@ -1885,34 +1920,6 @@ app.post('/api/whatsapp/flows/:id/publish', async (c) => {
 
 
 // Send WhatsApp Message
-app.post('/api/admin/migrate', async (c) => {
-  try {
-    const reset = c.req.query('reset') === 'true';
-
-    // Disable foreign keys temporarily
-    try { await c.env.DB.prepare('PRAGMA foreign_keys = OFF').run(); } catch (e) { }
-
-    if (reset) {
-      const dropStatements = dropSql.split(';').map(s => s.trim()).filter(s => s.length > 0);
-      for (const stmt of dropStatements) {
-        await c.env.DB.prepare(stmt).run();
-      }
-    }
-
-    const statements = schemaSql.split(';').map(s => s.trim()).filter(s => s.length > 0);
-    for (const stmt of statements) {
-      await c.env.DB.prepare(stmt).run();
-    }
-
-    // Re-enable foreign keys
-    try { await c.env.DB.prepare('PRAGMA foreign_keys = ON').run(); } catch (e) { }
-
-    return c.json({ success: true, message: reset ? 'Database completely reset and migrated successfully!' : 'Database schema migrated successfully!' });
-  } catch (err: any) {
-    return c.json({ error: err.message }, 500);
-  }
-});
-
 app.post('/api/whatsapp/send', async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
