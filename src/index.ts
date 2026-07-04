@@ -1385,6 +1385,25 @@ app.post('/api/whatsapp/config', async (c) => {
           } catch (e) {
             console.error(`[Calling] Failed to auto-enable calling for ${phone_number_id}:`, e);
           }
+
+          // Subscribe webhook fields (messages + calls) for this WABA
+          const finalWabaId = waba_id || null;
+          if (finalWabaId) {
+            try {
+              const subsRes = await fetch(`https://graph.facebook.com/v20.0/${finalWabaId}/subscribed_apps`, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${finalToken}`,
+                  'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: 'subscribed_fields=messages,calls'
+              });
+              const subsData: any = await subsRes.json();
+              console.log(`[Webhook] Subscribed messages+calls for WABA ${finalWabaId}:`, subsData);
+            } catch (e) {
+              console.error(`[Webhook] Failed to subscribe for WABA ${finalWabaId}:`, e);
+            }
+          }
         })()
       );
     }
@@ -2448,7 +2467,7 @@ app.get('/api/webrtc/ice-servers', async (c) => {
   try {
     // Try KV first, then env variables
     const turnKeyId = await c.env.SECRETS_KV.get('CLOUDFLARE_CALLS_APP_ID') || await c.env.SECRETS_KV.get('TURN_KEY_ID') || c.env.TURN_KEY_ID;
-    const turnToken = await c.env.SECRETS_KV.get('CLOUDFLARE_API_TOKEN') || await c.env.SECRETS_KV.get('CLOUDFLARE_API_TOKEN') || await c.env.SECRETS_KV.get('TURN_KEY_API_TOKEN') || c.env.TURN_KEY_API_TOKEN;
+    const turnToken = await c.env.SECRETS_KV.get('CLOUDFLARE_API_TOKEN') || await c.env.SECRETS_KV.get('TURN_KEY_API_TOKEN') || c.env.TURN_KEY_API_TOKEN;
 
     if (!turnKeyId || !turnToken) {
       // Fallback to free STUN only if TURN not configured
@@ -2572,18 +2591,18 @@ app.get('/api/whatsapp/calls/status', async (c) => {
     });
   }
 
-  // Check webhook subscription — note: Meta doesn't expose a simple 'calls field subscribed' endpoint
-  // User must verify this manually in Meta Business Suite > WhatsApp > Webhook > Fields
+  // Check webhook subscription and auto-fix if needed
   let webhookCallsFieldHint = false;
+  let autoFixed = false;
   const firstConfig = configs.results?.[0];
   if (firstConfig) {
     try {
-      const wabaId = await c.env.DB.prepare(
+      const wabaRow = await c.env.DB.prepare(
         'SELECT waba_id FROM whatsapp_configs WHERE workspace_id = ? AND waba_id IS NOT NULL LIMIT 1'
       ).bind(workspaceId).first<{ waba_id: string }>();
 
-      if (wabaId) {
-        const subsRes = await fetch(`https://graph.facebook.com/v20.0/${wabaId}/subscribed_apps`, {
+      if (wabaRow && wabaRow.waba_id) {
+        const subsRes = await fetch(`https://graph.facebook.com/v20.0/${wabaRow.waba_id}/subscribed_apps`, {
           headers: { 'Authorization': `Bearer ${firstConfig.access_token}` }
         });
         const subsData: any = await subsRes.json();
@@ -2591,6 +2610,93 @@ app.get('/api/whatsapp/calls/status', async (c) => {
         if (subsData.data && subsData.data.length > 0) {
           const fields = subsData.data[0].subscribed_fields || subsData.data[0].whatsapp_business_api_data?.subscribed_fields || [];
           webhookCallsFieldHint = Array.isArray(fields) && fields.includes('calls');
+        }
+
+        // AUTO-FIX: If calls field is NOT subscribed, subscribe it now
+        if (!webhookCallsFieldHint) {
+          try {
+            const fixRes = await fetch(`https://graph.facebook.com/v20.0/${wabaRow.waba_id}/subscribed_apps`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${firstConfig.access_token}`,
+                'Content-Type': 'application/x-www-form-urlencoded'
+              },
+              body: 'subscribed_fields=messages,calls'
+            });
+            const fixData: any = await fixRes.json();
+            console.log(`[Calling Status] Auto-fix webhook subscription for WABA ${wabaRow.waba_id}:`, fixData);
+            if (fixData.success === true) {
+              webhookCallsFieldHint = true;
+              autoFixed = true;
+            }
+          } catch (fixErr) {
+            console.error('[Calling Status] Auto-fix webhook subscription failed:', fixErr);
+          }
+        }
+      }
+    } catch (e) {
+      console.error('[Calling Status] Failed to check webhook subscription:', e);
+    }
+  }
+
+  // Check TURN/ICE configuration
+  let turnKeyId: string | null = null;
+  let turnToken: string | null = null;
+  try {
+    turnKeyId = await c.env.SECRETS_KV.get('CLOUDFLARE_CALLS_APP_ID');
+  } catch (e) {
+    console.error('[TURN] Failed to get CLOUDFLARE_CALLS_APP_ID from KV:', e);
+  }
+  try {
+    turnToken = await c.env.SECRETS_KV.get('CLOUDFLARE_API_TOKEN');
+  } catch (e) {
+    console.error('[TURN] Failed to get CLOUDFLARE_API_TOKEN from KV:', e);
+  }
+
+  return c.json({
+    phone_numbers: phoneResults,
+    webhook_subscribed: webhookCallsFieldHint,
+    webhook_auto_fixed: autoFixed,
+    turn_configured: !!(turnKeyId && turnToken),
+    all_ready: phoneResults.every(p => p.db_calling_enabled) && webhookCallsFieldHint
+  });
+});
+
+// Manually subscribe webhook fields (messages + calls) for a workspace's WABA
+app.post('/api/whatsapp/webhook/subscribe', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  try {
+    const config = await c.env.DB.prepare(
+      'SELECT waba_id, access_token FROM whatsapp_configs WHERE workspace_id = ? AND waba_id IS NOT NULL ORDER BY created_at DESC LIMIT 1'
+    ).bind(workspaceId).first<{ waba_id: string; access_token: string }>();
+
+    if (!config || !config.waba_id) {
+      return c.json({ error: 'WABA ID नहीं मिला। कृपया पहले WhatsApp Config में WABA ID सेव करें।' }, 400);
+    }
+
+    const subsRes = await fetch(`https://graph.facebook.com/v20.0/${config.waba_id}/subscribed_apps`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${config.access_token}`,
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: 'subscribed_fields=messages,calls'
+    });
+    const subsData: any = await subsRes.json();
+    console.log(`[Webhook Subscribe] Manual subscription for WABA ${config.waba_id}:`, subsData);
+
+    if (subsData.success === true) {
+      return c.json({ success: true, message: 'Webhook fields (messages + calls) सफलतापूर्वक subscribe हो गए!' });
+    } else {
+      return c.json({ error: 'Subscription failed', details: subsData }, 400);
+    }
+  } catch (err: any) {
+    console.error('[Webhook Subscribe] Error:', err);
+    return c.json({ error: err.message }, 500);
+  }
+});fields.includes('calls');
         }
       }
     } catch (e) {
@@ -2709,68 +2815,11 @@ app.get('/api/workspace', async (c) => {
     });
   } catch (err: any) {
     console.error("Error fetching workspace stats:", err);
-    return c.json({ error: err.message }, 500);
-  }
-});
-
-// Fetch current user's workspace plan
-app.get('/api/workspace/plan', async (c) => {
-  const workspaceId = c.req.header('x-workspace-id');
-  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
-
-  if (!c.env.DB) return c.json({ error: 'Database not connected' }, 500);
-
-  try {
-    const { results } = await c.env.DB.prepare(`
-      SELECT w.id, w.name as workspace_name, p.* 
-      FROM workspaces w
-      LEFT JOIN plans p ON w.plan_id = p.id
-      WHERE w.id = ?
-    `).bind(workspaceId).all();
-
-    if (results.length === 0) return c.json({ error: 'Workspace not found' }, 404);
-
-    return c.json({ plan: results[0] });
-  } catch (err) {
-    return c.json({ error: 'Internal server error' }, 500);
-  }
 });
 
 // ==========================================
-// FALLBACK HANDLER
+// MEDIA ROUTES (moved BEFORE export to ensure registration)
 // ==========================================
-// Since we are using "Workers with Assets", any request that doesn't match 
-// `/api/*` will automatically be served from the `[assets]` directory (e.g., HTML/CSS/JS).
-// If a static asset is not found, it falls through to this handler.
-app.notFound((c) => {
-  return c.json({ error: 'Not Found', message: 'API route or static asset does not exist.' }, 404);
-});
-
-const worker = {
-  fetch: app.fetch,
-
-  // Workflow entry point (Background Tasks & FCM)
-  async workflow(event: any, env: any, ctx: any) {
-    console.log("Executing background workflow...", event);
-    // e.g., Call Firebase Cloud Messaging (FCM) API here
-  },
-
-  // Queue consumer (Notifications)
-  async queue(batch: any, env: any, ctx: any) {
-    for (const message of batch.messages) {
-      console.log("Processing queue message:", message.body);
-    }
-  },
-
-  // Email receiver (Cloudflare Email Routing)
-  async email(message: any, env: any, ctx: any) {
-    console.log(`Received email from ${message.from} to ${message.to}`);
-    // Process incoming email, save to DB, forward, etc.
-  }
-};
-
-export default worker;
-
 
 // Proxy for downloading WhatsApp media
 app.get('/api/whatsapp/media', async (c) => {
@@ -2874,3 +2923,38 @@ app.get('/api/public/media/:key', async (c) => {
     return c.text('Internal Server Error', 500);
   }
 });
+
+// ==========================================
+// FALLBACK HANDLER
+// ==========================================
+// Since we are using "Workers with Assets", any request that doesn't match 
+// `/api/*` will automatically be served from the `[assets]` directory (e.g., HTML/CSS/JS).
+// If a static asset is not found, it falls through to this handler.
+app.notFound((c) => {
+  return c.json({ error: 'Not Found', message: 'API route or static asset does not exist.' }, 404);
+});
+
+const worker = {
+  fetch: app.fetch,
+
+  // Workflow entry point (Background Tasks & FCM)
+  async workflow(event: any, env: any, ctx: any) {
+    console.log("Executing background workflow...", event);
+    // e.g., Call Firebase Cloud Messaging (FCM) API here
+  },
+
+  // Queue consumer (Notifications)
+  async queue(batch: any, env: any, ctx: any) {
+    for (const message of batch.messages) {
+      console.log("Processing queue message:", message.body);
+    }
+  },
+
+  // Email receiver (Cloudflare Email Routing)
+  async email(message: any, env: any, ctx: any) {
+    console.log(`Received email from ${message.from} to ${message.to}`);
+    // Process incoming email, save to DB, forward, etc.
+  }
+};
+
+export default worker;
