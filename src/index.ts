@@ -2797,6 +2797,8 @@ app.get('/api/workspace', async (c) => {
     });
   } catch (err: any) {
     console.error("Error fetching workspace stats:", err);
+    return c.json({ error: 'Internal server error' }, 500);
+  }
 });
 
 // ==========================================
