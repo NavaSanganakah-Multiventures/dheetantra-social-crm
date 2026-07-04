@@ -573,10 +573,20 @@ app.post('/api/whatsapp/webhook', async (c) => {
 
               if (event === 'connect' || event === 'offer') {
                 // Incoming call — save to DB + broadcast to frontend
-                const contactId = `contact-${callerNumber}`;
-                await c.env.DB.prepare('INSERT OR IGNORE INTO contacts (id, workspace_id, platform, name, platform_contact_id) VALUES (?, ?, ?, ?, ?)')
-                  .bind(contactId, config.workspace_id, 'whatsapp', `+${callerNumber}`, callerNumber).run();
-                console.log(`[Calling] Contact saved: ${contactId}`);
+                let contactId = '';
+                const existingContact = await c.env.DB.prepare(
+                  "SELECT id FROM contacts WHERE workspace_id = ? AND platform = 'whatsapp' AND platform_contact_id = ?"
+                ).bind(config.workspace_id, callerNumber).first<{ id: string }>();
+
+                if (existingContact) {
+                  contactId = existingContact.id;
+                } else {
+                  contactId = crypto.randomUUID();
+                  await c.env.DB.prepare(
+                    "INSERT INTO contacts (id, workspace_id, platform, name, platform_contact_id) VALUES (?, ?, ?, ?, ?)"
+                  ).bind(contactId, config.workspace_id, 'whatsapp', `+${callerNumber}`, callerNumber).run();
+                }
+                console.log(`[Calling] Contact sorted: ${contactId}`);
 
                 await c.env.DB.prepare(`
                 INSERT OR IGNORE INTO calls (id, workspace_id, contact_id, phone_number_id, caller_number, type, direction, status, duration)
