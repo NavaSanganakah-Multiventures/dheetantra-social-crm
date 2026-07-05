@@ -101,3 +101,7 @@ head_sampling_rate = 1
 # ==========================================
 [[send_email]]
 name = "EMAIL_SENDER"
+
+[[rules]]
+type = "Text"
+globs = ["**/*.sql"]

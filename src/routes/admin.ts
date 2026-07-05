@@ -44,8 +44,28 @@ admin.get('/check', async (c) => {
   return c.json({ isAdmin: true, user: isAdmin.user });
 });
 
-// GET overall admin statistics
-import { schemaSql, dropSql, runAlterMigrations } from '../schema';
+import schemaSqlContent from '../../schema.sql';
+import { diffSchema, allTableNames } from '../schema';
+
+admin.get('/schema-diff', async (c) => {
+  const isAdmin = await verifyAdmin(c);
+  if (!isAdmin) return c.json({ error: 'Unauthorized' }, 403);
+  if (!c.env.DB) return c.json({ error: 'Database not connected' }, 500);
+
+  try {
+    const diff = await diffSchema(c.env.DB, schemaSqlContent);
+    const status = diff.missingTables.length > 0 || diff.missingColumns.length > 0 ? 'needs_migration' : 'up_to_date';
+    return c.json({
+      status,
+      missingTables: diff.missingTables,
+      missingColumns: diff.missingColumns,
+      extraTables: diff.extraTables,
+      summary: `${diff.missingTables.length} tables missing, ${diff.missingColumns.length} columns missing`
+    });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
 
 admin.post('/migrate', async (c) => {
   const isAdmin = await verifyAdmin(c);
@@ -53,28 +73,39 @@ admin.post('/migrate', async (c) => {
   if (!c.env.DB) return c.json({ error: 'Database not connected' }, 500);
 
   try {
-    const reset = c.req.query('reset') === 'true';
-
     // Disable foreign keys temporarily
     try { await c.env.DB.prepare('PRAGMA foreign_keys = OFF').run(); } catch (e) { }
 
-    if (reset) {
-      const dropStatements = dropSql.split(';').map(s => s.trim()).filter(s => s.length > 0);
-      const dropBatch = dropStatements.map(stmt => c.env.DB.prepare(stmt));
-      await c.env.DB.batch(dropBatch);
-    }
+    const applied: string[] = [];
 
-    const statements = schemaSql.split(';').map(s => s.trim()).filter(s => s.length > 0);
-    const schemaBatch = statements.map(stmt => c.env.DB.prepare(stmt));
-    await c.env.DB.batch(schemaBatch);
-
-    // Run alter migrations for backwards compatibility
-    await runAlterMigrations(c.env.DB);
+    // Run intelligent migration
+    const diff = await diffSchema(c.env.DB, schemaSqlContent);
+    const stmts: any[] = [];
+      
+      // Add missing tables
+      for (const t of diff.missingTables) {
+        stmts.push(c.env.DB.prepare(t.sql));
+        applied.push(`CREATE TABLE ${t.name}`);
+      }
+      
+      // Add missing columns
+      for (const col of diff.missingColumns) {
+        stmts.push(c.env.DB.prepare(col.sql));
+        applied.push(`ALTER TABLE ${col.table} ADD COLUMN ${col.column}`);
+      }
+      
+      if (stmts.length > 0) {
+        await c.env.DB.batch(stmts);
+      }
 
     // Re-enable foreign keys
     try { await c.env.DB.prepare('PRAGMA foreign_keys = ON').run(); } catch (e) { }
 
-    return c.json({ success: true, message: reset ? 'Database completely reset and migrated successfully!' : 'Database schema migrated successfully!' });
+    return c.json({ 
+      success: true, 
+      applied,
+      message: `Migrated successfully! Applied ${applied.length} changes.` 
+    });
   } catch (err: any) {
     return c.json({ error: err.message }, 500);
   }
