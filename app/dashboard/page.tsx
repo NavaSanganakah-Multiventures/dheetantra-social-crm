@@ -154,6 +154,16 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
     };
   }, [incomingCall?.id, incomingCall?.status]);
 
+  // Auto-dismiss missed call notification after 8 seconds safely
+  useEffect(() => {
+    if (incomingCallNoSdp) {
+      const timer = setTimeout(() => {
+        setIncomingCallNoSdp(null);
+      }, 8000);
+      return () => clearTimeout(timer);
+    }
+  }, [incomingCallNoSdp?.id]);
+
   // Global WebSocket listener for real-time incoming call alerts
   const incomingCallRef = useRef(incomingCall);
   const activeCallRef = useRef(activeCall);
@@ -248,7 +258,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                 created_at: data.call.created_at
               });
               // Auto-dismiss after 8 seconds
-              setTimeout(() => setIncomingCallNoSdp(null), 8000);
+              // Auto-dismiss is handled by a dedicated useEffect hook
             } else if (data.type === 'call_status_updated' || data.type === 'whatsapp_call_terminated') {
               const callIdToUpdate = data.call_id || data.callId;
               const newStatus = data.status || 'ended';
@@ -550,6 +560,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
               <div className="flex gap-4 mt-8">
                 <button
                   onClick={async () => {
+                    if (!incomingCall) return;
                     try {
                       // Meta API reject (stops ringing on caller's side)
                       if (incomingCall.phoneNumberId) {
