@@ -158,7 +158,12 @@ export default function AdminDashboard() {
   const loadSchemaDiff = () => {
     setTimeout(() => setLoadingDiff(true), 0);
     fetch('/api/admin/schema-diff')
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) {
+          throw new Error('Failed to load');
+        }
+        return res.json();
+      })
       .then((data: any) => {
         setSchemaDiff(data);
         setLoadingDiff(false);

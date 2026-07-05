@@ -42,17 +42,22 @@ export function parseSchemaSQL(sql: string): ParsedSchema {
     const tableName = match[1];
     const columnsBlock = match[2];
     
-    // Extract column definitions (ignoring constraints like PRIMARY KEY, FOREIGN KEY, UNIQUE at table level)
-    const lines = columnsBlock.split(',').map(line => line.trim());
+    const lines = columnsBlock.split('\n').map(line => line.trim());
     const columns = [];
     
-    for (const line of lines) {
-      if (line.toUpperCase().startsWith('PRIMARY KEY') || 
-          line.toUpperCase().startsWith('FOREIGN KEY') || 
-          line.toUpperCase().startsWith('UNIQUE')) {
+    for (let line of lines) {
+      line = line.replace(/--.*$/, '').trim();
+      if (!line) {
         continue;
       }
-      // Assuming first word is column name
+      const upperLine = line.toUpperCase();
+      if (upperLine.startsWith('PRIMARY KEY') || 
+          upperLine.startsWith('FOREIGN KEY') || 
+          upperLine.startsWith('UNIQUE') ||
+          upperLine.startsWith('CONSTRAINT') ||
+          upperLine.startsWith('CHECK')) {
+        continue;
+      }
       const colMatch = line.match(/^([a-zA-Z0-9_]+)/);
       if (colMatch && colMatch[1]) {
         columns.push(colMatch[1]);
@@ -110,12 +115,12 @@ export async function diffSchema(db: any, schemaSqlContent: string): Promise<Mig
           let colDef = '';
           for (let line of lines) {
             line = line.trim();
-            if (line.startsWith(expectedCol + ' ')) {
-              // Strip trailing comma
-              if (line.endsWith(',')) {
-                line = line.substring(0, line.length - 1);
+            const cleanLine = line.replace(/--.*$/, '').trim();
+            if (new RegExp("^" + expectedCol + "\\b", "i").test(cleanLine)) {
+              colDef = cleanLine;
+              if (colDef.endsWith(',')) {
+                colDef = colDef.substring(0, colDef.length - 1).trim();
               }
-              colDef = line;
               break;
             }
           }
