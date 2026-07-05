@@ -825,6 +825,22 @@ function InboxView({
   const [filterStatus, setFilterStatus] = useState<'open' | 'closed'>('open');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  const [currentTime, setCurrentTime] = useState(new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 60000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const lastCustomerMessageAt = activeChat?.customer_last_message_at ? new Date(activeChat.customer_last_message_at) : null;
+  const isExpired = lastCustomerMessageAt ? (currentTime.getTime() - lastCustomerMessageAt.getTime() > 24 * 60 * 60 * 1000) : true;
+  
+  const timeRemaining = lastCustomerMessageAt && !isExpired 
+    ? (24 * 60 * 60 * 1000) - (currentTime.getTime() - lastCustomerMessageAt.getTime()) 
+    : 0;
+  const hoursRemaining = Math.floor(timeRemaining / (1000 * 60 * 60));
+  const minutesRemaining = Math.floor((timeRemaining % (1000 * 60 * 60)) / (1000 * 60));
+  const isTemplateRequired = isExpired;
+
   useEffect(() => {
     if (preselectedChat) {
       const timer = setTimeout(() => {
@@ -1111,6 +1127,10 @@ function InboxView({
                   }
                   return [...prev, data.message];
                 });
+
+                if (data.customer_last_message_at) {
+                  setActiveChat((prev: any) => prev ? { ...prev, customer_last_message_at: data.customer_last_message_at } : null);
+                }
               }
             } else if (data.type === 'conversation_status_updated') {
               fetchConversations();
@@ -1410,6 +1430,14 @@ function InboxView({
                     <p className="text-xs text-zinc-500">{activeChat.phone}</p>
                   </div>
                 </div>
+
+                <div className="flex-1 flex justify-center hidden lg:flex">
+                  <div className={`text-[11px] px-3 py-1 rounded-full font-medium flex items-center gap-1.5 ${isTemplateRequired ? 'bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400' : 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400'}`}>
+                    <Activity className="w-3.5 h-3.5" />
+                    {!lastCustomerMessageAt ? "ग्राहक के रिप्लाई का इंतज़ार है" : isExpired ? "विंडो समाप्त (Template Required)" : `विंडो समाप्त होने में: ${hoursRemaining}h ${minutesRemaining}m`}
+                  </div>
+                </div>
+                
                 <div className="flex items-center gap-2">
                   <button 
                     onClick={() => {
@@ -1802,7 +1830,12 @@ function InboxView({
                 </div>
               )}
 
-             <div className="p-4 bg-white dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-800 relative">
+             <div className="p-4 bg-white dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-800 relative flex flex-col gap-2">
+               {isTemplateRequired && (
+                 <div className="p-2.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg text-amber-800 dark:text-amber-200 text-xs text-center font-medium">
+                   {!lastCustomerMessageAt ? "ग्राहक के रिप्लाई का इंतज़ार है।" : "24-घंटे की सर्विस विंडो समाप्त हो चुकी है।"} कृपया बातचीत शुरू करने के लिए Template Message भेजें।
+                 </div>
+               )}
                {attachmentMenuOpen && !attachmentType && (
                  <motion.div 
                    initial={{ opacity: 0, y: 10 }}
@@ -1848,22 +1881,23 @@ function InboxView({
                    onClick={() => setAttachmentMenuOpen(!attachmentMenuOpen)}
                    className={`p-2 rounded-full transition-colors ${attachmentMenuOpen ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400' : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}
                    title="Add attachment"
+                   disabled={isTemplateRequired}
                  >
                    <Paperclip className="w-4 h-4" />
                  </button>
                  <input 
                    type="text" 
                    placeholder="संदेश टाइप करें..." 
-                   className="flex-1 bg-transparent border-none outline-none text-sm px-2 py-2"
+                   className="flex-1 bg-transparent border-none outline-none text-sm px-2 py-2 disabled:opacity-50"
                    value={messageInput}
                    onChange={(e) => setMessageInput(e.target.value)}
                    onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-                   disabled={!!attachmentType}
+                   disabled={!!attachmentType || isTemplateRequired}
                  />
                  <button 
                    onClick={sendMessage}
-                   disabled={!messageInput.trim() || sending || !!attachmentType}
-                   className={`p-2.5 rounded-full transition-colors flex items-center justify-center ${messageInput.trim() && !sending && !attachmentType ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-400'}`}
+                   disabled={!messageInput.trim() || sending || !!attachmentType || isTemplateRequired}
+                   className={`p-2.5 rounded-full transition-colors flex items-center justify-center ${messageInput.trim() && !sending && !attachmentType && !isTemplateRequired ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-400'}`}
                  >
                    <Send className="w-4 h-4" />
                  </button>

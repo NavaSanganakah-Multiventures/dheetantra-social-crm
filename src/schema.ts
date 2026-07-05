@@ -112,6 +112,7 @@ CREATE TABLE IF NOT EXISTS conversations (
   platform TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'open',
   phone_number_id TEXT,
+  customer_last_message_at DATETIME,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,

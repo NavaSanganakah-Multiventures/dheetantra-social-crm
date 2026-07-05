@@ -220,6 +220,10 @@ async function ensureMultipleWabaSchema(db: any) {
     } catch (e) { }
 
     try {
+      await db.prepare("ALTER TABLE conversations ADD COLUMN customer_last_message_at DATETIME").run();
+    } catch (e) { }
+
+    try {
       await db.prepare("ALTER TABLE messages ADD COLUMN message_type TEXT DEFAULT 'text'").run();
     } catch (e) { }
 
@@ -2175,7 +2179,7 @@ app.get('/api/inbox/conversations', async (c) => {
 
   const phoneNumberId = c.req.query('phoneNumberId');
   let query = `
-    SELECT c.id, c.status, c.updated_at, c.phone_number_id, ct.name as contact_name, ct.platform_contact_id as phone, ct.id as contact_id
+    SELECT c.id, c.status, c.updated_at, c.customer_last_message_at, c.phone_number_id, ct.name as contact_name, ct.platform_contact_id as phone, ct.id as contact_id
     FROM conversations c
     JOIN contacts ct ON c.contact_id = ct.id
     WHERE c.workspace_id = ?
