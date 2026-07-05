@@ -6,7 +6,8 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useRouter } from 'next/navigation';
 import Papa from 'papaparse';
 import { useWhatsAppWebRTC } from '@/lib/hooks/useWhatsAppWebRTC';
-
+import PhoneInput, { isValidPhoneNumber } from 'react-phone-number-input';
+import 'react-phone-number-input/style.css';
 type activeTab = 'dashboard' | 'inbox' | 'broadcast' | 'templates' | 'schedule' | 'settings' | 'contacts' | 'calls' | 'integrations' | 'accounts-whatsapp';
 
 export default function DashboardWrapper() {
@@ -53,8 +54,11 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
   const [preselectedChat, setPreselectedChat] = useState<any>(null);
 
   const [incomingCall, setIncomingCall] = useState<any>(null);
+  const [incomingCallNoSdp, setIncomingCallNoSdp] = useState<any>(null);
   const [activeCall, setActiveCall] = useState<any>(null);
   const [callingEnabled, setCallingEnabled] = useState<boolean>(true);
+  const [wsStatus, setWsStatus] = useState<'connecting' | 'connected' | 'disconnected'>('disconnected');
+  const [callsFieldStatus, setCallsFieldStatus] = useState<'checking' | 'subscribed' | 'not_subscribed' | 'unknown'>('unknown');
 
   const { status: rtcStatus, answer: answerWebRTC, hangup: hangupWebRTC, handleRemoteHangup, remoteStream: rtcRemoteStream, localStream: rtcLocalStream } = useWhatsAppWebRTC();
 
@@ -75,6 +79,22 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
     })
     .catch(err => console.error("Error loading calling config:", err));
 
+    // Check if 'calls' field is subscribed in Meta webhook
+    fetch('/api/whatsapp/calls/status', {
+      headers: { 'x-workspace-id': wId }
+    })
+    .then(r => r.json())
+    .then((data: any) => {
+      if (data.webhook_subscribed === true) {
+        setCallsFieldStatus('subscribed');
+      } else if (data.webhook_subscribed === false) {
+        setCallsFieldStatus('not_subscribed');
+      } else {
+        setCallsFieldStatus('unknown');
+      }
+    })
+    .catch(() => setCallsFieldStatus('unknown'));
+
     // No SIP config to load anymore
   }, []);
 
@@ -86,6 +106,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
       Promise.resolve().then(() => {
         setActiveCall(null);
         setIncomingCall(null);
+        setIncomingCallNoSdp(null);
       });
     }
   }, [rtcStatus]);
@@ -103,11 +124,78 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
     }
   }, [rtcRemoteStream]);
 
+  // Call timeout ref for auto-dismiss after 30s
+  const callTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Auto-dismiss incoming call after 30 seconds (Meta timeout)
+  useEffect(() => {
+    if (incomingCall && incomingCall.status === 'ringing') {
+      callTimeoutRef.current = setTimeout(async () => {
+        const wId = localStorage.getItem('workspaceId');
+        if (wId && incomingCall.phoneNumberId) {
+          try {
+            await fetch(`/api/whatsapp/calls/${incomingCall.id}/reject`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'x-workspace-id': wId },
+              body: JSON.stringify({ phoneNumberId: incomingCall.phoneNumberId })
+            });
+          } catch(e) {}
+          await fetch(`/api/whatsapp/calls/${incomingCall.id}/status`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-workspace-id': wId },
+            body: JSON.stringify({ status: 'missed', duration: 0 })
+          }).catch(() => {});
+        }
+        setIncomingCall(null);
+      }, 30000);
+    }
+    return () => {
+      if (callTimeoutRef.current) clearTimeout(callTimeoutRef.current);
+    };
+  }, [incomingCall?.id, incomingCall?.status]);
+
   // Global WebSocket listener for real-time incoming call alerts
   const incomingCallRef = useRef(incomingCall);
   const activeCallRef = useRef(activeCall);
-  incomingCallRef.current = incomingCall;
-  activeCallRef.current = activeCall;
+
+  useEffect(() => {
+    incomingCallRef.current = incomingCall;
+    activeCallRef.current = activeCall;
+  }, [incomingCall, activeCall]);
+
+  // Play ringtone instantly and robustly
+  useEffect(() => {
+    let interval: any;
+    let audioCtx: any = null;
+    if (incomingCall && incomingCall.status === 'ringing') {
+      try {
+        audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const playRing = () => {
+          if (!audioCtx) return;
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(587.33, audioCtx.currentTime);
+          gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+          osc.start();
+          osc.stop(audioCtx.currentTime + 1.2);
+        };
+        playRing();
+        interval = setInterval(playRing, 2000);
+      } catch (e) {
+        console.error("Audio playback error", e);
+      }
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+      if (audioCtx) {
+        audioCtx.close().catch(() => {});
+      }
+    };
+  }, [incomingCall?.status]);
 
   useEffect(() => {
     const wId = localStorage.getItem('workspaceId');
@@ -122,61 +210,71 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
     function connectGlobalWs() {
       if (!active) return;
       try {
+        setWsStatus('connecting');
         socket = new WebSocket(wsUrl);
+
+        socket.onopen = () => {
+          console.log('[WS] Global WebSocket connected');
+          setWsStatus('connected');
+        };
 
         socket.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data);
-            if ((data.type === 'incoming_call' && data.call) || data.type === 'whatsapp_incoming_call') {
-              if (data.type === 'whatsapp_incoming_call') {
-                 setIncomingCall({
-                   id: data.callId,
-                   from: data.from,
-                   contact_name: '+' + data.from,
-                   phone: data.from,
-                   status: 'ringing',
-                   direction: 'incoming',
-                   sdp: data.sdp,
-                   phoneNumberId: data.phoneNumberId,
-                   workspace_id: user?.workspace_id || localStorage.getItem('workspaceId')
-                 });
-              } else {
-                 setIncomingCall(data.call);
-              }
-              // Simple high-fidelity Web Audio Ringtone
-              try {
-                const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-                let count = 0;
-                let ringInterval = setInterval(() => {
-                  if (!active || count > 5) {
-                    clearInterval(ringInterval);
-                    return;
-                  }
-                  count++;
-                  const osc = audioCtx.createOscillator();
-                  const gain = audioCtx.createGain();
-                  osc.connect(gain);
-                  gain.connect(audioCtx.destination);
-                  osc.type = 'sine';
-                  osc.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5
-                  gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
-                  osc.start();
-                  osc.stop(audioCtx.currentTime + 1.2);
-                }, 2000);
-              } catch(e) {}
+            if (data.type === 'whatsapp_incoming_call') {
+              // Calls field handler — has SDP, user can answer
+              setIncomingCall({
+                id: data.callId,
+                from: data.from,
+                contact_name: '+' + data.from,
+                phone: data.from,
+                status: 'ringing',
+                direction: 'incoming',
+                sdp: data.sdp,
+                phoneNumberId: data.phoneNumberId,
+                workspace_id: user?.workspace_id || localStorage.getItem('workspaceId')
+              });
+              // Clear any no-sdp notification
+              setIncomingCallNoSdp(null);
+              // Ringtone is now handled by the useEffect watching incomingCall.status
+            } else if (data.type === 'incoming_call' && data.call) {
+              // System message fallback — NO SDP, show as missed call notification
+              setIncomingCallNoSdp({
+                id: data.call.id,
+                contact_name: data.call.contact_name,
+                phone: data.call.phone,
+                phoneNumberId: data.call.phoneNumberId,
+                workspace_id: data.call.workspace_id,
+                created_at: data.call.created_at
+              });
+              // Auto-dismiss after 8 seconds
+              setTimeout(() => setIncomingCallNoSdp(null), 8000);
             } else if (data.type === 'call_status_updated' || data.type === 'whatsapp_call_terminated') {
               const callIdToUpdate = data.call_id || data.callId;
               const newStatus = data.status || 'ended';
               
               if (data.type === 'whatsapp_call_terminated') {
                  handleRemoteHangup();
-              }
-              
-              if (incomingCallRef.current && incomingCallRef.current.id === callIdToUpdate) {
-                setIncomingCall((prev: any) => prev ? { ...prev, status: newStatus } : null);
-              }
-              if (activeCallRef.current && activeCallRef.current.id === callIdToUpdate) {
-                setActiveCall((prev: any) => prev ? { ...prev, status: newStatus, duration: data.duration } : null);
+                 // Instant cut
+                 if (incomingCallNoSdp && incomingCallNoSdp.id === callIdToUpdate) {
+                   setIncomingCallNoSdp(null);
+                 }
+                 if (incomingCallRef.current && incomingCallRef.current.id === callIdToUpdate) {
+                   setIncomingCall(null);
+                 }
+                 if (activeCallRef.current && activeCallRef.current.id === callIdToUpdate) {
+                   setActiveCall(null);
+                 }
+              } else {
+                 if (incomingCallNoSdp && incomingCallNoSdp.id === callIdToUpdate) {
+                   setIncomingCallNoSdp(null);
+                 }
+                 if (incomingCallRef.current && incomingCallRef.current.id === callIdToUpdate) {
+                   setIncomingCall((prev: any) => prev ? { ...prev, status: newStatus } : null);
+                 }
+                 if (activeCallRef.current && activeCallRef.current.id === callIdToUpdate) {
+                   setActiveCall((prev: any) => prev ? { ...prev, status: newStatus, duration: data.duration } : null);
+                 }
               }
             }
           } catch (e) {
@@ -185,10 +283,13 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
         };
 
         socket.onclose = () => {
+          setWsStatus('disconnected');
           if (active) reconnectTimeout = setTimeout(connectGlobalWs, 3000);
         };
 
-        socket.onerror = () => {
+        socket.onerror = (err) => {
+          console.error('[WS] Global WebSocket error:', err);
+          setWsStatus('disconnected');
           if (socket) socket.close();
         };
       } catch (err) {
@@ -331,6 +432,13 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                 className="pl-9 pr-4 py-2 w-64 text-sm bg-zinc-100 dark:bg-zinc-900 border border-transparent focus:bg-white dark:focus:bg-zinc-950 focus:border-indigo-500 rounded-full outline-none transition-all shadow-sm"
               />
             </div>
+            {/* WebSocket Connection Status */}
+            <div className="flex items-center gap-1.5 text-[10px] font-medium" title={wsStatus === 'connecting' ? 'WebSocket कनेक्ट हो रहा है...' : wsStatus === 'connected' ? 'WebSocket कनेक्टेड' : 'WebSocket डिस्कनेक्टेड - कॉल नहीं आएंगी'}>
+              <span className={`w-2 h-2 rounded-full ${wsStatus === 'connected' ? 'bg-emerald-400' : wsStatus === 'connecting' ? 'bg-amber-400 animate-pulse' : 'bg-rose-400'}`}></span>
+              <span className="text-zinc-400 hidden sm:inline">
+                {wsStatus === 'connecting' ? 'Connecting...' : wsStatus === 'connected' ? 'Live' : 'Offline'}
+              </span>
+            </div>
             <button className="p-2 relative rounded-full text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
               <Bell className="w-5 h-5" />
               <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-500 rounded-full border-2 border-white dark:border-zinc-950"></span>
@@ -443,6 +551,18 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                 <button
                   onClick={async () => {
                     try {
+                      // Meta API reject (stops ringing on caller's side)
+                      if (incomingCall.phoneNumberId) {
+                        await fetch(`/api/whatsapp/calls/${incomingCall.id}/reject`, {
+                          method: 'POST',
+                          headers: {
+                            'Content-Type': 'application/json',
+                            'x-workspace-id': incomingCall.workspace_id
+                          },
+                          body: JSON.stringify({ phoneNumberId: incomingCall.phoneNumberId })
+                        });
+                      }
+                      // Local DB status update
                       await fetch(`/api/whatsapp/calls/${incomingCall.id}/status`, {
                         method: 'POST',
                         headers: {
@@ -530,7 +650,39 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                    });
                    setActiveCall(null);
                 }}
-              />
+               />
+            </motion.div>
+          </div>
+        )}
+
+        {/* 3. Missed Call Toast (from system_call without SDP) */}
+        {incomingCallNoSdp && (
+          <div className="fixed top-4 right-4 left-4 sm:left-auto sm:w-96 z-50">
+            <motion.div
+              initial={{ x: 100, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: 100, opacity: 0 }}
+              className="bg-zinc-950 border border-zinc-800/80 rounded-2xl p-4 shadow-2xl text-white flex items-start gap-3"
+            >
+              <div className="w-10 h-10 rounded-full bg-rose-500/20 flex items-center justify-center flex-shrink-0">
+                <Phone className="w-5 h-5 text-rose-400" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h4 className="text-sm font-bold text-white">मिस्ड कॉल (Missed Call)</h4>
+                <p className="text-xs text-zinc-400 mt-0.5 truncate">
+                  {incomingCallNoSdp.contact_name || 'अज्ञात'} ({incomingCallNoSdp.phone || 'unknown'})
+                </p>
+                <div className="flex gap-2 mt-2">
+                  <span className="text-[10px] text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-full">
+                    {callsFieldStatus === 'not_subscribed'
+                      ? '⚠️ WhatsApp Cloud API में "calls" field subscribe नहीं है — कॉल कनेक्ट नहीं हो सकती'
+                      : '⚡ WebRTC SDP उपलब्ध नहीं — केवल Missed Call ही दिखाया जा सकता है'}
+                  </span>
+                </div>
+              </div>
+              <button onClick={() => setIncomingCallNoSdp(null)} className="text-zinc-500 hover:text-white flex-shrink-0">
+                <X className="w-4 h-4" />
+              </button>
             </motion.div>
           </div>
         )}
@@ -660,6 +812,7 @@ function InboxView({
   const [messageInput, setMessageInput] = useState("");
   const [sending, setSending] = useState(false);
   const [filterStatus, setFilterStatus] = useState<'open' | 'closed'>('open');
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (preselectedChat) {
@@ -830,17 +983,23 @@ function InboxView({
         address: locAddressInput.trim()
       };
     } else if (attachmentType === 'contacts') {
-      if (!contactNameInput.trim() || !contactPhoneInput.trim()) {
+      if (!contactNameInput.trim() || !contactPhoneInput) {
         alert("कृपया संपर्क का नाम और फ़ोन नंबर प्रदान करें");
         return;
       }
+      if (!isValidPhoneNumber(contactPhoneInput)) {
+        alert("कृपया सही फ़ोन नंबर दर्ज करें। (Invalid phone number)");
+        return;
+      }
+      const sanitizedPhone = contactPhoneInput.startsWith('+') ? contactPhoneInput.slice(1) : contactPhoneInput;
+
       payload.contacts = [{
         name: {
           first_name: contactNameInput.trim(),
           formatted_name: contactNameInput.trim()
         },
         phones: [{
-          phone: contactPhoneInput.trim(),
+          phone: sanitizedPhone,
           type: "MOBILE"
         }]
       }];
@@ -1045,6 +1204,12 @@ function InboxView({
       setMessageInput(textToSend);
     }
   };
+
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages]);
 
   const updateConversationStatus = async (convId: string, newStatus: 'open' | 'closed') => {
     try {
@@ -1473,6 +1638,7 @@ function InboxView({
                       );
                     })
                   )}
+                 <div ref={messagesEndRef} />
               </div>
 
               {/* Message Input Drawer and Input field */}
@@ -1595,12 +1761,13 @@ function InboxView({
                       </div>
                       <div>
                         <label className="text-xs text-zinc-500 font-medium block mb-1">फ़ोन नंबर (Country Code के साथ)*</label>
-                        <input 
-                          type="text" 
-                          placeholder="919876543210" 
+                        <PhoneInput 
+                          international
+                          defaultCountry="IN"
+                          placeholder="फ़ोन नंबर दर्ज करें" 
                           className="w-full text-xs p-2 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 outline-none focus:border-indigo-500 text-zinc-800 dark:text-zinc-100"
                           value={contactPhoneInput}
-                          onChange={(e) => setContactPhoneInput(e.target.value)}
+                          onChange={(val) => setContactPhoneInput(val || '')}
                         />
                       </div>
                     </div>
@@ -3071,8 +3238,10 @@ function ContactsView({
     setIsEdit(true);
     setSelectedContactId(c.id);
     setFormName(c.name || "");
-    setFormPhone(c.phone || c.platform_contact_id || "");
-    setFormAdditionalPhone(c.additional_phone || "");
+    const safePhone = c.phone || c.platform_contact_id || "";
+    setFormPhone(safePhone ? (safePhone.startsWith('+') ? safePhone : '+' + safePhone) : "");
+    const safeAddPhone = c.additional_phone || "";
+    setFormAdditionalPhone(safeAddPhone ? (safeAddPhone.startsWith('+') ? safeAddPhone : '+' + safeAddPhone) : "");
     setFormEmail(c.email || "");
     setFormGender(c.gender || "Male");
     setFormInstagram(c.instagram_username || "");
@@ -3088,17 +3257,28 @@ function ContactsView({
 
   const saveContact = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formName.trim() || !formPhone.trim()) {
+    if (!formName.trim() || !formPhone) {
       alert("कृपया नाम और फ़ोन नंबर भरें।");
       return;
     }
+    if (!isValidPhoneNumber(formPhone)) {
+      alert("मुख्य फ़ोन नंबर अमान्य है। कृपया सही नंबर और देश चुनें। (Invalid phone number)");
+      return;
+    }
+    if (formAdditionalPhone && !isValidPhoneNumber(formAdditionalPhone)) {
+      alert("अतिरिक्त फ़ोन नंबर अमान्य है। (Invalid additional phone number)");
+      return;
+    }
+
+    const sanitizedPhone = formPhone.startsWith('+') ? formPhone.slice(1) : formPhone;
+    const sanitizedAdditionalPhone = (formAdditionalPhone || "").startsWith('+') ? formAdditionalPhone.slice(1) : formAdditionalPhone;
 
     try {
       const wId = localStorage.getItem('workspaceId');
       const payload = {
         name: formName,
-        phone: formPhone,
-        additional_phone: formAdditionalPhone,
+        phone: sanitizedPhone,
+        additional_phone: sanitizedAdditionalPhone,
         email: formEmail,
         gender: formGender,
         instagram_username: formInstagram,
@@ -3492,12 +3672,13 @@ function ContactsView({
                 {/* Primary Phone */}
                 <div>
                   <label className="block text-xs font-semibold text-zinc-500 mb-1">मुख्य फ़ोन नंबर (Phone) *</label>
-                  <input
-                    type="text"
+                  <PhoneInput
+                    international
+                    defaultCountry="IN"
                     required
                     value={formPhone}
-                    onChange={(e) => setFormPhone(e.target.value)}
-                    placeholder="उदा. 919876543210 (देश कोड के साथ)"
+                    onChange={(val) => setFormPhone(val || '')}
+                    placeholder="फ़ोन नंबर दर्ज करें"
                     className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700/60 rounded-xl text-sm outline-none focus:border-indigo-500"
                   />
                 </div>
@@ -3505,11 +3686,12 @@ function ContactsView({
                 {/* Additional Phone */}
                 <div>
                   <label className="block text-xs font-semibold text-zinc-500 mb-1">अतिरिक्त फ़ोन नंबर</label>
-                  <input
-                    type="text"
+                  <PhoneInput
+                    international
+                    defaultCountry="IN"
                     value={formAdditionalPhone}
-                    onChange={(e) => setFormAdditionalPhone(e.target.value)}
-                    placeholder="उदा. 918888888888"
+                    onChange={(val) => setFormAdditionalPhone(val || '')}
+                    placeholder="अतिरिक्त नंबर दर्ज करें"
                     className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700/60 rounded-xl text-sm outline-none focus:border-indigo-500"
                   />
                 </div>
@@ -3693,6 +3875,12 @@ function CallsView({
   const [filter, setFilter] = useState<"all" | "incoming" | "outgoing" | "missed">("all");
   const [contacts, setContacts] = useState<any[]>([]);
   const [showDialer, setShowDialer] = useState(false);
+  const [health, setHealth] = useState<{
+    phone_numbers: any[];
+    webhook_subscribed: boolean;
+    turn_configured: boolean;
+    all_ready: boolean;
+  } | null>(null);
 
   const fetchCallsAndConfigs = useCallback(() => {
     const wId = localStorage.getItem('workspaceId');
@@ -3733,7 +3921,8 @@ function CallsView({
       if (data.contacts) setContacts(data.contacts);
     })
     .catch(err => console.error(err));
-  }, []);
+
+      }, []);
 
   useEffect(() => {
     fetchCallsAndConfigs();
@@ -3890,6 +4079,7 @@ function CallsView({
         </div>
       </div>
 
+      
       {/* Main Table Container */}
       <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden">
         {/* Filters and Search */}
@@ -4132,74 +4322,7 @@ function ActiveCallManager({ activeCall, setActiveCall, onHangup, remoteStream, 
     }
   }, [activeCall.status]);
 
-  const [isRecording, setIsRecording] = useState(false);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<BlobPart[]>([]);
-
-  const toggleRecording = useCallback(() => {
-    if (isRecording) {
-      if (mediaRecorderRef.current) {
-        mediaRecorderRef.current.stop();
-      }
-      setIsRecording(false);
-    } else {
-      if (remoteStream || localStream) {
-        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-        const dest = audioContext.createMediaStreamDestination();
-        
-        if (localStream) {
-          const source1 = audioContext.createMediaStreamSource(localStream);
-          source1.connect(dest);
-        }
-        if (remoteStream) {
-          const source2 = audioContext.createMediaStreamSource(remoteStream);
-          source2.connect(dest);
-        }
-        
-        const recorder = new MediaRecorder(dest.stream);
-        chunksRef.current = [];
-        
-        recorder.ondataavailable = (e) => {
-          if (e.data && e.data.size > 0) {
-            chunksRef.current.push(e.data);
-          }
-        };
-        
-        recorder.onstop = async () => {
-          const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
-          const formData = new FormData();
-          formData.append('file', blob, `call-${activeCall.id}.webm`);
-          
-          try {
-            await fetch('/api/whatsapp/calls/recordings', {
-              method: 'POST',
-              headers: {
-                'x-workspace-id': activeCall.workspace_id
-              },
-              body: formData
-            });
-            console.log('Recording uploaded!');
-          } catch(err) {
-            console.error('Failed to upload recording:', err);
-          }
-        };
-        
-        recorder.start();
-        mediaRecorderRef.current = recorder;
-        setIsRecording(true);
-      } else {
-        alert("Audio stream not available for recording.");
-      }
-    }
-  }, [isRecording, remoteStream, localStream, activeCall]);
-
-  useEffect(() => {
-    return () => {
-      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-        mediaRecorderRef.current.stop();
-      }
-    };
-  }, []);
+  // Recording handled by useWhatsAppWebRTC hook (uploaded on hangup)
 
   const endCall = async () => {
     try {
@@ -4264,14 +4387,7 @@ function ActiveCallManager({ activeCall, setActiveCall, onHangup, remoteStream, 
           >
             Speaker
           </button>
-          {/* Record toggle button */}
-          <button 
-            onClick={toggleRecording}
-            className={`p-1.5 px-2.5 rounded-lg text-[10px] font-bold transition-all ${isRecording ? 'bg-rose-500/20 text-rose-400 hover:bg-rose-500/30' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white'}`}
-            title={isRecording ? 'Stop Recording' : 'Record'}
-          >
-            {isRecording ? 'Recording...' : 'Record'}
-          </button>
+          {/* Recording handled by useWhatsAppWebRTC hook */}
         </div>
 
         {/* End Call Button */}

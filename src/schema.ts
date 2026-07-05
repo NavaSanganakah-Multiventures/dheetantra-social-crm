@@ -8,6 +8,7 @@ DROP TABLE IF EXISTS domain_emails;
 DROP TABLE IF EXISTS domains;
 DROP TABLE IF EXISTS scheduled_posts;
 DROP TABLE IF EXISTS broadcast_campaigns;
+DROP TABLE IF EXISTS api_domains;
 DROP TABLE IF EXISTS whatsapp_configs;
 DROP TABLE IF EXISTS messages;
 DROP TABLE IF EXISTS conversations;
@@ -188,6 +189,17 @@ CREATE TABLE IF NOT EXISTS domains (
   status TEXT DEFAULT 'pending',
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS api_domains (
+  id TEXT PRIMARY KEY,
+  workspace_id TEXT NOT NULL,
+  domain TEXT NOT NULL UNIQUE,
+  status TEXT NOT NULL DEFAULT 'pending',
+  blocked_reason TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY(workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS domain_emails (

@@ -45,6 +45,40 @@ admin.get('/check', async (c) => {
 });
 
 // GET overall admin statistics
+import { schemaSql, dropSql } from '../schema';
+
+admin.post('/migrate', async (c) => {
+  const isAdmin = await verifyAdmin(c);
+  if (!isAdmin) return c.json({ error: 'Unauthorized' }, 403);
+  if (!c.env.DB) return c.json({ error: 'Database not connected' }, 500);
+
+  try {
+    const reset = c.req.query('reset') === 'true';
+
+    // Disable foreign keys temporarily
+    try { await c.env.DB.prepare('PRAGMA foreign_keys = OFF').run(); } catch (e) { }
+
+    if (reset) {
+      const dropStatements = dropSql.split(';').map(s => s.trim()).filter(s => s.length > 0);
+      for (const stmt of dropStatements) {
+        await c.env.DB.prepare(stmt).run();
+      }
+    }
+
+    const statements = schemaSql.split(';').map(s => s.trim()).filter(s => s.length > 0);
+    for (const stmt of statements) {
+      await c.env.DB.prepare(stmt).run();
+    }
+
+    // Re-enable foreign keys
+    try { await c.env.DB.prepare('PRAGMA foreign_keys = ON').run(); } catch (e) { }
+
+    return c.json({ success: true, message: reset ? 'Database completely reset and migrated successfully!' : 'Database schema migrated successfully!' });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
 admin.get('/stats', async (c) => {
   const isAdmin = await verifyAdmin(c);
   if (!isAdmin) return c.json({ error: 'Unauthorized' }, 403);
@@ -376,6 +410,63 @@ admin.delete('/kv/:key', async (c) => {
   try {
     const key = c.req.param('key');
     await c.env.SECRETS_KV.delete(key);
+    return c.json({ success: true });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+// GET all API domains
+admin.get('/api-domains', async (c) => {
+  const isAdmin = await verifyAdmin(c);
+  if (!isAdmin) return c.json({ error: 'Unauthorized' }, 403);
+  if (!c.env.DB) return c.json({ error: 'Database not connected' }, 500);
+
+  try {
+    const { results } = await c.env.DB.prepare('SELECT * FROM api_domains ORDER BY created_at DESC').all();
+    return c.json({ domains: results });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+// VERIFY an API domain
+admin.post('/api-domains/:id/verify', async (c) => {
+  const isAdmin = await verifyAdmin(c);
+  if (!isAdmin) return c.json({ error: 'Unauthorized' }, 403);
+  if (!c.env.DB) return c.json({ error: 'Database not connected' }, 500);
+
+  try {
+    const id = c.req.param('id');
+    const domainRow = await c.env.DB.prepare('SELECT domain FROM api_domains WHERE id = ?').bind(id).first<{ domain: string }>();
+    if (!domainRow) return c.json({ error: 'Domain not found' }, 404);
+
+    await c.env.DB.prepare("UPDATE api_domains SET status = 'verified', blocked_reason = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?").bind(id).run();
+    if (c.env.SECRETS_KV) {
+      await c.env.SECRETS_KV.put(`DOMAIN:${domainRow.domain}`, 'verified');
+    }
+    return c.json({ success: true });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+// BLOCK an API domain
+admin.post('/api-domains/:id/block', async (c) => {
+  const isAdmin = await verifyAdmin(c);
+  if (!isAdmin) return c.json({ error: 'Unauthorized' }, 403);
+  if (!c.env.DB) return c.json({ error: 'Database not connected' }, 500);
+
+  try {
+    const id = c.req.param('id');
+    const { reason } = await c.req.json();
+    const domainRow = await c.env.DB.prepare('SELECT domain FROM api_domains WHERE id = ?').bind(id).first<{ domain: string }>();
+    if (!domainRow) return c.json({ error: 'Domain not found' }, 404);
+
+    await c.env.DB.prepare("UPDATE api_domains SET status = 'blocked', blocked_reason = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?").bind(reason || 'Manual block by admin', id).run();
+    if (c.env.SECRETS_KV) {
+      await c.env.SECRETS_KV.put(`DOMAIN:${domainRow.domain}`, 'blocked');
+    }
     return c.json({ success: true });
   } catch (err: any) {
     return c.json({ error: err.message }, 500);

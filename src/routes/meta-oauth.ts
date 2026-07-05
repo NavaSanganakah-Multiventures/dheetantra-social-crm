@@ -173,7 +173,25 @@ metaOauth.post('/embedded-signup', async (c) => {
       }
     }
 
-    return c.json({ success: true, waba: wabaData.name, registeredNumbers });
+    // 3. Subscribe to webhook events (CRITICAL — without this, Meta never sends webhooks!)
+    let webhookSubscribed = false;
+    try {
+      const subsRes = await fetch(`https://graph.facebook.com/v20.0/${wabaId}/subscribed_apps`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${systemUserToken}`,
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: 'subscribed_fields=messages,calls'
+      });
+      const subsData: any = await subsRes.json();
+      webhookSubscribed = subsData.success === true;
+      console.log(`[Embedded Signup] Webhook subscription result for WABA ${wabaId}:`, subsData);
+    } catch (e) {
+      console.error(`[Embedded Signup] Failed to subscribe webhook for WABA ${wabaId}:`, e);
+    }
+
+    return c.json({ success: true, waba: wabaData.name, registeredNumbers, webhookSubscribed });
   } catch (error: any) {
     console.error('Embedded signup error:', error);
     return c.json({ error: 'Internal server error', details: error.message }, 500);

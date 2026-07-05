@@ -22,15 +22,20 @@ export class ChatDurableObject extends DurableObject {
       try {
         const data = await request.json();
         const sockets = this.ctx.getWebSockets();
+        console.log(`[DO Broadcast] Sending type=${data.type} to ${sockets.length} WebSocket(s)`);
+        let sent = 0;
         for (const socket of sockets) {
           try {
             socket.send(JSON.stringify(data));
+            sent++;
           } catch (e) {
-            // Ignore closed or dead sockets
+            console.error('[DO Broadcast] Failed to send to WebSocket:', e);
           }
         }
+        console.log(`[DO Broadcast] Successfully sent to ${sent}/${sockets.length} WebSocket(s)`);
         return new Response('OK');
       } catch (err: any) {
+        console.error('[DO Broadcast] Error:', err);
         return new Response(err.message, { status: 500 });
       }
     }
@@ -43,6 +48,8 @@ export class ChatDurableObject extends DurableObject {
 
       // Accept the server end of the WebSocket
       this.ctx.acceptWebSocket(server);
+
+      console.log(`[DO] WebSocket connected. Total sockets after accept: ${this.ctx.getWebSockets().length}`);
 
       return new Response(null, {
         status: 101,
@@ -106,8 +113,95 @@ export class AutomationWorkflow extends WorkflowEntrypoint<Env, any> {
 
 const app = new Hono<{ Bindings: Env }>();
 
-// Enable CORS for custom SDKs and mobile apps
-app.use('/api/*', cors());
+// Security, Domain Verification, and Rate Limiting Middleware
+app.use('/api/*', async (c, next) => {
+  const origin = c.req.header('origin');
+  const ip = c.req.header('cf-connecting-ip') || 'unknown';
+
+  if (origin) {
+    const isBaseDomain = origin.includes('localhost') || origin.includes('dheetantra.navasanganakah.com') || origin.includes('dhitantra.com') || origin.includes('navasanganakah.com');
+    
+    if (!isBaseDomain) {
+      // Check if domain is verified
+      const status = c.env.SECRETS_KV ? await c.env.SECRETS_KV.get(`DOMAIN:${origin}`) : null;
+      if (status !== 'verified') {
+        return c.text('Forbidden: Domain not verified or blocked', 403);
+      }
+
+      // Rate Limiter Logic for external domains (e.g., max 100 reqs / min)
+      if (c.env.SECRETS_KV) {
+        const rateKey = `RATE:${origin}:${Math.floor(Date.now() / 60000)}`;
+        const currentReqs = parseInt(await c.env.SECRETS_KV.get(rateKey) || '0', 10);
+        
+        if (currentReqs >= 100) {
+          // Auto-block the domain due to spam
+          await c.env.SECRETS_KV.put(`DOMAIN:${origin}`, 'blocked');
+          if (c.env.DB) {
+            await c.env.DB.prepare("UPDATE api_domains SET status = 'blocked', blocked_reason = 'rate_limit_exceeded', updated_at = CURRENT_TIMESTAMP WHERE domain = ?").bind(origin).run();
+          }
+          console.warn(`[Security] Auto-blocked domain ${origin} due to rate limiting.`);
+          return c.text('Too Many Requests. Domain automatically blocked due to spam activity.', 429);
+        }
+        
+        await c.env.SECRETS_KV.put(rateKey, (currentReqs + 1).toString(), { expirationTtl: 60 });
+      }
+    }
+  }
+  await next();
+});
+
+// Standard CORS now safely allows * because unverified origins are rejected above
+app.use('/api/*', cors({
+  origin: '*',
+  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowHeaders: ['Content-Type', 'Authorization', 'x-workspace-id'],
+  exposeHeaders: ['Content-Length'],
+  maxAge: 600,
+  credentials: true,
+}));
+
+// Authentication and Authorization Middleware
+async function authMiddleware(c: any, next: any) {
+  const sessionId = getCookie(c, 'auth_session');
+  if (!sessionId) {
+    return c.json({ error: 'Unauthorized: No session found' }, 401);
+  }
+
+  let user = null;
+  if (c.env.SECRETS_KV) {
+    const userDataStr = await c.env.SECRETS_KV.get(`SESSION:${sessionId}`);
+    if (userDataStr) {
+      user = JSON.parse(userDataStr);
+    }
+  }
+
+  if (!user) {
+    return c.json({ error: 'Unauthorized: Invalid or expired session' }, 401);
+  }
+
+  const workspaceId = c.req.header('x-workspace-id');
+  if (workspaceId && c.env.DB) {
+    // Check if the user is a member of the requested workspace
+    const member = await c.env.DB.prepare('SELECT role FROM workspace_members WHERE workspace_id = ? AND user_id = ?').bind(workspaceId, user.id).first();
+    if (!member) {
+      return c.json({ error: 'Forbidden: You do not have access to this workspace' }, 403);
+    }
+    // Attach workspace role to context
+    c.set('workspaceRole', member.role);
+  }
+
+  c.set('user', user);
+  await next();
+}
+
+app.use('/api/crm/*', authMiddleware);
+app.use('/api/whatsapp/config*', authMiddleware);
+app.use('/api/whatsapp/templates*', authMiddleware);
+app.use('/api/whatsapp/flows*', authMiddleware);
+app.use('/api/whatsapp/send', authMiddleware);
+app.use('/api/whatsapp/calls*', authMiddleware);
+app.use('/api/inbox/*', authMiddleware);
+app.use('/api/media/upload', authMiddleware);
 
 // Auto-migrate tables for Multiple WABAs
 async function ensureMultipleWabaSchema(db: any) {
@@ -234,20 +328,6 @@ async function ensureMultipleWabaSchema(db: any) {
   }
 }
 
-app.use('/api/whatsapp/*', async (c, next) => {
-  if (c.env.DB) {
-    await ensureMultipleWabaSchema(c.env.DB);
-  }
-  await next();
-});
-
-app.use('/api/inbox/*', async (c, next) => {
-  if (c.env.DB) {
-    await ensureMultipleWabaSchema(c.env.DB);
-  }
-  await next();
-});
-
 app.route('/api/meta', metaOauth);
 app.route('/api/admin', adminRouter);
 
@@ -329,7 +409,10 @@ app.post('/api/auth/send-otp', async (c) => {
     await c.env.SECRETS_KV.put(cooldownKey, '1', { expirationTtl: 60 });
   }
 
-  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  // Generate a secure 6 digit OTP
+  const array = new Uint32Array(1);
+  crypto.getRandomValues(array);
+  const otp = (array[0] % 900000 + 100000).toString();
 
   // Save OTP in Database
   if (c.env.DB) {
@@ -412,11 +495,6 @@ app.post('/api/auth/verify-otp', async (c) => {
         }
       }
     }
-  }
-
-  // 3. Bypass OTP for local/testing
-  if (!isVerified && otp === '123456') {
-    isVerified = true;
   }
 
   if (!isVerified) {
@@ -513,7 +591,6 @@ app.get('/api/whatsapp/webhook', async (c) => {
 // Webhook Receiver (WhatsApp sends incoming messages via POST)
 app.post('/api/whatsapp/webhook', async (c) => {
   try {
-    if (c.env.DB) await ensureMultipleWabaSchema(c.env.DB);
     const body = await c.req.json();
     console.log('INCOMING WEBHOOK:', JSON.stringify(body, null, 2));
 
@@ -526,8 +603,15 @@ app.post('/api/whatsapp/webhook', async (c) => {
           // Field: 'calls' — Meta sends call events here
           // ==========================================
           if (change.field === 'calls') {
+            // Safe access: change.value could be undefined
+            if (!change.value || typeof change.value !== 'object') {
+              console.error('[Calling] change.value is missing or not an object:', change);
+              continue;
+            }
             const callsArray = change.value.calls;
             if (!callsArray || !Array.isArray(callsArray)) continue;
+
+            console.log(`[Calling] ✅ calls field handler FIRED. phone_number_id from payload: ${change.value.metadata?.phone_number_id}`);
 
             const phoneNumberId = change.value.metadata?.phone_number_id;
 
@@ -541,33 +625,48 @@ app.post('/api/whatsapp/webhook', async (c) => {
 
               if (!callId) continue;
 
-              console.log(`[Calling] Event: ${event}, Call ID: ${callId}, From: ${callerNumber}, Direction: ${direction}`);
+              console.log(`[Calling] Event: ${event}, Call ID: ${callId}, From: ${callerNumber}, Direction: ${direction}, HasSDP: ${!!sdp}`);
 
               const config = await c.env.DB.prepare('SELECT workspace_id FROM whatsapp_configs WHERE phone_number_id = ?')
                 .bind(phoneNumberId).first<{ workspace_id: string }>();
 
               if (!config) {
-                console.error(`[Calling] No config found for phone_number_id: ${phoneNumberId}`);
+                console.error(`[Calling] ❌ No config found for phone_number_id: ${phoneNumberId}`);
                 continue;
               }
 
+              console.log(`[Calling] Found workspace_id: ${config.workspace_id} for phone_number_id: ${phoneNumberId}`);
+
               if (event === 'connect' || event === 'offer') {
                 // Incoming call — save to DB + broadcast to frontend
-                const contactId = `contact-${callerNumber}`;
-                await c.env.DB.prepare('INSERT OR IGNORE INTO contacts (id, workspace_id, platform, name, platform_contact_id) VALUES (?, ?, ?, ?, ?)')
-                  .bind(contactId, config.workspace_id, 'whatsapp', `+${callerNumber}`, callerNumber).run();
+                let contactId = '';
+                const existingContact = await c.env.DB.prepare(
+                  "SELECT id FROM contacts WHERE workspace_id = ? AND platform = 'whatsapp' AND platform_contact_id = ?"
+                ).bind(config.workspace_id, callerNumber).first<{ id: string }>();
+
+                if (existingContact) {
+                  contactId = existingContact.id;
+                } else {
+                  contactId = crypto.randomUUID();
+                  await c.env.DB.prepare(
+                    "INSERT INTO contacts (id, workspace_id, platform, name, platform_contact_id) VALUES (?, ?, ?, ?, ?)"
+                  ).bind(contactId, config.workspace_id, 'whatsapp', `+${callerNumber}`, callerNumber).run();
+                }
+                console.log(`[Calling] Contact sorted: ${contactId}`);
 
                 await c.env.DB.prepare(`
                 INSERT OR IGNORE INTO calls (id, workspace_id, contact_id, phone_number_id, caller_number, type, direction, status, duration)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
               `).bind(callId, config.workspace_id, contactId, phoneNumberId, callerNumber, 'voice',
                   direction === 'BUSINESS_INITIATED' ? 'outgoing' : 'incoming', 'ringing', 0).run();
+                console.log(`[Calling] Call saved to DB: ${callId}`);
 
-                // Broadcast to frontend
+                // Broadcast to frontend via Durable Object
                 try {
+                  console.log(`[Calling] Broadcasting to DO: global-${config.workspace_id}`);
                   const globalDoId = c.env.CHAT_DO.idFromName(`global-${config.workspace_id}`);
                   const globalDo = c.env.CHAT_DO.get(globalDoId);
-                  await globalDo.fetch(new Request('http://internal/broadcast', {
+                  const broadcastResp = await globalDo.fetch(new Request('http://internal/broadcast', {
                     method: 'POST',
                     body: JSON.stringify({
                       type: 'whatsapp_incoming_call',
@@ -579,8 +678,10 @@ app.post('/api/whatsapp/webhook', async (c) => {
                       direction: direction
                     })
                   }));
+                  const broadcastBody = await broadcastResp.text();
+                  console.log(`[Calling] ✅ Broadcast response from DO: ${broadcastBody}`);
                 } catch (e) {
-                  console.error('[Calling] Failed to broadcast incoming call:', e);
+                  console.error('[Calling] ❌ Failed to broadcast incoming call:', e);
                 }
 
               } else if (event === 'terminate') {
@@ -588,7 +689,6 @@ app.post('/api/whatsapp/webhook', async (c) => {
                 const hangupCause = callData.hangup_cause || 'normal';
                 const duration = callData.duration || 0;
 
-                // Check if it was a missed call (duration 0 + incoming)
                 const existingCall = await c.env.DB.prepare('SELECT direction, status FROM calls WHERE id = ?')
                   .bind(callId).first<{ direction: string, status: string }>();
 
@@ -598,7 +698,6 @@ app.post('/api/whatsapp/webhook', async (c) => {
                 await c.env.DB.prepare('UPDATE calls SET status = ?, duration = ?, hangup_cause = ? WHERE id = ?')
                   .bind(wasMissed ? 'missed' : 'ended', duration, hangupCause, callId).run();
 
-                // Broadcast termination to frontend
                 try {
                   const globalDoId = c.env.CHAT_DO.idFromName(`global-${config.workspace_id}`);
                   const globalDo = c.env.CHAT_DO.get(globalDoId);
@@ -612,7 +711,6 @@ app.post('/api/whatsapp/webhook', async (c) => {
                   }));
                 } catch (e) { }
 
-                // Send missed call notification via FCM
                 if (wasMissed) {
                   c.executionCtx.waitUntil(
                     (async () => {
@@ -641,8 +739,8 @@ app.post('/api/whatsapp/webhook', async (c) => {
                     })()
                   );
                 }
-              } // Close if (event === 'terminate')
-            } // <-- ADDED: Close for (const callData of callsArray) loop
+              }
+            }
             continue;
           }
 
@@ -859,8 +957,57 @@ app.post('/api/whatsapp/webhook', async (c) => {
 
 
 // ==========================================
-// B2C & B2B API ROUTES
+// B2C & B2B API ROUTES (API Domains)
 // ==========================================
+app.get('/api/crm/api-domains', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  if (c.env.DB) {
+    try {
+      const { results } = await c.env.DB.prepare('SELECT * FROM api_domains WHERE workspace_id = ? ORDER BY created_at DESC')
+        .bind(workspaceId).all();
+      return c.json({ domains: results });
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  }
+  return c.json({ error: 'DB not configured' }, 500);
+});
+
+app.post('/api/crm/api-domains', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  const { domain } = await c.req.json();
+  if (!domain) return c.json({ error: 'Domain is required' }, 400);
+
+  // Clean domain (e.g. https://example.com -> example.com)
+  let cleanDomain = domain.toLowerCase().trim();
+  try {
+    if (cleanDomain.startsWith('http')) {
+      const url = new URL(cleanDomain);
+      cleanDomain = url.hostname;
+    }
+  } catch (e) {
+    // If not a valid URL, just use the string
+  }
+
+  if (c.env.DB) {
+    try {
+      const id = crypto.randomUUID();
+      await c.env.DB.prepare('INSERT INTO api_domains (id, workspace_id, domain, status) VALUES (?, ?, ?, ?)')
+        .bind(id, workspaceId, cleanDomain, 'pending').run();
+      return c.json({ success: true, message: 'Domain submitted for verification' });
+    } catch (e: any) {
+      if (e.message.includes('UNIQUE constraint failed')) {
+        return c.json({ error: 'Domain is already registered' }, 400);
+      }
+      return c.json({ error: e.message }, 500);
+    }
+  }
+  return c.json({ error: 'DB not configured' }, 500);
+});
 
 
 // ==========================================
@@ -1170,12 +1317,13 @@ app.post('/api/inbox/conversations/initiate', async (c) => {
 });
 
 // 3. Real-Time Chat (Durable Objects + SQLite)
-app.get('/api/chat/connect/:roomId', (c) => {
+app.get('/api/chat/connect/:roomId', async (c) => {
   const roomId = c.req.param('roomId');
   // Route WebSocket upgrade request to the Durable Object
   const id = c.env.CHAT_DO.idFromName(roomId);
   const stub = c.env.CHAT_DO.get(id);
-  return stub.fetch(c.req.raw);
+  const resp = await stub.fetch(c.req.raw);
+  return resp;
 });
 
 // 4. Media Upload (R2 Storage)
@@ -1361,6 +1509,25 @@ app.post('/api/whatsapp/config', async (c) => {
             console.log(`[Calling] Auto-enabled calling for ${phone_number_id}:`, enableData);
           } catch (e) {
             console.error(`[Calling] Failed to auto-enable calling for ${phone_number_id}:`, e);
+          }
+
+          // Subscribe webhook fields (messages + calls) for this WABA
+          const finalWabaId = waba_id || null;
+          if (finalWabaId) {
+            try {
+              const subsRes = await fetch(`https://graph.facebook.com/v20.0/${finalWabaId}/subscribed_apps`, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${finalToken}`,
+                  'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: 'subscribed_fields=messages,calls'
+              });
+              const subsData: any = await subsRes.json();
+              console.log(`[Webhook] Subscribed messages+calls for WABA ${finalWabaId}:`, subsData);
+            } catch (e) {
+              console.error(`[Webhook] Failed to subscribe for WABA ${finalWabaId}:`, e);
+            }
           }
         })()
       );
@@ -1833,34 +2000,6 @@ app.post('/api/whatsapp/flows/:id/publish', async (c) => {
 
 
 // Send WhatsApp Message
-app.post('/api/admin/migrate', async (c) => {
-  try {
-    const reset = c.req.query('reset') === 'true';
-
-    // Disable foreign keys temporarily
-    try { await c.env.DB.prepare('PRAGMA foreign_keys = OFF').run(); } catch (e) { }
-
-    if (reset) {
-      const dropStatements = dropSql.split(';').map(s => s.trim()).filter(s => s.length > 0);
-      for (const stmt of dropStatements) {
-        await c.env.DB.prepare(stmt).run();
-      }
-    }
-
-    const statements = schemaSql.split(';').map(s => s.trim()).filter(s => s.length > 0);
-    for (const stmt of statements) {
-      await c.env.DB.prepare(stmt).run();
-    }
-
-    // Re-enable foreign keys
-    try { await c.env.DB.prepare('PRAGMA foreign_keys = ON').run(); } catch (e) { }
-
-    return c.json({ success: true, message: reset ? 'Database completely reset and migrated successfully!' : 'Database schema migrated successfully!' });
-  } catch (err: any) {
-    return c.json({ error: err.message }, 500);
-  }
-});
-
 app.post('/api/whatsapp/send', async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
@@ -2425,7 +2564,7 @@ app.get('/api/webrtc/ice-servers', async (c) => {
   try {
     // Try KV first, then env variables
     const turnKeyId = await c.env.SECRETS_KV.get('CLOUDFLARE_CALLS_APP_ID') || await c.env.SECRETS_KV.get('TURN_KEY_ID') || c.env.TURN_KEY_ID;
-    const turnToken = await c.env.SECRETS_KV.get('CLOUDFLARE_API_TOKEN') || await c.env.SECRETS_KV.get('CLOUDFLARE_API_TOKEN') || await c.env.SECRETS_KV.get('TURN_KEY_API_TOKEN') || c.env.TURN_KEY_API_TOKEN;
+    const turnToken = await c.env.SECRETS_KV.get('CLOUDFLARE_API_TOKEN') || await c.env.SECRETS_KV.get('TURN_KEY_API_TOKEN') || c.env.TURN_KEY_API_TOKEN;
 
     if (!turnKeyId || !turnToken) {
       // Fallback to free STUN only if TURN not configured
@@ -2549,23 +2688,48 @@ app.get('/api/whatsapp/calls/status', async (c) => {
     });
   }
 
-  // Check webhook subscription — note: Meta doesn't expose a simple 'calls field subscribed' endpoint
-  // User must verify this manually in Meta Business Suite > WhatsApp > Webhook > Fields
+  // Check webhook subscription and auto-fix if needed
   let webhookCallsFieldHint = false;
+  let autoFixed = false;
   const firstConfig = configs.results?.[0];
   if (firstConfig) {
     try {
-      const wabaId = await c.env.DB.prepare(
+      const wabaRow = await c.env.DB.prepare(
         'SELECT waba_id FROM whatsapp_configs WHERE workspace_id = ? AND waba_id IS NOT NULL LIMIT 1'
       ).bind(workspaceId).first<{ waba_id: string }>();
 
-      if (wabaId) {
-        const subsRes = await fetch(`https://graph.facebook.com/v20.0/${wabaId}/subscribed_apps`, {
+      if (wabaRow && wabaRow.waba_id) {
+        const subsRes = await fetch(`https://graph.facebook.com/v20.0/${wabaRow.waba_id}/subscribed_apps`, {
           headers: { 'Authorization': `Bearer ${firstConfig.access_token}` }
         });
         const subsData: any = await subsRes.json();
-        // If the app is subscribed at all, the 'calls' field may already be active
-        webhookCallsFieldHint = subsData.data?.length > 0;
+        // Check if 'calls' is in the subscribed fields list
+        if (subsData.data && subsData.data.length > 0) {
+          const fields = subsData.data[0].subscribed_fields || subsData.data[0].whatsapp_business_api_data?.subscribed_fields || [];
+          webhookCallsFieldHint = Array.isArray(fields) && fields.includes('calls');
+        }
+
+        // AUTO-FIX: If calls field is NOT subscribed, subscribe it now
+        if (!webhookCallsFieldHint) {
+          try {
+            const fixRes = await fetch(`https://graph.facebook.com/v20.0/${wabaRow.waba_id}/subscribed_apps`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${firstConfig.access_token}`,
+                'Content-Type': 'application/x-www-form-urlencoded'
+              },
+              body: 'subscribed_fields=messages,calls'
+            });
+            const fixData: any = await fixRes.json();
+            console.log(`[Calling Status] Auto-fix webhook subscription for WABA ${wabaRow.waba_id}:`, fixData);
+            if (fixData.success === true) {
+              webhookCallsFieldHint = true;
+              autoFixed = true;
+            }
+          } catch (fixErr) {
+            console.error('[Calling Status] Auto-fix webhook subscription failed:', fixErr);
+          }
+        }
       }
     } catch (e) {
       console.error('[Calling Status] Failed to check webhook subscription:', e);
@@ -2573,15 +2737,62 @@ app.get('/api/whatsapp/calls/status', async (c) => {
   }
 
   // Check TURN/ICE configuration
-  const turnKeyId = await c.env.SECRETS_KV.get('CLOUDFLARE_CALLS_APP_ID').catch(() => null);
-  const turnToken = await c.env.SECRETS_KV.get('CLOUDFLARE_API_TOKEN').catch(() => null);
+  let turnKeyId: string | null = null;
+  let turnToken: string | null = null;
+  try {
+    turnKeyId = await c.env.SECRETS_KV.get('CLOUDFLARE_CALLS_APP_ID');
+  } catch (e) {
+    console.error('[TURN] Failed to get CLOUDFLARE_CALLS_APP_ID from KV:', e);
+  }
+  try {
+    turnToken = await c.env.SECRETS_KV.get('CLOUDFLARE_API_TOKEN');
+  } catch (e) {
+    console.error('[TURN] Failed to get CLOUDFLARE_API_TOKEN from KV:', e);
+  }
 
   return c.json({
     phone_numbers: phoneResults,
     webhook_subscribed: webhookCallsFieldHint,
+    webhook_auto_fixed: autoFixed,
     turn_configured: !!(turnKeyId && turnToken),
     all_ready: phoneResults.every(p => p.db_calling_enabled) && webhookCallsFieldHint
   });
+});
+
+// Manually subscribe webhook fields (messages + calls) for a workspace's WABA
+app.post('/api/whatsapp/webhook/subscribe', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  try {
+    const config = await c.env.DB.prepare(
+      'SELECT waba_id, access_token FROM whatsapp_configs WHERE workspace_id = ? AND waba_id IS NOT NULL ORDER BY created_at DESC LIMIT 1'
+    ).bind(workspaceId).first<{ waba_id: string; access_token: string }>();
+
+    if (!config || !config.waba_id) {
+      return c.json({ error: 'WABA ID नहीं मिला। कृपया पहले WhatsApp Config में WABA ID सेव करें।' }, 400);
+    }
+
+    const subsRes = await fetch(`https://graph.facebook.com/v20.0/${config.waba_id}/subscribed_apps`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${config.access_token}`,
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: 'subscribed_fields=messages,calls'
+    });
+    const subsData: any = await subsRes.json();
+    console.log(`[Webhook Subscribe] Manual subscription for WABA ${config.waba_id}:`, subsData);
+
+    if (subsData.success === true) {
+      return c.json({ success: true, message: 'Webhook fields (messages + calls) सफलतापूर्वक subscribe हो गए!' });
+    } else {
+      return c.json({ error: 'Subscription failed', details: subsData }, 400);
+    }
+  } catch (err: any) {
+    console.error('[Webhook Subscribe] Error:', err);
+    return c.json({ error: err.message }, 500);
+  }
 });
 
 // Broadcast Campaign
@@ -2683,68 +2894,13 @@ app.get('/api/workspace', async (c) => {
     });
   } catch (err: any) {
     console.error("Error fetching workspace stats:", err);
-    return c.json({ error: err.message }, 500);
-  }
-});
-
-// Fetch current user's workspace plan
-app.get('/api/workspace/plan', async (c) => {
-  const workspaceId = c.req.header('x-workspace-id');
-  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
-
-  if (!c.env.DB) return c.json({ error: 'Database not connected' }, 500);
-
-  try {
-    const { results } = await c.env.DB.prepare(`
-      SELECT w.id, w.name as workspace_name, p.* 
-      FROM workspaces w
-      LEFT JOIN plans p ON w.plan_id = p.id
-      WHERE w.id = ?
-    `).bind(workspaceId).all();
-
-    if (results.length === 0) return c.json({ error: 'Workspace not found' }, 404);
-
-    return c.json({ plan: results[0] });
-  } catch (err) {
     return c.json({ error: 'Internal server error' }, 500);
   }
 });
 
 // ==========================================
-// FALLBACK HANDLER
+// MEDIA ROUTES (moved BEFORE export to ensure registration)
 // ==========================================
-// Since we are using "Workers with Assets", any request that doesn't match 
-// `/api/*` will automatically be served from the `[assets]` directory (e.g., HTML/CSS/JS).
-// If a static asset is not found, it falls through to this handler.
-app.notFound((c) => {
-  return c.json({ error: 'Not Found', message: 'API route or static asset does not exist.' }, 404);
-});
-
-const worker = {
-  fetch: app.fetch,
-
-  // Workflow entry point (Background Tasks & FCM)
-  async workflow(event: any, env: any, ctx: any) {
-    console.log("Executing background workflow...", event);
-    // e.g., Call Firebase Cloud Messaging (FCM) API here
-  },
-
-  // Queue consumer (Notifications)
-  async queue(batch: any, env: any, ctx: any) {
-    for (const message of batch.messages) {
-      console.log("Processing queue message:", message.body);
-    }
-  },
-
-  // Email receiver (Cloudflare Email Routing)
-  async email(message: any, env: any, ctx: any) {
-    console.log(`Received email from ${message.from} to ${message.to}`);
-    // Process incoming email, save to DB, forward, etc.
-  }
-};
-
-export default worker;
-
 
 // Proxy for downloading WhatsApp media
 app.get('/api/whatsapp/media', async (c) => {
@@ -2848,3 +3004,38 @@ app.get('/api/public/media/:key', async (c) => {
     return c.text('Internal Server Error', 500);
   }
 });
+
+// ==========================================
+// FALLBACK HANDLER
+// ==========================================
+// Since we are using "Workers with Assets", any request that doesn't match 
+// `/api/*` will automatically be served from the `[assets]` directory (e.g., HTML/CSS/JS).
+// If a static asset is not found, it falls through to this handler.
+app.notFound((c) => {
+  return c.json({ error: 'Not Found', message: 'API route or static asset does not exist.' }, 404);
+});
+
+const worker = {
+  fetch: app.fetch,
+
+  // Workflow entry point (Background Tasks & FCM)
+  async workflow(event: any, env: any, ctx: any) {
+    console.log("Executing background workflow...", event);
+    // e.g., Call Firebase Cloud Messaging (FCM) API here
+  },
+
+  // Queue consumer (Notifications)
+  async queue(batch: any, env: any, ctx: any) {
+    for (const message of batch.messages) {
+      console.log("Processing queue message:", message.body);
+    }
+  },
+
+  // Email receiver (Cloudflare Email Routing)
+  async email(message: any, env: any, ctx: any) {
+    console.log(`Received email from ${message.from} to ${message.to}`);
+    // Process incoming email, save to DB, forward, etc.
+  }
+};
+
+export default worker;
