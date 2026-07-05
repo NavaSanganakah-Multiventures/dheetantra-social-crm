@@ -113,15 +113,46 @@ export class AutomationWorkflow extends WorkflowEntrypoint<Env, any> {
 
 const app = new Hono<{ Bindings: Env }>();
 
-// Enable CORS for custom SDKs and mobile apps with strict origin check
-app.use('/api/*', cors({
-  origin: (origin) => {
-    // Only allow specific domains or local development
-    if (!origin || origin.includes('localhost') || origin.includes('dhitantra.com') || origin.includes('navasanganakah.com')) {
-      return origin || '*';
+// Security, Domain Verification, and Rate Limiting Middleware
+app.use('/api/*', async (c, next) => {
+  const origin = c.req.header('origin');
+  const ip = c.req.header('cf-connecting-ip') || 'unknown';
+
+  if (origin) {
+    const isBaseDomain = origin.includes('localhost') || origin.includes('dheetantra.navasanganakah.com') || origin.includes('dhitantra.com') || origin.includes('navasanganakah.com');
+    
+    if (!isBaseDomain) {
+      // Check if domain is verified
+      const status = c.env.SECRETS_KV ? await c.env.SECRETS_KV.get(`DOMAIN:${origin}`) : null;
+      if (status !== 'verified') {
+        return c.text('Forbidden: Domain not verified or blocked', 403);
+      }
+
+      // Rate Limiter Logic for external domains (e.g., max 100 reqs / min)
+      if (c.env.SECRETS_KV) {
+        const rateKey = `RATE:${origin}:${Math.floor(Date.now() / 60000)}`;
+        const currentReqs = parseInt(await c.env.SECRETS_KV.get(rateKey) || '0', 10);
+        
+        if (currentReqs >= 100) {
+          // Auto-block the domain due to spam
+          await c.env.SECRETS_KV.put(`DOMAIN:${origin}`, 'blocked');
+          if (c.env.DB) {
+            await c.env.DB.prepare("UPDATE api_domains SET status = 'blocked', blocked_reason = 'rate_limit_exceeded', updated_at = CURRENT_TIMESTAMP WHERE domain = ?").bind(origin).run();
+          }
+          console.warn(`[Security] Auto-blocked domain ${origin} due to rate limiting.`);
+          return c.text('Too Many Requests. Domain automatically blocked due to spam activity.', 429);
+        }
+        
+        await c.env.SECRETS_KV.put(rateKey, (currentReqs + 1).toString(), { expirationTtl: 60 });
+      }
     }
-    return 'https://dhitantra.com';
-  },
+  }
+  await next();
+});
+
+// Standard CORS now safely allows * because unverified origins are rejected above
+app.use('/api/*', cors({
+  origin: '*',
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization', 'x-workspace-id'],
   exposeHeaders: ['Content-Length'],
@@ -926,8 +957,57 @@ app.post('/api/whatsapp/webhook', async (c) => {
 
 
 // ==========================================
-// B2C & B2B API ROUTES
+// B2C & B2B API ROUTES (API Domains)
 // ==========================================
+app.get('/api/crm/api-domains', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  if (c.env.DB) {
+    try {
+      const { results } = await c.env.DB.prepare('SELECT * FROM api_domains WHERE workspace_id = ? ORDER BY created_at DESC')
+        .bind(workspaceId).all();
+      return c.json({ domains: results });
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  }
+  return c.json({ error: 'DB not configured' }, 500);
+});
+
+app.post('/api/crm/api-domains', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  const { domain } = await c.req.json();
+  if (!domain) return c.json({ error: 'Domain is required' }, 400);
+
+  // Clean domain (e.g. https://example.com -> example.com)
+  let cleanDomain = domain.toLowerCase().trim();
+  try {
+    if (cleanDomain.startsWith('http')) {
+      const url = new URL(cleanDomain);
+      cleanDomain = url.hostname;
+    }
+  } catch (e) {
+    // If not a valid URL, just use the string
+  }
+
+  if (c.env.DB) {
+    try {
+      const id = crypto.randomUUID();
+      await c.env.DB.prepare('INSERT INTO api_domains (id, workspace_id, domain, status) VALUES (?, ?, ?, ?)')
+        .bind(id, workspaceId, cleanDomain, 'pending').run();
+      return c.json({ success: true, message: 'Domain submitted for verification' });
+    } catch (e: any) {
+      if (e.message.includes('UNIQUE constraint failed')) {
+        return c.json({ error: 'Domain is already registered' }, 400);
+      }
+      return c.json({ error: e.message }, 500);
+    }
+  }
+  return c.json({ error: 'DB not configured' }, 500);
+});
 
 
 // ==========================================

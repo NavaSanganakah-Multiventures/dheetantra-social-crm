@@ -416,4 +416,61 @@ admin.delete('/kv/:key', async (c) => {
   }
 });
 
+// GET all API domains
+admin.get('/api-domains', async (c) => {
+  const isAdmin = await verifyAdmin(c);
+  if (!isAdmin) return c.json({ error: 'Unauthorized' }, 403);
+  if (!c.env.DB) return c.json({ error: 'Database not connected' }, 500);
+
+  try {
+    const { results } = await c.env.DB.prepare('SELECT * FROM api_domains ORDER BY created_at DESC').all();
+    return c.json({ domains: results });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+// VERIFY an API domain
+admin.post('/api-domains/:id/verify', async (c) => {
+  const isAdmin = await verifyAdmin(c);
+  if (!isAdmin) return c.json({ error: 'Unauthorized' }, 403);
+  if (!c.env.DB) return c.json({ error: 'Database not connected' }, 500);
+
+  try {
+    const id = c.req.param('id');
+    const domainRow = await c.env.DB.prepare('SELECT domain FROM api_domains WHERE id = ?').bind(id).first<{ domain: string }>();
+    if (!domainRow) return c.json({ error: 'Domain not found' }, 404);
+
+    await c.env.DB.prepare("UPDATE api_domains SET status = 'verified', blocked_reason = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?").bind(id).run();
+    if (c.env.SECRETS_KV) {
+      await c.env.SECRETS_KV.put(`DOMAIN:${domainRow.domain}`, 'verified');
+    }
+    return c.json({ success: true });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+// BLOCK an API domain
+admin.post('/api-domains/:id/block', async (c) => {
+  const isAdmin = await verifyAdmin(c);
+  if (!isAdmin) return c.json({ error: 'Unauthorized' }, 403);
+  if (!c.env.DB) return c.json({ error: 'Database not connected' }, 500);
+
+  try {
+    const id = c.req.param('id');
+    const { reason } = await c.req.json();
+    const domainRow = await c.env.DB.prepare('SELECT domain FROM api_domains WHERE id = ?').bind(id).first<{ domain: string }>();
+    if (!domainRow) return c.json({ error: 'Domain not found' }, 404);
+
+    await c.env.DB.prepare("UPDATE api_domains SET status = 'blocked', blocked_reason = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?").bind(reason || 'Manual block by admin', id).run();
+    if (c.env.SECRETS_KV) {
+      await c.env.SECRETS_KV.put(`DOMAIN:${domainRow.domain}`, 'blocked');
+    }
+    return c.json({ success: true });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
 export default admin;
