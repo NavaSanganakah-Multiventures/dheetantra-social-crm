@@ -10,6 +10,29 @@ import PhoneInput, { isValidPhoneNumber } from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
 type activeTab = 'dashboard' | 'inbox' | 'broadcast' | 'templates' | 'schedule' | 'settings' | 'contacts' | 'calls' | 'integrations' | 'accounts-whatsapp';
 
+const getUserTimezone = () => typeof window !== 'undefined' ? localStorage.getItem('userTimezone') || 'Asia/Kolkata' : 'Asia/Kolkata';
+
+export const formatUserTimeOnly = (dateStr: string | Date | number, options?: Intl.DateTimeFormatOptions) => {
+  if (!dateStr) return '';
+  try {
+    return new Date(dateStr).toLocaleTimeString([], { timeZone: getUserTimezone(), ...options });
+  } catch(e) { return ''; }
+}
+
+export const formatUserDateOnly = (dateStr: string | Date | number, options?: Intl.DateTimeFormatOptions) => {
+  if (!dateStr) return '';
+  try {
+    return new Date(dateStr).toLocaleDateString([], { timeZone: getUserTimezone(), ...options });
+  } catch(e) { return ''; }
+}
+
+export const formatUserDateTime = (dateStr: string | Date | number, locales?: string | string[], options?: Intl.DateTimeFormatOptions) => {
+  if (!dateStr) return '';
+  try {
+    return new Date(dateStr).toLocaleString(locales || 'hi-IN', { timeZone: getUserTimezone(), ...options });
+  } catch(e) { return ''; }
+}
+
 export default function DashboardWrapper() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -21,6 +44,7 @@ export default function DashboardWrapper() {
       .then((data: any) => {
          if (data.user) {
              setUser(data.user);
+             localStorage.setItem('userTimezone', data.user.timezone || 'Asia/Kolkata');
          } else {
              router.push('/login');
          }
@@ -1389,7 +1413,7 @@ function InboxView({
                     >
                         <div className="flex justify-between items-start mb-1">
                           <span className="font-medium text-sm text-zinc-900 dark:text-zinc-100">{chat.contact_name || chat.phone || "अमार्ग निर्देशित"}</span>
-                          <span className="text-[10px] text-zinc-500">{new Date(chat.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                          <span className="text-[10px] text-zinc-500">{formatUserTimeOnly(chat.updated_at, { hour: '2-digit', minute: '2-digit' })}</span>
                         </div>
                         <div className="flex justify-between items-center">
                           <span className="text-xs text-zinc-500 truncate pr-4">{chat.phone}</span>
@@ -1664,7 +1688,7 @@ function InboxView({
                              )}
                            </div>
                            <div className={`flex items-center gap-1 mt-0.5 ${isAgent ? 'mr-1' : 'ml-1'}`}>
-                             <span className="text-[10px] text-zinc-400">{new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                             <span className="text-[10px] text-zinc-400">{formatUserTimeOnly(msg.created_at, { hour: '2-digit', minute: '2-digit' })}</span>
                              {isAgent && (
                                msg.status === 'failed' ? <AlertCircle className="w-3.5 h-3.5 text-rose-500" /> :
                                msg.status === 'read' ? <CheckCheck className="w-3.5 h-3.5 text-indigo-500" /> :
@@ -2211,6 +2235,34 @@ function SettingsView() {
     const [webhookUrl, setWebhookUrl] = useState("");
     const [metaConfigId, setMetaConfigId] = useState("");
     const [replyMode, setReplyMode] = useState("manual");
+    
+    // User Profile Settings
+    const [userTimezone, setUserTimezone] = useState("Asia/Kolkata");
+    const [savingProfile, setSavingProfile] = useState(false);
+    const [profileMessage, setProfileMessage] = useState("");
+
+    const saveUserProfile = async () => {
+      setSavingProfile(true);
+      setProfileMessage("");
+      try {
+        const res = await fetch('/api/user/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ timezone: userTimezone })
+        });
+        const data: any = await res.json();
+        if (data.success) {
+          setProfileMessage("प्रोफ़ाइल अपडेट हो गई। पेज रीफ्रेश करें ताकि नए बदलाव लागू हो सकें।");
+          localStorage.setItem('userTimezone', userTimezone);
+        } else {
+          setProfileMessage("त्रुटि: " + (data.error || "अज्ञात"));
+        }
+      } catch (e) {
+        setProfileMessage("अपडेट करने में त्रुटि।");
+      } finally {
+        setSavingProfile(false);
+      }
+    };
 
     const [configs, setConfigs] = useState<any[]>([]);
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -2366,6 +2418,9 @@ function SettingsView() {
         }
         setLoading(false);
       });
+      
+      const savedTz = localStorage.getItem('userTimezone');
+      if (savedTz) setUserTimezone(savedTz);
 
       return () => {
          window.removeEventListener('message', sessionInfoListener);
@@ -2448,6 +2503,44 @@ function SettingsView() {
         <div className="p-6 md:p-8 w-full max-w-4xl mx-auto space-y-6">
              <h2 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white font-display">वर्कस्पेस सेटिंग्स</h2>
              
+             {/* User Profile Section */}
+             <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl overflow-hidden shadow-sm">
+                 <div className="p-8">
+                     <h3 className="font-bold text-lg mb-2 text-zinc-900 dark:text-white font-display flex items-center gap-2">
+                       <User className="w-5 h-5 text-indigo-500" /> उपयोगकर्ता सेटिंग्स
+                     </h3>
+                     <p className="text-sm text-zinc-500 mb-6">अपना पसंदीदा टाइमज़ोन सेट करें ताकि सभी संदेश और लॉग सही समय दिखाएं।</p>
+                     
+                     <div className="max-w-xl space-y-4">
+                        <div>
+                           <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">Timezone</label>
+                           <select value={userTimezone} onChange={e => setUserTimezone(e.target.value)} className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all">
+                             <option value="Asia/Kolkata">India Standard Time (IST)</option>
+                             <option value="America/New_York">Eastern Time (US & Canada)</option>
+                             <option value="America/Chicago">Central Time (US & Canada)</option>
+                             <option value="America/Los_Angeles">Pacific Time (US & Canada)</option>
+                             <option value="Europe/London">Greenwich Mean Time (London)</option>
+                             <option value="Europe/Paris">Central European Time (Paris)</option>
+                             <option value="Asia/Dubai">Gulf Standard Time (Dubai)</option>
+                             <option value="Asia/Singapore">Singapore Standard Time</option>
+                             <option value="Australia/Sydney">Australian Eastern Time (Sydney)</option>
+                             <option value="UTC">Coordinated Universal Time (UTC)</option>
+                           </select>
+                        </div>
+
+                        <button 
+                          onClick={saveUserProfile} 
+                          disabled={savingProfile} 
+                          className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl font-medium shadow-sm shadow-indigo-200 dark:shadow-none transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                        >
+                          {savingProfile ? "सेव हो रहा है..." : "सेव करें"}
+                        </button>
+                        {profileMessage && <p className="text-sm mt-2 text-emerald-600 dark:text-emerald-400 font-medium">{profileMessage}</p>}
+                     </div>
+                 </div>
+             </div>
+
+             {/* WhatsApp Config Section */}
              <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl overflow-hidden shadow-sm">
                  <div className="p-8 border-b border-zinc-100 dark:border-zinc-800">
                      <h3 className="font-bold text-lg mb-2 text-zinc-900 dark:text-white font-display flex items-center gap-2">
@@ -2618,7 +2711,7 @@ function SettingsView() {
                                              {cfg.reply_mode === 'ai' ? '🤖 AI Bot' : cfg.reply_mode === 'rule_based' ? '⚡ Rules' : '👤 Manual'}
                                           </span>
                                        </td>
-                                       <td className="p-4 text-xs text-zinc-500">{cfg.created_at ? new Date(cfg.created_at).toLocaleDateString() : 'N/A'}</td>
+                                       <td className="p-4 text-xs text-zinc-500">{cfg.created_at ? formatUserDateOnly(cfg.created_at) : 'N/A'}</td>
                                        <td className="p-4 text-right flex justify-end gap-2">
                                           <button onClick={() => startEditing(cfg)} title="बदलें" className="p-2 text-zinc-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 rounded-lg transition-all">
                                              <Edit className="w-4 h-4" />
@@ -4184,7 +4277,7 @@ function CallsView({
               </thead>
               <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800 text-xs">
                 {filteredCalls.map((call) => {
-                  const dateStr = new Date(call.created_at).toLocaleString('hi-IN', {
+                  const dateStr = formatUserDateTime(call.created_at, 'hi-IN', {
                     day: 'numeric', month: 'short', year: 'numeric',
                     hour: '2-digit', minute: '2-digit'
                   });

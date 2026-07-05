@@ -42,6 +42,7 @@ CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
   email TEXT UNIQUE NOT NULL,
   name TEXT,
+  timezone TEXT DEFAULT 'Asia/Kolkata',
   is_registered BOOLEAN DEFAULT 0,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
@@ -278,6 +279,10 @@ export async function runAlterMigrations(db: any) {
 
     try {
       await db.prepare("ALTER TABLE messages ADD COLUMN message_type TEXT DEFAULT 'text'").run();
+    } catch (e) { }
+
+    try {
+      await db.prepare("ALTER TABLE users ADD COLUMN timezone TEXT DEFAULT 'Asia/Kolkata'").run();
     } catch (e) { }
 
     try {
