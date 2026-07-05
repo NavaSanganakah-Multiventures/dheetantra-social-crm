@@ -76,9 +76,7 @@ export async function handleIncomingMessage(
       // 3. Save incoming message
       if (messageId) {
         const incomingMessageId = crypto.randomUUID();
-        try {
-          await env.DB.prepare("ALTER TABLE messages ADD COLUMN message_type TEXT DEFAULT 'text'").run();
-        } catch(e) {}
+
 
         await env.DB.prepare(`
           INSERT OR IGNORE INTO messages (id, conversation_id, sender_type, message_type, content, media_url, platform_message_id)
@@ -185,9 +183,7 @@ export async function handleIncomingMessage(
   // Check Bot Settings
   let replyMode = 'manual';
   try {
-    try {
-      await env.DB.prepare("ALTER TABLE whatsapp_configs ADD COLUMN reply_mode TEXT DEFAULT 'manual'").run();
-    } catch(e) {}
+
     
     const config = await env.DB.prepare('SELECT reply_mode FROM whatsapp_configs WHERE phone_number_id = ?').bind(phoneNumberId).first();
     if (config && config.reply_mode) {
@@ -334,9 +330,7 @@ export async function sendWhatsAppMessage(
           const sentMessageId = crypto.randomUUID();
           const platformMsgId = data.messages?.[0]?.id || null;
 
-          try {
-            await env.DB.prepare("ALTER TABLE messages ADD COLUMN message_type TEXT DEFAULT 'text'").run();
-          } catch(e) {}
+
 
           await env.DB.prepare(`
             INSERT INTO messages (id, conversation_id, sender_type, message_type, content, media_url, platform_message_id)

@@ -1,4 +1,3 @@
-
 CREATE TABLE IF NOT EXISTS plans (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
@@ -14,6 +13,7 @@ CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
   email TEXT UNIQUE NOT NULL,
   name TEXT,
+  timezone TEXT DEFAULT 'Asia/Kolkata',
   is_registered BOOLEAN DEFAULT 0, -- To ensure they actually registered, not just requested an OTP for login
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
@@ -70,6 +70,18 @@ CREATE TABLE IF NOT EXISTS contacts (
   platform TEXT NOT NULL, -- 'whatsapp', 'instagram', 'facebook'
   platform_contact_id TEXT NOT NULL, -- e.g., wa_id or IG PSID
   name TEXT DEFAULT 'Unknown User',
+  phone TEXT,
+  additional_phone TEXT,
+  email TEXT,
+  gender TEXT,
+  instagram_username TEXT,
+  facebook_username TEXT,
+  whatsapp_username TEXT,
+  notes TEXT,
+  is_lead INTEGER DEFAULT 0,
+  lead_status TEXT DEFAULT 'new',
+  lead_source TEXT DEFAULT 'manual',
+  lead_value REAL DEFAULT 0,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
   UNIQUE(workspace_id, platform, platform_contact_id) -- Prevent duplicate contacts per workspace per platform
@@ -82,6 +94,8 @@ CREATE TABLE IF NOT EXISTS conversations (
   contact_id TEXT NOT NULL,
   platform TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'open', -- 'open', 'closed', 'snoozed'
+  phone_number_id TEXT,
+  customer_last_message_at DATETIME,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
@@ -97,6 +111,7 @@ CREATE TABLE IF NOT EXISTS messages (
   media_url TEXT, -- If there's an R2 media attachment
   platform_message_id TEXT UNIQUE, -- ID from Meta to prevent duplicates
   status TEXT DEFAULT 'sent', -- 'sent', 'delivered', 'read'
+  message_type TEXT DEFAULT 'text',
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
 );
@@ -114,6 +129,7 @@ CREATE TABLE IF NOT EXISTS whatsapp_configs (
   access_token TEXT NOT NULL,
   verify_token TEXT,
   reply_mode TEXT DEFAULT 'manual',
+  calling_enabled INTEGER DEFAULT 1,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
 );
@@ -128,6 +144,34 @@ CREATE TABLE IF NOT EXISTS whatsapp_templates (
   status TEXT DEFAULT 'APPROVED',
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS whatsapp_flows (
+  id TEXT PRIMARY KEY,
+  workspace_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  status TEXT DEFAULT 'DRAFT',
+  categories TEXT DEFAULT 'UTILITY',
+  screens_json TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS calls (
+  id TEXT PRIMARY KEY,
+  workspace_id TEXT NOT NULL,
+  contact_id TEXT NOT NULL,
+  phone_number_id TEXT,
+  caller_number TEXT,
+  type TEXT NOT NULL DEFAULT 'voice',
+  direction TEXT NOT NULL DEFAULT 'incoming',
+  status TEXT NOT NULL DEFAULT 'missed',
+  duration INTEGER DEFAULT 0,
+  recording_url TEXT,
+  hangup_cause TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
+  FOREIGN KEY (contact_id) REFERENCES contacts(id) ON DELETE CASCADE
 );
 
 -- ==========================================
@@ -174,6 +218,17 @@ CREATE TABLE IF NOT EXISTS domains (
   FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS api_domains (
+  id TEXT PRIMARY KEY,
+  workspace_id TEXT NOT NULL,
+  domain TEXT NOT NULL UNIQUE,
+  status TEXT NOT NULL DEFAULT 'pending',
+  blocked_reason TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY(workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
+);
+
 -- Domain Emails (Email Routing Addresses)
 CREATE TABLE IF NOT EXISTS domain_emails (
   id TEXT PRIMARY KEY,
@@ -208,7 +263,6 @@ CREATE TABLE IF NOT EXISTS fcm_tokens (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
-
 CREATE TABLE IF NOT EXISTS waba_accounts (
   id TEXT PRIMARY KEY,
   workspace_id TEXT NOT NULL,
@@ -234,4 +288,3 @@ CREATE TABLE IF NOT EXISTS waba_phone_numbers (
   FOREIGN KEY (waba_id) REFERENCES waba_accounts(waba_id) ON DELETE CASCADE,
   FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
 );
-

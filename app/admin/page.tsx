@@ -4,12 +4,12 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { 
   ShieldCheck, ShieldAlert, Users, Building2, CreditCard, Key, 
   Activity, Plus, Trash2, Edit, RefreshCw, Search, Check, X, 
-  Database, Save, Eye, EyeOff, LayoutDashboard, Sliders, ArrowLeft, Mail, ChevronRight 
+  Database, Save, Eye, EyeOff, LayoutDashboard, Sliders, ArrowLeft, Mail, ChevronRight, AlertCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useRouter } from 'next/navigation';
 
-type AdminTab = 'overview' | 'users' | 'workspaces' | 'plans' | 'kv';
+type AdminTab = 'overview' | 'users' | 'workspaces' | 'plans' | 'kv' | 'database';
 
 export default function AdminDashboard() {
   const router = useRouter();
@@ -41,6 +41,10 @@ export default function AdminDashboard() {
   const [loadingKv, setLoadingKv] = useState(false);
   const [kvSearch, setKvSearch] = useState('');
   const [revealedKvKeys, setRevealedKvKeys] = useState<Record<string, boolean>>({});
+
+  // Database Migration State
+  const [schemaDiff, setSchemaDiff] = useState<any>(null);
+  const [loadingDiff, setLoadingDiff] = useState(false);
 
   // Modals / Drawers / Form States
   const [userModal, setUserModal] = useState<{ open: boolean, mode: 'create' | 'edit', data?: any }>({ open: false, mode: 'create' });
@@ -150,6 +154,21 @@ export default function AdminDashboard() {
       });
   };
 
+  // Fetch Schema Diff
+  const loadSchemaDiff = () => {
+    setTimeout(() => setLoadingDiff(true), 0);
+    fetch('/api/admin/schema-diff')
+      .then(res => res.json())
+      .then((data: any) => {
+        setSchemaDiff(data);
+        setLoadingDiff(false);
+      })
+      .catch(() => {
+        addNotification('डेटाबेस स्थिति लोड करने में विफल', 'error');
+        setLoadingDiff(false);
+      });
+  };
+
   // Verify Admin Authentication
   useEffect(() => {
     fetch('/api/admin/check')
@@ -186,6 +205,7 @@ export default function AdminDashboard() {
     }
     if (activeTab === 'plans') loadPlans();
     if (activeTab === 'kv') loadKvSecrets();
+    if (activeTab === 'database') loadSchemaDiff();
   }, [activeTab, authorized]);
 
   // Handle User Action (Create/Update/Delete)
@@ -502,6 +522,12 @@ export default function AdminDashboard() {
             label="KV सिस्टम सीक्रेट्स" 
             active={activeTab === 'kv'} 
             onClick={() => setActiveTab('kv')} 
+          />
+          <SidebarButton 
+            icon={<Database className="w-4 h-4" />} 
+            label="डेटाबेस (Database)" 
+            active={activeTab === 'database'} 
+            onClick={() => setActiveTab('database')} 
           />
         </nav>
 
@@ -1047,6 +1073,180 @@ export default function AdminDashboard() {
                           })}
                         </tbody>
                       </table>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+
+            {activeTab === 'database' && (
+              <motion.div
+                key="database"
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -15 }}
+                className="space-y-6"
+              >
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div>
+                    <h2 className="text-xl font-bold text-white mb-1">डेटाबेस माइग्रेशन (Database Migration)</h2>
+                    <p className="text-sm text-zinc-400">स्कीमा की जांच करें और सुरक्षित रूप से डेटाबेस अपडेट करें</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button 
+                      onClick={loadSchemaDiff}
+                      disabled={loadingDiff}
+                      className="p-2.5 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-800 rounded-xl transition-colors disabled:opacity-50"
+                      title="स्थिति रीफ्रेश करें"
+                    >
+                      <RefreshCw className={`w-4 h-4 text-zinc-400 ${loadingDiff ? 'animate-spin' : ''}`} />
+                    </button>
+                    {schemaDiff?.status === 'needs_migration' && (
+                      <button 
+                        onClick={async () => {
+                          if (confirm("क्या आप सुनिश्चित हैं कि आप डेटाबेस स्कीमा को माइग्रेट करना चाहते हैं?")) {
+                            setLoadingDiff(true);
+                            try {
+                              const res = await fetch('/api/admin/migrate', { method: 'POST' });
+                              const data = await res.json();
+                              if (res.ok) {
+                                addNotification(data.message, 'success');
+                                loadSchemaDiff();
+                              } else {
+                                addNotification(data.error || 'माइग्रेशन विफल रहा', 'error');
+                                setLoadingDiff(false);
+                              }
+                            } catch {
+                              addNotification('सर्वर एरर', 'error');
+                              setLoadingDiff(false);
+                            }
+                          }
+                        }}
+                        className="py-2.5 px-6 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-xs font-semibold text-white transition-colors shadow-lg shadow-indigo-600/20 flex items-center gap-2"
+                      >
+                        <Save className="w-4 h-4" />
+                        स्कीमा अपडेट लागू करें
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="bg-zinc-900 border border-zinc-800 rounded-3xl overflow-hidden shadow-sm p-8">
+                  {loadingDiff ? (
+                    <div className="flex justify-center items-center py-12">
+                      <div className="w-8 h-8 border-2 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin"></div>
+                    </div>
+                  ) : !schemaDiff ? (
+                    <div className="text-center py-12 text-zinc-500">डेटा लोड नहीं हो पाया</div>
+                  ) : schemaDiff.status === 'up_to_date' ? (
+                    <div className="flex flex-col items-center justify-center py-12 space-y-4">
+                      <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20">
+                        <Check className="w-8 h-8 text-emerald-500" />
+                      </div>
+                      <div className="text-center">
+                        <h3 className="text-lg font-bold text-white mb-1">डेटाबेस स्कीमा पूरी तरह अपडेट है</h3>
+                        <p className="text-sm text-zinc-500">सभी टेबल्स और कॉलम्स source of truth (schema.sql) के साथ sync में हैं।</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-8">
+                      <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl flex items-start gap-4">
+                        <ShieldAlert className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <h4 className="text-sm font-semibold text-amber-500 mb-1">माइग्रेशन आवश्यक है</h4>
+                          <p className="text-xs text-amber-500/80 leading-relaxed">{schemaDiff.summary}</p>
+                        </div>
+                      </div>
+
+                      {schemaDiff.missingTables && schemaDiff.missingTables.length > 0 && (
+                        <div>
+                          <h4 className="text-sm font-semibold text-zinc-300 mb-4 flex items-center gap-2">
+                            <Plus className="w-4 h-4 text-emerald-500" /> 
+                            Missing Tables ({schemaDiff.missingTables.length})
+                          </h4>
+                          <div className="space-y-3">
+                            {schemaDiff.missingTables.map((t: any, i: number) => (
+                              <div key={i} className="bg-zinc-950/50 border border-zinc-800 rounded-xl p-4">
+                                <div className="text-xs font-bold text-emerald-400 mb-2">{t.name}</div>
+                                <pre className="text-[10px] text-zinc-500 font-mono whitespace-pre-wrap">{t.sql}</pre>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {schemaDiff.missingColumns && schemaDiff.missingColumns.length > 0 && (
+                        <div>
+                          <h4 className="text-sm font-semibold text-zinc-300 mb-4 flex items-center gap-2">
+                            <Plus className="w-4 h-4 text-emerald-500" /> 
+                            Missing Columns ({schemaDiff.missingColumns.length})
+                          </h4>
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-left text-xs border-collapse">
+                              <thead>
+                                <tr className="border-b border-zinc-800 text-zinc-500">
+                                  <th className="py-2 px-4">Table</th>
+                                  <th className="py-2 px-4">Column</th>
+                                  <th className="py-2 px-4">SQL Statement</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {schemaDiff.missingColumns.map((col: any, i: number) => (
+                                  <tr key={i} className="border-b border-zinc-800/50">
+                                    <td className="py-3 px-4 font-mono text-emerald-400">{col.table}</td>
+                                    <td className="py-3 px-4 font-mono text-indigo-400">{col.column}</td>
+                                    <td className="py-3 px-4 font-mono text-zinc-500 text-[10px]">{col.sql}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+
+                      {schemaDiff.extraTables && schemaDiff.extraTables.length > 0 && (
+                        <div>
+                          <h4 className="text-sm font-semibold text-zinc-300 mb-4 flex items-center gap-2">
+                            <AlertCircle className="w-4 h-4 text-amber-500" /> 
+                            Unrecognized/Extra Tables ({schemaDiff.extraTables.length})
+                          </h4>
+                          <div className="flex flex-wrap gap-2">
+                            {schemaDiff.extraTables.map((t: string, i: number) => (
+                              <span key={i} className="px-3 py-1.5 bg-zinc-950 border border-zinc-800 rounded-lg text-xs font-mono text-zinc-400">
+                                {t}
+                              </span>
+                            ))}
+                          </div>
+                          <p className="text-[10px] text-zinc-600 mt-2">These tables exist in the database but are not in schema.sql. They will not be dropped automatically.</p>
+                        </div>
+                      )}
+                      
+                      <div className="pt-6 mt-6 border-t border-zinc-800 flex justify-end">
+                         <button 
+                            onClick={async () => {
+                                if (confirm("Warning: This will drop ALL tables and recreate them. ALL DATA WILL BE LOST. Continue?")) {
+                                    setLoadingDiff(true);
+                                    try {
+                                        const res = await fetch('/api/admin/migrate?reset=true', { method: 'POST' });
+                                        const data = await res.json();
+                                        if (res.ok) {
+                                            addNotification(data.message, 'success');
+                                            loadSchemaDiff();
+                                        } else {
+                                            addNotification(data.error || 'Reset विफल रहा', 'error');
+                                            setLoadingDiff(false);
+                                        }
+                                    } catch {
+                                        addNotification('सर्वर एरर', 'error');
+                                        setLoadingDiff(false);
+                                    }
+                                }
+                            }}
+                            className="bg-red-950/30 hover:bg-red-900/40 text-red-500 border border-red-900/50 px-4 py-2 rounded-xl text-xs font-medium transition-colors"
+                        >
+                            Hard Reset Database (DANGER)
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
