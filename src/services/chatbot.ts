@@ -1,4 +1,3 @@
-import { GoogleGenAI } from '@google/genai';
 import { Env } from '../types';
 
 export async function handleIncomingMessage(
@@ -91,7 +90,7 @@ export async function handleIncomingMessage(
           if (cfg && cfg.calling_enabled !== undefined) {
             callingEnabled = cfg.calling_enabled;
           }
-        } catch(e) {}
+        } catch (e) { }
 
         if (messageType === 'system_call' && callingEnabled === 1) {
           try {
@@ -138,7 +137,7 @@ export async function handleIncomingMessage(
             } else {
               console.log(`[handleIncomingMessage] Call already exists for ${from}, skipping system_call duplicate: ${existingCall.id}`);
             }
-          } catch(err) {
+          } catch (err) {
             console.error("Error creating/broadcasting call log:", err);
           }
         }
@@ -184,7 +183,7 @@ export async function handleIncomingMessage(
   let replyMode = 'manual';
   try {
 
-    
+
     const config = await env.DB.prepare('SELECT reply_mode FROM whatsapp_configs WHERE phone_number_id = ?').bind(phoneNumberId).first();
     if (config && config.reply_mode) {
       replyMode = config.reply_mode;
@@ -198,21 +197,46 @@ export async function handleIncomingMessage(
   }
 
   let replyText = '';
-  
+
   if (replyMode === 'ai') {
     try {
-       const ai = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
-       const aiResponse = await ai.models.generateContent({
-           model: 'gemini-3.5-flash',
-           contents: `You are a helpful customer support AI for Dhitantra. 
-User message: "${messageText}" 
-User Name: ${contactName}
-Respond naturally and helpfully in the same language as the user. Keep it concise for WhatsApp.`
-       });
-       replyText = aiResponse.text || "I'm sorry, I couldn't process that request right now.";
-    } catch (e) {
-       console.error("AI Generation failed", e);
-       replyText = "Sorry, our AI system is currently unavailable. We will get back to you shortly.";
+      if (!env.CF_ACCOUNT_ID || !env.CF_GATEWAY_ID || !env.CF_API_TOKEN) {
+        throw new Error("Cloudflare AI Gateway configuration is missing.");
+      }
+      
+      const url = `https://gateway.ai.cloudflare.com/v1/${env.CF_ACCOUNT_ID}/${env.CF_GATEWAY_ID}/workers-ai/@cf/meta/llama-3-8b-instruct`;
+      
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${env.CF_API_TOKEN}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          messages: [
+            { 
+              role: 'system', 
+              content: 'You are a helpful customer support AI for Dhitantra. Respond naturally and helpfully in the same language as the user. Keep it concise for WhatsApp.' 
+            },
+            { 
+              role: 'user', 
+              content: `User Name: ${contactName}\nUser message: "${messageText}"` 
+            }
+          ]
+        })
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`AI Gateway Error: ${response.status} ${errText}`);
+      }
+
+      const data: any = await response.json();
+      replyText = data.result?.response || "I'm sorry, I couldn't process that request right now.";
+      console.log("[AI Success] Generated reply:", replyText);
+    } catch (e: any) {
+      console.error("[AI Error] Generation failed:", e?.message || e);
+      replyText = "Sorry, our AI system is currently unavailable. We will get back to you shortly.";
     }
   } else {
     // Rule based logic
@@ -237,7 +261,7 @@ Respond naturally and helpfully in the same language as the user. Keep it concis
       else if (messageType === 'document') typeInHindi = 'दस्तावेज़ (Document)';
       else if (messageType === 'location') typeInHindi = 'लोकेशन (Location)';
       else if (messageType === 'contacts') typeInHindi = 'कॉन्टैक्ट (Contact)';
-      
+
       replyText = `नमस्ते ${contactName}! हमें आपका ${typeInHindi} प्राप्त हुआ है। हमारी सहायता टीम जल्द ही आपसे संपर्क करेगी।`;
     }
   }
@@ -259,7 +283,7 @@ export async function sendWhatsAppMessage(
   contacts?: any | null
 ) {
   let token = await env.SECRETS_KV.get('WHATSAPP_API_TOKEN');
-  
+
   if (!token) {
     try {
       const config = await env.DB.prepare('SELECT access_token FROM whatsapp_configs WHERE phone_number_id = ?').bind(phoneNumberId).first<{ access_token: string }>();
@@ -270,7 +294,7 @@ export async function sendWhatsAppMessage(
       console.error('Failed to get workspace token', e);
     }
   }
-  
+
   if (!token) {
     console.error('WhatsApp API Token is missing!');
     return;
@@ -324,7 +348,7 @@ export async function sendWhatsAppMessage(
       console.error('WhatsApp Message Send Error:', data);
     } else {
       console.log(`Reply sent successfully to ${to}`);
-      
+
       if (conversationId) {
         try {
           const sentMessageId = crypto.randomUUID();
@@ -362,7 +386,7 @@ export async function sendWhatsAppMessage(
             console.error("Failed to broadcast bot reply to DO:", doErr);
           }
         } catch (dbError) {
-           console.error('Failed to save bot reply to DB:', dbError);
+          console.error('Failed to save bot reply to DB:', dbError);
         }
       }
     }
