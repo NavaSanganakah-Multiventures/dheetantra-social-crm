@@ -339,6 +339,35 @@ app.post('/api/auth/send-otp', async (c) => {
   return c.json({ success: true, message: 'OTP Sent' });
 });
 
+app.post('/api/user/settings', async (c) => {
+  const sessionId = getCookie(c, 'auth_session');
+  if (!sessionId) return c.json({ error: 'Unauthorized' }, 401);
+
+  let user = null;
+  if (c.env.SECRETS_KV) {
+    const userDataStr = await c.env.SECRETS_KV.get(`SESSION:${sessionId}`);
+    if (userDataStr) user = JSON.parse(userDataStr);
+  }
+  if (!user) return c.json({ error: 'Unauthorized' }, 401);
+
+  const { timezone } = await c.req.json();
+  if (timezone) {
+    user.timezone = timezone;
+    if (c.env.DB) {
+      try {
+        await c.env.DB.prepare('UPDATE users SET timezone = ? WHERE id = ?').bind(timezone, user.id).run();
+      } catch (e) {
+        console.error("Failed to update timezone in DB", e);
+      }
+    }
+    if (c.env.SECRETS_KV) {
+      await c.env.SECRETS_KV.put(`SESSION:${sessionId}`, JSON.stringify(user), { expirationTtl: 604800 });
+    }
+  }
+
+  return c.json({ success: true, user });
+});
+
 app.post('/api/auth/verify-otp', async (c) => {
   const { email, otp } = await c.req.json();
   if (!email || !otp) return c.json({ error: 'Missing fields' }, 400);
@@ -385,7 +414,7 @@ app.post('/api/auth/verify-otp', async (c) => {
     return c.json({ error: 'अमान्य क्रेडेंशियल' }, 401);
   }
 
-  let user = { id: crypto.randomUUID(), email, name: '' };
+  let user: any = { id: crypto.randomUUID(), email, name: '', timezone: 'Asia/Kolkata' };
   let defaultWorkspaceId = crypto.randomUUID();
 
   if (c.env.DB) {
@@ -395,6 +424,7 @@ app.post('/api/auth/verify-otp', async (c) => {
       if (existingUser) {
         user.id = existingUser.id;
         user.name = existingUser.name || 'User';
+        user.timezone = existingUser.timezone || 'Asia/Kolkata';
 
         // If the user was registered with is_registered = 0, complete registration
         if (existingUser.is_registered === 0) {
