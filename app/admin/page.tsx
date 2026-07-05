@@ -1226,32 +1226,6 @@ export default function AdminDashboard() {
                         </div>
                       )}
                       
-                      <div className="pt-6 mt-6 border-t border-zinc-800 flex justify-end">
-                         <button 
-                            onClick={async () => {
-                                if (confirm("Warning: This will drop ALL tables and recreate them. ALL DATA WILL BE LOST. Continue?")) {
-                                    setLoadingDiff(true);
-                                    try {
-                                        const res = await fetch('/api/admin/migrate?reset=true', { method: 'POST' });
-                                        const data = await res.json();
-                                        if (res.ok) {
-                                            addNotification(data.message, 'success');
-                                            loadSchemaDiff();
-                                        } else {
-                                            addNotification(data.error || 'Reset विफल रहा', 'error');
-                                            setLoadingDiff(false);
-                                        }
-                                    } catch {
-                                        addNotification('सर्वर एरर', 'error');
-                                        setLoadingDiff(false);
-                                    }
-                                }
-                            }}
-                            className="bg-red-950/30 hover:bg-red-900/40 text-red-500 border border-red-900/50 px-4 py-2 rounded-xl text-xs font-medium transition-colors"
-                        >
-                            Hard Reset Database (DANGER)
-                        </button>
-                      </div>
                     </div>
                   )}
                 </div>

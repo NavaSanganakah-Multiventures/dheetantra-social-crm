@@ -73,27 +73,14 @@ admin.post('/migrate', async (c) => {
   if (!c.env.DB) return c.json({ error: 'Database not connected' }, 500);
 
   try {
-    const reset = c.req.query('reset') === 'true';
-
     // Disable foreign keys temporarily
     try { await c.env.DB.prepare('PRAGMA foreign_keys = OFF').run(); } catch (e) { }
 
     const applied: string[] = [];
 
-    if (reset) {
-      // DROP tables in safe order
-      const dropBatch = allTableNames.map(name => c.env.DB.prepare(`DROP TABLE IF EXISTS ${name}`));
-      await c.env.DB.batch(dropBatch);
-      
-      // CREATE all tables from schema
-      const statements = schemaSqlContent.split(';').map(s => s.trim()).filter(s => s.length > 0);
-      const schemaBatch = statements.map(stmt => c.env.DB.prepare(stmt));
-      await c.env.DB.batch(schemaBatch);
-      applied.push(`Reset database and created ${statements.length} tables`);
-    } else {
-      // Run intelligent migration
-      const diff = await diffSchema(c.env.DB, schemaSqlContent);
-      const stmts: any[] = [];
+    // Run intelligent migration
+    const diff = await diffSchema(c.env.DB, schemaSqlContent);
+    const stmts: any[] = [];
       
       // Add missing tables
       for (const t of diff.missingTables) {
@@ -110,7 +97,6 @@ admin.post('/migrate', async (c) => {
       if (stmts.length > 0) {
         await c.env.DB.batch(stmts);
       }
-    }
 
     // Re-enable foreign keys
     try { await c.env.DB.prepare('PRAGMA foreign_keys = ON').run(); } catch (e) { }
@@ -118,7 +104,7 @@ admin.post('/migrate', async (c) => {
     return c.json({ 
       success: true, 
       applied,
-      message: reset ? 'Database completely reset and migrated successfully!' : `Migrated successfully! Applied ${applied.length} changes.` 
+      message: `Migrated successfully! Applied ${applied.length} changes.` 
     });
   } catch (err: any) {
     return c.json({ error: err.message }, 500);
