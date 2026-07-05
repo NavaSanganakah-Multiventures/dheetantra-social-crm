@@ -1366,14 +1366,16 @@ app.post('/api/whatsapp/config', async (c) => {
 
     let existing: any = null;
     if (id) {
-      existing = await c.env.DB.prepare('SELECT id, access_token, reply_mode FROM whatsapp_configs WHERE id = ?').bind(id).first();
+      existing = await c.env.DB.prepare('SELECT id, waba_id, access_token, verify_token, reply_mode FROM whatsapp_configs WHERE id = ?').bind(id).first();
     } else {
-      existing = await c.env.DB.prepare('SELECT id, access_token, reply_mode FROM whatsapp_configs WHERE workspace_id = ? AND phone_number_id = ?').bind(workspaceId, phone_number_id).first();
+      existing = await c.env.DB.prepare('SELECT id, waba_id, access_token, verify_token, reply_mode FROM whatsapp_configs WHERE workspace_id = ? AND phone_number_id = ?').bind(workspaceId, phone_number_id).first();
     }
 
     const finalId = id || existing?.id || newId;
-    const finalToken = access_token || existing?.access_token || '';
-    const finalReplyMode = reply_mode || existing?.reply_mode || 'manual';
+    const finalToken = access_token !== undefined ? access_token : (existing?.access_token || '');
+    const finalReplyMode = reply_mode !== undefined ? reply_mode : (existing?.reply_mode || 'manual');
+    const finalWabaId = waba_id !== undefined ? waba_id : (existing?.waba_id || null);
+    const finalVerifyToken = verify_token !== undefined ? verify_token : (existing?.verify_token || null);
 
     if (existing || id) {
       await c.env.DB.prepare(
@@ -1381,7 +1383,7 @@ app.post('/api/whatsapp/config', async (c) => {
           phone_number_id = ?, waba_id = ?, access_token = ?, verify_token = ?, reply_mode = ?
         WHERE id = ?`
       ).bind(
-        phone_number_id, waba_id || null, finalToken, verify_token, finalReplyMode,
+        phone_number_id, finalWabaId, finalToken, finalVerifyToken, finalReplyMode,
         finalId
       ).run();
     } else {
@@ -1391,7 +1393,7 @@ app.post('/api/whatsapp/config', async (c) => {
         ) 
          VALUES (?, ?, ?, ?, ?, ?, ?)`
       ).bind(
-        finalId, workspaceId, phone_number_id, waba_id || null, finalToken, verify_token, finalReplyMode
+        finalId, workspaceId, phone_number_id, finalWabaId, finalToken, finalVerifyToken, finalReplyMode
       ).run();
     }
 
