@@ -63,12 +63,12 @@ export async function handleIncomingMessage(
 
       if (existingConv) {
         conversationId = existingConv.id;
-        await env.DB.prepare(`UPDATE conversations SET updated_at = CURRENT_TIMESTAMP, status = 'open', phone_number_id = ? WHERE id = ?`).bind(phoneNumberId, conversationId).run();
+        await env.DB.prepare(`UPDATE conversations SET updated_at = CURRENT_TIMESTAMP, customer_last_message_at = CURRENT_TIMESTAMP, status = 'open', phone_number_id = ? WHERE id = ?`).bind(phoneNumberId, conversationId).run();
       } else {
         conversationId = crypto.randomUUID();
         await env.DB.prepare(`
-          INSERT INTO conversations (id, workspace_id, contact_id, platform, status, phone_number_id)
-          VALUES (?, ?, ?, 'whatsapp', 'open', ?)
+          INSERT INTO conversations (id, workspace_id, contact_id, platform, status, phone_number_id, customer_last_message_at)
+          VALUES (?, ?, ?, 'whatsapp', 'open', ?, CURRENT_TIMESTAMP)
         `).bind(conversationId, workspaceId, finalContactId, phoneNumberId).run();
       }
       console.log(`[handleIncomingMessage] Conversation sorted. id=${conversationId}`);
@@ -154,6 +154,7 @@ export async function handleIncomingMessage(
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               type: 'new_message',
+              customer_last_message_at: new Date().toISOString(),
               message: {
                 id: incomingMessageId,
                 conversation_id: conversationId,
