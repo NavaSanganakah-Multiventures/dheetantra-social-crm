@@ -6,7 +6,8 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useRouter } from 'next/navigation';
 import Papa from 'papaparse';
 import { useWhatsAppWebRTC } from '@/lib/hooks/useWhatsAppWebRTC';
-
+import PhoneInput, { isValidPhoneNumber } from 'react-phone-number-input';
+import 'react-phone-number-input/style.css';
 type activeTab = 'dashboard' | 'inbox' | 'broadcast' | 'templates' | 'schedule' | 'settings' | 'contacts' | 'calls' | 'integrations' | 'accounts-whatsapp';
 
 export default function DashboardWrapper() {
@@ -982,17 +983,23 @@ function InboxView({
         address: locAddressInput.trim()
       };
     } else if (attachmentType === 'contacts') {
-      if (!contactNameInput.trim() || !contactPhoneInput.trim()) {
+      if (!contactNameInput.trim() || !contactPhoneInput) {
         alert("कृपया संपर्क का नाम और फ़ोन नंबर प्रदान करें");
         return;
       }
+      if (!isValidPhoneNumber(contactPhoneInput)) {
+        alert("कृपया सही फ़ोन नंबर दर्ज करें। (Invalid phone number)");
+        return;
+      }
+      const sanitizedPhone = contactPhoneInput.startsWith('+') ? contactPhoneInput.slice(1) : contactPhoneInput;
+
       payload.contacts = [{
         name: {
           first_name: contactNameInput.trim(),
           formatted_name: contactNameInput.trim()
         },
         phones: [{
-          phone: contactPhoneInput.trim(),
+          phone: sanitizedPhone,
           type: "MOBILE"
         }]
       }];
@@ -1754,12 +1761,13 @@ function InboxView({
                       </div>
                       <div>
                         <label className="text-xs text-zinc-500 font-medium block mb-1">फ़ोन नंबर (Country Code के साथ)*</label>
-                        <input 
-                          type="text" 
-                          placeholder="919876543210" 
+                        <PhoneInput 
+                          international
+                          defaultCountry="IN"
+                          placeholder="फ़ोन नंबर दर्ज करें" 
                           className="w-full text-xs p-2 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 outline-none focus:border-indigo-500 text-zinc-800 dark:text-zinc-100"
                           value={contactPhoneInput}
-                          onChange={(e) => setContactPhoneInput(e.target.value)}
+                          onChange={(val) => setContactPhoneInput(val || '')}
                         />
                       </div>
                     </div>
@@ -3230,8 +3238,10 @@ function ContactsView({
     setIsEdit(true);
     setSelectedContactId(c.id);
     setFormName(c.name || "");
-    setFormPhone(c.phone || c.platform_contact_id || "");
-    setFormAdditionalPhone(c.additional_phone || "");
+    const safePhone = c.phone || c.platform_contact_id || "";
+    setFormPhone(safePhone ? (safePhone.startsWith('+') ? safePhone : '+' + safePhone) : "");
+    const safeAddPhone = c.additional_phone || "";
+    setFormAdditionalPhone(safeAddPhone ? (safeAddPhone.startsWith('+') ? safeAddPhone : '+' + safeAddPhone) : "");
     setFormEmail(c.email || "");
     setFormGender(c.gender || "Male");
     setFormInstagram(c.instagram_username || "");
@@ -3247,17 +3257,28 @@ function ContactsView({
 
   const saveContact = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formName.trim() || !formPhone.trim()) {
+    if (!formName.trim() || !formPhone) {
       alert("कृपया नाम और फ़ोन नंबर भरें।");
       return;
     }
+    if (!isValidPhoneNumber(formPhone)) {
+      alert("मुख्य फ़ोन नंबर अमान्य है। कृपया सही नंबर और देश चुनें। (Invalid phone number)");
+      return;
+    }
+    if (formAdditionalPhone && !isValidPhoneNumber(formAdditionalPhone)) {
+      alert("अतिरिक्त फ़ोन नंबर अमान्य है। (Invalid additional phone number)");
+      return;
+    }
+
+    const sanitizedPhone = formPhone.startsWith('+') ? formPhone.slice(1) : formPhone;
+    const sanitizedAdditionalPhone = (formAdditionalPhone || "").startsWith('+') ? formAdditionalPhone.slice(1) : formAdditionalPhone;
 
     try {
       const wId = localStorage.getItem('workspaceId');
       const payload = {
         name: formName,
-        phone: formPhone,
-        additional_phone: formAdditionalPhone,
+        phone: sanitizedPhone,
+        additional_phone: sanitizedAdditionalPhone,
         email: formEmail,
         gender: formGender,
         instagram_username: formInstagram,
@@ -3651,12 +3672,13 @@ function ContactsView({
                 {/* Primary Phone */}
                 <div>
                   <label className="block text-xs font-semibold text-zinc-500 mb-1">मुख्य फ़ोन नंबर (Phone) *</label>
-                  <input
-                    type="text"
+                  <PhoneInput
+                    international
+                    defaultCountry="IN"
                     required
                     value={formPhone}
-                    onChange={(e) => setFormPhone(e.target.value)}
-                    placeholder="उदा. 919876543210 (देश कोड के साथ)"
+                    onChange={(val) => setFormPhone(val || '')}
+                    placeholder="फ़ोन नंबर दर्ज करें"
                     className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700/60 rounded-xl text-sm outline-none focus:border-indigo-500"
                   />
                 </div>
@@ -3664,11 +3686,12 @@ function ContactsView({
                 {/* Additional Phone */}
                 <div>
                   <label className="block text-xs font-semibold text-zinc-500 mb-1">अतिरिक्त फ़ोन नंबर</label>
-                  <input
-                    type="text"
+                  <PhoneInput
+                    international
+                    defaultCountry="IN"
                     value={formAdditionalPhone}
-                    onChange={(e) => setFormAdditionalPhone(e.target.value)}
-                    placeholder="उदा. 918888888888"
+                    onChange={(val) => setFormAdditionalPhone(val || '')}
+                    placeholder="अतिरिक्त नंबर दर्ज करें"
                     className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700/60 rounded-xl text-sm outline-none focus:border-indigo-500"
                   />
                 </div>
