@@ -119,27 +119,36 @@ app.use('/api/*', async (c, next) => {
   const ip = c.req.header('cf-connecting-ip') || 'unknown';
 
   if (origin) {
-    const isBaseDomain = origin.includes('localhost') || origin.includes('dheetantra.navasanganakah.com') || origin.includes('dhitantra.com') || origin.includes('navasanganakah.com');
+    let originHost = '';
+    try {
+      originHost = new URL(origin).hostname;
+    } catch (e) {
+      return c.text('Forbidden: Invalid Origin header', 400);
+    }
+
+    const isBaseDomain = originHost === 'localhost' || 
+                         originHost === 'navasanganakah.com' ||
+                         originHost.endsWith('.navasanganakah.com');
     
     if (!isBaseDomain) {
       // Check if domain is verified
-      const status = c.env.SECRETS_KV ? await c.env.SECRETS_KV.get(`DOMAIN:${origin}`) : null;
+      const status = c.env.SECRETS_KV ? await c.env.SECRETS_KV.get(`DOMAIN:${originHost}`) : null;
       if (status !== 'verified') {
         return c.text('Forbidden: Domain not verified or blocked', 403);
       }
 
       // Rate Limiter Logic for external domains (e.g., max 100 reqs / min)
       if (c.env.SECRETS_KV) {
-        const rateKey = `RATE:${origin}:${Math.floor(Date.now() / 60000)}`;
+        const rateKey = `RATE:${originHost}:${Math.floor(Date.now() / 60000)}`;
         const currentReqs = parseInt(await c.env.SECRETS_KV.get(rateKey) || '0', 10);
         
         if (currentReqs >= 100) {
           // Auto-block the domain due to spam
-          await c.env.SECRETS_KV.put(`DOMAIN:${origin}`, 'blocked');
+          await c.env.SECRETS_KV.put(`DOMAIN:${originHost}`, 'blocked');
           if (c.env.DB) {
-            await c.env.DB.prepare("UPDATE api_domains SET status = 'blocked', blocked_reason = 'rate_limit_exceeded', updated_at = CURRENT_TIMESTAMP WHERE domain = ?").bind(origin).run();
+            await c.env.DB.prepare("UPDATE api_domains SET status = 'blocked', blocked_reason = 'rate_limit_exceeded', updated_at = CURRENT_TIMESTAMP WHERE domain = ?").bind(originHost).run();
           }
-          console.warn(`[Security] Auto-blocked domain ${origin} due to rate limiting.`);
+          console.warn(`[Security] Auto-blocked domain ${originHost} due to rate limiting.`);
           return c.text('Too Many Requests. Domain automatically blocked due to spam activity.', 429);
         }
         
@@ -2563,8 +2572,8 @@ app.post('/api/whatsapp/calls/toggle', async (c) => {
 app.get('/api/webrtc/ice-servers', async (c) => {
   try {
     // Try KV first, then env variables
-    const turnKeyId = await c.env.SECRETS_KV.get('CLOUDFLARE_CALLS_APP_ID') || await c.env.SECRETS_KV.get('TURN_KEY_ID') || c.env.TURN_KEY_ID;
-    const turnToken = await c.env.SECRETS_KV.get('CLOUDFLARE_API_TOKEN') || await c.env.SECRETS_KV.get('TURN_KEY_API_TOKEN') || c.env.TURN_KEY_API_TOKEN;
+    const turnKeyId = (c.env.SECRETS_KV ? (await c.env.SECRETS_KV.get('CLOUDFLARE_CALLS_APP_ID') || await c.env.SECRETS_KV.get('TURN_KEY_ID')) : null) || c.env.TURN_KEY_ID;
+    const turnToken = (c.env.SECRETS_KV ? (await c.env.SECRETS_KV.get('CLOUDFLARE_API_TOKEN') || await c.env.SECRETS_KV.get('TURN_KEY_API_TOKEN')) : null) || c.env.TURN_KEY_API_TOKEN;
 
     if (!turnKeyId || !turnToken) {
       // Fallback to free STUN only if TURN not configured

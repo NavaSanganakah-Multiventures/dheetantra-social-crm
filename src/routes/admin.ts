@@ -60,15 +60,13 @@ admin.post('/migrate', async (c) => {
 
     if (reset) {
       const dropStatements = dropSql.split(';').map(s => s.trim()).filter(s => s.length > 0);
-      for (const stmt of dropStatements) {
-        await c.env.DB.prepare(stmt).run();
-      }
+      const dropBatch = dropStatements.map(stmt => c.env.DB.prepare(stmt));
+      await c.env.DB.batch(dropBatch);
     }
 
     const statements = schemaSql.split(';').map(s => s.trim()).filter(s => s.length > 0);
-    for (const stmt of statements) {
-      await c.env.DB.prepare(stmt).run();
-    }
+    const schemaBatch = statements.map(stmt => c.env.DB.prepare(stmt));
+    await c.env.DB.batch(schemaBatch);
 
     // Re-enable foreign keys
     try { await c.env.DB.prepare('PRAGMA foreign_keys = ON').run(); } catch (e) { }
