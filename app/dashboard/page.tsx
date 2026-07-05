@@ -12,24 +12,36 @@ type activeTab = 'dashboard' | 'inbox' | 'broadcast' | 'templates' | 'schedule' 
 
 const getUserTimezone = () => typeof window !== 'undefined' ? localStorage.getItem('userTimezone') || 'Asia/Kolkata' : 'Asia/Kolkata';
 
+const ensureUTC = (dateStr: string | Date | number) => {
+  if (typeof dateStr === 'string') {
+    if (dateStr.includes(' ') && !dateStr.includes('T')) {
+      return new Date(dateStr.replace(' ', 'T') + 'Z');
+    }
+    if (dateStr.includes('T') && !dateStr.endsWith('Z') && !dateStr.match(/[+-]\d{2}:\d{2}$/)) {
+      return new Date(dateStr + 'Z');
+    }
+  }
+  return new Date(dateStr);
+};
+
 export const formatUserTimeOnly = (dateStr: string | Date | number, options?: Intl.DateTimeFormatOptions) => {
   if (!dateStr) return '';
   try {
-    return new Date(dateStr).toLocaleTimeString([], { timeZone: getUserTimezone(), ...options });
+    return ensureUTC(dateStr).toLocaleTimeString([], { timeZone: getUserTimezone(), ...options });
   } catch(e) { return ''; }
 }
 
 export const formatUserDateOnly = (dateStr: string | Date | number, options?: Intl.DateTimeFormatOptions) => {
   if (!dateStr) return '';
   try {
-    return new Date(dateStr).toLocaleDateString([], { timeZone: getUserTimezone(), ...options });
+    return ensureUTC(dateStr).toLocaleDateString([], { timeZone: getUserTimezone(), ...options });
   } catch(e) { return ''; }
 }
 
 export const formatUserDateTime = (dateStr: string | Date | number, locales?: string | string[], options?: Intl.DateTimeFormatOptions) => {
   if (!dateStr) return '';
   try {
-    return new Date(dateStr).toLocaleString(locales || 'hi-IN', { timeZone: getUserTimezone(), ...options });
+    return ensureUTC(dateStr).toLocaleString(locales || 'hi-IN', { timeZone: getUserTimezone(), ...options });
   } catch(e) { return ''; }
 }
 
