@@ -2728,40 +2728,7 @@ function SettingsView() {
                      )}
                  </div>
 
-                 <div className="p-8 border-b border-zinc-200 dark:border-zinc-800">
-                     <h3 className="font-bold text-lg mb-2 text-zinc-900 dark:text-white font-display">System Administration</h3>
-                     <p className="text-sm text-zinc-500 mb-6">Database Management & Migrations</p>
-                     <div className="flex flex-col items-start gap-4">
-                        <button 
-                            onClick={async () => {
-                                const res = await fetch('/api/admin/migrate', { method: 'POST' });
-                                const data: any = await res.json();
-                                if (data.success) alert(data.message);
-                                else alert('Error: ' + data.error);
-                            }}
-                            className="bg-zinc-800 hover:bg-zinc-700 text-white px-6 py-2.5 rounded-xl text-sm font-medium transition-colors shadow-md flex items-center gap-2"
-                        >
-                            <Zap className="w-4 h-4" /> Run Database Migrations
-                        </button>
-                        <p className="text-xs text-zinc-500">Run this to safely apply schema updates to the connected database.</p>
 
-                        <button 
-                            onClick={async () => {
-                                if (confirm("Warning: This will drop ALL tables and recreate them. ALL DATA WILL BE LOST. Continue?")) {
-                                    const res = await fetch('/api/admin/migrate?reset=true', { method: 'POST' });
-                                    const data: any = await res.json();
-                                    if (data.success) alert(data.message);
-                                    else alert('Error: ' + data.error);
-                                }
-                            }}
-                            className="bg-red-600 hover:bg-red-700 text-white px-6 py-2.5 rounded-xl text-sm font-medium transition-colors shadow-md flex items-center gap-2 mt-4"
-                        >
-                            <Zap className="w-4 h-4" /> Hard Reset Database (DANGER)
-                        </button>
-                        <p className="text-xs text-red-500 font-medium">Drops all tables to fix constraint errors. Destructive operation.</p>
-                     </div>
-                 </div>
-                 
                  <div className="p-8">
                      <h3 className="font-bold text-lg mb-2 text-zinc-900 dark:text-white font-display">Social Accounts</h3>
                      <p className="text-sm text-zinc-500 mb-6">Instagram और Facebook पेजों को OAuth के माध्यम से कनेक्ट करें।</p>

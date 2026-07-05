@@ -1361,12 +1361,7 @@ app.post('/api/whatsapp/config', async (c) => {
   const newId = id || crypto.randomUUID();
 
   try {
-    try {
-      await c.env.DB.prepare("ALTER TABLE whatsapp_configs ADD COLUMN reply_mode TEXT DEFAULT 'manual'").run();
-    } catch (e) { }
-    try {
-      await c.env.DB.prepare("ALTER TABLE whatsapp_configs ADD COLUMN waba_id TEXT").run();
-    } catch (e) { }
+
     // SIP columns removed — using Cloudflare Realtime TURN instead
 
     let existing: any = null;
@@ -1458,12 +1453,7 @@ app.get('/api/whatsapp/config', async (c) => {
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
   try {
-    try {
-      await c.env.DB.prepare("ALTER TABLE whatsapp_configs ADD COLUMN reply_mode TEXT DEFAULT 'manual'").run();
-    } catch (e) { }
-    try {
-      await c.env.DB.prepare("ALTER TABLE whatsapp_configs ADD COLUMN waba_id TEXT").run();
-    } catch (e) { }
+
 
     const { results } = await c.env.DB.prepare('SELECT id, phone_number_id, waba_id, verify_token, reply_mode, calling_enabled, created_at FROM whatsapp_configs WHERE workspace_id = ?').bind(workspaceId).all();
     const config = results && results.length > 0 ? results[0] : null;
@@ -1497,21 +1487,7 @@ app.get('/api/whatsapp/templates', async (c) => {
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
   try {
-    try {
-      await c.env.DB.prepare(`
-        CREATE TABLE IF NOT EXISTS whatsapp_templates (
-          id TEXT PRIMARY KEY,
-          workspace_id TEXT NOT NULL,
-          name TEXT NOT NULL,
-          category TEXT DEFAULT 'UTILITY',
-          language TEXT DEFAULT 'en_US',
-          body_text TEXT NOT NULL,
-          status TEXT DEFAULT 'APPROVED',
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
-        )
-      `).run();
-    } catch (e) { }
+
 
     const { results: localTemplates } = await c.env.DB.prepare(
       'SELECT * FROM whatsapp_templates WHERE workspace_id = ? ORDER BY created_at DESC'
@@ -1574,21 +1550,7 @@ app.post('/api/whatsapp/templates', async (c) => {
   const templateId = crypto.randomUUID();
 
   try {
-    try {
-      await c.env.DB.prepare(`
-        CREATE TABLE IF NOT EXISTS whatsapp_templates (
-          id TEXT PRIMARY KEY,
-          workspace_id TEXT NOT NULL,
-          name TEXT NOT NULL,
-          category TEXT DEFAULT 'UTILITY',
-          language TEXT DEFAULT 'en_US',
-          body_text TEXT NOT NULL,
-          status TEXT DEFAULT 'APPROVED',
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
-        )
-      `).run();
-    } catch (e) { }
+
 
     const config = await c.env.DB.prepare(
       'SELECT waba_id, access_token FROM whatsapp_configs WHERE workspace_id = ? ORDER BY created_at DESC'
@@ -1797,20 +1759,7 @@ app.get('/api/whatsapp/flows', async (c) => {
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
   try {
-    try {
-      await c.env.DB.prepare(`
-        CREATE TABLE IF NOT EXISTS whatsapp_flows (
-          id TEXT PRIMARY KEY,
-          workspace_id TEXT NOT NULL,
-          name TEXT NOT NULL,
-          status TEXT DEFAULT 'DRAFT',
-          categories TEXT DEFAULT 'UTILITY',
-          screens_json TEXT,
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
-        )
-      `).run();
-    } catch(e) {}
+
 
     const { results: flows } = await c.env.DB.prepare(
       'SELECT * FROM whatsapp_flows WHERE workspace_id = ? ORDER BY created_at DESC'
@@ -1848,20 +1797,7 @@ app.post('/api/whatsapp/flows', async (c) => {
   ]);
 
   try {
-    try {
-      await c.env.DB.prepare(`
-        CREATE TABLE IF NOT EXISTS whatsapp_flows (
-          id TEXT PRIMARY KEY,
-          workspace_id TEXT NOT NULL,
-          name TEXT NOT NULL,
-          status TEXT DEFAULT 'DRAFT',
-          categories TEXT DEFAULT 'UTILITY',
-          screens_json TEXT,
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
-        )
-      `).run();
-    } catch(e) {}
+
 
     let existing = null;
     if (id) {
@@ -1999,9 +1935,7 @@ app.post('/api/whatsapp/send', async (c) => {
     }
 
     // Ensure database columns are up-to-date
-    try {
-      await c.env.DB.prepare("ALTER TABLE messages ADD COLUMN message_type TEXT DEFAULT 'text'").run();
-    } catch (e) { }
+
 
     // Save sent message to database
     let contentToSave = text;

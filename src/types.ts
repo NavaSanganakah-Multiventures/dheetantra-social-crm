@@ -13,4 +13,5 @@ export interface Env {
   EMAIL_SENDER: any; // Cloudflare Send Email Binding
   TURN_KEY_ID: string; // Cloudflare Realtime TURN Key ID
   TURN_KEY_API_TOKEN: string; // Cloudflare Realtime TURN API Token
+  GEMINI_API_KEY: string;
 }
