@@ -45,7 +45,7 @@ admin.get('/check', async (c) => {
 });
 
 // GET overall admin statistics
-import { schemaSql, dropSql } from '../schema';
+import { schemaSql, dropSql, runAlterMigrations } from '../schema';
 
 admin.post('/migrate', async (c) => {
   const isAdmin = await verifyAdmin(c);
@@ -67,6 +67,9 @@ admin.post('/migrate', async (c) => {
     const statements = schemaSql.split(';').map(s => s.trim()).filter(s => s.length > 0);
     const schemaBatch = statements.map(stmt => c.env.DB.prepare(stmt));
     await c.env.DB.batch(schemaBatch);
+
+    // Run alter migrations for backwards compatibility
+    await runAlterMigrations(c.env.DB);
 
     // Re-enable foreign keys
     try { await c.env.DB.prepare('PRAGMA foreign_keys = ON').run(); } catch (e) { }
