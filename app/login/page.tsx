@@ -19,7 +19,7 @@ export default function LoginPage() {
     setLoading(true);
     setMessage('');
     try {
-      const res = await fetch('/api/auth/send-otp', { method: 'POST', body: JSON.stringify({ email }) });
+      const res = await fetch('/api/auth/send-otp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
       const data: any = await res.json();
       if (res.ok) {
         setStep('otp');
@@ -39,7 +39,7 @@ export default function LoginPage() {
     setLoading(true);
     setMessage('');
     try {
-      const res = await fetch('/api/auth/verify-otp', { method: 'POST', body: JSON.stringify({ email, otp }) });
+      const res = await fetch('/api/auth/verify-otp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, otp }) });
       const data: any = await res.json();
       if (res.ok && data.user) {
         if (data.workspaceId) {

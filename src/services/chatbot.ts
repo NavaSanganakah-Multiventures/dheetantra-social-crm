@@ -202,8 +202,8 @@ export async function handleIncomingMessage(
   if (replyMode === 'ai') {
     try {
        const ai = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
-       const aiResponse = await ai.models.generateContent({
-           model: 'gemini-3.5-flash',
+        const aiResponse = await ai.models.generateContent({
+            model: 'gemini-1.5-flash',
            contents: `You are a helpful customer support AI for Dhitantra. 
 User message: "${messageText}" 
 User Name: ${contactName}

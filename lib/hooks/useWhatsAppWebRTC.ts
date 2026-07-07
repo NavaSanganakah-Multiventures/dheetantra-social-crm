@@ -233,7 +233,8 @@ export function useWhatsAppWebRTC() {
       try {
         const blob = new Blob(recordingChunksRef.current, { type: 'audio/webm' });
         const formData = new FormData();
-        formData.append('recording', blob, `call-${call.id}.webm`);
+        formData.append('file', blob, `call-${call.id}.webm`);
+        formData.append('callId', call.id);
         formData.append('callId', call.id);
         
         fetch('/api/whatsapp/calls/recordings', {

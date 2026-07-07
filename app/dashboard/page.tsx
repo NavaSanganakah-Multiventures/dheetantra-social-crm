@@ -135,18 +135,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
     }
   }, [rtcStatus]);
 
-  // Audio element for WebRTC remote stream
-  useEffect(() => {
-    if (rtcRemoteStream) {
-      const audio = new Audio();
-      audio.srcObject = rtcRemoteStream;
-      audio.play().catch(e => console.error("Audio play error:", e));
-      return () => {
-        audio.pause();
-        audio.srcObject = null;
-      };
-    }
-  }, [rtcRemoteStream]);
+
 
   // Call timeout ref for auto-dismiss after 30s
   const callTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -339,7 +328,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
       if (socket) socket.close();
     };
-  }, [callingEnabled]);
+  }, [callingEnabled, user?.workspace_id]);
 
   useEffect(() => {
     const checkScreenSize = () => {
@@ -497,36 +486,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                   preselectedChat={preselectedChat} 
                   setPreselectedChat={setPreselectedChat} 
                   onInitiateCall={(contact: any) => {
-                    const wId = localStorage.getItem('workspaceId');
-                    fetch('/api/whatsapp/calls', {
-                      method: 'POST',
-                      headers: {
-                        'Content-Type': 'application/json',
-                        'x-workspace-id': wId || ''
-                      },
-                      body: JSON.stringify({
-                        contactId: contact.id,
-                        type: 'voice',
-                        direction: 'outgoing',
-                        status: 'ringing'
-                      })
-                    })
-                    .then(r => r.json())
-                    .then((data: any) => {
-                      if (data.success && data.callId) {
-                        setActiveCall({
-                          id: data.callId,
-                          workspace_id: wId,
-                          contact_id: contact.id,
-                          contact_name: contact.name,
-                          phone: contact.phone,
-                          type: 'voice',
-                          direction: 'outgoing',
-                          status: 'ringing',
-                          created_at: new Date().toISOString()
-                        });
-                      }
-                    });
+                    alert('WhatsApp Outbound calls abhi supported nahi hain. Sirf incoming calls receive ho sakti hain.');
                   }}
                 />
               )}
@@ -1027,9 +987,15 @@ function InboxView({
         alert("कृपया अक्षांश, देशांतर और लोकेशन का नाम प्रदान करें");
         return;
       }
+      const latNum = parseFloat(latInput);
+      const lngNum = parseFloat(lngInput);
+      if (isNaN(latNum) || isNaN(lngNum) || latNum < -90 || latNum > 90 || lngNum < -180 || lngNum > 180) {
+        alert("कृपया वैध अक्षांश (-90 से 90) और देशांतर (-180 से 180) दर्ज करें");
+        return;
+      }
       payload.location = {
-        latitude: parseFloat(latInput),
-        longitude: parseFloat(lngInput),
+        latitude: latNum,
+        longitude: lngNum,
         name: locNameInput.trim(),
         address: locAddressInput.trim()
       };
@@ -2126,7 +2092,7 @@ function BroadcastView() {
   const handleQueue = async () => {
       setStatus("Queueing...");
       try {
-         await fetch('/api/broadcast', { method: 'POST', body: JSON.stringify({ workspaceId: localStorage.getItem('workspaceId') || '', campaignName, textBody: body, contactIds: [] }) });
+         await fetch('/api/broadcast', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId: localStorage.getItem('workspaceId') || '', campaignName, textBody: body, contactIds: [] }) });
          setStatus("Broadcast request submitted to Edge Worker.");
          setBody("");
          setCampaignName("");
@@ -2418,8 +2384,8 @@ function SettingsView() {
         }
         setLoading(false);
       });
-      
       const savedTz = localStorage.getItem('userTimezone');
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (savedTz) setUserTimezone(savedTz);
 
       return () => {
@@ -4018,12 +3984,24 @@ function CallsView({
     });
 
     // Fetch contacts for outbound call dialer
-    fetch(`/api/contacts?limit=100`, {
+    fetch(`/api/crm/contacts?limit=100`, {
       headers: { 'x-workspace-id': wId }
     })
     .then(r => r.json())
     .then((data: any) => {
       if (data.contacts) setContacts(data.contacts);
+    })
+    .catch(err => console.error(err));
+
+    // Fetch calling readiness health from backend
+    fetch('/api/whatsapp/calls/status', {
+      headers: { 'x-workspace-id': wId }
+    })
+    .then(r => r.json())
+    .then((data: any) => {
+      if (data.phone_numbers) {
+        setHealth(data);
+      }
     })
     .catch(err => console.error(err));
 
@@ -4057,31 +4035,7 @@ function CallsView({
   };
 
   const startOutgoingCall = async (contact: any) => {
-    const wId = localStorage.getItem('workspaceId');
-    if (!wId) return;
-
-    try {
-      // 1. Create call record in DB
-      const res = await fetch('/api/whatsapp/calls', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-workspace-id': wId
-        },
-        body: JSON.stringify({
-          contactId: contact.id,
-          type: 'voice',
-          direction: 'outgoing',
-          status: 'ringing'
-        })
-      });
-      const data: any = await res.json();
-      if (data.success && data.callId) {
-        alert("Outbound calls are currently not supported by the WhatsApp Business API. You can only receive incoming calls.");
-      }
-    } catch(e) {
-      console.error(e);
-    }
+    alert('WhatsApp Outbound calls abhi supported nahi hain. Sirf incoming calls receive ho sakti hain.');
   };
 
   const filteredCalls = calls.filter(c => {
@@ -4140,6 +4094,26 @@ function CallsView({
           </div>
         </div>
       </div>
+
+      {/* Calling Readiness Health */}
+      {health && (
+        <div className={`p-4 rounded-xl border text-xs font-medium flex items-center justify-between ${health.all_ready ? 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/30 text-emerald-800 dark:text-emerald-300' : 'bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900/30 text-amber-800 dark:text-amber-300'}`}>
+          <div className="flex items-center gap-2">
+            <span className={`w-2 h-2 rounded-full ${health.all_ready ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
+            <span>
+              {health.all_ready
+                ? 'WhatsApp Calling ready: incoming calls receive hongi.'
+                : `WhatsApp Calling setup incomplete: webhook ${health.webhook_subscribed ? 'OK' : 'missing'}, TURN ${health.turn_configured ? 'OK' : 'missing'}. Settings jaake check karein.`}
+            </span>
+          </div>
+          <button
+            onClick={() => fetchCallsAndConfigs()}
+            className="px-2 py-1 rounded-md bg-white dark:bg-zinc-900 border border-current opacity-80 hover:opacity-100"
+          >
+            Refresh
+          </button>
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
