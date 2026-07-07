@@ -155,13 +155,26 @@ app.use('/api/*', async (c, next) => {
         await c.env.SECRETS_KV.put(rateKey, (currentReqs + 1).toString(), { expirationTtl: 60 });
       }
     }
+  } else {
+    // No Origin header (server-to-server, e.g. Meta webhooks, curl). Apply a global
+    // per-IP backstop rate limit so unauthenticated callers cannot flood the API.
+    if (ip !== 'unknown' && c.env.SECRETS_KV) {
+      const ipKey = `RATE_IP:${ip}:${Math.floor(Date.now() / 60000)}`;
+      const ipReqs = parseInt(await c.env.SECRETS_KV.get(ipKey) || '0', 10);
+      if (ipReqs >= 600) {
+        return c.text('Too Many Requests', 429);
+      }
+      await c.env.SECRETS_KV.put(ipKey, (ipReqs + 1).toString(), { expirationTtl: 60 });
+    }
   }
   await next();
 });
 
-// Standard CORS now safely allows * because unverified origins are rejected above
+// Standard CORS. We reflect the requesting origin (never '*') because cookies are
+// used for auth (credentials: true). The /api/* security middleware above is the real
+// gate that rejects unverified origins with 403 before handlers run.
 app.use('/api/*', cors({
-  origin: '*',
+  origin: (origin) => origin ?? '',
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization', 'x-workspace-id'],
   exposeHeaders: ['Content-Length'],
@@ -214,6 +227,10 @@ app.use('/api/media/upload', authMiddleware);
 
 app.route('/api/meta', metaOauth);
 app.route('/api/admin', adminRouter);
+
+// Meta embedded signup mutates workspace data, so it must be authenticated
+// and scoped to the workspace the caller actually belongs to.
+app.use('/api/meta/embedded-signup', authMiddleware);
 
 // Health Check
 app.get('/api/health', (c) => {
@@ -494,6 +511,10 @@ app.get('/api/whatsapp/webhook', async (c) => {
   const token = c.req.query('hub.verify_token');
   const challenge = c.req.query('hub.challenge');
 
+  if (!c.env.SECRETS_KV) {
+    return c.json({ error: 'Forbidden', message: 'Server not configured' }, 503);
+  }
+
   if (mode === 'subscribe' && token === await c.env.SECRETS_KV.get('WHATSAPP_VERIFY_TOKEN')) {
     console.log('WhatsApp Webhook Verified!');
     return new Response(challenge, { status: 200 });
@@ -568,12 +589,27 @@ app.post('/api/whatsapp/webhook', async (c) => {
                 }
                 console.log(`[Calling] Contact sorted: ${contactId}`);
 
-                await c.env.DB.prepare(`
-                INSERT OR IGNORE INTO calls (id, workspace_id, contact_id, phone_number_id, caller_number, type, direction, status, duration)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-              `).bind(callId, config.workspace_id, contactId, phoneNumberId, callerNumber, 'voice',
-                  direction === 'BUSINESS_INITIATED' ? 'outgoing' : 'incoming', 'ringing', 0).run();
-                console.log(`[Calling] Call saved to DB: ${callId}`);
+                // Reuse a call row that may have already been created by the
+                // `system_call` message webhook for this same caller, so we never
+                // end up with two records for a single call.
+                const existingCall = await c.env.DB.prepare(
+                  "SELECT id FROM calls WHERE workspace_id = ? AND caller_number = ? AND status = 'ringing' AND created_at > datetime('now', '-60 seconds') ORDER BY created_at DESC LIMIT 1"
+                ).bind(config.workspace_id, callerNumber).first<{ id: string }>();
+
+                const resolvedCallId = existingCall?.id || callId;
+
+                if (existingCall) {
+                  await c.env.DB.prepare(
+                    "UPDATE calls SET phone_number_id = ?, contact_id = ?, type = 'voice', direction = ?, status = 'ringing', duration = 0 WHERE id = ?"
+                  ).bind(phoneNumberId, contactId, direction === 'BUSINESS_INITIATED' ? 'outgoing' : 'incoming', existingCall.id).run();
+                } else {
+                  await c.env.DB.prepare(`
+                  INSERT OR IGNORE INTO calls (id, workspace_id, contact_id, phone_number_id, caller_number, type, direction, status, duration)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                `).bind(callId, config.workspace_id, contactId, phoneNumberId, callerNumber, 'voice',
+                     direction === 'BUSINESS_INITIATED' ? 'outgoing' : 'incoming', 'ringing', 0).run();
+                }
+                console.log(`[Calling] Call saved/updated in DB: ${resolvedCallId}`);
 
                 // Broadcast to frontend via Durable Object
                 try {
@@ -584,7 +620,7 @@ app.post('/api/whatsapp/webhook', async (c) => {
                     method: 'POST',
                     body: JSON.stringify({
                       type: 'whatsapp_incoming_call',
-                      callId: callId,
+                      callId: resolvedCallId,
                       from: callerNumber,
                       sdp: sdp,
                       sdpType: sdpType,
@@ -603,14 +639,27 @@ app.post('/api/whatsapp/webhook', async (c) => {
                 const hangupCause = callData.hangup_cause || 'normal';
                 const duration = callData.duration || 0;
 
-                const existingCall = await c.env.DB.prepare('SELECT direction, status FROM calls WHERE id = ?')
-                  .bind(callId).first<{ direction: string, status: string }>();
+                // Find the call row. Prefer the Meta call_id, but fall back to the
+                // caller + workspace match in case the row was created from the
+                // system_call message webhook (which uses a different id).
+                let existingCall = await c.env.DB.prepare('SELECT id, direction, status FROM calls WHERE id = ?')
+                  .bind(callId).first<{ id: string, direction: string, status: string }>();
+
+                if (!existingCall && callerNumber) {
+                  existingCall = await c.env.DB.prepare(
+                    "SELECT id, direction, status FROM calls WHERE workspace_id = ? AND caller_number = ? AND status = 'ringing' AND created_at > datetime('now', '-60 seconds') ORDER BY created_at DESC LIMIT 1"
+                  ).bind(config.workspace_id, callerNumber).first<{ id: string, direction: string, status: string }>();
+                }
 
                 const wasMissed = existingCall && existingCall.direction === 'incoming' &&
                   existingCall.status === 'ringing' && duration === 0;
 
-                await c.env.DB.prepare('UPDATE calls SET status = ?, duration = ?, hangup_cause = ? WHERE id = ?')
-                  .bind(wasMissed ? 'missed' : 'ended', duration, hangupCause, callId).run();
+                if (existingCall) {
+                  await c.env.DB.prepare('UPDATE calls SET status = ?, duration = ?, hangup_cause = ? WHERE id = ?')
+                    .bind(wasMissed ? 'missed' : 'ended', duration, hangupCause, existingCall.id).run();
+                } else {
+                  console.error(`[Calling] No call record found to terminate for callId=${callId}`);
+                }
 
                 try {
                   const globalDoId = c.env.CHAT_DO.idFromName(`global-${config.workspace_id}`);
@@ -766,10 +815,11 @@ app.post('/api/whatsapp/webhook', async (c) => {
                     finalMediaUrl = `/api/public/media/${key}`;
                   }
                 }
-              } catch (e) {
-                console.error("Failed to download media to R2", e);
-                finalMediaUrl = `https://graph.facebook.com/v19.0/${mediaUrl}`;
-              }
+                  } catch (e) {
+                    console.error("Failed to download media to R2", e);
+                    // Keep the raw media id rather than storing a broken/non-resolvable URL.
+                    finalMediaUrl = mediaUrl;
+                  }
             }
 
 
@@ -2222,6 +2272,10 @@ app.post('/api/whatsapp/calls/:id/answer', async (c) => {
 
   const { sdp, phoneNumberId } = await c.req.json();
 
+  if (!phoneNumberId) {
+    return c.json({ error: 'phoneNumberId is required' }, 400);
+  }
+
   // Find config by phoneNumberId first, then fallback to workspace
   let config = await c.env.DB.prepare('SELECT access_token FROM whatsapp_configs WHERE phone_number_id = ?')
     .bind(phoneNumberId).first<{ access_token: string }>();
@@ -2275,6 +2329,9 @@ app.post('/api/whatsapp/calls/:id/terminate', async (c) => {
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
   const { phoneNumberId } = await c.req.json();
+  if (!phoneNumberId) {
+    return c.json({ error: 'phoneNumberId is required' }, 400);
+  }
   let config = await c.env.DB.prepare('SELECT access_token FROM whatsapp_configs WHERE phone_number_id = ?')
     .bind(phoneNumberId).first<{ access_token: string }>();
   if (!config) {
@@ -2311,6 +2368,9 @@ app.post('/api/whatsapp/calls/:id/reject', async (c) => {
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
   const { phoneNumberId } = await c.req.json();
+  if (!phoneNumberId) {
+    return c.json({ error: 'phoneNumberId is required' }, 400);
+  }
   let config = await c.env.DB.prepare('SELECT access_token FROM whatsapp_configs WHERE phone_number_id = ?')
     .bind(phoneNumberId).first<{ access_token: string }>();
   if (!config) {
@@ -2358,6 +2418,17 @@ app.post('/api/whatsapp/calls/recordings', async (c) => {
     await c.env.MEDIA_BUCKET.put(fileName, await file.arrayBuffer(), {
       httpMetadata: { contentType: file.type }
     });
+
+    // Associate the recording with the call record if a callId was provided
+    const callId = body['callId'];
+    if (callId) {
+      try {
+        await c.env.DB.prepare('UPDATE calls SET recording_url = ? WHERE id = ? AND workspace_id = ?')
+          .bind(fileName, callId, workspaceId).run();
+      } catch (e) {
+        console.error('Failed to link recording to call:', e);
+      }
+    }
 
     return c.json({ success: true, path: fileName });
   } catch (err) {

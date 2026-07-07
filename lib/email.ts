@@ -22,8 +22,9 @@ export async function sendEmail(
     }
 
     // Creating standard Cloudflare EmailMessage
-    // Requires sender domain to be verified in Cloudflare Email Routing
-    const sender = "noreply@yourdomain.com"; // UPDATE TO YOUR ACTUAL DOMAIN
+    // Requires sender domain to be verified in Cloudflare Email Routing.
+    // Use a verified sender; override via EMAIL_FROM env if configured.
+    const sender = (env && (env as any).EMAIL_FROM) || "notifications@dhitantra.com";
     
     // Some Cloudflare Email bindings require a raw MIME message constructed
     // We send a generic payload based on the modern email binding structure

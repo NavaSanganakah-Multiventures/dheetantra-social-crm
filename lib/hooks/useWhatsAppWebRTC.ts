@@ -24,6 +24,7 @@ export function useWhatsAppWebRTC() {
   const localStreamRef = useRef<MediaStream | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordingChunksRef = useRef<Blob[]>([]);
+  const remoteStreamRef = useRef<MediaStream | null>(null);
   const durationTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const connectedAtRef = useRef<number>(0);
 
@@ -122,6 +123,7 @@ export function useWhatsAppWebRTC() {
       // Handle incoming remote audio
       pc.ontrack = (event) => {
         if (event.streams && event.streams[0]) {
+          remoteStreamRef.current = event.streams[0];
           setRemoteStream(event.streams[0]);
         }
       };
@@ -197,6 +199,10 @@ export function useWhatsAppWebRTC() {
         const combinedStream = new MediaStream();
         // Add local audio
         stream.getAudioTracks().forEach(track => combinedStream.addTrack(track));
+        // Add the remote party's audio so the recording captures both sides
+        if (remoteStreamRef.current) {
+          remoteStreamRef.current.getAudioTracks().forEach(track => combinedStream.addTrack(track));
+        }
         
         const recorder = new MediaRecorder(combinedStream, { mimeType: 'audio/webm;codecs=opus' });
         mediaRecorderRef.current = recorder;
@@ -234,7 +240,6 @@ export function useWhatsAppWebRTC() {
         const blob = new Blob(recordingChunksRef.current, { type: 'audio/webm' });
         const formData = new FormData();
         formData.append('file', blob, `call-${call.id}.webm`);
-        formData.append('callId', call.id);
         formData.append('callId', call.id);
         
         fetch('/api/whatsapp/calls/recordings', {

@@ -19,12 +19,12 @@ const broadcastQueueWorker = {
           throw new Error(`Contact not found: ${contactId}`);
         }
 
-        // 2. Fetch WhatsApp token from Secure KV
-        const token = await env.SECRETS_KV.get("META_USER_ACCESS_TOKEN");
+        // 2. Fetch WhatsApp token from Secure KV (prefer the global API token)
+        const token = (await env.SECRETS_KV.get("WHATSAPP_API_TOKEN")) || (await env.SECRETS_KV.get("META_USER_ACCESS_TOKEN"));
         if (!token) throw new Error("Meta Access Token missing in KV");
 
         // 3. Make the API Call to Meta WhatsApp Cloud API
-        const response = await fetch(`https://graph.facebook.com/v18.0/${phoneId}/messages`, {
+        const response = await fetch(`https://graph.facebook.com/v19.0/${phoneId}/messages`, {
           method: "POST",
           headers: {
             "Authorization": `Bearer ${token}`,
