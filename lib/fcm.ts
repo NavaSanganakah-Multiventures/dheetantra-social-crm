@@ -1,4 +1,4 @@
-import type { CloudflareEnv } from "./cloudflare";
+import type { Env } from '../src/types';
 import { SignJWT, importPKCS8 } from 'jose';
 
 /**
@@ -42,21 +42,22 @@ async function getFcmAccessToken(serviceAccountJson: string): Promise<string> {
  * Sends a push notification using Firebase Cloud Messaging (FCM) v1 API.
  */
 export async function sendPushNotification(
-  env: CloudflareEnv,
+  env: Env,
   token: string,
   title: string,
   body: string,
   data?: Record<string, string>
 ) {
-  if (!env.FCM_SERVICE_ACCOUNT_JSON) {
-    console.warn("⚠️ FCM_SERVICE_ACCOUNT_JSON is missing. Push notification mocked:");
+  const serviceAccountJson = await env.SECRETS_KV.get('FCM_SERVICE_ACCOUNT_JSON');
+  if (!serviceAccountJson) {
+    console.warn("FCM_SERVICE_ACCOUNT_JSON missing from KV. Push notification skipped:");
     console.warn(`To: ${token} | Title: ${title} | Body: ${body}`);
     return;
   }
 
   try {
-    const accessToken = await getFcmAccessToken(env.FCM_SERVICE_ACCOUNT_JSON);
-    const projectId = JSON.parse(env.FCM_SERVICE_ACCOUNT_JSON).project_id;
+    const accessToken = await getFcmAccessToken(serviceAccountJson);
+    const projectId = JSON.parse(serviceAccountJson).project_id;
 
     const fcmUrl = `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`;
     

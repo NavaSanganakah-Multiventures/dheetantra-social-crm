@@ -7,7 +7,6 @@ import { DurableObject, WorkflowEntrypoint } from 'cloudflare:workers';
 import { EmailMessage } from 'cloudflare:email';
 import metaOauth from './routes/meta-oauth';
 import adminRouter from './routes/admin';
-import { schemaSql, dropSql } from './schema';
 
 export class ChatDurableObject extends DurableObject {
   constructor(state: any, env: Env) {
@@ -20,7 +19,7 @@ export class ChatDurableObject extends DurableObject {
     // If it's a POST to /broadcast, broadcast the JSON body to all connected WebSockets
     if (request.method === 'POST' && url.pathname.endsWith('/broadcast')) {
       try {
-        const data = await request.json();
+        const data = await request.json() as { type?: string; [key: string]: any };
         const sockets = this.ctx.getWebSockets();
         console.log(`[DO Broadcast] Sending type=${data.type} to ${sockets.length} WebSocket(s)`);
         let sent = 0;
@@ -211,6 +210,9 @@ app.use('/api/whatsapp/send', authMiddleware);
 app.use('/api/whatsapp/calls*', authMiddleware);
 app.use('/api/inbox/*', authMiddleware);
 app.use('/api/media/upload', authMiddleware);
+app.use('/api/broadcast', authMiddleware);
+app.use('/api/workspace', authMiddleware);
+app.use('/api/crm/contacts', authMiddleware);
 
 app.route('/api/meta', metaOauth);
 app.route('/api/admin', adminRouter);
@@ -749,7 +751,7 @@ app.post('/api/whatsapp/webhook', async (c) => {
                   const res = await fetch(`https://graph.facebook.com/v19.0/${mediaUrl}`, {
                     headers: { 'Authorization': `Bearer ${config.access_token}` }
                   });
-                  const data = await res.json();
+                  const data = await res.json() as { url?: string };
                   if (data.url) {
                     const binaryRes = await fetch(data.url, {
                       headers: { 'Authorization': `Bearer ${config.access_token}` }
@@ -960,12 +962,6 @@ app.post('/api/fcm/register', async (c) => {
   return c.json({ error: 'DB not configured' }, 500);
 });
 
-// 1. Authentication (Multi-tenant)
-app.post('/api/auth/login', async (c) => {
-  // Logic: Verify credentials, check D1 for tenant/subscription status
-  // Generate JWT or store OTP session in SECRETS_KV
-  return c.json({ token: 'jwt_or_api_key', workspace_id: 'tenant_123' });
-});
 
 // 2. CRM & Social Media Data (D1 Database)
 app.get('/api/crm/contacts', async (c) => {
@@ -2413,8 +2409,8 @@ app.post('/api/whatsapp/calls/toggle', async (c) => {
 app.get('/api/webrtc/ice-servers', async (c) => {
   try {
     // Try KV first, then env variables
-    const turnKeyId = (c.env.SECRETS_KV ? (await c.env.SECRETS_KV.get('CLOUDFLARE_CALLS_APP_ID') || await c.env.SECRETS_KV.get('TURN_KEY_ID')) : null) || c.env.TURN_KEY_ID;
-    const turnToken = (c.env.SECRETS_KV ? (await c.env.SECRETS_KV.get('CLOUDFLARE_API_TOKEN') || await c.env.SECRETS_KV.get('TURN_KEY_API_TOKEN')) : null) || c.env.TURN_KEY_API_TOKEN;
+    const turnKeyId = await c.env.SECRETS_KV.get('CLOUDFLARE_CALLS_APP_ID') || await c.env.SECRETS_KV.get('TURN_KEY_ID');
+    const turnToken = await c.env.SECRETS_KV.get('CLOUDFLARE_API_TOKEN') || await c.env.SECRETS_KV.get('TURN_KEY_API_TOKEN');
 
     if (!turnKeyId || !turnToken) {
       // Fallback to free STUN only if TURN not configured
@@ -2774,7 +2770,7 @@ app.get('/api/whatsapp/media', async (c) => {
     const res = await fetch(graphUrl, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
-    const data = await res.json();
+    const data = await res.json() as { url?: string };
 
     if (!data.url) {
       return c.text('Media not found or expired', 404);

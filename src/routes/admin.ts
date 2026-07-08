@@ -17,10 +17,8 @@ async function verifyAdmin(c: any): Promise<{ user: any } | null> {
     const user = JSON.parse(userDataStr);
     const email = user.email?.toLowerCase();
     
-    // Automatic admin access for user email
-    let isAdmin = email === 'navasanganakah@gmail.com';
-
-    // Fallback: Check for configured admins list in KV
+    // Check for configured admins list in KV
+    let isAdmin = false;
     const adminEmailsConfig = await c.env.SECRETS_KV.get('ADMIN_EMAILS');
     if (adminEmailsConfig) {
       const emailList = adminEmailsConfig.split(',').map((e: string) => e.trim().toLowerCase());
@@ -45,7 +43,7 @@ admin.get('/check', async (c) => {
 });
 
 import schemaSqlContent from '../../schema.sql';
-import { diffSchema, allTableNames } from '../schema';
+import { diffSchema } from '../schema';
 
 admin.get('/schema-diff', async (c) => {
   const isAdmin = await verifyAdmin(c);
@@ -394,13 +392,13 @@ admin.get('/kv', async (c) => {
       const keyName = keyObj.name;
       let val = '';
       
-      // Mask session tokens/OTPs for cleaner security dashboard, showing just size/placeholder
+      // Mask all secret values for security
       if (keyName.startsWith('SESSION:')) {
         val = '[Active User Session Data]';
       } else if (keyName.startsWith('OTP:')) {
         val = '[Verification Code Data]';
       } else {
-        val = await c.env.SECRETS_KV.get(keyName) || '';
+        val = '••••••••';
       }
 
       keysWithValues.push({
@@ -426,6 +424,11 @@ admin.post('/kv', async (c) => {
     const { name, value } = await c.req.json();
     if (!name) return c.json({ error: 'Key name is required' }, 400);
 
+    const blockedKeys = ['ADMIN_EMAILS', 'SESSION:', 'OTP:'];
+    if (blockedKeys.some(b => name.startsWith(b) || name === b)) {
+      return c.json({ error: 'Cannot modify this key via API' }, 403);
+    }
+
     await c.env.SECRETS_KV.put(name, value);
     return c.json({ success: true });
   } catch (err: any) {
@@ -441,6 +444,10 @@ admin.delete('/kv/:key', async (c) => {
 
   try {
     const key = c.req.param('key');
+    const blockedKeys = ['ADMIN_EMAILS', 'SESSION:', 'OTP:'];
+    if (blockedKeys.some(b => key.startsWith(b) || key === b)) {
+      return c.json({ error: 'Cannot delete this key via API' }, 403);
+    }
     await c.env.SECRETS_KV.delete(key);
     return c.json({ success: true });
   } catch (err: any) {

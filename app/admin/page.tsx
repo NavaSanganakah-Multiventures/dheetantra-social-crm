@@ -225,7 +225,7 @@ export default function AdminDashboard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(userForm)
       });
-      const data = await res.json();
+      const data: any = await res.json();
       if (res.ok) {
         addNotification(userModal.mode === 'create' ? 'उपयोगकर्ता सफलतापूर्वक पंजीकृत' : 'उपयोगकर्ता सफलतापूर्वक अपडेट किया गया');
         setUserModal({ open: false, mode: 'create' });
@@ -265,7 +265,7 @@ export default function AdminDashboard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(workspaceForm)
       });
-      const data = await res.json();
+      const data: any = await res.json();
       if (res.ok) {
         addNotification(workspaceModal.mode === 'create' ? 'वर्कस्पेस सफलतापूर्वक निर्मित' : 'वर्कस्पेस सफलतापूर्वक अपडेट');
         setWorkspaceModal({ open: false, mode: 'create' });
@@ -320,7 +320,7 @@ export default function AdminDashboard() {
           features_json: featuresJson
         })
       });
-      const data = await res.json();
+      const data: any = await res.json();
       if (res.ok) {
         addNotification(planModal.mode === 'create' ? 'प्लान सफलतापूर्वक जोड़ा गया' : 'प्लान सफलतापूर्वक अपडेट किया गया');
         setPlanModal({ open: false, mode: 'create' });
@@ -357,7 +357,7 @@ export default function AdminDashboard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(kvForm)
       });
-      const data = await res.json();
+      const data: any = await res.json();
       if (res.ok) {
         addNotification('KV सीक्रेट सफलतापूर्वक सहेजा गया');
         setKvModal({ open: false });
@@ -1113,7 +1113,7 @@ export default function AdminDashboard() {
                             setLoadingDiff(true);
                             try {
                               const res = await fetch('/api/admin/migrate', { method: 'POST' });
-                              const data = await res.json();
+                              const data: any = await res.json();
                               if (res.ok) {
                                 addNotification(data.message, 'success');
                                 loadSchemaDiff();
