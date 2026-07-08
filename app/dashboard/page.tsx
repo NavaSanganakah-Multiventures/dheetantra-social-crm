@@ -10,7 +10,12 @@ import PhoneInput, { isValidPhoneNumber } from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
 type activeTab = 'dashboard' | 'inbox' | 'broadcast' | 'templates' | 'schedule' | 'settings' | 'contacts' | 'calls' | 'integrations' | 'accounts-whatsapp';
 
-const getUserTimezone = () => typeof window !== 'undefined' ? localStorage.getItem('userTimezone') || 'Asia/Kolkata' : 'Asia/Kolkata';
+const getUserTimezone = () => {
+  if (typeof window === 'undefined') return 'Asia/Kolkata';
+  return localStorage.getItem('userTimezone')
+    || Intl.DateTimeFormat().resolvedOptions().timeZone
+    || 'Asia/Kolkata';
+};
 
 const ensureUTC = (dateStr: string | Date | number) => {
   if (typeof dateStr === 'string') {
@@ -827,7 +832,7 @@ function InboxView({
     return () => clearInterval(timer);
   }, []);
 
-  const lastCustomerMessageAt = activeChat?.customer_last_message_at ? new Date(activeChat.customer_last_message_at) : null;
+  const lastCustomerMessageAt = activeChat?.customer_last_message_at ? ensureUTC(activeChat.customer_last_message_at) : null;
   const isExpired = lastCustomerMessageAt ? (currentTime.getTime() - lastCustomerMessageAt.getTime() > 24 * 60 * 60 * 1000) : true;
   
   const timeRemaining = lastCustomerMessageAt && !isExpired 
