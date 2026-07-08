@@ -117,17 +117,18 @@ const inboxEmailWorker = {
         conversation = { id: conversationId };
       }
 
+      const emailMsgNow = new Date().toISOString();
       const messageObj = {
         id: crypto.randomUUID(),
         conversation_id: conversation.id,
         sender_type: 'contact',
         content,
-        created_at: new Date().toISOString()
+        created_at: emailMsgNow
       };
 
       await env.DB.prepare(
-          "INSERT INTO messages (id, conversation_id, sender_type, content) VALUES (?, ?, ?, ?)"
-      ).bind(messageObj.id, messageObj.conversation_id, messageObj.sender_type, messageObj.content).run();
+          "INSERT INTO messages (id, conversation_id, sender_type, content, created_at) VALUES (?, ?, ?, ?, ?)"
+      ).bind(messageObj.id, messageObj.conversation_id, messageObj.sender_type, messageObj.content, emailMsgNow).run();
 
       // 3. Notify Durable Object to broadcast to connected Next.js frontends
       if (env.INBOX_DO) {

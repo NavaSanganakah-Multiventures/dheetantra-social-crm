@@ -102,10 +102,11 @@ export async function handleIncomingMessage(
 
             if (!existingCall) {
               const callId = crypto.randomUUID();
+              const callCreatedAt = new Date().toISOString();
               await env.DB.prepare(`
-                INSERT INTO calls (id, workspace_id, contact_id, phone_number_id, caller_number, type, direction, status)
-                VALUES (?, ?, ?, ?, ?, 'voice', 'incoming', 'ringing')
-              `).bind(callId, workspaceId, finalContactId, phoneNumberId, from).run();
+                INSERT INTO calls (id, workspace_id, contact_id, phone_number_id, caller_number, type, direction, status, created_at)
+                VALUES (?, ?, ?, ?, ?, 'voice', 'incoming', 'ringing', ?)
+              `).bind(callId, workspaceId, finalContactId, phoneNumberId, from, callCreatedAt).run();
 
               const callPayload = {
                 type: 'incoming_call',
@@ -119,7 +120,7 @@ export async function handleIncomingMessage(
                   type: 'voice',
                   direction: 'incoming',
                   status: 'ringing',
-                  created_at: new Date().toISOString()
+                  created_at: callCreatedAt
                 }
               };
 
@@ -147,12 +148,13 @@ export async function handleIncomingMessage(
         try {
           const doId = env.CHAT_DO.idFromName(conversationId);
           const stub = env.CHAT_DO.get(doId);
+          const broadcastNow = new Date().toISOString();
           await stub.fetch(new Request('http://do/broadcast', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               type: 'new_message',
-              customer_last_message_at: new Date().toISOString(),
+              customer_last_message_at: broadcastNow,
               message: {
                 id: incomingMessageId,
                 conversation_id: conversationId,
@@ -161,7 +163,7 @@ export async function handleIncomingMessage(
                 content: messageText || null,
                 media_url: mediaUrl || null,
                 platform_message_id: messageId,
-                created_at: new Date().toISOString()
+                created_at: broadcastNow
               }
             })
           }));
@@ -346,6 +348,7 @@ export async function sendWhatsAppMessage(
           try {
             const doId = env.CHAT_DO.idFromName(conversationId);
             const stub = env.CHAT_DO.get(doId);
+            const botMsgNow = new Date().toISOString();
             await stub.fetch(new Request('http://do/broadcast', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -359,7 +362,7 @@ export async function sendWhatsAppMessage(
                   content: message || null,
                   media_url: mediaUrl || null,
                   platform_message_id: platformMsgId,
-                  created_at: new Date().toISOString()
+                  created_at: botMsgNow
                 }
               })
             }));

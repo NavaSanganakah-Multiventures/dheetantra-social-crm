@@ -1713,8 +1713,9 @@ app.post('/api/whatsapp/templates/send', async (c) => {
     const msgId = crypto.randomUUID();
     const content = `[Template Message] ${templateName}`;
     const platformMsgId = data.messages?.[0]?.id || crypto.randomUUID();
-    await c.env.DB.prepare('INSERT INTO messages (id, conversation_id, sender_type, message_type, content, platform_message_id) VALUES (?, ?, ?, ?, ?, ?)')
-      .bind(msgId, convId, 'agent', 'text', content, platformMsgId).run();
+    const templateMsgNow = new Date().toISOString();
+    await c.env.DB.prepare('INSERT INTO messages (id, conversation_id, sender_type, message_type, content, platform_message_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .bind(msgId, convId, 'agent', 'text', content, platformMsgId, templateMsgNow).run();
 
     // Broadcast template message via Durable Object
     try {
@@ -1732,7 +1733,7 @@ app.post('/api/whatsapp/templates/send', async (c) => {
             message_type: 'text',
             content,
             platform_message_id: platformMsgId,
-            created_at: new Date().toISOString()
+            created_at: templateMsgNow
           }
         })
       }));
@@ -1948,8 +1949,9 @@ app.post('/api/whatsapp/send', async (c) => {
     const savedMessageId = crypto.randomUUID();
     const platformMsgId = metaData.messages?.[0]?.id || crypto.randomUUID();
     const mediaUrlToSave = r2Url || mediaUrl || null;
+    const agentMsgNow = new Date().toISOString();
 
-    await c.env.DB.prepare('INSERT INTO messages (id, conversation_id, sender_type, message_type, content, media_url, platform_message_id) VALUES (?, ?, ?, ?, ?, ?, ?)')
+    await c.env.DB.prepare('INSERT INTO messages (id, conversation_id, sender_type, message_type, content, media_url, platform_message_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
       .bind(
         savedMessageId,
         conversationId,
@@ -1957,7 +1959,8 @@ app.post('/api/whatsapp/send', async (c) => {
         type,
         contentToSave || null,
         mediaUrlToSave,
-        platformMsgId
+        platformMsgId,
+        agentMsgNow
       ).run();
 
     // Update conversation
@@ -1982,7 +1985,7 @@ app.post('/api/whatsapp/send', async (c) => {
             media_url: mediaUrlToSave,
             platform_message_id: platformMsgId,
             status: 'sent',
-            created_at: new Date().toISOString()
+            created_at: agentMsgNow
           }
         })
       }));
@@ -1997,7 +2000,7 @@ app.post('/api/whatsapp/send', async (c) => {
         id: savedMessageId,
         platform_message_id: platformMsgId,
         status: 'sent',
-        created_at: new Date().toISOString()
+        created_at: agentMsgNow
       }
     });
   } catch (err: any) {
@@ -2146,10 +2149,11 @@ app.post('/api/whatsapp/calls', async (c) => {
   if (!contactId) return c.json({ error: 'Contact ID required' }, 400);
 
   const callId = crypto.randomUUID();
+  const callCreatedAt = new Date().toISOString();
   await c.env.DB.prepare(`
-    INSERT INTO calls (id, workspace_id, contact_id, type, direction, status, duration)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).bind(callId, workspaceId, contactId, type || 'voice', direction || 'outgoing', status || 'ringing', duration || 0).run();
+    INSERT INTO calls (id, workspace_id, contact_id, type, direction, status, duration, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).bind(callId, workspaceId, contactId, type || 'voice', direction || 'outgoing', status || 'ringing', duration || 0, callCreatedAt).run();
 
   const contact = await c.env.DB.prepare('SELECT name, platform_contact_id FROM contacts WHERE id = ?').bind(contactId).first<{ name: string, platform_contact_id: string }>();
 
@@ -2165,7 +2169,7 @@ app.post('/api/whatsapp/calls', async (c) => {
       type: type || 'voice',
       direction: direction || 'outgoing',
       status: status || 'ringing',
-      created_at: new Date().toISOString()
+      created_at: callCreatedAt
     }
   };
 

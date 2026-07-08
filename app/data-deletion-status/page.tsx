@@ -6,6 +6,22 @@ import Link from 'next/link';
 import { ArrowLeft, CheckCircle2, Clock, XCircle, Search } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 
+const ensureUTC = (dateStr: string | Date | number) => {
+  if (typeof dateStr === 'string') {
+    if (dateStr.includes(' ') && !dateStr.includes('T')) return new Date(dateStr.replace(' ', 'T') + 'Z');
+    if (dateStr.includes('T') && !dateStr.endsWith('Z') && !dateStr.match(/[+-]\d{2}:\d{2}$/)) return new Date(dateStr + 'Z');
+  }
+  return new Date(dateStr);
+};
+
+const formatDelDate = (dateStr: string | Date | number) => {
+  if (!dateStr) return '';
+  try {
+    const tz = typeof window !== 'undefined' ? (localStorage.getItem('userTimezone') || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata') : 'Asia/Kolkata';
+    return ensureUTC(dateStr).toLocaleString('hi-IN', { timeZone: tz });
+  } catch { return ''; }
+};
+
 function StatusContent() {
   const searchParams = useSearchParams();
   const id = searchParams.get('id');
@@ -96,7 +112,7 @@ function StatusContent() {
                   <div className="font-medium capitalize">{statusData.status.replace('_', ' ')}</div>
                   <div className="text-sm mt-1 opacity-80">
                     {statusData.status === 'completed' 
-                      ? `Your data was successfully deleted on ${new Date(statusData.completed_at).toLocaleString()}.` 
+                      ? `Your data was successfully deleted on ${formatDelDate(statusData.completed_at)}.` 
                       : 'Your data deletion request is currently being processed.'}
                   </div>
                 </div>
@@ -109,7 +125,7 @@ function StatusContent() {
                 </div>
                 <div className="flex justify-between">
                   <span className="font-medium">Requested At:</span>
-                  <span>{new Date(statusData.requested_at).toLocaleString()}</span>
+                  <span>{formatDelDate(statusData.requested_at)}</span>
                 </div>
               </div>
             </div>

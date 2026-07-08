@@ -9,6 +9,22 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { useRouter } from 'next/navigation';
 
+const ensureUTC = (dateStr: string | Date | number) => {
+  if (typeof dateStr === 'string') {
+    if (dateStr.includes(' ') && !dateStr.includes('T')) return new Date(dateStr.replace(' ', 'T') + 'Z');
+    if (dateStr.includes('T') && !dateStr.endsWith('Z') && !dateStr.match(/[+-]\d{2}:\d{2}$/)) return new Date(dateStr + 'Z');
+  }
+  return new Date(dateStr);
+};
+
+const formatAdminDate = (dateStr: string | Date | number) => {
+  if (!dateStr) return 'N/A';
+  try {
+    const tz = typeof window !== 'undefined' ? (localStorage.getItem('userTimezone') || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata') : 'Asia/Kolkata';
+    return ensureUTC(dateStr).toLocaleDateString('hi-IN', { timeZone: tz });
+  } catch { return 'N/A'; }
+};
+
 type AdminTab = 'overview' | 'users' | 'workspaces' | 'plans' | 'kv' | 'database';
 
 export default function AdminDashboard() {
@@ -748,7 +764,7 @@ export default function AdminDashboard() {
                                 </span>
                               </td>
                               <td className="px-6 py-4 text-zinc-500 font-mono text-[10px]">
-                                {u.created_at ? new Date(u.created_at).toLocaleDateString() : 'N/A'}
+                                {u.created_at ? formatAdminDate(u.created_at) : 'N/A'}
                               </td>
                               <td className="px-6 py-4 text-right">
                                 <div className="flex items-center justify-end gap-2">
