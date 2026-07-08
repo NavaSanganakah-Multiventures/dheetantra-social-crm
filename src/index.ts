@@ -2683,8 +2683,13 @@ app.post('/api/broadcast', async (c) => {
 
     // Queue each message to Cloudflare Queue
     let queued = 0;
+    const queueAvailable = !!c.env.BROADCAST_QUEUE;
     for (const contact of contacts) {
       if (!contact.platform_contact_id) continue;
+      if (!queueAvailable) {
+        console.error('[broadcast] BROADCAST_QUEUE binding not configured — skipping queue');
+        break;
+      }
       try {
         await c.env.BROADCAST_QUEUE.send({
           campaignId,
@@ -2704,6 +2709,11 @@ app.post('/api/broadcast', async (c) => {
     // Update total_recipients to actual queued count
     if (queued !== contactIds.length) {
       await c.env.DB.prepare('UPDATE broadcast_campaigns SET total_recipients = ? WHERE id = ?').bind(queued, campaignId).run();
+    }
+
+    if (!queueAvailable) {
+      await c.env.DB.prepare('UPDATE broadcast_campaigns SET status = ? WHERE id = ?').bind('failed', campaignId).run();
+      return c.json({ success: false, error: 'Broadcast queue not configured. Run: wrangler queues create broadcast-queue-prod', campaignId, total: 0 }, 500);
     }
 
     return c.json({ success: true, campaignId, total: queued });
