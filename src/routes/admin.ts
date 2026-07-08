@@ -19,7 +19,7 @@ async function verifyAdmin(c: any): Promise<{ user: any } | null> {
     
     // Check for configured admins list in KV
     let isAdmin = false;
-    const adminEmailsConfig = await c.env.SECRETS_KV.get('ADMIN_EMAILS');
+    const adminEmailsConfig = await c.env.SECRETS_KV.get('ADMIN_CONTACT_EMAIL');
     if (adminEmailsConfig) {
       const emailList = adminEmailsConfig.split(',').map((e: string) => e.trim().toLowerCase());
       if (emailList.includes(email)) {
@@ -424,7 +424,7 @@ admin.post('/kv', async (c) => {
     const { name, value } = await c.req.json();
     if (!name) return c.json({ error: 'Key name is required' }, 400);
 
-    const blockedKeys = ['ADMIN_EMAILS', 'SESSION:', 'OTP:'];
+    const blockedKeys = ['ADMIN_CONTACT_EMAIL', 'SESSION:', 'OTP:'];
     if (blockedKeys.some(b => name.startsWith(b) || name === b)) {
       return c.json({ error: 'Cannot modify this key via API' }, 403);
     }
@@ -444,7 +444,7 @@ admin.delete('/kv/:key', async (c) => {
 
   try {
     const key = c.req.param('key');
-    const blockedKeys = ['ADMIN_EMAILS', 'SESSION:', 'OTP:'];
+    const blockedKeys = ['ADMIN_CONTACT_EMAIL', 'SESSION:', 'OTP:'];
     if (blockedKeys.some(b => key.startsWith(b) || key === b)) {
       return c.json({ error: 'Cannot delete this key via API' }, 403);
     }
