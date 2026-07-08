@@ -8,6 +8,7 @@ interface BroadcastMessage {
   templateName: string;
   languageCode: string;
   parameters: string[];
+  toPhone: string;
 }
 
 const broadcastQueueConsumer = {
@@ -26,16 +27,12 @@ const broadcastQueueConsumer = {
     }
 
     for (const msg of batch.messages) {
-      const { campaignId, workspaceId, contactId, phoneId, templateName, languageCode, parameters } = msg.body;
+      const { campaignId, contactId, phoneId, templateName, languageCode, parameters, toPhone } = msg.body;
 
       try {
-        // 1. Fetch contact phone number
-        const contact = await env.DB.prepare(
-          "SELECT platform_contact_id FROM contacts WHERE id = ? AND workspace_id = ?"
-        ).bind(contactId, workspaceId).first<{ platform_contact_id: string }>();
-
-        if (!contact) {
-          console.error(`[broadcast-queue] Contact not found: ${contactId}`);
+        // 1. Use phone number from queue message
+        if (!toPhone) {
+          console.error(`[broadcast-queue] No phone number for contact: ${contactId}`);
           await env.DB.prepare(
             "UPDATE broadcast_campaigns SET failed_sends = failed_sends + 1 WHERE id = ?"
           ).bind(campaignId).run();
@@ -62,7 +59,7 @@ const broadcastQueueConsumer = {
           body: JSON.stringify({
             messaging_product: "whatsapp",
             recipient_type: "individual",
-            to: contact.platform_contact_id,
+            to: toPhone,
             type: "template",
             template: {
               name: templateName,

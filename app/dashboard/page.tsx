@@ -2204,14 +2204,14 @@ function BroadcastView() {
   useEffect(() => {
     const wId = localStorage.getItem('workspaceId');
     Promise.all([
-      fetch('/api/crm/contacts', { headers: { 'x-workspace-id': wId || '' } }).then(r => r.json()),
-      fetch('/api/whatsapp/templates', { headers: { 'x-workspace-id': wId || '' } }).then(r => r.json()),
-      fetch('/api/whatsapp/config', { headers: { 'x-workspace-id': wId || '' } }).then(r => r.json()),
+      fetch('/api/crm/contacts', { headers: { 'x-workspace-id': wId || '' }, credentials: 'include' }).then(r => r.json()),
+      fetch('/api/whatsapp/templates', { headers: { 'x-workspace-id': wId || '' }, credentials: 'include' }).then(r => r.json()),
+      fetch('/api/whatsapp/config', { headers: { 'x-workspace-id': wId || '' }, credentials: 'include' }).then(r => r.json()),
     ]).then(([contactData, templateData, configData]: any[]) => {
       if (contactData.contacts) setContacts(contactData.contacts);
       if (templateData.success) {
         const all = [...(templateData.meta || []), ...(templateData.local || [])];
-        setTemplates(all.filter((t: any) => t.status === 'APPROVED'));
+        setTemplates(all.filter((t: any) => (t.status || '').toUpperCase() === 'APPROVED'));
       }
       if (configData.configs?.length) {
         setConfigs(configData.configs);
@@ -2226,7 +2226,7 @@ function BroadcastView() {
     const wId = localStorage.getItem('workspaceId');
     const poll = setInterval(async () => {
       try {
-        const res = await fetch(`/api/broadcast/${campaignId}/progress`, { headers: { 'x-workspace-id': wId || '' } });
+        const res = await fetch(`/api/broadcast/${campaignId}/progress`, { headers: { 'x-workspace-id': wId || '' }, credentials: 'include' });
         const data: any = await res.json();
         setProgress(data);
         if (data.status === 'completed' || (data.sent + data.failed >= data.total && data.total > 0)) {
@@ -2272,6 +2272,7 @@ function BroadcastView() {
       const res = await fetch('/api/broadcast', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-workspace-id': wId || '' },
+        credentials: 'include',
         body: JSON.stringify({
           campaignName,
           templateName: selectedTemplate.name,

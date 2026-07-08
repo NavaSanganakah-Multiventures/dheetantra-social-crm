@@ -211,6 +211,7 @@ app.use('/api/whatsapp/calls*', authMiddleware);
 app.use('/api/inbox/*', authMiddleware);
 app.use('/api/media/upload', authMiddleware);
 app.use('/api/broadcast', authMiddleware);
+app.use('/api/broadcast/*', authMiddleware);
 app.use('/api/workspace', authMiddleware);
 app.use('/api/crm/contacts', authMiddleware);
 
@@ -2678,14 +2679,15 @@ app.post('/api/broadcast', async (c) => {
     // Fetch contact phone numbers
     const placeholders = contactIds.map(() => '?').join(',');
     const { results: contacts } = await c.env.DB.prepare(
-      `SELECT id, platform_contact_id FROM contacts WHERE id IN (${placeholders}) AND workspace_id = ?`
-    ).bind(...contactIds, workspaceId).all<{ id: string; platform_contact_id: string }>();
+      `SELECT id, platform_contact_id, phone FROM contacts WHERE id IN (${placeholders}) AND workspace_id = ?`
+    ).bind(...contactIds, workspaceId).all<{ id: string; platform_contact_id: string; phone: string }>();
 
     // Queue each message to Cloudflare Queue
     let queued = 0;
     const queueAvailable = !!c.env.BROADCAST_QUEUE;
     for (const contact of contacts) {
-      if (!contact.platform_contact_id) continue;
+      const toPhone = contact.platform_contact_id || contact.phone;
+      if (!toPhone) continue;
       if (!queueAvailable) {
         console.error('[broadcast] BROADCAST_QUEUE binding not configured — skipping queue');
         break;
@@ -2698,7 +2700,8 @@ app.post('/api/broadcast', async (c) => {
           phoneId: config.phone_number_id,
           templateName,
           languageCode: languageCode || 'en_US',
-          parameters: parameters || []
+          parameters: parameters || [],
+          toPhone
         });
         queued++;
       } catch (qErr) {
