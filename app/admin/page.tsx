@@ -225,7 +225,7 @@ export default function AdminDashboard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(userForm)
       });
-      const data = await res.json();
+      const data: any = await res.json();
       if (res.ok) {
         addNotification(userModal.mode === 'create' ? 'उपयोगकर्ता सफलतापूर्वक पंजीकृत' : 'उपयोगकर्ता सफलतापूर्वक अपडेट किया गया');
         setUserModal({ open: false, mode: 'create' });
@@ -265,7 +265,7 @@ export default function AdminDashboard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(workspaceForm)
       });
-      const data = await res.json();
+      const data: any = await res.json();
       if (res.ok) {
         addNotification(workspaceModal.mode === 'create' ? 'वर्कस्पेस सफलतापूर्वक निर्मित' : 'वर्कस्पेस सफलतापूर्वक अपडेट');
         setWorkspaceModal({ open: false, mode: 'create' });
@@ -320,7 +320,7 @@ export default function AdminDashboard() {
           features_json: featuresJson
         })
       });
-      const data = await res.json();
+      const data: any = await res.json();
       if (res.ok) {
         addNotification(planModal.mode === 'create' ? 'प्लान सफलतापूर्वक जोड़ा गया' : 'प्लान सफलतापूर्वक अपडेट किया गया');
         setPlanModal({ open: false, mode: 'create' });
@@ -357,7 +357,7 @@ export default function AdminDashboard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(kvForm)
       });
-      const data = await res.json();
+      const data: any = await res.json();
       if (res.ok) {
         addNotification('KV सीक्रेट सफलतापूर्वक सहेजा गया');
         setKvModal({ open: false });
@@ -1113,7 +1113,7 @@ export default function AdminDashboard() {
                             setLoadingDiff(true);
                             try {
                               const res = await fetch('/api/admin/migrate', { method: 'POST' });
-                              const data = await res.json();
+                              const data: any = await res.json();
                               if (res.ok) {
                                 addNotification(data.message, 'success');
                                 loadSchemaDiff();
@@ -1226,32 +1226,6 @@ export default function AdminDashboard() {
                         </div>
                       )}
                       
-                      <div className="pt-6 mt-6 border-t border-zinc-800 flex justify-end">
-                         <button 
-                            onClick={async () => {
-                                if (confirm("Warning: This will drop ALL tables and recreate them. ALL DATA WILL BE LOST. Continue?")) {
-                                    setLoadingDiff(true);
-                                    try {
-                                        const res = await fetch('/api/admin/migrate?reset=true', { method: 'POST' });
-                                        const data = await res.json();
-                                        if (res.ok) {
-                                            addNotification(data.message, 'success');
-                                            loadSchemaDiff();
-                                        } else {
-                                            addNotification(data.error || 'Reset विफल रहा', 'error');
-                                            setLoadingDiff(false);
-                                        }
-                                    } catch {
-                                        addNotification('सर्वर एरर', 'error');
-                                        setLoadingDiff(false);
-                                    }
-                                }
-                            }}
-                            className="bg-red-950/30 hover:bg-red-900/40 text-red-500 border border-red-900/50 px-4 py-2 rounded-xl text-xs font-medium transition-colors"
-                        >
-                            Hard Reset Database (DANGER)
-                        </button>
-                      </div>
                     </div>
                   )}
                 </div>

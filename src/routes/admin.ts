@@ -17,10 +17,8 @@ async function verifyAdmin(c: any): Promise<{ user: any } | null> {
     const user = JSON.parse(userDataStr);
     const email = user.email?.toLowerCase();
     
-    // Automatic admin access for user email
-    let isAdmin = email === 'navasanganakah@gmail.com';
-
-    // Fallback: Check for configured admins list in KV
+    // Check for configured admins list in KV
+    let isAdmin = false;
     const adminEmailsConfig = await c.env.SECRETS_KV.get('ADMIN_EMAILS');
     if (adminEmailsConfig) {
       const emailList = adminEmailsConfig.split(',').map((e: string) => e.trim().toLowerCase());
@@ -45,7 +43,7 @@ admin.get('/check', async (c) => {
 });
 
 import schemaSqlContent from '../../schema.sql';
-import { diffSchema, allTableNames } from '../schema';
+import { diffSchema } from '../schema';
 
 admin.get('/schema-diff', async (c) => {
   const isAdmin = await verifyAdmin(c);
@@ -73,27 +71,14 @@ admin.post('/migrate', async (c) => {
   if (!c.env.DB) return c.json({ error: 'Database not connected' }, 500);
 
   try {
-    const reset = c.req.query('reset') === 'true';
-
     // Disable foreign keys temporarily
     try { await c.env.DB.prepare('PRAGMA foreign_keys = OFF').run(); } catch (e) { }
 
     const applied: string[] = [];
 
-    if (reset) {
-      // DROP tables in safe order
-      const dropBatch = allTableNames.map(name => c.env.DB.prepare(`DROP TABLE IF EXISTS ${name}`));
-      await c.env.DB.batch(dropBatch);
-      
-      // CREATE all tables from schema
-      const statements = schemaSqlContent.split(';').map(s => s.trim()).filter(s => s.length > 0);
-      const schemaBatch = statements.map(stmt => c.env.DB.prepare(stmt));
-      await c.env.DB.batch(schemaBatch);
-      applied.push(`Reset database and created ${statements.length} tables`);
-    } else {
-      // Run intelligent migration
-      const diff = await diffSchema(c.env.DB, schemaSqlContent);
-      const stmts: any[] = [];
+    // Run intelligent migration
+    const diff = await diffSchema(c.env.DB, schemaSqlContent);
+    const stmts: any[] = [];
       
       // Add missing tables
       for (const t of diff.missingTables) {
@@ -110,7 +95,6 @@ admin.post('/migrate', async (c) => {
       if (stmts.length > 0) {
         await c.env.DB.batch(stmts);
       }
-    }
 
     // Re-enable foreign keys
     try { await c.env.DB.prepare('PRAGMA foreign_keys = ON').run(); } catch (e) { }
@@ -118,7 +102,7 @@ admin.post('/migrate', async (c) => {
     return c.json({ 
       success: true, 
       applied,
-      message: reset ? 'Database completely reset and migrated successfully!' : `Migrated successfully! Applied ${applied.length} changes.` 
+      message: `Migrated successfully! Applied ${applied.length} changes.` 
     });
   } catch (err: any) {
     return c.json({ error: err.message }, 500);
@@ -408,13 +392,13 @@ admin.get('/kv', async (c) => {
       const keyName = keyObj.name;
       let val = '';
       
-      // Mask session tokens/OTPs for cleaner security dashboard, showing just size/placeholder
+      // Mask all secret values for security
       if (keyName.startsWith('SESSION:')) {
         val = '[Active User Session Data]';
       } else if (keyName.startsWith('OTP:')) {
         val = '[Verification Code Data]';
       } else {
-        val = await c.env.SECRETS_KV.get(keyName) || '';
+        val = '••••••••';
       }
 
       keysWithValues.push({
@@ -440,6 +424,11 @@ admin.post('/kv', async (c) => {
     const { name, value } = await c.req.json();
     if (!name) return c.json({ error: 'Key name is required' }, 400);
 
+    const blockedKeys = ['ADMIN_EMAILS', 'SESSION:', 'OTP:'];
+    if (blockedKeys.some(b => name.startsWith(b) || name === b)) {
+      return c.json({ error: 'Cannot modify this key via API' }, 403);
+    }
+
     await c.env.SECRETS_KV.put(name, value);
     return c.json({ success: true });
   } catch (err: any) {
@@ -455,6 +444,10 @@ admin.delete('/kv/:key', async (c) => {
 
   try {
     const key = c.req.param('key');
+    const blockedKeys = ['ADMIN_EMAILS', 'SESSION:', 'OTP:'];
+    if (blockedKeys.some(b => key.startsWith(b) || key === b)) {
+      return c.json({ error: 'Cannot delete this key via API' }, 403);
+    }
     await c.env.SECRETS_KV.delete(key);
     return c.json({ success: true });
   } catch (err: any) {

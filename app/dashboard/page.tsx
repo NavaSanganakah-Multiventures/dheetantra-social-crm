@@ -12,24 +12,36 @@ type activeTab = 'dashboard' | 'inbox' | 'broadcast' | 'templates' | 'schedule' 
 
 const getUserTimezone = () => typeof window !== 'undefined' ? localStorage.getItem('userTimezone') || 'Asia/Kolkata' : 'Asia/Kolkata';
 
+const ensureUTC = (dateStr: string | Date | number) => {
+  if (typeof dateStr === 'string') {
+    if (dateStr.includes(' ') && !dateStr.includes('T')) {
+      return new Date(dateStr.replace(' ', 'T') + 'Z');
+    }
+    if (dateStr.includes('T') && !dateStr.endsWith('Z') && !dateStr.match(/[+-]\d{2}:\d{2}$/)) {
+      return new Date(dateStr + 'Z');
+    }
+  }
+  return new Date(dateStr);
+};
+
 export const formatUserTimeOnly = (dateStr: string | Date | number, options?: Intl.DateTimeFormatOptions) => {
   if (!dateStr) return '';
   try {
-    return new Date(dateStr).toLocaleTimeString([], { timeZone: getUserTimezone(), ...options });
+    return ensureUTC(dateStr).toLocaleTimeString([], { timeZone: getUserTimezone(), ...options });
   } catch(e) { return ''; }
 }
 
 export const formatUserDateOnly = (dateStr: string | Date | number, options?: Intl.DateTimeFormatOptions) => {
   if (!dateStr) return '';
   try {
-    return new Date(dateStr).toLocaleDateString([], { timeZone: getUserTimezone(), ...options });
+    return ensureUTC(dateStr).toLocaleDateString([], { timeZone: getUserTimezone(), ...options });
   } catch(e) { return ''; }
 }
 
 export const formatUserDateTime = (dateStr: string | Date | number, locales?: string | string[], options?: Intl.DateTimeFormatOptions) => {
   if (!dateStr) return '';
   try {
-    return new Date(dateStr).toLocaleString(locales || 'hi-IN', { timeZone: getUserTimezone(), ...options });
+    return ensureUTC(dateStr).toLocaleString(locales || 'hi-IN', { timeZone: getUserTimezone(), ...options });
   } catch(e) { return ''; }
 }
 
@@ -953,7 +965,7 @@ function InboxView({
                headers: { 'x-workspace-id': localStorage.getItem('workspaceId') || '' },
                body: formData
             });
-            const uploadData = await uploadRes.json();
+            const uploadData: any = await uploadRes.json();
             if (uploadData.success && uploadData.mediaUrl) {
                finalMediaUrl = uploadData.mediaUrl;
                finalR2Url = uploadData.r2Url;
@@ -1243,7 +1255,7 @@ function InboxView({
         },
         body: JSON.stringify({ status: newStatus })
       });
-      const data = await res.json();
+      const data: any = await res.json();
       if (data.success) {
         setActiveChat((prev: any) => prev && prev.id === convId ? { ...prev, status: newStatus } : prev);
         setConversations((prev: any[]) => prev.map((c: any) => c.id === convId ? { ...c, status: newStatus } : c));
@@ -1265,7 +1277,7 @@ function InboxView({
           'x-workspace-id': wId || ''
         }
       });
-      const data = await res.json();
+      const data: any = await res.json();
       if (data.success) {
         setActiveChat(null);
         setConversations(prev => prev.filter(c => c.id !== convId));
@@ -2746,7 +2758,7 @@ function TemplatesView({ selectedWaba }: { selectedWaba?: any }) {
       const res = await fetch('/api/whatsapp/templates', {
         headers: { 'x-workspace-id': wId || '' }
       });
-      const data = await res.json();
+      const data: any = await res.json();
       if (data.success) {
         setLocalTemplates(data.local || []);
         setMetaTemplates(data.meta || []);
@@ -2770,7 +2782,7 @@ function TemplatesView({ selectedWaba }: { selectedWaba?: any }) {
         const configRes = await fetch('/api/whatsapp/config', {
           headers: { 'x-workspace-id': wId || '' }
         });
-        const configData = await configRes.json();
+        const configData: any = await configRes.json();
         if (active && configData.configs) {
           setConfigs(configData.configs);
           if (configData.configs.length > 0) {
@@ -2784,7 +2796,7 @@ function TemplatesView({ selectedWaba }: { selectedWaba?: any }) {
         const res = await fetch('/api/whatsapp/templates', {
           headers: { 'x-workspace-id': wId || '' }
         });
-        const data = await res.json();
+        const data: any = await res.json();
         if (active) {
           if (data.success) {
             setLocalTemplates(data.local || []);
@@ -2828,7 +2840,7 @@ function TemplatesView({ selectedWaba }: { selectedWaba?: any }) {
           body_text: bodyText
         })
       });
-      const data = await res.json();
+      const data: any = await res.json();
       if (data.success) {
         setCreateMessage("सफलता: " + data.message);
         setTemplateName("");
@@ -2856,7 +2868,7 @@ function TemplatesView({ selectedWaba }: { selectedWaba?: any }) {
         method: 'DELETE',
         headers: { 'x-workspace-id': wId || '' }
       });
-      const data = await res.json();
+      const data: any = await res.json();
       if (data.success) {
         fetchTemplates();
       } else {
@@ -2903,7 +2915,7 @@ function TemplatesView({ selectedWaba }: { selectedWaba?: any }) {
           phoneNumberId: chosenWaba ? chosenWaba.phone_number_id : undefined
         })
       });
-      const data = await res.json();
+      const data: any = await res.json();
       if (data.success) {
         setSendMessage("सफलतापूर्वक भेजा गया! संदेश आपके लाइव इनबॉक्स में दिखाई देगा।");
         setTimeout(() => {
@@ -3233,7 +3245,7 @@ function ContactsView({
             body: JSON.stringify({ contacts: parsedContacts })
           });
 
-          const data = await res.json();
+          const data: any = await res.json();
           if (data.success) {
             alert(`सफलतापूर्वक ${data.imported} संपर्क आयात किए गए (Successfully imported ${data.imported} contacts)`);
             loadContacts();
@@ -3374,7 +3386,7 @@ function ContactsView({
         body: JSON.stringify(payload)
       });
 
-      const data = await res.json();
+      const data: any = await res.json();
       if (res.ok || data.success) {
         setShowModal(false);
         loadContacts();
@@ -3417,7 +3429,7 @@ function ContactsView({
         },
         body: JSON.stringify({ contactId })
       });
-      const data = await res.json();
+      const data: any = await res.json();
       if (data.success && data.conversation) {
         setActiveChat(data.conversation);
         setActiveTab('inbox');
@@ -4589,7 +4601,7 @@ function WhatsAppManagerView() {
       const res = await fetch('/api/whatsapp/config', {
         headers: { 'x-workspace-id': wId || '' }
       });
-      const data = await res.json();
+      const data: any = await res.json();
       if (data.configs) {
         setConfigs(data.configs);
       }
@@ -4608,7 +4620,7 @@ function WhatsAppManagerView() {
       const res = await fetch('/api/whatsapp/flows', {
         headers: { 'x-workspace-id': wId || '' }
       });
-      const data = await res.json();
+      const data: any = await res.json();
       if (data.flows) {
         setFlows(data.flows);
       }
@@ -4627,7 +4639,7 @@ function WhatsAppManagerView() {
       // Meta Config loading
       fetch('/api/config/meta')
         .then(r => r.json())
-        .then(data => {
+        .then((data: any) => {
           if (data.configId) setMetaConfigId(data.configId);
         }).catch(err => console.error(err));
     }, 0);
@@ -4701,7 +4713,7 @@ function WhatsAppManagerView() {
         },
         body: JSON.stringify(payload)
       });
-      const data = await res.json();
+      const data: any = await res.json();
       if (data.success) {
         setMessage("सफलतापूर्वक सहेज लिया गया!");
         setShowProfileModal(false);
@@ -4737,7 +4749,7 @@ function WhatsAppManagerView() {
         method: 'DELETE',
         headers: { 'x-workspace-id': localStorage.getItem('workspaceId') || '' }
       });
-      const data = await res.json();
+      const data: any = await res.json();
       if (data.success) {
         loadConfigs();
       } else {
@@ -4807,7 +4819,7 @@ function WhatsAppManagerView() {
         },
         body: JSON.stringify(payload)
       });
-      const data = await res.json();
+      const data: any = await res.json();
       if (data.success) {
         setShowFlowModal(false);
         loadFlows();
@@ -4826,7 +4838,7 @@ function WhatsAppManagerView() {
         method: 'DELETE',
         headers: { 'x-workspace-id': localStorage.getItem('workspaceId') || '' }
       });
-      const data = await res.json();
+      const data: any = await res.json();
       if (data.success) {
         loadFlows();
       } else {
@@ -4844,7 +4856,7 @@ function WhatsAppManagerView() {
         method: 'POST',
         headers: { 'x-workspace-id': localStorage.getItem('workspaceId') || '' }
       });
-      const data = await res.json();
+      const data: any = await res.json();
       if (data.success) {
         loadFlows();
       } else {

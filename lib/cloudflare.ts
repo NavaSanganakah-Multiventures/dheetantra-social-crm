@@ -8,12 +8,11 @@ import type { NextRequest } from 'next/server';
 export interface CloudflareEnv {
   DB: D1Database;
   SECRETS_KV: KVNamespace;
-  EMAIL_SENDER: any; // send_email binding for Cloudflare Email Routing
-  INBOX_DO: any; // DurableObjectNamespace for Real-time WebSocket connections
-  BROADCAST_QUEUE: any; // Queue for WhatsApp bulk sending
-  POST_PUBLISHER_WORKFLOW: any; // Workflow for scheduling posts
-  MEDIA_BUCKET: any; // R2Bucket for image/video storage
-  FCM_SERVICE_ACCOUNT_JSON?: string; // Firebase service account JSON string
+  EMAIL_SENDER: any;
+  INBOX_DO: any;
+  BROADCAST_QUEUE: any;
+  POST_PUBLISHER_WORKFLOW: any;
+  MEDIA_BUCKET: any;
 }
 
 /**

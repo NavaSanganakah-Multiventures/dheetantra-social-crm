@@ -6,3 +6,7 @@ coverage/
 .env*
 !.env.example
 out/
+fix_*.js
+update_*.js
+replace_*.js
+*.sqlite*

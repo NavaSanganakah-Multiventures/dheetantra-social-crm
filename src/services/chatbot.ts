@@ -87,7 +87,7 @@ export async function handleIncomingMessage(
         // Check if calling is enabled for this phone number/config
         let callingEnabled = 1;
         try {
-          const cfg = await env.DB.prepare("SELECT calling_enabled FROM whatsapp_configs WHERE phone_number_id = ?").bind(phoneNumberId).first();
+          const cfg = await env.DB.prepare("SELECT calling_enabled FROM whatsapp_configs WHERE phone_number_id = ?").bind(phoneNumberId).first<{ calling_enabled: number }>();
           if (cfg && cfg.calling_enabled !== undefined) {
             callingEnabled = cfg.calling_enabled;
           }
@@ -185,7 +185,7 @@ export async function handleIncomingMessage(
   try {
 
     
-    const config = await env.DB.prepare('SELECT reply_mode FROM whatsapp_configs WHERE phone_number_id = ?').bind(phoneNumberId).first();
+    const config = await env.DB.prepare('SELECT reply_mode FROM whatsapp_configs WHERE phone_number_id = ?').bind(phoneNumberId).first<{ reply_mode: string }>();
     if (config && config.reply_mode) {
       replyMode = config.reply_mode;
     }
@@ -200,19 +200,24 @@ export async function handleIncomingMessage(
   let replyText = '';
   
   if (replyMode === 'ai') {
-    try {
-       const ai = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
+    const geminiKey = await env.SECRETS_KV.get('GEMINI_API_KEY');
+    if (!geminiKey) {
+      replyText = "Sorry, our AI service is temporarily unavailable. Our team will assist you shortly.";
+    } else {
+      try {
+        const ai = new GoogleGenAI({ apiKey: geminiKey });
         const aiResponse = await ai.models.generateContent({
-            model: 'gemini-1.5-flash',
-           contents: `You are a helpful customer support AI for Dhitantra. 
+            model: 'gemini-3.5-flash',
+            contents: `You are a helpful customer support AI for Dhitantra. 
 User message: "${messageText}" 
 User Name: ${contactName}
 Respond naturally and helpfully in the same language as the user. Keep it concise for WhatsApp.`
-       });
-       replyText = aiResponse.text || "I'm sorry, I couldn't process that request right now.";
-    } catch (e) {
-       console.error("AI Generation failed", e);
+        });
+        replyText = aiResponse.text || "I'm sorry, I couldn't process that request right now.";
+      } catch (e) {
+        console.error("AI Generation failed", e);
        replyText = "Sorry, our AI system is currently unavailable. We will get back to you shortly.";
+      }
     }
   } else {
     // Rule based logic
