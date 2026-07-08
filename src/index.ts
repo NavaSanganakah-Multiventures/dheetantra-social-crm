@@ -2645,14 +2645,103 @@ app.post('/api/whatsapp/webhook/subscribe', async (c) => {
   }
 });
 
-// Broadcast Campaign
+// Broadcast Campaign — Create campaign and queue messages
 app.post('/api/broadcast', async (c) => {
-  const { workspaceId, campaignName, textBody, contactIds } = await c.req.json();
+  const workspaceId = c.req.header('x-workspace-id');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
-  // In a real scenario, this would use Cloudflare Queues to send messages in bulk
-  // For now, we return a success status
-  return c.json({ success: true, message: 'Broadcast queued successfully' });
+  const { campaignName, templateName, languageCode, parameters, contactIds, phoneNumberId } = await c.req.json();
+  if (!campaignName || !templateName || !contactIds || !Array.isArray(contactIds) || contactIds.length === 0) {
+    return c.json({ error: 'Missing required fields: campaignName, templateName, contactIds' }, 400);
+  }
+
+  if (!c.env.DB) return c.json({ error: 'Database not connected' }, 500);
+
+  try {
+    // Get WABA config
+    let config: any = null;
+    if (phoneNumberId) {
+      config = await c.env.DB.prepare('SELECT phone_number_id, access_token FROM whatsapp_configs WHERE workspace_id = ? AND phone_number_id = ?').bind(workspaceId, phoneNumberId).first();
+    }
+    if (!config) {
+      config = await c.env.DB.prepare('SELECT phone_number_id, access_token FROM whatsapp_configs WHERE workspace_id = ?').bind(workspaceId).first();
+    }
+    if (!config) return c.json({ error: 'WhatsApp not configured for this workspace' }, 400);
+
+    // Create campaign record
+    const campaignId = crypto.randomUUID();
+    const broadcastNow = new Date().toISOString();
+    await c.env.DB.prepare(
+      'INSERT INTO broadcast_campaigns (id, workspace_id, name, status, total_recipients, created_at) VALUES (?, ?, ?, ?, ?, ?)'
+    ).bind(campaignId, workspaceId, campaignName, 'processing', contactIds.length, broadcastNow).run();
+
+    // Fetch contact phone numbers
+    const placeholders = contactIds.map(() => '?').join(',');
+    const { results: contacts } = await c.env.DB.prepare(
+      `SELECT id, platform_contact_id FROM contacts WHERE id IN (${placeholders}) AND workspace_id = ?`
+    ).bind(...contactIds, workspaceId).all<{ id: string; platform_contact_id: string }>();
+
+    // Queue each message to Cloudflare Queue
+    let queued = 0;
+    for (const contact of contacts) {
+      if (!contact.platform_contact_id) continue;
+      try {
+        await c.env.BROADCAST_QUEUE.send({
+          campaignId,
+          workspaceId,
+          contactId: contact.id,
+          phoneId: config.phone_number_id,
+          templateName,
+          languageCode: languageCode || 'en_US',
+          parameters: parameters || []
+        });
+        queued++;
+      } catch (qErr) {
+        console.error(`Failed to queue broadcast for contact ${contact.id}:`, qErr);
+      }
+    }
+
+    // Update total_recipients to actual queued count
+    if (queued !== contactIds.length) {
+      await c.env.DB.prepare('UPDATE broadcast_campaigns SET total_recipients = ? WHERE id = ?').bind(queued, campaignId).run();
+    }
+
+    return c.json({ success: true, campaignId, total: queued });
+  } catch (err: any) {
+    console.error('Broadcast creation error:', err);
+    return c.json({ error: err.message || 'Failed to create broadcast' }, 500);
+  }
+});
+
+// Broadcast progress tracking
+app.get('/api/broadcast/:campaignId/progress', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+  if (!c.env.DB) return c.json({ error: 'Database not connected' }, 500);
+
+  const campaignId = c.req.param('campaignId');
+  try {
+    const campaign = await c.env.DB.prepare(
+      'SELECT total_recipients, successful_sends, failed_sends, status FROM broadcast_campaigns WHERE id = ? AND workspace_id = ?'
+    ).bind(campaignId, workspaceId).first<{ total_recipients: number; successful_sends: number; failed_sends: number; status: string }>();
+
+    if (!campaign) return c.json({ error: 'Campaign not found' }, 404);
+
+    const sent = campaign.successful_sends || 0;
+    const failed = campaign.failed_sends || 0;
+    const total = campaign.total_recipients || 0;
+    const pending = Math.max(0, total - sent - failed);
+
+    // Auto-mark completed if all processed
+    if (campaign.status === 'processing' && sent + failed >= total && total > 0) {
+      await c.env.DB.prepare('UPDATE broadcast_campaigns SET status = ? WHERE id = ?').bind('completed', campaignId).run();
+      return c.json({ total, sent, failed, pending: 0, status: 'completed' });
+    }
+
+    return c.json({ total, sent, failed, pending, status: campaign.status });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
 });
 
 // ==========================================

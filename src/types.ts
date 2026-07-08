@@ -7,6 +7,7 @@ export interface Env {
   CHAT_DO: DurableObjectNamespace;
   AUTOMATION_WORKFLOW: any;
   NOTIFICATION_QUEUE: Queue<any>;
+  BROADCAST_QUEUE: Queue<any>;
   ENVIRONMENT: string;
   EMAIL_SENDER: any;
 }

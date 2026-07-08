@@ -1,30 +1,59 @@
-/**
- * Step 4: Broadcasting Queue Worker
- * Cloudflare Queues consumer handling bulk WhatsApp broadcast messages asynchronously.
- */
-import type { CloudflareEnv } from "@/lib/cloudflare";
+import type { Env } from "../src/types";
 
-const broadcastQueueWorker = {
-  async queue(batch: any, env: CloudflareEnv): Promise<void> {
+interface BroadcastMessage {
+  campaignId: string;
+  workspaceId: string;
+  contactId: string;
+  phoneId: string;
+  templateName: string;
+  languageCode: string;
+  parameters: string[];
+}
+
+const broadcastQueueConsumer = {
+  async queue(batch: MessageBatch<BroadcastMessage>, env: Env): Promise<void> {
+    // Get access token from KV (cached across batch)
+    const token = await env.SECRETS_KV.get("META_USER_ACCESS_TOKEN");
+    if (!token) {
+      console.error("[broadcast-queue] Meta Access Token missing in KV — cannot process batch");
+      for (const msg of batch.messages) {
+        await env.DB.prepare(
+          "UPDATE broadcast_campaigns SET failed_sends = failed_sends + 1 WHERE id = ?"
+        ).bind(msg.body.campaignId).run();
+        msg.ack();
+      }
+      return;
+    }
+
     for (const msg of batch.messages) {
+      const { campaignId, workspaceId, contactId, phoneId, templateName, languageCode, parameters } = msg.body;
+
       try {
-        const { campaignId, workspaceId, contactId, phoneId, textBody } = msg.body;
-        
-        // 1. Fetch contact details (phone number) from D1
+        // 1. Fetch contact phone number
         const contact = await env.DB.prepare(
-          "SELECT platform_contact_id FROM contacts WHERE id = ? AND workspace_id = ? AND platform = 'whatsapp'"
+          "SELECT platform_contact_id FROM contacts WHERE id = ? AND workspace_id = ?"
         ).bind(contactId, workspaceId).first<{ platform_contact_id: string }>();
 
         if (!contact) {
-          throw new Error(`Contact not found: ${contactId}`);
+          console.error(`[broadcast-queue] Contact not found: ${contactId}`);
+          await env.DB.prepare(
+            "UPDATE broadcast_campaigns SET failed_sends = failed_sends + 1 WHERE id = ?"
+          ).bind(campaignId).run();
+          msg.ack();
+          continue;
         }
 
-        // 2. Fetch WhatsApp token from Secure KV
-        const token = await env.SECRETS_KV.get("META_USER_ACCESS_TOKEN");
-        if (!token) throw new Error("Meta Access Token missing in KV");
+        // 2. Build template components
+        const components: any[] = [];
+        if (parameters && parameters.length > 0) {
+          components.push({
+            type: 'body',
+            parameters: parameters.map(p => ({ type: 'text', text: p }))
+          });
+        }
 
-        // 3. Make the API Call to Meta WhatsApp Cloud API
-        const response = await fetch(`https://graph.facebook.com/v18.0/${phoneId}/messages`, {
+        // 3. Send template message via Meta WhatsApp Cloud API
+        const response = await fetch(`https://graph.facebook.com/v19.0/${phoneId}/messages`, {
           method: "POST",
           headers: {
             "Authorization": `Bearer ${token}`,
@@ -32,33 +61,40 @@ const broadcastQueueWorker = {
           },
           body: JSON.stringify({
             messaging_product: "whatsapp",
+            recipient_type: "individual",
             to: contact.platform_contact_id,
-            type: "text",
-            text: { body: textBody }
+            type: "template",
+            template: {
+              name: templateName,
+              language: { code: languageCode || "en_US" },
+              components: components.length > 0 ? components : undefined
+            }
           })
         });
 
-        // 4. Record Success/Failure in D1 Campaign Stats
+        // 4. Record success or failure
         if (response.ok) {
           await env.DB.prepare(
             "UPDATE broadcast_campaigns SET successful_sends = successful_sends + 1 WHERE id = ?"
           ).bind(campaignId).run();
         } else {
-          console.error("WhatsApp Send Failed:", await response.text());
+          const errBody = await response.text();
+          console.error(`[broadcast-queue] WhatsApp API error for contact ${contactId}:`, errBody);
           await env.DB.prepare(
             "UPDATE broadcast_campaigns SET failed_sends = failed_sends + 1 WHERE id = ?"
           ).bind(campaignId).run();
         }
-        
-        // Mark message as processed successfully
-        msg.ack();
 
+        msg.ack();
       } catch (err) {
-        console.error("Queue Processing Error for message:", msg.id, err);
-        // Optional: msg.retry() if it's considered recoverable
+        console.error(`[broadcast-queue] Error processing message ${msg.id}:`, err);
+        await env.DB.prepare(
+          "UPDATE broadcast_campaigns SET failed_sends = failed_sends + 1 WHERE id = ?"
+        ).bind(campaignId).run();
+        msg.ack();
       }
     }
   }
 };
 
-export default broadcastQueueWorker;
+export default broadcastQueueConsumer;

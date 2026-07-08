@@ -63,6 +63,17 @@ class_name = "AutomationWorkflow"
 binding = "NOTIFICATION_QUEUE"
 queue = "notification-queue-prod"
 
+[[queues.producers]]
+binding = "BROADCAST_QUEUE"
+queue = "broadcast-queue-prod"
+
+[[queues.consumers]]
+queue = "broadcast-queue-prod"
+max_batch_size = 10
+max_batch_timeout = 30
+max_retries = 3
+dead_letter_queue = "broadcast-queue-dlq"
+
 # ==========================================
 # 7. DEVELOPMENT / PREVIEW ENVIRONMENT
 # ==========================================
