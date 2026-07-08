@@ -340,7 +340,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
       if (socket) socket.close();
     };
-  }, [callingEnabled, user?.workspace_id]);
+  }, [user?.workspace_id]);
 
   useEffect(() => {
     const checkScreenSize = () => {
@@ -368,9 +368,9 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
     };
 
     fetchStats();
-    const interval = setInterval(fetchStats, 10000); // refresh every 10 seconds
+    const interval = setInterval(fetchStats, 10000);
     return () => clearInterval(interval);
-  }, [activeTab]);
+  }, []);
 
   return (
     <div className="flex h-screen overflow-hidden bg-zinc-100 dark:bg-zinc-950">
@@ -881,12 +881,13 @@ function InboxView({
   }, []);
 
   useEffect(() => {
+    let objectUrl: string | null = null;
     let active = true;
     const timer = setTimeout(() => {
       if (!active) return;
       if (mediaFileState) {
-        const url = URL.createObjectURL(mediaFileState);
-        setMediaPreviewUrl(url);
+        objectUrl = URL.createObjectURL(mediaFileState);
+        setMediaPreviewUrl(objectUrl);
       } else if (mediaUrlInput.trim()) {
         setMediaPreviewUrl(mediaUrlInput.trim());
       } else {
@@ -897,6 +898,7 @@ function InboxView({
     return () => {
       active = false;
       clearTimeout(timer);
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [mediaFileState, mediaUrlInput]);
 
@@ -2401,6 +2403,7 @@ function SettingsView() {
       if (savedTz) setUserTimezone(savedTz);
 
       return () => {
+         isSubscribed = false;
          window.removeEventListener('message', sessionInfoListener);
       };
     }, []);
@@ -4402,6 +4405,11 @@ function ActiveCallManager({ activeCall, setActiveCall, onHangup, remoteStream, 
   }, [isMuted, localStream]);
 
   // Outgoing calls will be connected by WebRTC events, no fake simulation needed
+
+  // Reset timer on new call
+  useEffect(() => {
+    setSeconds(0);
+  }, [activeCall.id]);
 
   // Live seconds timer
   useEffect(() => {

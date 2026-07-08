@@ -289,7 +289,7 @@ export default function AdminDashboard() {
         addNotification('वर्कस्पेस को हटाने में विफल', 'error');
       }
     } catch {
-      addNotification('सर्ver एरर', 'error');
+      addNotification('सर्वर एरर', 'error');
     }
   };
 
@@ -567,6 +567,7 @@ export default function AdminDashboard() {
               {activeTab === 'workspaces' && 'वर्कस्पेस प्रबंधन'}
               {activeTab === 'plans' && 'प्लान कैटलॉग'}
               {activeTab === 'kv' && 'KV क्लाउड सीक्रेट्स'}
+              {activeTab === 'database' && 'डेटाबेस (Database)'}
             </h2>
             <div className="px-2 py-0.5 bg-indigo-500/15 text-indigo-400 rounded-full text-[10px] font-mono border border-indigo-500/20 uppercase">
               Admin Mode

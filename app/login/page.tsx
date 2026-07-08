@@ -117,7 +117,7 @@ export default function LoginPage() {
           </form>
         )}
         
-        {message && <p className="text-sm text-center mt-6 text-emerald-600 dark:text-emerald-400 font-medium bg-emerald-50 dark:bg-emerald-500/10 py-2 rounded-lg">{message}</p>}
+        {message && <p className={`text-sm text-center mt-6 font-medium py-2 rounded-lg ${message.includes('भेजा गया') ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10' : 'text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10'}`}>{message}</p>}
 
         <div className="mt-8 text-center border-t border-zinc-200 dark:border-zinc-800 pt-6">
           <p className="text-sm text-zinc-500 dark:text-zinc-400">
