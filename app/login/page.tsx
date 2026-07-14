@@ -1,45 +1,80 @@
-"use client";
+'use client';
 
-import React, { useState } from 'react';
-import { MessageSquare, ArrowRight } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { MessageSquare, ArrowRight, Mail, LogIn } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
+import { Button } from '../../components/ui/Button';
+import { Input } from '../../components/ui/Input';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
-  const [otp, setOtp] = useState('');
+  const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [step, setStep] = useState<'email' | 'otp'>('email');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [messageType, setMessageType] = useState<'success' | 'error'>('success');
   const router = useRouter();
+  const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   const requestOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setMessage('');
     try {
-      const res = await fetch('/api/auth/send-otp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
+      const res = await fetch('/api/auth/send-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
       const data: any = await res.json();
       if (res.ok) {
         setStep('otp');
-        setMessage('OTP भेजा गया है! कृपया अपना इनबॉक्स चेक करें।');
+        setMessage('OTP sent! Check your inbox.');
+        setMessageType('success');
+        setTimeout(() => otpRefs.current[0]?.focus(), 100);
       } else {
-        setMessage(data.error || 'OTP भेजने में विफल।');
+        setMessage(data.error || 'Failed to send OTP.');
+        setMessageType('error');
       }
-    } catch (err) {
-      setMessage('कुछ गलत हो गया। कृपया पुनः प्रयास करें।');
+    } catch {
+      setMessage('Something went wrong. Please try again.');
+      setMessageType('error');
     } finally {
       setLoading(false);
     }
   };
 
+  const handleOtpChange = (index: number, value: string) => {
+    if (!/^\d*$/.test(value)) return;
+    const newOtp = [...otp];
+    newOtp[index] = value.slice(-1);
+    setOtp(newOtp);
+    if (value && index < 5) {
+      otpRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent) => {
+    if (e.key === 'Backspace' && !otp[index] && index > 0) {
+      otpRefs.current[index - 1]?.focus();
+    }
+  };
+
   const verifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
+    const otpCode = otp.join('');
+    if (otpCode.length !== 6) return;
+
     setLoading(true);
     setMessage('');
     try {
-      const res = await fetch('/api/auth/verify-otp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, otp }) });
+      const res = await fetch('/api/auth/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, otp: otpCode }),
+      });
       const data: any = await res.json();
       if (res.ok && data.user) {
         if (data.workspaceId) {
@@ -47,83 +82,154 @@ export default function LoginPage() {
         }
         router.push('/dashboard');
       } else {
-        setMessage(data.error || 'अमान्य OTP।');
+        setMessage(data.error || 'Invalid OTP.');
+        setMessageType('error');
+        setOtp(['', '', '', '', '', '']);
+        otpRefs.current[0]?.focus();
       }
-    } catch (err) {
-      setMessage('कुछ गलत हो गया। कृपया पुनः प्रयास करें।');
+    } catch {
+      setMessage('Something went wrong. Please try again.');
+      setMessageType('error');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 dark:bg-zinc-950 p-4 font-sans relative overflow-hidden">
-      {/* Background Ornaments */}
-      <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-indigo-500/10 dark:bg-indigo-500/20 rounded-full blur-3xl pointer-events-none"></div>
-      <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-purple-500/10 dark:bg-purple-500/20 rounded-full blur-3xl pointer-events-none"></div>
+    <div className="flex min-h-screen items-center justify-center bg-surface-50 dark:bg-surface-950 p-4 font-sans relative overflow-hidden">
+      <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-primary-500/10 dark:bg-primary-500/20 rounded-full blur-3xl pointer-events-none animate-float" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-cyan-500/10 dark:bg-cyan-500/20 rounded-full blur-3xl pointer-events-none animate-float-delayed" />
 
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-sm bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl border border-zinc-200 dark:border-zinc-800 rounded-3xl p-8 shadow-2xl relative z-10"
+        className="w-full max-w-sm glass rounded-3xl p-8 shadow-glass-lg relative z-10"
       >
-        <Link href="/" className="flex items-center justify-center w-12 h-12 rounded-2xl bg-zinc-900 dark:bg-white mb-6 mx-auto hover:scale-105 transition-transform">
-          <MessageSquare className="w-6 h-6 text-white dark:text-zinc-900" />
+        <Link
+          href="/"
+          className="flex items-center justify-center w-12 h-12 rounded-2xl bg-surface-900 dark:bg-white mb-6 mx-auto hover:scale-105 transition-transform"
+        >
+          <MessageSquare className="w-6 h-6 text-white dark:text-surface-900" />
         </Link>
-        <h1 className="text-3xl font-bold text-center mb-2 tracking-tight font-display">लॉगिन</h1>
-        <p className="text-zinc-500 dark:text-zinc-400 text-sm text-center mb-8">
-          {step === 'email' ? 'अपने खाते में सुरक्षित रूप से साइन इन करें' : `पासकोड ${email} पर भेजा गया है`}
+
+        <h1 className="text-3xl font-bold text-center mb-2 tracking-tight font-['Inter']">
+          Welcome back
+        </h1>
+        <p className="text-surface-500 dark:text-surface-400 text-sm text-center mb-8">
+          {step === 'email'
+            ? 'Sign in to your account securely'
+            : `Code sent to ${email}`}
         </p>
 
-        {step === 'email' ? (
-          <form onSubmit={requestOtp} className="space-y-5">
-            <div>
-              <label className="block text-sm font-medium mb-2 text-zinc-700 dark:text-zinc-300">ईमेल पता</label>
-              <input
+        <AnimatePresence mode="wait">
+          {step === 'email' ? (
+            <motion.form
+              key="email"
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 10 }}
+              onSubmit={requestOtp}
+              className="space-y-5"
+            >
+              <Input
+                label="Email address"
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={e => setEmail(e.target.value)}
+                placeholder="you@email.com"
                 required
-                className="w-full bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-sm"
-                placeholder="aapka@email.com"
+                icon={<Mail className="w-4 h-4" />}
               />
-            </div>
-            <button disabled={loading || !email} type="submit" className="w-full bg-indigo-600 text-white font-medium rounded-xl px-4 py-3 hover:bg-indigo-700 hover:shadow-lg hover:shadow-indigo-500/25 transition-all disabled:opacity-50 flex items-center justify-center gap-2">
-              {loading ? 'कोड भेज रहे हैं...' : <>ईमेल के साथ आगे बढ़ें <ArrowRight className="w-4 h-4" /></>}
-            </button>
-          </form>
-        ) : (
-          <form onSubmit={verifyOtp} className="space-y-5">
-             <div>
-              <label className="block text-sm font-medium mb-2 text-zinc-700 dark:text-zinc-300">6-अंकीय कोड</label>
-              <input
-                type="text"
-                value={otp}
-                onChange={(e) => setOtp(e.target.value)}
-                required
-                maxLength={6}
-                className="w-full bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-center tracking-[0.5em] text-lg font-mono placeholder:text-zinc-300"
-                placeholder="000000"
-              />
-            </div>
-            <button disabled={loading || otp.length !== 6} type="submit" className="w-full bg-indigo-600 text-white font-medium rounded-xl px-4 py-3 hover:bg-indigo-700 hover:shadow-lg hover:shadow-indigo-500/25 transition-all disabled:opacity-50">
-              {loading ? 'सत्यापन कर रहे हैं...' : 'कोड सत्यापित करें'}
-            </button>
-            <div className="text-center mt-4">
-              <button type="button" onClick={() => setStep('email')} className="text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:underline">
-                कोई दूसरा ईमेल इस्तेमाल करें
-              </button>
-            </div>
-          </form>
-        )}
-        
-        {message && <p className={`text-sm text-center mt-6 font-medium py-2 rounded-lg ${message.includes('भेजा गया') ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10' : 'text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10'}`}>{message}</p>}
+              <Button
+                type="submit"
+                loading={loading}
+                disabled={!email}
+                className="w-full"
+              >
+                Continue with Email <ArrowRight className="w-4 h-4" />
+              </Button>
+            </motion.form>
+          ) : (
+            <motion.form
+              key="otp"
+              initial={{ opacity: 0, x: 10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -10 }}
+              onSubmit={verifyOtp}
+              className="space-y-5"
+            >
+              <div>
+                <label className="block text-sm font-medium mb-3 text-center text-surface-700 dark:text-surface-300">
+                  Enter 6-digit code
+                </label>
+                <div className="flex gap-2 justify-center">
+                  {otp.map((digit, index) => (
+                    <input
+                      key={index}
+                      ref={el => {
+                        otpRefs.current[index] = el;
+                      }}
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={1}
+                      value={digit}
+                      onChange={e => handleOtpChange(index, e.target.value)}
+                      onKeyDown={e => handleOtpKeyDown(index, e)}
+                      className="w-11 h-12 text-center text-lg font-bold bg-white dark:bg-surface-950 border border-surface-300 dark:border-surface-700 rounded-xl outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
+                    />
+                  ))}
+                </div>
+              </div>
+              <Button
+                type="submit"
+                loading={loading}
+                disabled={otp.join('').length !== 6}
+                className="w-full"
+              >
+                <LogIn className="w-4 h-4" />
+                Verify Code
+              </Button>
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStep('email');
+                    setOtp(['', '', '', '', '', '']);
+                  }}
+                  className="text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline"
+                >
+                  Use a different email
+                </button>
+              </div>
+            </motion.form>
+          )}
+        </AnimatePresence>
 
-        <div className="mt-8 text-center border-t border-zinc-200 dark:border-zinc-800 pt-6">
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            DheeTantra पर नए हैं?{' '}
-            <Link href="/register" className="font-semibold text-zinc-900 dark:text-white hover:underline">
-              यहाँ रजिस्टर करें
+        <AnimatePresence>
+          {message && (
+            <motion.p
+              initial={{ opacity: 0, y: 5 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -5 }}
+              className={`text-sm text-center mt-6 font-medium py-2.5 rounded-lg ${
+                messageType === 'success'
+                  ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10'
+                  : 'text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10'
+              }`}
+            >
+              {message}
+            </motion.p>
+          )}
+        </AnimatePresence>
+
+        <div className="mt-8 text-center border-t border-surface-200 dark:border-surface-800 pt-6">
+          <p className="text-sm text-surface-500 dark:text-surface-400">
+            New to DheeTantra?{' '}
+            <Link
+              href="/register"
+              className="font-semibold text-surface-900 dark:text-white hover:underline"
+            >
+              Create an account
             </Link>
           </p>
         </div>

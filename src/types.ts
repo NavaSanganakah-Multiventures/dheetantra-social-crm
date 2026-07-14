@@ -10,4 +10,5 @@ export interface Env {
   BROADCAST_QUEUE: Queue<any>;
   ENVIRONMENT: string;
   EMAIL_SENDER: any;
+  EMAIL_SENDER_ADDRESS?: string;
 }

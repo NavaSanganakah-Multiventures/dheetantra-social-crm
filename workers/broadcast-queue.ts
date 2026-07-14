@@ -13,19 +13,6 @@ interface BroadcastMessage {
 
 const broadcastQueueConsumer = {
   async queue(batch: MessageBatch<BroadcastMessage>, env: Env): Promise<void> {
-    // Get access token from KV (cached across batch)
-    const token = await env.SECRETS_KV.get("META_USER_ACCESS_TOKEN");
-    if (!token) {
-      console.error("[broadcast-queue] Meta Access Token missing in KV — cannot process batch");
-      for (const msg of batch.messages) {
-        await env.DB.prepare(
-          "UPDATE broadcast_campaigns SET failed_sends = failed_sends + 1 WHERE id = ?"
-        ).bind(msg.body.campaignId).run();
-        msg.ack();
-      }
-      return;
-    }
-
     for (const msg of batch.messages) {
       const { campaignId, contactId, phoneId, templateName, languageCode, parameters, toPhone } = msg.body;
 
@@ -40,7 +27,23 @@ const broadcastQueueConsumer = {
           continue;
         }
 
-        // 2. Build template components
+        // 2. Get access token from DB per phone number config
+        const config = await env.DB.prepare(
+          'SELECT access_token FROM whatsapp_configs WHERE phone_number_id = ?'
+        ).bind(phoneId).first<{ access_token: string }>();
+
+        if (!config || !config.access_token) {
+          console.error(`[broadcast-queue] No access_token found for phoneId: ${phoneId}`);
+          await env.DB.prepare(
+            "UPDATE broadcast_campaigns SET failed_sends = failed_sends + 1 WHERE id = ?"
+          ).bind(campaignId).run();
+          msg.ack();
+          continue;
+        }
+
+        const token = config.access_token;
+
+        // 3. Build template components
         const components: any[] = [];
         if (parameters && parameters.length > 0) {
           components.push({
@@ -49,7 +52,7 @@ const broadcastQueueConsumer = {
           });
         }
 
-        // 3. Send template message via Meta WhatsApp Cloud API
+        // 4. Send template message via Meta WhatsApp Cloud API
         const response = await fetch(`https://graph.facebook.com/v19.0/${phoneId}/messages`, {
           method: "POST",
           headers: {

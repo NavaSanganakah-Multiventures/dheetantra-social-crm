@@ -2,7 +2,7 @@
  * Step 5: Post Publishing Workflow Worker
  * Using Cloudflare Workflows for scheduling Facebook & Instagram posts with fault-tolerance.
  */
-import type { CloudflareEnv } from "@/lib/cloudflare";
+import type { CloudflareEnv } from "../lib/cloudflare";
 
 export class PostPublisherWorkflow {
   env: CloudflareEnv;

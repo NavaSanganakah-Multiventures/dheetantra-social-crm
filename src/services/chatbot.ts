@@ -250,7 +250,9 @@ Respond naturally and helpfully in the same language as the user. Keep it concis
   }
 
   // Send the reply back to the user
-  await sendWhatsAppMessage(env, phoneNumberId, from, replyText, conversationId);
+  if (conversationId) {
+    await sendWhatsAppMessage(env, phoneNumberId, from, replyText, conversationId);
+  }
 }
 
 export async function sendWhatsAppMessage(

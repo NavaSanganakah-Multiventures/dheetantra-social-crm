@@ -19,10 +19,13 @@ const getUserTimezone = () => {
 
 const ensureUTC = (dateStr: string | Date | number) => {
   if (typeof dateStr === 'string') {
+    if (dateStr.endsWith('Z') || dateStr.match(/[+-]\d{2}:\d{2}$/)) {
+      return new Date(dateStr);
+    }
     if (dateStr.includes(' ') && !dateStr.includes('T')) {
       return new Date(dateStr.replace(' ', 'T') + 'Z');
     }
-    if (dateStr.includes('T') && !dateStr.endsWith('Z') && !dateStr.match(/[+-]\d{2}:\d{2}$/)) {
+    if (dateStr.includes('T')) {
       return new Date(dateStr + 'Z');
     }
   }
@@ -4661,10 +4664,11 @@ function CallsView({
 }
 
 function ActiveCallManager({ activeCall, setActiveCall, onHangup, remoteStream, localStream }: { activeCall: any, setActiveCall: any, onHangup?: () => void, remoteStream?: MediaStream | null, localStream?: MediaStream | null }) {
-  const [seconds, setSeconds] = useState(0);
+  const [callStartMs, setCallStartMs] = useState(0);
+  const [nowMs, setNowMs] = useState(0);
+  const seconds = callStartMs ? Math.floor((nowMs - callStartMs) / 1000) : 0;
   const [isMuted, setIsMuted] = useState(false);
   const [isSpeaker, setIsSpeaker] = useState(true);
-  
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
@@ -4681,19 +4685,16 @@ function ActiveCallManager({ activeCall, setActiveCall, onHangup, remoteStream, 
     }
   }, [isMuted, localStream]);
 
-  // Outgoing calls will be connected by WebRTC events, no fake simulation needed
-
-  // Reset timer on new call
-  useEffect(() => {
-    setSeconds(0);
-  }, [activeCall.id]);
-
-  // Live seconds timer
+  // Track call start and current time for elapsed display
+  // Synchronizes React state with an external clock — a legitimate use of setState in an effect
   useEffect(() => {
     if (activeCall.status === 'connected') {
-      const interval = setInterval(() => {
-        setSeconds(prev => prev + 1);
-      }, 1000);
+      const startMs = Date.now();
+      /* eslint-disable react-hooks/set-state-in-effect */
+      setCallStartMs(startMs);
+      setNowMs(startMs);
+      /* eslint-enable react-hooks/set-state-in-effect */
+      const interval = setInterval(() => setNowMs(Date.now()), 1000);
       return () => clearInterval(interval);
     }
   }, [activeCall.status]);

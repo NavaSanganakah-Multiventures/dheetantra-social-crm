@@ -88,9 +88,9 @@ export class ChatDurableObject extends DurableObject {
   async webSocketClose(ws: WebSocket, code: number, reason: string, wasClean: boolean) {
     try {
       const validCode = (code === 1005 || code === 1006) ? 1000 : code;
-      ws.close(validCode, reason);
+      console.log(`[DO] WebSocket closed: code=${validCode}, reason=${reason}`);
     } catch (e) {
-      console.error("Error closing websocket:", e);
+      console.error("Error in websocket close handler:", e);
     }
   }
 
@@ -148,6 +148,7 @@ app.use('/api/*', async (c, next) => {
             await c.env.DB.prepare("UPDATE api_domains SET status = 'blocked', blocked_reason = 'rate_limit_exceeded', updated_at = CURRENT_TIMESTAMP WHERE domain = ?").bind(originHost).run();
           }
           console.warn(`[Security] Auto-blocked domain ${originHost} due to rate limiting.`);
+          c.res && c.res.headers && c.res.headers.set('X-RateLimit-Warning', `Your domain ${originHost} has been auto-blocked due to exceeding rate limits`);
           return c.text('Too Many Requests. Domain automatically blocked due to spam activity.', 429);
         }
         
@@ -213,7 +214,11 @@ app.use('/api/media/upload', authMiddleware);
 app.use('/api/broadcast', authMiddleware);
 app.use('/api/broadcast/*', authMiddleware);
 app.use('/api/workspace', authMiddleware);
-app.use('/api/crm/contacts', authMiddleware);
+app.use('/api/domains', authMiddleware);
+app.use('/api/domains/*', authMiddleware);
+app.use('/api/email-templates', authMiddleware);
+app.use('/api/email-templates/*', authMiddleware);
+app.use('/api/domain-emails/*', authMiddleware);
 
 app.route('/api/meta', metaOauth);
 app.route('/api/admin', adminRouter);
@@ -741,7 +746,7 @@ app.post('/api/whatsapp/webhook', async (c) => {
               messageText = `[Reply] ` + messageText;
             }
 
-            console.log(`New ${messageType} message from ${contact.profile.name} (${message.from}):`, messageText);
+            console.log(`New ${messageType} message from ${contact?.profile?.name ?? 'Unknown'} (${message.from}):`, messageText);
 
             // Download media to R2 if needed
             let finalMediaUrl = mediaUrl;
@@ -795,7 +800,7 @@ app.post('/api/whatsapp/webhook', async (c) => {
 
                         if (tokens.results) {
                           for (const row of tokens.results) {
-                            await sendPushNotification(c.env, row.token, title, bodyPreview, { workspaceId: config.workspace_id, contactName: contact.profile.name });
+                            await sendPushNotification(c.env, row.token, title, bodyPreview, { workspaceId: config.workspace_id, contactName: contact?.profile?.name ?? 'Unknown' });
                           }
                         }
 
@@ -803,8 +808,9 @@ app.post('/api/whatsapp/webhook', async (c) => {
                         if (emails.results && c.env.EMAIL_SENDER && typeof c.env.EMAIL_SENDER.send === 'function') {
                           const { EmailMessage } = await import('cloudflare:email');
                           for (const row of emails.results) {
-                            const rawEmail = `From: Notifications <notifications@dhitantra.com>\r\nTo: ${row.email}\r\nSubject: [Dhitantra] ${title}\r\n\r\nYou have a new message:\n\n${bodyPreview}\n\nReply in the CRM dashboard.`;
-                            await c.env.EMAIL_SENDER.send(new EmailMessage("notifications@dhitantra.com", row.email, rawEmail));
+                            const senderEmail = c.env.EMAIL_SENDER_ADDRESS || 'dheetantra@navasanganakah.com';
+                            const rawEmail = `From: DheeTantra <${senderEmail}>\r\nTo: ${row.email}\r\nSubject: [DheeTantra] ${title}\r\n\r\nYou have a new message:\n\n${bodyPreview}\n\nReply in the CRM dashboard.`;
+                            await c.env.EMAIL_SENDER.send(new EmailMessage(senderEmail, row.email, rawEmail));
                           }
                         }
                       }
@@ -1018,7 +1024,7 @@ app.post('/api/crm/contacts', async (c) => {
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
   const body = await c.req.json();
-  console.log('INCOMING WEBHOOK:', JSON.stringify(body, null, 2));
+  console.log('Creating contact:', JSON.stringify(body, null, 2));
   const {
     name,
     phone,
@@ -1086,7 +1092,7 @@ app.put('/api/crm/contacts/:contactId', async (c) => {
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
   const body = await c.req.json();
-  console.log('INCOMING WEBHOOK:', JSON.stringify(body, null, 2));
+  console.log('Updating contact:', JSON.stringify(body, null, 2));
   const {
     name,
     phone,
@@ -1280,7 +1286,7 @@ app.post('/api/domains', async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
-  const { domainName, defaultEmailPrefix = 'info' } = await c.req.json();
+  const { domainName, defaultEmailPrefix = 'info', forwardTo } = await c.req.json();
   const domainId = crypto.randomUUID();
   const emailId = crypto.randomUUID();
   const emailAddress = `${defaultEmailPrefix}@${domainName}`;
@@ -1292,7 +1298,7 @@ app.post('/api/domains', async (c) => {
     ).bind(domainId, workspaceId, domainName),
     c.env.DB.prepare(
       'INSERT INTO domain_emails (id, domain_id, email_address, forward_to) VALUES (?, ?, ?, ?)'
-    ).bind(emailId, domainId, emailAddress, 'admin@dhitantra.com') // forward_to should be configured by user
+    ).bind(emailId, domainId, emailAddress, forwardTo || null)
   ]);
 
   return c.json({
@@ -2954,6 +2960,40 @@ app.get('/api/public/media/:key', async (c) => {
   } catch (e) {
     console.error("R2 get error", e);
     return c.text('Internal Server Error', 500);
+  }
+});
+
+// Contact form submission
+app.post('/api/contact', async (c) => {
+  try {
+    const { name, email: contactEmail, message } = await c.req.json();
+
+    if (!name || !contactEmail || !message) {
+      return c.json({ error: 'All fields are required.' }, 400);
+    }
+    if (typeof name !== 'string' || name.trim().length < 1) {
+      return c.json({ error: 'Name is required.' }, 400);
+    }
+    if (typeof contactEmail !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) {
+      return c.json({ error: 'Invalid email address.' }, 400);
+    }
+    if (typeof message !== 'string' || message.trim().length < 10) {
+      return c.json({ error: 'Message must be at least 10 characters.' }, 400);
+    }
+
+    // Store contact submission in D1 for admin review
+    try {
+      await c.env.DB.prepare(
+        'INSERT INTO contact_submissions (name, email, message, created_at) VALUES (?, ?, ?, datetime(\'now\'))'
+      ).bind(name.trim(), contactEmail.trim(), message.trim()).run();
+    } catch (dbErr) {
+      console.error('Failed to store contact submission:', dbErr);
+    }
+
+    return c.json({ success: true, message: 'Message sent successfully!' });
+  } catch (e) {
+    console.error('Contact form error:', e);
+    return c.json({ error: 'Internal Server Error' }, 500);
   }
 });
 

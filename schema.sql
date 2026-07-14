@@ -59,6 +59,9 @@ CREATE TABLE IF NOT EXISTS otps (
 -- Index for faster OTP lookup by email during verification
 CREATE INDEX IF NOT EXISTS idx_otps_email ON otps(email);
 
+-- Index for faster conversations lookup
+CREATE INDEX IF NOT EXISTS idx_conversations_contact ON conversations(contact_id);
+
 -- ==========================================
 -- STEP 2 SCHEMA: OMNICHANNEL INBOX
 -- ==========================================
