@@ -13,7 +13,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="hi" suppressHydrationWarning className="antialiased">
 
-      <body className="min-h-screen bg-surface-50 dark:bg-surface-950 text-surface-900 dark:text-surface-50 flex flex-col font-sans selection:bg-primary-500/20">
+      <body className="min-h-screen bg-surface-50 dark:bg-surface-950 text-surface-900 dark:text-surface-50 flex flex-col font-sans selection:bg-primary-500/30">
         <FcmRegistration />
         <ToastProvider>{children}</ToastProvider>
       </body>

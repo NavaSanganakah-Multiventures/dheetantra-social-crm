@@ -78,8 +78,8 @@ export default function DashboardWrapper() {
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-zinc-50 dark:bg-zinc-950">
-        <div className="w-8 h-8 border-2 border-indigo-600 dark:border-indigo-400 border-t-transparent rounded-full animate-spin"></div>
+      <div className="flex h-screen items-center justify-center bg-surface-50 dark:bg-surface-950">
+        <div className="w-8 h-8 border-2 border-primary-600 dark:border-primary-400 border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
   }
@@ -381,7 +381,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
   }, []);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-zinc-100 dark:bg-zinc-950">
+    <div className="flex h-screen overflow-hidden bg-surface-100 dark:bg-surface-950">
       {/* Sidebar Overlay for Mobile */}
       <AnimatePresence>
         {isSidebarOpen && (
@@ -403,48 +403,48 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
             animate={{ x: 0, width: 280, opacity: 1 }}
             exit={{ x: -280, width: 0, opacity: 0 }}
             transition={{ type: 'spring', bounce: 0, duration: 0.3 }}
-            className="fixed md:static inset-y-0 left-0 flex-shrink-0 bg-zinc-950 dark:bg-zinc-900 border-r border-zinc-800 flex flex-col text-zinc-300 z-30 shadow-2xl md:shadow-none"
+            className="fixed md:static inset-y-0 left-0 flex-shrink-0 bg-surface-950 dark:bg-surface-900 border-r border-surface-800 flex flex-col text-surface-300 z-30 shadow-2xl md:shadow-none"
           >
             <div className="p-6 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-xl bg-indigo-500 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                <div className="w-8 h-8 rounded-xl bg-primary-500 flex items-center justify-center shadow-lg shadow-primary-500/30">
                   <MessageSquare className="w-4 h-4 text-white" />
                 </div>
                 <span className="font-bold text-lg tracking-tight font-display text-white">DheeTantra</span>
               </div>
-              <button onClick={() => setSidebarOpen(false)} className="md:hidden p-2 -mr-2 text-zinc-400 hover:text-white">
+              <button onClick={() => setSidebarOpen(false)} className="md:hidden p-2 -mr-2 text-surface-400 hover:text-white">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
-              <div className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-4 px-3">ओवरव्यू</div>
+              <div className="text-xs font-semibold text-surface-500 uppercase tracking-wider mb-4 px-3">ओवरव्यू</div>
               <NavItem icon={<LayoutDashboard />} label="डैशबोर्ड" isActive={activeTab === 'dashboard'} onClick={() => { setActiveTab('dashboard'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
               <NavItem icon={<MessageSquare />} label="इनबॉक्स" isActive={activeTab === 'inbox'} onClick={() => { setActiveTab('inbox'); if (window.innerWidth < 768) setSidebarOpen(false); }} badge={openConversationsCount > 0 ? openConversationsCount.toString() : undefined} />
               <NavItem icon={<Users />} label="संपर्क और लीड्स" isActive={activeTab === 'contacts'} onClick={() => { setActiveTab('contacts'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
               <NavItem icon={<Phone />} label="कॉल लॉग्स" isActive={activeTab === 'calls'} onClick={() => { setActiveTab('calls'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
               
-              <div className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-4 mt-8 px-3">अकाउंट्स (Accounts)</div>
+              <div className="text-xs font-semibold text-surface-500 uppercase tracking-wider mb-4 mt-8 px-3">अकाउंट्स (Accounts)</div>
               <NavItem icon={<Phone />} label="WhatsApp" isActive={activeTab === 'accounts-whatsapp'} onClick={() => { setActiveTab('accounts-whatsapp'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
 
-              <div className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-4 mt-8 px-3">मार्केटिंग</div>
+              <div className="text-xs font-semibold text-surface-500 uppercase tracking-wider mb-4 mt-8 px-3">मार्केटिंग</div>
               <NavItem icon={<Megaphone />} label="ब्रॉडकास्ट" isActive={activeTab === 'broadcast'} onClick={() => { setActiveTab('broadcast'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
               <NavItem icon={<CalendarClock />} label="शेड्यूल्ड पोस्ट्स" isActive={activeTab === 'schedule'} onClick={() => { setActiveTab('schedule'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
             </nav>
 
-            <div className="p-4 bg-zinc-900/50 dark:bg-zinc-950/50 mt-auto border-t border-zinc-800">
+            <div className="p-4 bg-surface-900/50 dark:bg-surface-950/50 mt-auto border-t border-surface-800">
               <NavItem icon={<Blocks />} label="इंटीग्रेशन्स (Integrations)" isActive={activeTab === 'integrations'} onClick={() => { setActiveTab('integrations'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
               <NavItem icon={<Settings />} label="सेटिंग्स" isActive={activeTab === 'settings'} onClick={() => { setActiveTab('settings'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
               
-              <div className="mt-4 pt-4 border-t border-zinc-800 flex items-center gap-3 px-3">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-white font-bold shadow-lg shrink-0">
+              <div className="mt-4 pt-4 border-t border-surface-800 flex items-center gap-3 px-3">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-primary-500 to-emerald-600 flex items-center justify-center text-white font-bold shadow-lg shrink-0">
                   {user?.name?.[0] || user?.email?.[0]?.toUpperCase() || 'U'}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-white truncate">{user?.name || "उपयोगकर्ता"}</p>
-                  <p className="text-xs text-zinc-500 truncate">{user?.email}</p>
+                  <p className="text-xs text-surface-500 truncate">{user?.email}</p>
                 </div>
-                <button onClick={onLogout} className="p-2 hover:bg-zinc-800 rounded-xl transition-colors text-zinc-400 hover:text-white shrink-0" title="लॉगआउट">
+                <button onClick={onLogout} className="p-2 hover:bg-surface-800 rounded-xl transition-colors text-surface-400 hover:text-white shrink-0" title="लॉगआउट">
                   <LogOut className="w-4 h-4" />
                 </button>
               </div>
@@ -456,41 +456,41 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
         {/* Top Header */}
-        <header className="h-16 flex-shrink-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between px-6 z-10 sticky top-0">
+        <header className="h-16 flex-shrink-0 bg-white/80 dark:bg-surface-950/80 backdrop-blur-md border-b border-surface-200 dark:border-surface-800 flex items-center justify-between px-6 z-10 sticky top-0">
           <div className="flex items-center gap-4">
-            <button onClick={() => setSidebarOpen(!isSidebarOpen)} className="p-2 -ml-2 rounded-xl text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+            <button onClick={() => setSidebarOpen(!isSidebarOpen)} className="p-2 -ml-2 rounded-xl text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors">
               <Menu className="w-5 h-5" />
             </button>
-            <h1 className="text-lg font-bold capitalize text-zinc-900 dark:text-white font-display">
+            <h1 className="text-lg font-bold capitalize text-surface-900 dark:text-white font-display">
               {activeTab === 'dashboard' ? 'डैशबोर्ड' : activeTab === 'inbox' ? 'इनबॉक्स' : activeTab === 'broadcast' ? 'ब्रॉडकास्ट' : activeTab === 'schedule' ? 'शेड्यूलर' : activeTab === 'contacts' ? 'संपर्क और लीड्स' : activeTab === 'accounts-whatsapp' ? 'WhatsApp अकाउंट्स' : activeTab === 'calls' ? 'कॉल लॉग्स' : 'सेटिंग्स'}
             </h1>
           </div>
           
           <div className="flex items-center gap-4">
             <div className="relative hidden md:block">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-surface-400" />
               <input 
                 type="text" 
                 placeholder="खोजें..." 
-                className="pl-9 pr-4 py-2 w-64 text-sm bg-zinc-100 dark:bg-zinc-900 border border-transparent focus:bg-white dark:focus:bg-zinc-950 focus:border-indigo-500 rounded-full outline-none transition-all shadow-sm"
+                className="pl-9 pr-4 py-2 w-64 text-sm bg-surface-100 dark:bg-surface-900 border border-transparent focus:bg-white dark:focus:bg-surface-950 focus:border-primary-500 rounded-full outline-none transition-all shadow-sm"
               />
             </div>
             {/* WebSocket Connection Status */}
             <div className="flex items-center gap-1.5 text-[10px] font-medium" title={wsStatus === 'connecting' ? 'WebSocket कनेक्ट हो रहा है...' : wsStatus === 'connected' ? 'WebSocket कनेक्टेड' : 'WebSocket डिस्कनेक्टेड - कॉल नहीं आएंगी'}>
               <span className={`w-2 h-2 rounded-full ${wsStatus === 'connected' ? 'bg-emerald-400' : wsStatus === 'connecting' ? 'bg-amber-400 animate-pulse' : 'bg-rose-400'}`}></span>
-              <span className="text-zinc-400 hidden sm:inline">
+              <span className="text-surface-400 hidden sm:inline">
                 {wsStatus === 'connecting' ? 'Connecting...' : wsStatus === 'connected' ? 'Live' : 'Offline'}
               </span>
             </div>
-            <button className="p-2 relative rounded-full text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+            <button className="p-2 relative rounded-full text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors">
               <Bell className="w-5 h-5" />
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-500 rounded-full border-2 border-white dark:border-zinc-950"></span>
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-500 rounded-full border-2 border-white dark:border-surface-950"></span>
             </button>
           </div>
         </header>
 
         {/* Dynamic View Area */}
-        <main className={`flex-1 relative bg-zinc-50 dark:bg-zinc-950/50 ${activeTab === 'inbox' ? 'h-[calc(100vh-4rem)] overflow-hidden flex flex-col' : 'overflow-y-auto'}`}>
+        <main className={`flex-1 relative bg-surface-50 dark:bg-surface-950/50 ${activeTab === 'inbox' ? 'h-[calc(100vh-4rem)] overflow-hidden flex flex-col' : 'overflow-y-auto'}`}>
           <AnimatePresence mode="wait">
             <motion.div
               key={activeTab}
@@ -537,14 +537,14 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-zinc-900 border border-zinc-800 rounded-3xl max-w-sm w-full p-8 text-center text-white shadow-2xl relative overflow-hidden"
+              className="bg-surface-900 border border-surface-800 rounded-3xl max-w-sm w-full p-8 text-center text-white shadow-2xl relative overflow-hidden"
             >
-              <div className="absolute inset-0 bg-gradient-to-b from-indigo-500/10 to-transparent pointer-events-none"></div>
+              <div className="absolute inset-0 bg-gradient-to-b from-primary-500/10 to-transparent pointer-events-none"></div>
 
               <div className="relative w-24 h-24 mx-auto mb-6 flex items-center justify-center">
                 <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-20 animate-ping"></span>
-                <span className="absolute inline-flex h-20 w-20 rounded-full bg-indigo-500 opacity-15 animate-pulse"></span>
-                <div className="w-16 h-16 rounded-full bg-indigo-600 flex items-center justify-center text-2xl font-bold shadow-lg shadow-indigo-500/30">
+                <span className="absolute inline-flex h-20 w-20 rounded-full bg-primary-500 opacity-15 animate-pulse"></span>
+                <div className="w-16 h-16 rounded-full bg-primary-600 flex items-center justify-center text-2xl font-bold shadow-lg shadow-primary-500/30">
                   {incomingCall.contact_name?.[0] || '?'}
                 </div>
               </div>
@@ -559,7 +559,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
               </div>
 
               <h3 className="text-xl font-bold font-display tracking-tight text-white truncate">{incomingCall.contact_name || 'अज्ञात'}</h3>
-              <p className="text-xs text-zinc-400 font-mono mt-1">+{incomingCall.phone}</p>
+              <p className="text-xs text-surface-400 font-mono mt-1">+{incomingCall.phone}</p>
 
               <div className="flex gap-4 mt-8">
                 <button
@@ -648,7 +648,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
               initial={{ y: 50, scale: 0.95, opacity: 0 }}
               animate={{ y: 0, scale: 1, opacity: 1 }}
               exit={{ y: 50, scale: 0.95, opacity: 0 }}
-              className="bg-zinc-950 border border-zinc-800/80 rounded-2xl p-5 shadow-2xl w-full text-white flex flex-col relative overflow-hidden backdrop-blur-xl animate-slide-up"
+              className="bg-surface-950 border border-surface-800/80 rounded-2xl p-5 shadow-2xl w-full text-white flex flex-col relative overflow-hidden backdrop-blur-xl animate-slide-up"
             >
               <ActiveCallManager 
                 activeCall={activeCall} 
@@ -677,14 +677,14 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
               initial={{ x: 100, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: 100, opacity: 0 }}
-              className="bg-zinc-950 border border-zinc-800/80 rounded-2xl p-4 shadow-2xl text-white flex items-start gap-3"
+              className="bg-surface-950 border border-surface-800/80 rounded-2xl p-4 shadow-2xl text-white flex items-start gap-3"
             >
               <div className="w-10 h-10 rounded-full bg-rose-500/20 flex items-center justify-center flex-shrink-0">
                 <Phone className="w-5 h-5 text-rose-400" />
               </div>
               <div className="flex-1 min-w-0">
                 <h4 className="text-sm font-bold text-white">मिस्ड कॉल (Missed Call)</h4>
-                <p className="text-xs text-zinc-400 mt-0.5 truncate">
+                <p className="text-xs text-surface-400 mt-0.5 truncate">
                   {incomingCallNoSdp.contact_name || 'अज्ञात'} ({incomingCallNoSdp.phone || 'unknown'})
                 </p>
                 <div className="flex gap-2 mt-2">
@@ -695,7 +695,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                   </span>
                 </div>
               </div>
-              <button onClick={() => setIncomingCallNoSdp(null)} className="text-zinc-500 hover:text-white flex-shrink-0">
+              <button onClick={() => setIncomingCallNoSdp(null)} className="text-surface-500 hover:text-white flex-shrink-0">
                 <X className="w-4 h-4" />
               </button>
             </motion.div>
@@ -712,18 +712,18 @@ function NavItem({ icon, label, isActive, onClick, badge }: { icon: React.ReactN
       onClick={onClick}
       className={`w-full flex items-center justify-between px-3 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
         isActive 
-          ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20' 
-          : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-white'
+          ? 'bg-primary-600 text-white shadow-md shadow-primary-600/20' 
+          : 'text-surface-400 hover:bg-surface-800/50 hover:text-white'
       }`}
     >
       <div className="flex items-center gap-3">
-        <span className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-white' : 'text-zinc-400'}`}>
+        <span className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-white' : 'text-surface-400'}`}>
           {icon}
         </span>
         {label}
       </div>
       {badge && (
-        <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${isActive ? 'bg-white text-indigo-600' : 'bg-zinc-800 text-zinc-300'}`}>
+        <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${isActive ? 'bg-white text-primary-600' : 'bg-surface-800 text-surface-300'}`}>
           {badge}
         </span>
       )}
@@ -746,14 +746,14 @@ function DashboardOverview() {
   }, []);
 
   if (loading) {
-    return <div className="p-8 text-sm text-zinc-500">डैशबोर्ड लोड हो रहा है...</div>;
+    return <div className="p-8 text-sm text-surface-500">डैशबोर्ड लोड हो रहा है...</div>;
   }
 
   return (
     <div className="p-6 md:p-10 w-full max-w-7xl mx-auto space-y-8">
       <div className="mb-8">
-        <h2 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white font-display">आपका स्वागत है!</h2>
-        <p className="text-zinc-500 dark:text-zinc-400">यहाँ आपके वर्कस्पेस का अवलोकन है।</p>
+        <h2 className="text-2xl font-bold tracking-tight text-surface-900 dark:text-white font-display">आपका स्वागत है!</h2>
+        <p className="text-surface-500 dark:text-surface-400">यहाँ आपके वर्कस्पेस का अवलोकन है।</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -763,30 +763,30 @@ function DashboardOverview() {
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-8 shadow-sm">
+        <div className="bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 rounded-3xl p-8 shadow-sm">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="font-bold text-lg text-zinc-900 dark:text-white font-display">हाल की बातचीत</h3>
-            <button className="text-sm text-indigo-600 dark:text-indigo-400 font-medium hover:underline">सभी देखें</button>
+            <h3 className="font-bold text-lg text-surface-900 dark:text-white font-display">हाल की बातचीत</h3>
+            <button className="text-sm text-primary-600 dark:text-primary-400 font-medium hover:underline">सभी देखें</button>
           </div>
           <div className="space-y-4">
-            <div className="flex flex-col items-center justify-center py-10 text-center border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-2xl bg-zinc-50 dark:bg-zinc-950/50">
-              <MessageSquare className="w-10 h-10 text-zinc-300 dark:text-zinc-700 mb-3" />
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">कोई सक्रिय बातचीत नहीं मिली।</p>
-              <p className="text-xs text-zinc-500 mt-1">अपना API सिंक करें या संदेश प्राप्त करें।</p>
+            <div className="flex flex-col items-center justify-center py-10 text-center border-2 border-dashed border-surface-200 dark:border-surface-800 rounded-2xl bg-surface-50 dark:bg-surface-950/50">
+              <MessageSquare className="w-10 h-10 text-surface-300 dark:text-surface-700 mb-3" />
+              <p className="text-sm text-surface-600 dark:text-surface-400">कोई सक्रिय बातचीत नहीं मिली।</p>
+              <p className="text-xs text-surface-500 mt-1">अपना API सिंक करें या संदेश प्राप्त करें।</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-8 shadow-sm">
+        <div className="bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 rounded-3xl p-8 shadow-sm">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="font-bold text-lg text-zinc-900 dark:text-white font-display">आगामी पोस्ट्स</h3>
-            <button className="text-sm text-indigo-600 dark:text-indigo-400 font-medium hover:underline">शेड्यूल करें</button>
+            <h3 className="font-bold text-lg text-surface-900 dark:text-white font-display">आगामी पोस्ट्स</h3>
+            <button className="text-sm text-primary-600 dark:text-primary-400 font-medium hover:underline">शेड्यूल करें</button>
           </div>
           <div className="space-y-4">
-            <div className="flex flex-col items-center justify-center py-10 text-center border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-2xl bg-zinc-50 dark:bg-zinc-950/50">
-              <CalendarClock className="w-10 h-10 text-zinc-300 dark:text-zinc-700 mb-3" />
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">कोई पोस्ट शेड्यूल नहीं है।</p>
-              <p className="text-xs text-zinc-500 mt-1">शेड्यूलिंग टैब पर जाकर नई पोस्ट बनाएँ।</p>
+            <div className="flex flex-col items-center justify-center py-10 text-center border-2 border-dashed border-surface-200 dark:border-surface-800 rounded-2xl bg-surface-50 dark:bg-surface-950/50">
+              <CalendarClock className="w-10 h-10 text-surface-300 dark:text-surface-700 mb-3" />
+              <p className="text-sm text-surface-600 dark:text-surface-400">कोई पोस्ट शेड्यूल नहीं है।</p>
+              <p className="text-xs text-surface-500 mt-1">शेड्यूलिंग टैब पर जाकर नई पोस्ट बनाएँ।</p>
             </div>
           </div>
         </div>
@@ -797,13 +797,13 @@ function DashboardOverview() {
 
 function StatCard({ title, value, trend, icon }: { title: string, value: string, trend: string, icon?: React.ReactNode }) {
   return (
-    <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm hover:shadow-lg hover:border-indigo-500/30 transition-all group">
+    <div className="bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 rounded-3xl p-6 shadow-sm hover:shadow-lg hover:border-primary-500/30 transition-all group">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-zinc-500 dark:text-zinc-400 text-sm font-medium">{title}</h3>
-        {icon && <div className="w-10 h-10 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 flex items-center justify-center group-hover:bg-indigo-500 group-hover:text-white transition-colors">{icon}</div>}
+        <h3 className="text-surface-500 dark:text-surface-400 text-sm font-medium">{title}</h3>
+        {icon && <div className="w-10 h-10 rounded-xl bg-surface-100 dark:bg-surface-800 text-surface-500 dark:text-surface-400 flex items-center justify-center group-hover:bg-primary-500 group-hover:text-white transition-colors">{icon}</div>}
       </div>
       <div className="flex items-baseline gap-2">
-        <span className="text-4xl font-bold tracking-tight text-zinc-900 dark:text-white font-display">{value}</span>
+        <span className="text-4xl font-bold tracking-tight text-surface-900 dark:text-white font-display">{value}</span>
       </div>
       <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-3 font-medium bg-emerald-50 dark:bg-emerald-500/10 inline-block px-2 py-1 rounded-md">{trend}</p>
     </div>
@@ -1348,21 +1348,21 @@ function InboxView({
   };
 
   return (
-    <div className="flex h-full bg-white dark:bg-zinc-900 overflow-hidden relative">
+    <div className="flex h-full bg-white dark:bg-surface-900 overflow-hidden relative">
       {/* Contact List */}
-      <div className={`w-full md:w-80 border-r border-zinc-200 dark:border-zinc-800 flex flex-col bg-zinc-50/50 dark:bg-zinc-900 z-10 ${activeChat ? 'hidden md:flex' : 'flex'}`}>
-        <div className="p-4 border-b border-zinc-200 dark:border-zinc-800 flex-shrink-0 bg-zinc-50 dark:bg-zinc-900">
+      <div className={`w-full md:w-80 border-r border-surface-200 dark:border-surface-800 flex flex-col bg-surface-50/50 dark:bg-surface-900 z-10 ${activeChat ? 'hidden md:flex' : 'flex'}`}>
+        <div className="p-4 border-b border-surface-200 dark:border-surface-800 flex-shrink-0 bg-surface-50 dark:bg-surface-900">
             <div className="flex items-center justify-between mb-3">
               <h2 className="font-medium">सक्रिय बातचीत</h2>
               {configs.length > 0 && (
-                <span className="text-[10px] bg-indigo-50 text-indigo-700 dark:bg-indigo-950/30 dark:text-indigo-400 font-bold px-1.5 py-0.5 rounded">
+                <span className="text-[10px] bg-primary-50 text-primary-700 dark:bg-primary-950/30 dark:text-primary-400 font-bold px-1.5 py-0.5 rounded">
                   {configs.length} WABAs
                 </span>
               )}
             </div>
 
             <div className="mb-3">
-              <label className="block text-[9px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-1">WhatsApp Line</label>
+              <label className="block text-[9px] font-bold text-surface-400 dark:text-surface-500 uppercase tracking-wider mb-1">WhatsApp Line</label>
               <div className="relative">
                 <select 
                   value={selectedWaba ? selectedWaba.id : ''} 
@@ -1378,7 +1378,7 @@ function InboxView({
                       }
                     }
                   }}
-                  className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 appearance-none cursor-pointer"
+                  className="w-full bg-white dark:bg-surface-950 border border-surface-200 dark:border-surface-800 rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 appearance-none cursor-pointer"
                 >
                   <option value="all">🌐 सभी (All Lines)</option>
                   {configs.map((cfg) => (
@@ -1387,12 +1387,12 @@ function InboxView({
                     </option>
                   ))}
                 </select>
-                <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-zinc-400">
+                <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-surface-400">
                   <ChevronDown className="w-3.5 h-3.5" />
                 </div>
               </div>
             </div>
-            <div className="flex gap-2 text-xs items-center justify-between mt-3 pt-2 border-t border-zinc-100 dark:border-zinc-800">
+            <div className="flex gap-2 text-xs items-center justify-between mt-3 pt-2 border-t border-surface-100 dark:border-surface-800">
                 <button 
                   onClick={() => {
                     setSelectedWaba({ id: 'all', phone_number_id: 'all' });
@@ -1400,20 +1400,20 @@ function InboxView({
                   }}
                   className={`px-3 py-1 rounded-full font-medium transition-all ${
                     selectedWaba && selectedWaba.id === 'all'
-                      ? 'bg-indigo-600 text-white border-transparent'
-                      : 'bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300'
+                      ? 'bg-primary-600 text-white border-transparent'
+                      : 'bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 hover:bg-surface-50 dark:hover:bg-surface-700 text-surface-700 dark:text-surface-300'
                   }`}
                 >
                   सभी (Show All)
                 </button>
 
-                <div className="flex bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-lg border border-zinc-200/50 dark:border-zinc-700/50">
+                <div className="flex bg-surface-100 dark:bg-surface-800 p-0.5 rounded-lg border border-surface-200/50 dark:border-surface-700/50">
                   <button
                     onClick={() => { setFilterStatus('open'); setActiveChat(null); }}
                     className={`px-2.5 py-1 text-[11px] rounded-md font-semibold transition-all ${
                       filterStatus === 'open'
-                        ? 'bg-white dark:bg-zinc-700 text-indigo-600 dark:text-indigo-400 shadow-xs'
-                        : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'
+                        ? 'bg-white dark:bg-surface-700 text-primary-600 dark:text-primary-400 shadow-xs'
+                        : 'text-surface-500 hover:text-surface-800 dark:hover:text-surface-300'
                     }`}
                   >
                     सक्रिय (Open)
@@ -1422,8 +1422,8 @@ function InboxView({
                     onClick={() => { setFilterStatus('closed'); setActiveChat(null); }}
                     className={`px-2.5 py-1 text-[11px] rounded-md font-semibold transition-all ${
                       filterStatus === 'closed'
-                        ? 'bg-white dark:bg-zinc-700 text-indigo-600 dark:text-indigo-400 shadow-xs'
-                        : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'
+                        ? 'bg-white dark:bg-surface-700 text-primary-600 dark:text-primary-400 shadow-xs'
+                        : 'text-surface-500 hover:text-surface-800 dark:hover:text-surface-300'
                     }`}
                   >
                     बंद (Closed)
@@ -1433,11 +1433,11 @@ function InboxView({
         </div>
         <div className="flex-1 overflow-y-auto">
             {loading ? (
-                <div className="p-4 text-sm text-zinc-500">इनबॉक्स लोड हो रहा है...</div>
+                <div className="p-4 text-sm text-surface-500">इनबॉक्स लोड हो रहा है...</div>
             ) : conversations.length === 0 ? (
-                 <div className="p-4 text-sm text-zinc-500 border-b border-zinc-100 dark:border-zinc-800/50">कोई बातचीत नहीं है। WhatsApp API से कनेक्ट करें।</div>
+                 <div className="p-4 text-sm text-surface-500 border-b border-surface-100 dark:border-surface-800/50">कोई बातचीत नहीं है। WhatsApp API से कनेक्ट करें।</div>
             ) : conversations.filter(chat => (chat.status || 'open') === filterStatus).length === 0 ? (
-                 <div className="p-4 text-xs text-zinc-400 text-center mt-6">इस श्रेणी में कोई बातचीत नहीं है।</div>
+                 <div className="p-4 text-xs text-surface-400 text-center mt-6">इस श्रेणी में कोई बातचीत नहीं है।</div>
             ) : (
                 conversations
                   .filter(chat => (chat.status || 'open') === filterStatus)
@@ -1445,15 +1445,15 @@ function InboxView({
                     <button 
                       key={chat.id} 
                       onClick={() => { setActiveChat(chat); setIsContactPanelOpen(false); }}
-                      className={`w-full text-left p-4 border-b border-zinc-100 dark:border-zinc-800/50 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors ${activeChat?.id === chat.id ? 'bg-zinc-100 dark:bg-zinc-800' : ''}`}
+                      className={`w-full text-left p-4 border-b border-surface-100 dark:border-surface-800/50 hover:bg-surface-100 dark:hover:bg-surface-800/50 transition-colors ${activeChat?.id === chat.id ? 'bg-surface-100 dark:bg-surface-800' : ''}`}
                     >
                         <div className="flex justify-between items-start mb-1">
-                          <span className="font-medium text-sm text-zinc-900 dark:text-zinc-100">{chat.contact_name || chat.phone || "अमार्ग निर्देशित"}</span>
-                          <span className="text-[10px] text-zinc-500">{formatUserTimeOnly(chat.updated_at, { hour: '2-digit', minute: '2-digit' })}</span>
+                          <span className="font-medium text-sm text-surface-900 dark:text-surface-100">{chat.contact_name || chat.phone || "अमार्ग निर्देशित"}</span>
+                          <span className="text-[10px] text-surface-500">{formatUserTimeOnly(chat.updated_at, { hour: '2-digit', minute: '2-digit' })}</span>
                         </div>
                         <div className="flex justify-between items-center">
-                          <span className="text-xs text-zinc-500 truncate pr-4">{chat.phone}</span>
-                          <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase ${chat.status === 'closed' ? 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400' : 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400'}`}>
+                          <span className="text-xs text-surface-500 truncate pr-4">{chat.phone}</span>
+                          <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase ${chat.status === 'closed' ? 'bg-surface-100 text-surface-500 dark:bg-surface-800 dark:text-surface-400' : 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400'}`}>
                             {chat.status === 'closed' ? 'Closed' : 'Open'}
                           </span>
                         </div>
@@ -1464,30 +1464,30 @@ function InboxView({
       </div>
 
       {/* Chat Area */}
-      <div className={`flex-1 flex flex-col bg-zinc-50 dark:bg-zinc-950/50 relative z-0 ${!activeChat ? 'hidden md:flex' : 'flex'}`}>
+      <div className={`flex-1 flex flex-col bg-surface-50 dark:bg-surface-950/50 relative z-0 ${!activeChat ? 'hidden md:flex' : 'flex'}`}>
           {!activeChat ? (
-            <div className="flex-1 flex items-center justify-center text-zinc-500 flex-col">
-              <MessageSquare className="w-12 h-12 mb-4 text-zinc-300 dark:text-zinc-700" />
+            <div className="flex-1 flex items-center justify-center text-surface-500 flex-col">
+              <MessageSquare className="w-12 h-12 mb-4 text-surface-300 dark:text-surface-700" />
               <p>आपका इनबॉक्स खाली है</p>
-              <p className="text-xs mt-2 text-zinc-400">संदेश भेजने के लिए बाईं ओर से एक बातचीत चुनें</p>
+              <p className="text-xs mt-2 text-surface-400">संदेश भेजने के लिए बाईं ओर से एक बातचीत चुनें</p>
             </div>
           ) : (
             <>
               {/* Chat Header */}
-              <div className="h-16 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex items-center justify-between px-4 md:px-6 flex-shrink-0">
+              <div className="h-16 border-b border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 flex items-center justify-between px-4 md:px-6 flex-shrink-0">
                 <div className="flex items-center gap-2 md:gap-3">
                   <button 
                     onClick={() => setActiveChat(null)}
-                    className="md:hidden p-2 -ml-2 rounded-xl text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                    className="md:hidden p-2 -ml-2 rounded-xl text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800"
                   >
                     <ChevronRight className="w-5 h-5 rotate-180" />
                   </button>
-                  <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-medium text-sm">
+                  <div className="w-8 h-8 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center font-medium text-sm">
                     {activeChat.contact_name ? activeChat.contact_name[0] : <User className="w-4 h-4" />}
                   </div>
                   <div>
                     <h3 className="font-medium text-sm">{activeChat.contact_name || "अज्ञात"}</h3>
-                    <p className="text-xs text-zinc-500">{activeChat.phone}</p>
+                    <p className="text-xs text-surface-500">{activeChat.phone}</p>
                   </div>
                 </div>
 
@@ -1509,7 +1509,7 @@ function InboxView({
                         });
                       }
                     }}
-                    className="p-2 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400 dark:hover:bg-indigo-500/20 transition-colors flex items-center gap-1.5"
+                    className="p-2 rounded-lg bg-primary-50 hover:bg-primary-100 text-primary-600 dark:bg-primary-500/10 dark:text-primary-400 dark:hover:bg-primary-500/20 transition-colors flex items-center gap-1.5"
                     title="कॉल करें (Voice Call)"
                   >
                     <Phone className="w-4 h-4" />
@@ -1518,7 +1518,7 @@ function InboxView({
 
                   <button 
                     onClick={toggleAI}
-                    className={`p-2 rounded-lg transition-colors flex items-center gap-1.5 ${currentReplyMode === 'ai' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400' : 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'}`}
+                    className={`p-2 rounded-lg transition-colors flex items-center gap-1.5 ${currentReplyMode === 'ai' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400' : 'bg-surface-100 text-surface-500 dark:bg-surface-800 dark:text-surface-400 hover:bg-surface-200 dark:hover:bg-surface-700'}`}
                     title="Toggle AI Chatbot"
                   >
                     <Bot className="w-4 h-4" />
@@ -1527,7 +1527,7 @@ function InboxView({
 
                   <button 
                     onClick={() => updateConversationStatus(activeChat.id, activeChat.status === 'closed' ? 'open' : 'closed')}
-                    className={`p-2 rounded-lg transition-colors flex items-center gap-1.5 ${activeChat.status === 'closed' ? 'bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400 hover:bg-amber-100' : 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'}`}
+                    className={`p-2 rounded-lg transition-colors flex items-center gap-1.5 ${activeChat.status === 'closed' ? 'bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400 hover:bg-amber-100' : 'bg-surface-100 text-surface-600 dark:bg-surface-800 dark:text-surface-400 hover:bg-surface-200 dark:hover:bg-surface-700'}`}
                     title={activeChat.status === 'closed' ? 'Reopen Conversation' : 'Close Conversation'}
                   >
                     <Archive className="w-4 h-4" />
@@ -1547,7 +1547,7 @@ function InboxView({
 
                   <button 
                     onClick={() => setIsContactPanelOpen(!isContactPanelOpen)}
-                    className={`p-2 rounded-lg transition-colors ${isContactPanelOpen ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400' : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}
+                    className={`p-2 rounded-lg transition-colors ${isContactPanelOpen ? 'bg-primary-50 text-primary-600 dark:bg-primary-500/10 dark:text-primary-400' : 'text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800'}`}
                     title="Contact Details"
                   >
                     <User className="w-5 h-5" />
@@ -1558,7 +1558,7 @@ function InboxView({
               {/* Chat Messages Area */}
               <div className="flex-1 overflow-y-auto p-6 space-y-6 flex flex-col">
                  {messages.length === 0 ? (
-                    <p className="text-center text-zinc-500 text-sm mt-10">कोई संदेश नहीं</p>
+                    <p className="text-center text-surface-500 text-sm mt-10">कोई संदेश नहीं</p>
                   ) : (
                     messages.map(msg => {
                       let displayMediaUrl = msg.media_url;
@@ -1572,11 +1572,11 @@ function InboxView({
                       
                       return (
                         <div key={msg.id} className={`flex flex-col gap-1 ${isAgent ? 'items-end' : 'items-start'}`}>
-                           <div className={`px-4 py-3 rounded-2xl max-w-[85%] text-sm ${isAgent ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-tl-none'}`}>
+                           <div className={`px-4 py-3 rounded-2xl max-w-[85%] text-sm ${isAgent ? 'bg-primary-600 text-white rounded-tr-none' : 'bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 rounded-tl-none'}`}>
                              {mType === 'image' && (
                                <div className="flex flex-col gap-2">
                                  {displayMediaUrl && (
-                                   <div className="group relative rounded-lg overflow-hidden border border-zinc-100/10 max-w-sm max-h-60 bg-zinc-950/20">
+                                   <div className="group relative rounded-lg overflow-hidden border border-surface-100/10 max-w-sm max-h-60 bg-surface-950/20">
                                      <img 
                                        src={displayMediaUrl} 
                                        alt="WhatsApp Attachment"
@@ -1615,8 +1615,8 @@ function InboxView({
                              )}
 
                              {mType === 'document' && (
-                               <div className="flex items-center gap-3 bg-zinc-50/10 p-3 rounded-xl border border-zinc-100/10 min-w-[200px] text-zinc-900 dark:text-zinc-100">
-                                 <div className="w-10 h-10 bg-indigo-500/10 text-indigo-400 rounded-lg flex items-center justify-center shrink-0">
+                               <div className="flex items-center gap-3 bg-surface-50/10 p-3 rounded-xl border border-surface-100/10 min-w-[200px] text-surface-900 dark:text-surface-100">
+                                 <div className="w-10 h-10 bg-primary-500/10 text-primary-400 rounded-lg flex items-center justify-center shrink-0">
                                    <FileText className="w-5 h-5" />
                                  </div>
                                  <div className="min-w-0 flex-1">
@@ -1626,7 +1626,7 @@ function InboxView({
                                        href={displayMediaUrl} 
                                        target="_blank" 
                                        rel="noopener noreferrer" 
-                                       className="text-[10px] text-indigo-400 dark:text-indigo-300 hover:underline mt-1 block font-medium"
+                                       className="text-[10px] text-primary-400 dark:text-primary-300 hover:underline mt-1 block font-medium"
                                      >
                                        डाउनलोड करें (Download)
                                      </a>
@@ -1642,14 +1642,14 @@ function InboxView({
                                    : null;
                                  
                                  return (
-                                   <div className="flex flex-col gap-2 min-w-[200px] text-zinc-900 dark:text-zinc-100">
-                                     <div className="flex items-center gap-3 bg-zinc-50/10 p-3 rounded-xl border border-zinc-100/10">
+                                   <div className="flex flex-col gap-2 min-w-[200px] text-surface-900 dark:text-surface-100">
+                                     <div className="flex items-center gap-3 bg-surface-50/10 p-3 rounded-xl border border-surface-100/10">
                                        <div className="w-10 h-10 bg-rose-500/10 text-rose-500 rounded-lg flex items-center justify-center shrink-0">
                                          <MapPin className="w-5 h-5" />
                                        </div>
                                        <div className="min-w-0 flex-1 text-xs">
                                          <p className="font-semibold truncate">{loc?.name || 'लोकेशन'}</p>
-                                         <p className="text-[10px] text-zinc-500 truncate">{loc?.address || 'नक्शा देखें'}</p>
+                                         <p className="text-[10px] text-surface-500 truncate">{loc?.address || 'नक्शा देखें'}</p>
                                        </div>
                                      </div>
                                      {loc?.latitude && loc?.longitude && (
@@ -1657,7 +1657,7 @@ function InboxView({
                                          href={`https://www.google.com/maps?q=${loc.latitude},${loc.longitude}`}
                                          target="_blank" 
                                          rel="noopener noreferrer" 
-                                         className="text-center text-xs font-semibold py-1.5 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition-colors block mt-1"
+                                         className="text-center text-xs font-semibold py-1.5 px-3 rounded-lg bg-primary-600 hover:bg-primary-500 text-white transition-colors block mt-1"
                                        >
                                          Google Maps पर खोलें 🗺️
                                        </a>
@@ -1665,7 +1665,7 @@ function InboxView({
                                    </div>
                                  );
                                } catch (e) {
-                                 return <p className="italic text-xs text-zinc-400">Location: {msg.content}</p>;
+                                 return <p className="italic text-xs text-surface-400">Location: {msg.content}</p>;
                                }
                              })()}
 
@@ -1678,19 +1678,19 @@ function InboxView({
                                  const cPhone = contactsData?.[0]?.phones?.[0]?.phone || '';
                                  
                                  return (
-                                   <div className="flex items-center gap-3 bg-zinc-50/10 p-3 rounded-xl border border-zinc-100/10 min-w-[200px] text-zinc-900 dark:text-zinc-100">
+                                   <div className="flex items-center gap-3 bg-surface-50/10 p-3 rounded-xl border border-surface-100/10 min-w-[200px] text-surface-900 dark:text-surface-100">
                                      <div className="w-10 h-10 bg-emerald-500/10 text-emerald-500 rounded-lg flex items-center justify-center shrink-0">
                                        <User className="w-5 h-5" />
                                      </div>
                                      <div className="min-w-0 flex-1 text-xs">
                                        <p className="font-semibold truncate">{cName}</p>
-                                       <p className="text-[10px] text-zinc-500 truncate">{cPhone}</p>
+                                       <p className="text-[10px] text-surface-500 truncate">{cPhone}</p>
                                        {cPhone && (
                                          <a 
                                            href={`https://wa.me/${cPhone.replace(/\D/g, '')}`}
                                            target="_blank" 
                                            rel="noopener noreferrer" 
-                                           className="text-[10px] text-indigo-400 dark:text-indigo-300 hover:underline mt-1 block font-medium"
+                                           className="text-[10px] text-primary-400 dark:text-primary-300 hover:underline mt-1 block font-medium"
                                          >
                                            WhatsApp पर चैट करें ↗
                                          </a>
@@ -1699,7 +1699,7 @@ function InboxView({
                                    </div>
                                  );
                                } catch (e) {
-                                 return <p className="italic text-xs text-zinc-400">Contact: {msg.content}</p>;
+                                 return <p className="italic text-xs text-surface-400">Contact: {msg.content}</p>;
                                }
                              })()}
 
@@ -1707,30 +1707,30 @@ function InboxView({
                                <p className="leading-relaxed whitespace-pre-wrap">{msg.content}</p>
                              )}
                              {mType === 'reaction' && (
-                               <div className="flex items-center gap-2 text-zinc-900 dark:text-zinc-100">
+                               <div className="flex items-center gap-2 text-surface-900 dark:text-surface-100">
                                  <span className="text-2xl">{msg.content}</span>
-                                 <span className="text-xs text-zinc-400 italic">(रिएक्शन / Reaction)</span>
+                                 <span className="text-xs text-surface-400 italic">(रिएक्शन / Reaction)</span>
                                </div>
                              )}
                              {mType === 'system' && (
-                               <div className="flex items-center gap-2 text-zinc-900 dark:text-zinc-100">
-                                 <span className="text-sm font-semibold italic text-zinc-500">[{msg.content}]</span>
+                               <div className="flex items-center gap-2 text-surface-900 dark:text-surface-100">
+                                 <span className="text-sm font-semibold italic text-surface-500">[{msg.content}]</span>
                                </div>
                              )}
                              {mType === 'unknown' && (
-                               <div className="flex items-center gap-2 text-zinc-900 dark:text-zinc-100">
+                               <div className="flex items-center gap-2 text-surface-900 dark:text-surface-100">
                                  <span className="text-sm italic">({msg.content})</span>
                                </div>
                              )}
                            </div>
                            <div className={`flex items-center gap-1 mt-0.5 ${isAgent ? 'mr-1' : 'ml-1'}`}>
-                             <span className="text-[10px] text-zinc-400">{formatUserTimeOnly(msg.created_at, { hour: '2-digit', minute: '2-digit' })}</span>
+                             <span className="text-[10px] text-surface-400">{formatUserTimeOnly(msg.created_at, { hour: '2-digit', minute: '2-digit' })}</span>
                              {isAgent && (
                                msg.status === 'failed' ? <AlertCircle className="w-3.5 h-3.5 text-rose-500" /> :
-                               msg.status === 'read' ? <CheckCheck className="w-3.5 h-3.5 text-indigo-500" /> :
-                               msg.status === 'delivered' ? <CheckCheck className="w-3.5 h-3.5 text-zinc-400" /> :
-                               msg.status === 'pending' ? <div className="w-3 h-3 border-2 border-zinc-400 dark:border-zinc-500 border-t-transparent rounded-full animate-spin"></div> :
-                               <Check className="w-3.5 h-3.5 text-zinc-400" />
+                               msg.status === 'read' ? <CheckCheck className="w-3.5 h-3.5 text-primary-500" /> :
+                               msg.status === 'delivered' ? <CheckCheck className="w-3.5 h-3.5 text-surface-400" /> :
+                               msg.status === 'pending' ? <div className="w-3 h-3 border-2 border-surface-400 dark:border-primary-500 border-t-transparent rounded-full animate-spin"></div> :
+                               <Check className="w-3.5 h-3.5 text-surface-400" />
                              )}
                            </div>
                         </div>
@@ -1742,9 +1742,9 @@ function InboxView({
 
               {/* Message Input Drawer and Input field */}
               {attachmentType && (
-                <div className="p-4 bg-zinc-50 dark:bg-zinc-950 border-t border-zinc-200 dark:border-zinc-800 flex flex-col gap-3">
-                  <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-2">
-                    <span className="text-sm font-semibold capitalize text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
+                <div className="p-4 bg-surface-50 dark:bg-surface-950 border-t border-surface-200 dark:border-surface-800 flex flex-col gap-3">
+                  <div className="flex items-center justify-between border-b border-surface-200 dark:border-surface-800 pb-2">
+                    <span className="text-sm font-semibold capitalize text-primary-600 dark:text-primary-400 flex items-center gap-2">
                       {attachmentType === 'image' && '📸 इमेज संदेश भेजें'}
                       {attachmentType === 'video' && '🎥 वीडियो संदेश भेजें'}
                       {attachmentType === 'document' && '📄 दस्तावेज़ (Doc) भेजें'}
@@ -1753,7 +1753,7 @@ function InboxView({
                     </span>
                     <button 
                       onClick={() => { setAttachmentType(null); setMediaFileState(null); setAttachmentMenuOpen(false); }}
-                      className="p-1 rounded-full text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                      className="p-1 rounded-full text-surface-400 hover:text-surface-600 dark:hover:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-800"
                     >
                       <X className="w-4 h-4" />
                     </button>
@@ -1762,7 +1762,7 @@ function InboxView({
                   {(attachmentType === 'image' || attachmentType === 'video' || attachmentType === 'document') && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       <div>
-                        <label className="text-xs text-zinc-500 font-medium block mb-1">फ़ाइल चुनें (File)*</label>
+                        <label className="text-xs text-surface-500 font-medium block mb-1">फ़ाइल चुनें (File)*</label>
                         <input 
                           type="file" 
                           accept={
@@ -1770,7 +1770,7 @@ function InboxView({
                             attachmentType === 'video' ? "video/*" :
                             "application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                           }
-                          className="w-full text-xs p-1.5 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 outline-none focus:border-indigo-500 text-zinc-800 dark:text-zinc-100 file:mr-3 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+                          className="w-full text-xs p-1.5 rounded-lg bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 outline-none focus:border-primary-500 text-surface-800 dark:text-surface-100 file:mr-3 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100"
                           onChange={async (e) => {
                              const file = e.target.files?.[0];
                              if (file) {
@@ -1781,22 +1781,22 @@ function InboxView({
                       </div>
                       {attachmentType === 'document' ? (
                         <div>
-                          <label className="text-xs text-zinc-500 font-medium block mb-1">फ़ाइल नाम (Filename.pdf)*</label>
+                          <label className="text-xs text-surface-500 font-medium block mb-1">फ़ाइल नाम (Filename.pdf)*</label>
                           <input 
                             type="text" 
                             placeholder="Invoice.pdf" 
-                            className="w-full text-xs p-2 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 outline-none focus:border-indigo-500 text-zinc-800 dark:text-zinc-100"
+                            className="w-full text-xs p-2 rounded-lg bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 outline-none focus:border-primary-500 text-surface-800 dark:text-surface-100"
                             value={docFilenameInput}
                             onChange={(e) => setDocFilenameInput(e.target.value)}
                           />
                         </div>
                       ) : (
                         <div>
-                          <label className="text-xs text-zinc-500 font-medium block mb-1">कैप्शन (Caption - Optional)</label>
+                          <label className="text-xs text-surface-500 font-medium block mb-1">कैप्शन (Caption - Optional)</label>
                           <input 
                             type="text" 
                             placeholder="कैप्शन लिखें..." 
-                            className="w-full text-xs p-2 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 outline-none focus:border-indigo-500 text-zinc-800 dark:text-zinc-100"
+                            className="w-full text-xs p-2 rounded-lg bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 outline-none focus:border-primary-500 text-surface-800 dark:text-surface-100"
                             value={captionInput}
                             onChange={(e) => setCaptionInput(e.target.value)}
                           />
@@ -1808,37 +1808,37 @@ function InboxView({
                   {attachmentType === 'location' && (
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                       <div>
-                        <label className="text-xs text-zinc-500 font-medium block mb-1">अक्षांश (Latitude)*</label>
+                        <label className="text-xs text-surface-500 font-medium block mb-1">अक्षांश (Latitude)*</label>
                         <input 
                           type="text" 
-                          className="w-full text-xs p-2 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 outline-none focus:border-indigo-500 text-zinc-800 dark:text-zinc-100"
+                          className="w-full text-xs p-2 rounded-lg bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 outline-none focus:border-primary-500 text-surface-800 dark:text-surface-100"
                           value={latInput}
                           onChange={(e) => setLatInput(e.target.value)}
                         />
                       </div>
                       <div>
-                        <label className="text-xs text-zinc-500 font-medium block mb-1">देशांतर (Longitude)*</label>
+                        <label className="text-xs text-surface-500 font-medium block mb-1">देशांतर (Longitude)*</label>
                         <input 
                           type="text" 
-                          className="w-full text-xs p-2 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 outline-none focus:border-indigo-500 text-zinc-800 dark:text-zinc-100"
+                          className="w-full text-xs p-2 rounded-lg bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 outline-none focus:border-primary-500 text-surface-800 dark:text-surface-100"
                           value={lngInput}
                           onChange={(e) => setLngInput(e.target.value)}
                         />
                       </div>
                       <div>
-                        <label className="text-xs text-zinc-500 font-medium block mb-1">लोकेशन का नाम*</label>
+                        <label className="text-xs text-surface-500 font-medium block mb-1">लोकेशन का नाम*</label>
                         <input 
                           type="text" 
-                          className="w-full text-xs p-2 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 outline-none focus:border-indigo-500 text-zinc-800 dark:text-zinc-100"
+                          className="w-full text-xs p-2 rounded-lg bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 outline-none focus:border-primary-500 text-surface-800 dark:text-surface-100"
                           value={locNameInput}
                           onChange={(e) => setLocNameInput(e.target.value)}
                         />
                       </div>
                       <div>
-                        <label className="text-xs text-zinc-500 font-medium block mb-1">लोकेशन का पता</label>
+                        <label className="text-xs text-surface-500 font-medium block mb-1">लोकेशन का पता</label>
                         <input 
                           type="text" 
-                          className="w-full text-xs p-2 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 outline-none focus:border-indigo-500 text-zinc-800 dark:text-zinc-100"
+                          className="w-full text-xs p-2 rounded-lg bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 outline-none focus:border-primary-500 text-surface-800 dark:text-surface-100"
                           value={locAddressInput}
                           onChange={(e) => setLocAddressInput(e.target.value)}
                         />
@@ -1849,22 +1849,22 @@ function InboxView({
                   {attachmentType === 'contacts' && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       <div>
-                        <label className="text-xs text-zinc-500 font-medium block mb-1">संपर्क नाम (Contact Name)*</label>
+                        <label className="text-xs text-surface-500 font-medium block mb-1">संपर्क नाम (Contact Name)*</label>
                         <input 
                           type="text" 
                           placeholder="राम शर्मा" 
-                          className="w-full text-xs p-2 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 outline-none focus:border-indigo-500 text-zinc-800 dark:text-zinc-100"
+                          className="w-full text-xs p-2 rounded-lg bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 outline-none focus:border-primary-500 text-surface-800 dark:text-surface-100"
                           value={contactNameInput}
                           onChange={(e) => setContactNameInput(e.target.value)}
                         />
                       </div>
                       <div>
-                        <label className="text-xs text-zinc-500 font-medium block mb-1">फ़ोन नंबर (Country Code के साथ)*</label>
+                        <label className="text-xs text-surface-500 font-medium block mb-1">फ़ोन नंबर (Country Code के साथ)*</label>
                         <PhoneInput 
                           international
                           defaultCountry="IN"
                           placeholder="फ़ोन नंबर दर्ज करें" 
-                          className="w-full text-xs p-2 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 outline-none focus:border-indigo-500 text-zinc-800 dark:text-zinc-100"
+                          className="w-full text-xs p-2 rounded-lg bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 outline-none focus:border-primary-500 text-surface-800 dark:text-surface-100"
                           value={contactPhoneInput}
                           onChange={(val) => setContactPhoneInput(val || '')}
                         />
@@ -1875,14 +1875,14 @@ function InboxView({
                   <div className="flex gap-2 justify-end mt-1">
                     <button 
                       onClick={() => { setAttachmentType(null); setMediaFileState(null); setAttachmentMenuOpen(false); }}
-                      className="px-3 py-1.5 text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300 transition-colors"
+                      className="px-3 py-1.5 text-xs rounded-lg border border-surface-200 dark:border-surface-800 hover:bg-surface-100 dark:hover:bg-surface-800 text-surface-600 dark:text-surface-300 transition-colors"
                     >
                       रद्द करें
                     </button>
                     <button 
                       onClick={sendRichMessage}
                       disabled={sending}
-                      className="px-4 py-1.5 text-xs rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium transition-colors"
+                      className="px-4 py-1.5 text-xs rounded-lg bg-primary-600 hover:bg-primary-700 text-white font-medium transition-colors"
                     >
                       {sending ? 'भेज रहे हैं...' : 'संदेश भेजें'}
                     </button>
@@ -1890,7 +1890,7 @@ function InboxView({
                 </div>
               )}
 
-             <div className="p-4 bg-white dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-800 relative flex flex-col gap-2">
+             <div className="p-4 bg-white dark:bg-surface-900 border-t border-surface-200 dark:border-surface-800 relative flex flex-col gap-2">
                {isTemplateRequired && !selectedInboxTemplate && (
                  <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg text-amber-800 dark:text-amber-200 text-xs font-medium space-y-2">
                    <p className="text-center">{!lastCustomerMessageAt ? "ग्राहक के रिप्लाई का इंतज़ार है।" : "24-घंटे की सर्विस विंडो समाप्त हो चुकी है।"} टेम्पलेट भेजकर बातचीत शुरू करें।</p>
@@ -1902,7 +1902,7 @@ function InboxView({
                          const matches = (tmpl.body_text || '').match(/\{\{\d+\}\}/g);
                          setInboxTemplateParams(matches ? new Array(matches.length).fill('') : []);
                        }
-                     }} defaultValue="" className="flex-1 bg-white dark:bg-zinc-950 border border-amber-300 dark:border-amber-700 rounded-lg px-3 py-2 text-xs outline-none font-mono">
+                     }} defaultValue="" className="flex-1 bg-white dark:bg-surface-950 border border-amber-300 dark:border-amber-700 rounded-lg px-3 py-2 text-xs outline-none font-mono">
                        <option value="" disabled>टेम्पलेट चुनें...</option>
                        {inboxTemplates.map(t => <option key={t.name} value={t.name}>{t.name}</option>)}
                      </select>
@@ -1910,22 +1910,22 @@ function InboxView({
                  </div>
                )}
                {isTemplateRequired && selectedInboxTemplate && (
-                 <div className="p-3 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg text-xs space-y-2">
+                 <div className="p-3 bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 rounded-lg text-xs space-y-2">
                    <div className="flex items-center justify-between">
-                     <span className="font-mono font-semibold text-indigo-700 dark:text-indigo-300">{selectedInboxTemplate.name}</span>
-                     <button onClick={() => { setSelectedInboxTemplate(null); setInboxTemplateParams([]); }} className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"><X className="w-3.5 h-3.5" /></button>
+                     <span className="font-mono font-semibold text-primary-700 dark:text-primary-300">{selectedInboxTemplate.name}</span>
+                     <button onClick={() => { setSelectedInboxTemplate(null); setInboxTemplateParams([]); }} className="text-surface-400 hover:text-surface-600 dark:hover:text-surface-200"><X className="w-3.5 h-3.5" /></button>
                    </div>
                    {inboxTemplateParams.length > 0 && (
                      <div className="flex flex-wrap gap-2">
                        {inboxTemplateParams.map((val, idx) => (
                          <div key={idx} className="flex items-center gap-1">
-                           <span className="font-mono text-indigo-500 text-[10px]">{'{{' + (idx + 1) + '}}'}</span>
-                           <input type="text" value={val} onChange={e => { const c = [...inboxTemplateParams]; c[idx] = e.target.value; setInboxTemplateParams(c); }} placeholder={`मान ${idx + 1}`} className="w-24 bg-white dark:bg-zinc-950 border border-indigo-200 dark:border-indigo-700 rounded px-2 py-1 text-xs outline-none" />
+                           <span className="font-mono text-primary-500 text-[10px]">{'{{' + (idx + 1) + '}}'}</span>
+                           <input type="text" value={val} onChange={e => { const c = [...inboxTemplateParams]; c[idx] = e.target.value; setInboxTemplateParams(c); }} placeholder={`मान ${idx + 1}`} className="w-24 bg-white dark:bg-surface-950 border border-primary-200 dark:border-primary-700 rounded px-2 py-1 text-xs outline-none" />
                          </div>
                        ))}
                      </div>
                    )}
-                   <button onClick={sendInboxTemplate} disabled={inboxTemplateSending} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-lg text-xs font-semibold transition-all disabled:opacity-50 flex items-center justify-center gap-1.5">
+                   <button onClick={sendInboxTemplate} disabled={inboxTemplateSending} className="w-full bg-primary-600 hover:bg-primary-700 text-white py-2 rounded-lg text-xs font-semibold transition-all disabled:opacity-50 flex items-center justify-center gap-1.5">
                      {inboxTemplateSending ? <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : <Send className="w-3 h-3" />}
                      टेम्पलेट भेजें
                    </button>
@@ -1936,45 +1936,45 @@ function InboxView({
                    initial={{ opacity: 0, y: 10 }}
                    animate={{ opacity: 1, y: 0 }}
                    exit={{ opacity: 0, y: 10 }}
-                   className="absolute bottom-16 left-6 p-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-xl flex flex-col gap-1 z-50 text-xs font-medium w-48"
+                   className="absolute bottom-16 left-6 p-2 bg-white dark:bg-surface-950 border border-surface-200 dark:border-surface-800 rounded-2xl shadow-xl flex flex-col gap-1 z-50 text-xs font-medium w-48"
                  >
                    <button 
                      onClick={() => { setAttachmentType('image'); setAttachmentMenuOpen(false); }}
-                     className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-900 text-zinc-700 dark:text-zinc-200 w-full text-left"
+                     className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-surface-50 dark:hover:bg-surface-900 text-surface-700 dark:text-surface-200 w-full text-left"
                    >
                      📸 इमेज (Image)
                    </button>
                    <button 
                      onClick={() => { setAttachmentType('video'); setAttachmentMenuOpen(false); }}
-                     className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-900 text-zinc-700 dark:text-zinc-200 w-full text-left"
+                     className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-surface-50 dark:hover:bg-surface-900 text-surface-700 dark:text-surface-200 w-full text-left"
                    >
                      🎥 वीडियो (Video)
                    </button>
                    <button 
                      onClick={() => { setAttachmentType('document'); setAttachmentMenuOpen(false); }}
-                     className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-900 text-zinc-700 dark:text-zinc-200 w-full text-left"
+                     className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-surface-50 dark:hover:bg-surface-900 text-surface-700 dark:text-surface-200 w-full text-left"
                    >
                      📄 दस्तावेज़ (Doc)
                    </button>
                    <button 
                      onClick={() => { setAttachmentType('location'); setAttachmentMenuOpen(false); }}
-                     className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-900 text-zinc-700 dark:text-zinc-200 w-full text-left"
+                     className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-surface-50 dark:hover:bg-surface-900 text-surface-700 dark:text-surface-200 w-full text-left"
                    >
                      📍 लोकेशन (Maps)
                    </button>
                    <button 
                      onClick={() => { setAttachmentType('contacts'); setAttachmentMenuOpen(false); }}
-                     className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-900 text-zinc-700 dark:text-zinc-200 w-full text-left"
+                     className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-surface-50 dark:hover:bg-surface-900 text-surface-700 dark:text-surface-200 w-full text-left"
                    >
                      👤 संपर्क (Contact)
                    </button>
                  </motion.div>
                )}
 
-               <div className="flex items-center gap-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-full pl-3 pr-1 py-1 focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-500 transition-all">
+               <div className="flex items-center gap-2 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-surface-800 rounded-full pl-3 pr-1 py-1 focus-within:ring-2 focus-within:ring-primary-500/20 focus-within:border-primary-500 transition-all">
                  <button 
                    onClick={() => setAttachmentMenuOpen(!attachmentMenuOpen)}
-                   className={`p-2 rounded-full transition-colors ${attachmentMenuOpen ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400' : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}
+                   className={`p-2 rounded-full transition-colors ${attachmentMenuOpen ? 'bg-primary-50 text-primary-600 dark:bg-primary-500/10 dark:text-primary-400' : 'text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800'}`}
                    title="Add attachment"
                    disabled={isTemplateRequired}
                  >
@@ -1992,7 +1992,7 @@ function InboxView({
                  <button 
                    onClick={sendMessage}
                    disabled={!messageInput.trim() || sending || !!attachmentType || isTemplateRequired}
-                   className={`p-2.5 rounded-full transition-colors flex items-center justify-center ${messageInput.trim() && !sending && !attachmentType && !isTemplateRequired ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-400'}`}
+                   className={`p-2.5 rounded-full transition-colors flex items-center justify-center ${messageInput.trim() && !sending && !attachmentType && !isTemplateRequired ? 'bg-primary-600 text-white hover:bg-primary-700' : 'bg-surface-200 dark:bg-surface-800 text-surface-400'}`}
                  >
                    <Send className="w-4 h-4" />
                  </button>
@@ -2001,12 +2001,12 @@ function InboxView({
 
              {/* WhatsApp-Style Media Preview */}
              {mediaPreviewUrl && (attachmentType === 'image' || attachmentType === 'video' || attachmentType === 'document') && (
-               <div className="absolute inset-x-0 bottom-0 top-16 bg-zinc-950/95 flex flex-col z-20 transition-all animate-in fade-in-50 duration-200">
+               <div className="absolute inset-x-0 bottom-0 top-16 bg-surface-950/95 flex flex-col z-20 transition-all animate-in fade-in-50 duration-200">
                  {/* Preview Header */}
-                 <div className="h-14 border-b border-zinc-800 px-6 flex items-center justify-between text-white flex-shrink-0">
+                 <div className="h-14 border-b border-surface-800 px-6 flex items-center justify-between text-white flex-shrink-0">
                    <div className="flex items-center gap-3">
                      <span className="font-semibold text-sm">WhatsApp Media Preview</span>
-                     <span className="text-xs text-zinc-400 capitalize bg-zinc-800 px-2 py-0.5 rounded-full">{attachmentType}</span>
+                     <span className="text-xs text-surface-400 capitalize bg-surface-800 px-2 py-0.5 rounded-full">{attachmentType}</span>
                    </div>
                    <button 
                      onClick={() => {
@@ -2015,7 +2015,7 @@ function InboxView({
                        setMediaUrlInput('');
                        setAttachmentType(null);
                      }}
-                     className="p-1.5 rounded-full hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors"
+                     className="p-1.5 rounded-full hover:bg-surface-800 text-surface-400 hover:text-white transition-colors"
                      title="रद्द करें (Cancel)"
                    >
                      <X className="w-5 h-5" />
@@ -2028,7 +2028,7 @@ function InboxView({
                      <img 
                        src={mediaPreviewUrl} 
                        alt="Preview" 
-                       className="max-h-full max-w-full object-contain rounded-lg shadow-2xl border border-zinc-800 animate-in zoom-in-95 duration-200"
+                       className="max-h-full max-w-full object-contain rounded-lg shadow-2xl border border-surface-800 animate-in zoom-in-95 duration-200"
                        onError={(e) => {
                          (e.target as HTMLElement).style.display = 'none';
                        }}
@@ -2038,40 +2038,40 @@ function InboxView({
                      <video 
                        src={mediaPreviewUrl} 
                        controls 
-                       className="max-h-full max-w-full object-contain rounded-lg shadow-2xl border border-zinc-800 animate-in zoom-in-95 duration-200" 
+                       className="max-h-full max-w-full object-contain rounded-lg shadow-2xl border border-surface-800 animate-in zoom-in-95 duration-200" 
                      />
                    )}
                    {attachmentType === 'document' && (
-                     <div className="flex flex-col items-center justify-center p-8 bg-zinc-900 border border-zinc-800 rounded-2xl shadow-xl text-center animate-in zoom-in-95 duration-200">
-                       <FileText className="w-16 h-16 text-indigo-500 mb-3" />
-                       <span className="text-sm font-semibold text-zinc-200 truncate max-w-xs block">
+                     <div className="flex flex-col items-center justify-center p-8 bg-surface-900 border border-surface-800 rounded-2xl shadow-xl text-center animate-in zoom-in-95 duration-200">
+                       <FileText className="w-16 h-16 text-primary-500 mb-3" />
+                       <span className="text-sm font-semibold text-surface-200 truncate max-w-xs block">
                          {docFilenameInput || (mediaFileState ? mediaFileState.name : "Document.pdf")}
                        </span>
-                       <span className="text-xs text-zinc-500 mt-1">Ready to send via secure R2 storage</span>
+                       <span className="text-xs text-surface-500 mt-1">Ready to send via secure R2 storage</span>
                      </div>
                    )}
                  </div>
 
                  {/* WhatsApp-Style Bottom Input Area with green Send Button */}
-                 <div className="p-4 bg-zinc-900 border-t border-zinc-800 flex items-center justify-center flex-shrink-0">
+                 <div className="p-4 bg-surface-900 border-t border-surface-800 flex items-center justify-center flex-shrink-0">
                    <div className="w-full max-w-2xl flex items-center gap-3">
                      {attachmentType === 'document' ? (
-                       <div className="flex-1 bg-zinc-800/50 border border-zinc-700/50 rounded-xl px-4 py-3 text-sm text-white flex items-center gap-2">
-                         <span className="text-zinc-400 font-medium text-xs">FileName:</span>
+                       <div className="flex-1 bg-surface-800/50 border border-surface-700/50 rounded-xl px-4 py-3 text-sm text-white flex items-center gap-2">
+                         <span className="text-surface-400 font-medium text-xs">FileName:</span>
                          <input 
                            type="text" 
-                           className="bg-transparent border-none outline-none flex-1 text-white placeholder-zinc-500"
+                           className="bg-transparent border-none outline-none flex-1 text-white placeholder-surface-500"
                            placeholder="दस्तावेज़ का नाम दर्ज करें (जैसे Invoice.pdf)..."
                            value={docFilenameInput}
                            onChange={(e) => setDocFilenameInput(e.target.value)}
                          />
                        </div>
                      ) : (
-                       <div className="flex-1 bg-zinc-800/50 border border-zinc-700/50 rounded-xl px-4 py-3 text-sm text-white flex items-center gap-2">
-                         <span className="text-zinc-400 font-medium text-xs">Caption:</span>
+                       <div className="flex-1 bg-surface-800/50 border border-surface-700/50 rounded-xl px-4 py-3 text-sm text-white flex items-center gap-2">
+                         <span className="text-surface-400 font-medium text-xs">Caption:</span>
                          <input 
                            type="text" 
-                           className="bg-transparent border-none outline-none flex-1 text-white placeholder-zinc-500"
+                           className="bg-transparent border-none outline-none flex-1 text-white placeholder-surface-500"
                            placeholder="कैप्शन जोड़ें (Add a caption)..."
                            value={captionInput}
                            onChange={(e) => setCaptionInput(e.target.value)}
@@ -2082,7 +2082,7 @@ function InboxView({
                      <button 
                        onClick={sendRichMessage}
                        disabled={sending}
-                       className="w-12 h-12 rounded-full bg-emerald-500 hover:bg-emerald-600 disabled:bg-zinc-800 text-white flex items-center justify-center transition-all shadow-lg active:scale-95"
+                       className="w-12 h-12 rounded-full bg-emerald-500 hover:bg-emerald-600 disabled:bg-surface-800 text-white flex items-center justify-center transition-all shadow-lg active:scale-95"
                        title="भेजें (Send)"
                      >
                        {sending ? (
@@ -2105,13 +2105,13 @@ function InboxView({
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: "100%", opacity: 0 }}
             transition={{ type: "spring", bounce: 0, duration: 0.3 }}
-            className="w-full md:w-80 border-l border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex flex-col absolute right-0 top-0 bottom-0 z-30 shadow-2xl"
+            className="w-full md:w-80 border-l border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 flex flex-col absolute right-0 top-0 bottom-0 z-30 shadow-2xl"
           >
-            <div className="h-16 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between px-4 flex-shrink-0">
+            <div className="h-16 border-b border-surface-200 dark:border-surface-800 flex items-center justify-between px-4 flex-shrink-0">
               <h2 className="font-medium">Contact Details</h2>
               <button 
                 onClick={() => setIsContactPanelOpen(false)}
-                className="p-1.5 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                className="p-1.5 text-surface-400 hover:text-surface-900 dark:hover:text-surface-100 rounded-lg hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -2119,32 +2119,32 @@ function InboxView({
             
             <div className="flex-1 overflow-y-auto p-6">
               <div className="flex flex-col items-center mb-8">
-                <div className="w-20 h-20 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-semibold text-2xl mb-4">
+                <div className="w-20 h-20 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center font-semibold text-2xl mb-4">
                    {activeChat.contact_name ? activeChat.contact_name[0] : <User className="w-8 h-8" />}
                 </div>
-                <h3 className="font-medium text-lg text-zinc-900 dark:text-zinc-100">{activeChat.contact_name || "Unknown"}</h3>
-                <span className="inline-flex items-center px-2 py-1 mt-2 rounded-md text-xs font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300">
+                <h3 className="font-medium text-lg text-surface-900 dark:text-surface-100">{activeChat.contact_name || "Unknown"}</h3>
+                <span className="inline-flex items-center px-2 py-1 mt-2 rounded-md text-xs font-medium bg-surface-100 dark:bg-surface-800 text-surface-600 dark:text-surface-300">
                   {activeChat.status}
                 </span>
               </div>
 
               <div className="space-y-6">
                 <div>
-                  <h4 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 uppercase tracking-wider mb-3">About</h4>
+                  <h4 className="text-xs font-semibold text-surface-900 dark:text-surface-100 uppercase tracking-wider mb-3">About</h4>
                   <div className="space-y-3">
-                    <div className="flex items-center gap-3 text-sm text-zinc-600 dark:text-zinc-400">
-                      <Phone className="w-4 h-4 text-zinc-400" />
+                    <div className="flex items-center gap-3 text-sm text-surface-600 dark:text-surface-400">
+                      <Phone className="w-4 h-4 text-surface-400" />
                       <span>{activeChat.phone}</span>
                     </div>
                     {activeChat.company && (
-                      <div className="flex items-center gap-3 text-sm text-zinc-600 dark:text-zinc-400">
-                        <Building2 className="w-4 h-4 text-zinc-400" />
+                      <div className="flex items-center gap-3 text-sm text-surface-600 dark:text-surface-400">
+                        <Building2 className="w-4 h-4 text-surface-400" />
                         <span>{activeChat.company}</span>
                       </div>
                     )}
                     {activeChat.location && (
-                      <div className="flex items-center gap-3 text-sm text-zinc-600 dark:text-zinc-400">
-                        <MapPin className="w-4 h-4 text-zinc-400" />
+                      <div className="flex items-center gap-3 text-sm text-surface-600 dark:text-surface-400">
+                        <MapPin className="w-4 h-4 text-surface-400" />
                         <span>{activeChat.location}</span>
                       </div>
                     )}
@@ -2153,16 +2153,16 @@ function InboxView({
 
                 {activeChat.history && activeChat.history.length > 0 && (
                   <div>
-                    <h4 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 uppercase tracking-wider mb-3 flex items-center gap-2">
-                      <History className="w-4 h-4 text-zinc-400" />
+                    <h4 className="text-xs font-semibold text-surface-900 dark:text-surface-100 uppercase tracking-wider mb-3 flex items-center gap-2">
+                      <History className="w-4 h-4 text-surface-400" />
                       Recent Activity
                     </h4>
-                    <div className="relative border-l border-zinc-200 dark:border-zinc-800 ml-2 space-y-4 pb-2">
+                    <div className="relative border-l border-surface-200 dark:border-surface-800 ml-2 space-y-4 pb-2">
                       {activeChat.history.map((item: any, i: number) => (
                         <div key={i} className="relative pl-4">
-                          <div className="absolute w-2 h-2 bg-zinc-200 dark:bg-zinc-700 rounded-full -left-[4.5px] top-1.5 border border-white dark:border-zinc-900"></div>
-                          <p className="text-sm text-zinc-900 dark:text-zinc-100">{item.action}</p>
-                          <p className="text-xs text-zinc-500 mt-0.5">{item.date}</p>
+                          <div className="absolute w-2 h-2 bg-surface-200 dark:bg-surface-700 rounded-full -left-[4.5px] top-1.5 border border-white dark:border-surface-900"></div>
+                          <p className="text-sm text-surface-900 dark:text-surface-100">{item.action}</p>
+                          <p className="text-xs text-surface-500 mt-0.5">{item.date}</p>
                         </div>
                       ))}
                     </div>
@@ -2170,12 +2170,12 @@ function InboxView({
                 )}
                 
                 <div>
-                  <h4 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 uppercase tracking-wider mb-3">Tags</h4>
+                  <h4 className="text-xs font-semibold text-surface-900 dark:text-surface-100 uppercase tracking-wider mb-3">Tags</h4>
                   <div className="flex flex-wrap gap-2">
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20">
                       <Tag className="w-3 h-3" /> WhatsApp
                     </span>
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-primary-50 text-primary-700 dark:bg-primary-500/10 dark:text-primary-400 border border-primary-200 dark:border-primary-500/20">
                       <Tag className="w-3 h-3" /> VIP
                     </span>
                   </div>
@@ -2300,31 +2300,31 @@ function BroadcastView() {
   };
 
   if (loading) {
-    return <div className="flex-1 flex items-center justify-center p-8"><div className="w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div></div>;
+    return <div className="flex-1 flex items-center justify-center p-8"><div className="w-8 h-8 border-2 border-primary-600 border-t-transparent rounded-full animate-spin"></div></div>;
   }
 
   return (
     <div className="p-6 md:p-8 overflow-y-auto w-full max-w-5xl mx-auto h-full">
       <div className="flex items-center gap-3 mb-6">
-        <div className="inline-flex w-12 h-12 rounded-full bg-zinc-100 dark:bg-zinc-800 items-center justify-center text-zinc-500 border border-zinc-200 dark:border-zinc-700">
+        <div className="inline-flex w-12 h-12 rounded-full bg-surface-100 dark:bg-surface-800 items-center justify-center text-surface-500 border border-surface-200 dark:border-surface-700">
           <Megaphone className="w-6 h-6" />
         </div>
         <div>
           <h2 className="text-2xl font-semibold tracking-tight">WhatsApp Broadcast</h2>
-          <p className="text-sm text-zinc-500">Template messages भेजें अपने सभी contacts को</p>
+          <p className="text-sm text-surface-500">Template messages भेजें अपने सभी contacts को</p>
         </div>
       </div>
 
       {campaignId && progress ? (
-        <div className="bg-white dark:bg-zinc-900 p-8 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-6">
+        <div className="bg-white dark:bg-surface-900 p-8 rounded-2xl border border-surface-200 dark:border-surface-800 shadow-sm space-y-6">
           <div className="flex items-center justify-between">
             <h3 className="font-semibold text-lg">{campaignName}</h3>
-            <span className={`text-xs font-semibold px-3 py-1 rounded-full ${progress.sent + progress.failed >= progress.total ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400'}`}>
+            <span className={`text-xs font-semibold px-3 py-1 rounded-full ${progress.sent + progress.failed >= progress.total ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400'}`}>
               {progress.sent + progress.failed >= progress.total ? 'पूर्ण' : 'प्रगति में...'}
             </span>
           </div>
-          <div className="w-full bg-zinc-100 dark:bg-zinc-800 rounded-full h-4 overflow-hidden">
-            <div className="h-full bg-indigo-600 dark:bg-indigo-500 rounded-full transition-all duration-500" style={{ width: `${progress.total > 0 ? ((progress.sent + progress.failed) / progress.total * 100) : 0}%` }} />
+          <div className="w-full bg-surface-100 dark:bg-surface-800 rounded-full h-4 overflow-hidden">
+            <div className="h-full bg-primary-600 dark:bg-primary-500 rounded-full transition-all duration-500" style={{ width: `${progress.total > 0 ? ((progress.sent + progress.failed) / progress.total * 100) : 0}%` }} />
           </div>
           <div className="grid grid-cols-3 gap-4 text-center">
             <div className="bg-emerald-50 dark:bg-emerald-900/20 p-4 rounded-xl">
@@ -2335,13 +2335,13 @@ function BroadcastView() {
               <p className="text-2xl font-bold text-red-600 dark:text-red-400">{progress.failed}</p>
               <p className="text-xs text-red-600/70 dark:text-red-400/70 mt-1">विफल</p>
             </div>
-            <div className="bg-zinc-50 dark:bg-zinc-800 p-4 rounded-xl">
-              <p className="text-2xl font-bold text-zinc-600 dark:text-zinc-400">{progress.pending}</p>
-              <p className="text-xs text-zinc-500 mt-1">बाकी</p>
+            <div className="bg-surface-50 dark:bg-surface-800 p-4 rounded-xl">
+              <p className="text-2xl font-bold text-surface-600 dark:text-surface-400">{progress.pending}</p>
+              <p className="text-xs text-surface-500 mt-1">बाकी</p>
             </div>
           </div>
           {progress.sent + progress.failed >= progress.total && (
-            <button onClick={() => { setCampaignId(null); setProgress(null); setCampaignName(''); setSelectedContactIds(new Set()); setSelectedTemplate(null); }} className="w-full bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 font-medium rounded-lg px-4 py-3 hover:scale-[0.99] transition-transform">
+            <button onClick={() => { setCampaignId(null); setProgress(null); setCampaignName(''); setSelectedContactIds(new Set()); setSelectedTemplate(null); }} className="w-full bg-surface-900 text-white dark:bg-surface-100 dark:text-surface-900 font-medium rounded-lg px-4 py-3 hover:scale-[0.99] transition-transform">
               नया ब्रॉडकास्ट बनाएं
             </button>
           )}
@@ -2350,32 +2350,32 @@ function BroadcastView() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left: Config */}
           <div className="lg:col-span-1 space-y-4">
-            <div className="bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-4">
+            <div className="bg-white dark:bg-surface-900 p-6 rounded-2xl border border-surface-200 dark:border-surface-800 shadow-sm space-y-4">
               <h3 className="font-semibold text-sm">ब्रॉडकास्ट सेटिंग्स</h3>
               <div>
-                <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-1.5">अभियान का नाम</label>
-                <input type="text" value={campaignName} onChange={e => setCampaignName(e.target.value)} placeholder="जैसे: Summer Promo Blast" className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500" />
+                <label className="block text-xs font-semibold text-surface-500 uppercase tracking-wider mb-1.5">अभियान का नाम</label>
+                <input type="text" value={campaignName} onChange={e => setCampaignName(e.target.value)} placeholder="जैसे: Summer Promo Blast" className="w-full bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-surface-800 rounded-lg px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500" />
               </div>
               {configs.length > 1 && (
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-1.5">प्रेषक WABA</label>
-                  <select value={chosenWaba?.id || ''} onChange={e => setChosenWaba(configs.find(c => c.id === e.target.value))} className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-indigo-500 font-mono">
+                  <label className="block text-xs font-semibold text-surface-500 uppercase tracking-wider mb-1.5">प्रेषक WABA</label>
+                  <select value={chosenWaba?.id || ''} onChange={e => setChosenWaba(configs.find(c => c.id === e.target.value))} className="w-full bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-surface-800 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-primary-500 font-mono">
                     {configs.map(cfg => <option key={cfg.id} value={cfg.id}>{cfg.phone_number_id}</option>)}
                   </select>
                 </div>
               )}
             </div>
 
-            <div className="bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-3">
+            <div className="bg-white dark:bg-surface-900 p-6 rounded-2xl border border-surface-200 dark:border-surface-800 shadow-sm space-y-3">
               <h3 className="font-semibold text-sm">टेम्पलेट चुनें</h3>
               {templates.length === 0 ? (
-                <p className="text-xs text-zinc-400">कोई approved टेम्पलेट नहीं मिला</p>
+                <p className="text-xs text-surface-400">कोई approved टेम्पलेट नहीं मिला</p>
               ) : (
                 <div className="space-y-2 max-h-60 overflow-y-auto">
                   {templates.map(t => (
-                    <button key={t.id || t.name} onClick={() => handleTemplateSelect(t)} className={`w-full text-left p-3 rounded-xl border text-xs transition-all ${selectedTemplate?.name === t.name ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 dark:border-indigo-400' : 'border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700'}`}>
+                    <button key={t.id || t.name} onClick={() => handleTemplateSelect(t)} className={`w-full text-left p-3 rounded-xl border text-xs transition-all ${selectedTemplate?.name === t.name ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20 dark:border-primary-400' : 'border-surface-200 dark:border-surface-800 hover:border-surface-300 dark:hover:border-surface-700'}`}>
                       <p className="font-mono font-semibold truncate">{t.name}</p>
-                      <p className="text-zinc-500 mt-1 line-clamp-2">{t.body_text?.substring(0, 80)}...</p>
+                      <p className="text-surface-500 mt-1 line-clamp-2">{t.body_text?.substring(0, 80)}...</p>
                     </button>
                   ))}
                 </div>
@@ -2383,12 +2383,12 @@ function BroadcastView() {
             </div>
 
             {selectedTemplate && templateParams.length > 0 && (
-              <div className="bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-3">
+              <div className="bg-white dark:bg-surface-900 p-6 rounded-2xl border border-surface-200 dark:border-surface-800 shadow-sm space-y-3">
                 <h3 className="font-semibold text-sm">पैरामीटर मान</h3>
                 {templateParams.map((val, idx) => (
                   <div key={idx} className="flex items-center gap-2">
-                    <span className="text-xs font-bold font-mono text-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 px-2 py-1 rounded">{'{{' + (idx + 1) + '}}'}</span>
-                    <input type="text" value={val} onChange={e => { const c = [...templateParams]; c[idx] = e.target.value; setTemplateParams(c); }} placeholder={`मान ${idx + 1}`} className="flex-1 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500" />
+                    <span className="text-xs font-bold font-mono text-primary-500 bg-primary-50 dark:bg-primary-900/20 px-2 py-1 rounded">{'{{' + (idx + 1) + '}}'}</span>
+                    <input type="text" value={val} onChange={e => { const c = [...templateParams]; c[idx] = e.target.value; setTemplateParams(c); }} placeholder={`मान ${idx + 1}`} className="flex-1 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-surface-800 rounded-lg px-3 py-2 text-sm outline-none focus:border-primary-500" />
                   </div>
                 ))}
               </div>
@@ -2397,37 +2397,37 @@ function BroadcastView() {
 
           {/* Right: Contact selection */}
           <div className="lg:col-span-2">
-            <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm flex flex-col h-[calc(100vh-12rem)]">
-              <div className="p-4 border-b border-zinc-200 dark:border-zinc-800 space-y-3">
+            <div className="bg-white dark:bg-surface-900 rounded-2xl border border-surface-200 dark:border-surface-800 shadow-sm flex flex-col h-[calc(100vh-12rem)]">
+              <div className="p-4 border-b border-surface-200 dark:border-surface-800 space-y-3">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-sm">प्राप्तकर्ता चुनें <span className="text-zinc-400 font-normal">({selectedContactIds.size} चुने गए)</span></h3>
-                  <button onClick={toggleAll} className="text-xs text-indigo-600 dark:text-indigo-400 font-medium hover:underline">
+                  <h3 className="font-semibold text-sm">प्राप्तकर्ता चुनें <span className="text-surface-400 font-normal">({selectedContactIds.size} चुने गए)</span></h3>
+                  <button onClick={toggleAll} className="text-xs text-primary-600 dark:text-primary-400 font-medium hover:underline">
                     {selectedContactIds.size === filteredContacts.length ? 'सभी हटाएं' : 'सभी चुनें'}
                   </button>
                 </div>
                 <div className="relative">
-                  <Search className="w-4 h-4 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input type="text" value={contactSearch} onChange={e => setContactSearch(e.target.value)} placeholder="नाम या नंबर से खोजें..." className="w-full pl-9 pr-4 py-2.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-sm outline-none focus:border-indigo-500" />
+                  <Search className="w-4 h-4 text-surface-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input type="text" value={contactSearch} onChange={e => setContactSearch(e.target.value)} placeholder="नाम या नंबर से खोजें..." className="w-full pl-9 pr-4 py-2.5 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-surface-800 rounded-lg text-sm outline-none focus:border-primary-500" />
                 </div>
               </div>
               <div className="flex-1 overflow-y-auto">
                 {filteredContacts.length === 0 ? (
-                  <div className="p-8 text-center text-sm text-zinc-400">कोई संपर्क नहीं मिला</div>
+                  <div className="p-8 text-center text-sm text-surface-400">कोई संपर्क नहीं मिला</div>
                 ) : (
                   filteredContacts.map(c => (
-                    <label key={c.id} className={`flex items-center gap-3 px-4 py-3 border-b border-zinc-100 dark:border-zinc-800/50 cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors ${selectedContactIds.has(c.id) ? 'bg-indigo-50/50 dark:bg-indigo-900/10' : ''}`}>
-                      <input type="checkbox" checked={selectedContactIds.has(c.id)} onChange={() => toggleContact(c.id)} className="w-4 h-4 rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500" />
+                    <label key={c.id} className={`flex items-center gap-3 px-4 py-3 border-b border-surface-100 dark:border-surface-800/50 cursor-pointer hover:bg-surface-50 dark:hover:bg-surface-800/30 transition-colors ${selectedContactIds.has(c.id) ? 'bg-primary-50/50 dark:bg-primary-900/10' : ''}`}>
+                      <input type="checkbox" checked={selectedContactIds.has(c.id)} onChange={() => toggleContact(c.id)} className="w-4 h-4 rounded border-surface-300 text-primary-600 focus:ring-primary-500" />
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">{c.name || 'अज्ञात'}</p>
-                        <p className="text-xs text-zinc-500">{c.phone || c.platform_contact_id}</p>
+                        <p className="text-sm font-medium text-surface-900 dark:text-surface-100 truncate">{c.name || 'अज्ञात'}</p>
+                        <p className="text-xs text-surface-500">{c.phone || c.platform_contact_id}</p>
                       </div>
-                      {c.email && <span className="text-[10px] text-zinc-400 hidden md:block">{c.email}</span>}
+                      {c.email && <span className="text-[10px] text-surface-400 hidden md:block">{c.email}</span>}
                     </label>
                   ))
                 )}
               </div>
-              <div className="p-4 border-t border-zinc-200 dark:border-zinc-800">
-                <button onClick={handleSend} disabled={!campaignName || !selectedTemplate || selectedContactIds.size === 0 || sending} className="w-full disabled:opacity-40 bg-indigo-600 hover:bg-indigo-700 disabled:hover:bg-indigo-600 text-white font-medium rounded-lg px-4 py-3 transition-all flex items-center justify-center gap-2">
+              <div className="p-4 border-t border-surface-200 dark:border-surface-800">
+                <button onClick={handleSend} disabled={!campaignName || !selectedTemplate || selectedContactIds.size === 0 || sending} className="w-full disabled:opacity-40 bg-primary-600 hover:bg-primary-700 disabled:hover:bg-primary-600 text-white font-medium rounded-lg px-4 py-3 transition-all flex items-center justify-center gap-2">
                   {sending ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> भेज रहे हैं...</> : <><Send className="w-4 h-4" /> {selectedContactIds.size} को ब्रॉडकास्ट भेजें</>}
                 </button>
               </div>
@@ -2442,27 +2442,27 @@ function BroadcastView() {
 function ScheduleView() {
   return (
     <div className="p-6 md:p-8 overflow-y-auto w-full max-w-5xl mx-auto h-full text-center mt-20">
-       <div className="inline-flex w-16 h-16 rounded-full bg-zinc-100 dark:bg-zinc-800 items-center justify-center text-zinc-500 mb-6 border border-zinc-200 dark:border-zinc-700">
+       <div className="inline-flex w-16 h-16 rounded-full bg-surface-100 dark:bg-surface-800 items-center justify-center text-surface-500 mb-6 border border-surface-200 dark:border-surface-700">
            <CalendarClock className="w-8 h-8" />
        </div>
        <h2 className="text-2xl font-semibold mb-2 tracking-tight">Social Media Scheduler</h2>
-       <p className="text-zinc-500 dark:text-zinc-400 mb-8 max-w-md mx-auto">
+       <p className="text-surface-500 dark:text-surface-400 mb-8 max-w-md mx-auto">
            Schedule posts to Instagram and Facebook using Cloudflare Workflows and R2 storage.
        </p>
        
-       <div className="bg-white dark:bg-zinc-900 p-8 rounded-2xl border border-zinc-200 dark:border-zinc-800 text-left shadow-sm mb-8">
+       <div className="bg-white dark:bg-surface-900 p-8 rounded-2xl border border-surface-200 dark:border-surface-800 text-left shadow-sm mb-8">
            <div className="space-y-4 max-w-lg mx-auto">
                <div>
                    <label className="block text-sm font-medium mb-2">Select Platforms</label>
                    <div className="flex gap-3">
-                       <button className="flex-1 bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 border border-zinc-900 dark:border-zinc-100 py-2 rounded-lg text-sm font-medium">Instagram</button>
-                       <button className="flex-1 bg-white text-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 py-2 rounded-lg text-sm font-medium hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">Facebook</button>
+                       <button className="flex-1 bg-surface-900 text-white dark:bg-surface-100 dark:text-surface-900 border border-surface-900 dark:border-surface-100 py-2 rounded-lg text-sm font-medium">Instagram</button>
+                       <button className="flex-1 bg-white text-surface-700 dark:bg-surface-900 dark:text-surface-300 border border-surface-200 dark:border-surface-700 py-2 rounded-lg text-sm font-medium hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors">Facebook</button>
                    </div>
                </div>
                <div>
                    <label className="block text-sm font-medium mb-1.5 mt-2">Media Attachment (R2 Upload)</label>
-                   <div className="border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-xl p-8 text-center bg-zinc-50 dark:bg-zinc-950/50 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors cursor-pointer">
-                       <p className="text-sm text-zinc-500">Drag & drop image/video here, or click to securely upload to Cloudflare R2</p>
+                   <div className="border-2 border-dashed border-surface-200 dark:border-surface-800 rounded-xl p-8 text-center bg-surface-50 dark:bg-surface-950/50 hover:bg-surface-100 dark:hover:bg-surface-900 transition-colors cursor-pointer">
+                       <p className="text-sm text-surface-500">Drag & drop image/video here, or click to securely upload to Cloudflare R2</p>
                    </div>
                </div>
                <div>
@@ -2470,11 +2470,11 @@ function ScheduleView() {
                    <textarea 
                         rows={3}
                         placeholder="Write a captivating caption..." 
-                        className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg px-4 py-2.5 outline-none focus:ring-2 focus:ring-zinc-900 dark:focus:ring-white transition-all text-sm resize-none"
+                        className="w-full bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-surface-800 rounded-lg px-4 py-2.5 outline-none focus:ring-2 focus:ring-surface-900 dark:focus:ring-white transition-all text-sm resize-none"
                    />
                </div>
                <div className="pt-4 flex gap-3">
-                   <button className="flex-1 bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 font-medium rounded-lg px-4 py-2.5 hover:scale-[0.99] transition-transform">
+                   <button className="flex-1 bg-surface-900 text-white dark:bg-surface-100 dark:text-surface-900 font-medium rounded-lg px-4 py-2.5 hover:scale-[0.99] transition-transform">
                        Schedule Workflow Task
                    </button>
                </div>
@@ -2762,20 +2762,20 @@ function SettingsView() {
 
     return (
         <div className="p-6 md:p-8 w-full max-w-4xl mx-auto space-y-6">
-             <h2 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white font-display">वर्कस्पेस सेटिंग्स</h2>
+             <h2 className="text-2xl font-bold tracking-tight text-surface-900 dark:text-white font-display">वर्कस्पेस सेटिंग्स</h2>
              
              {/* User Profile Section */}
-             <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl overflow-hidden shadow-sm">
+             <div className="bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 rounded-3xl overflow-hidden shadow-sm">
                  <div className="p-8">
-                     <h3 className="font-bold text-lg mb-2 text-zinc-900 dark:text-white font-display flex items-center gap-2">
-                       <User className="w-5 h-5 text-indigo-500" /> उपयोगकर्ता सेटिंग्स
+                     <h3 className="font-bold text-lg mb-2 text-surface-900 dark:text-white font-display flex items-center gap-2">
+                       <User className="w-5 h-5 text-primary-500" /> उपयोगकर्ता सेटिंग्स
                      </h3>
-                     <p className="text-sm text-zinc-500 mb-6">अपना पसंदीदा टाइमज़ोन सेट करें ताकि सभी संदेश और लॉग सही समय दिखाएं।</p>
+                     <p className="text-sm text-surface-500 mb-6">अपना पसंदीदा टाइमज़ोन सेट करें ताकि सभी संदेश और लॉग सही समय दिखाएं।</p>
                      
                      <div className="max-w-xl space-y-4">
                         <div>
-                           <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">Timezone</label>
-                           <select value={userTimezone} onChange={e => setUserTimezone(e.target.value)} className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all">
+                           <label className="block text-xs font-semibold text-surface-500 uppercase tracking-wider mb-2">Timezone</label>
+                           <select value={userTimezone} onChange={e => setUserTimezone(e.target.value)} className="w-full bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-surface-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-all">
                              <option value="Asia/Kolkata">India Standard Time (IST)</option>
                              <option value="America/New_York">Eastern Time (US & Canada)</option>
                              <option value="America/Chicago">Central Time (US & Canada)</option>
@@ -2792,7 +2792,7 @@ function SettingsView() {
                         <button 
                           onClick={saveUserProfile} 
                           disabled={savingProfile} 
-                          className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl font-medium shadow-sm shadow-indigo-200 dark:shadow-none transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                          className="bg-primary-600 hover:bg-primary-700 text-white px-6 py-2.5 rounded-xl font-medium shadow-sm shadow-primary-200 dark:shadow-none transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
                         >
                           {savingProfile ? "सेव हो रहा है..." : "सेव करें"}
                         </button>
@@ -2802,12 +2802,12 @@ function SettingsView() {
              </div>
 
              {/* WhatsApp Config Section */}
-             <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl overflow-hidden shadow-sm">
-                 <div className="p-8 border-b border-zinc-100 dark:border-zinc-800">
-                     <h3 className="font-bold text-lg mb-2 text-zinc-900 dark:text-white font-display flex items-center gap-2">
+             <div className="bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 rounded-3xl overflow-hidden shadow-sm">
+                 <div className="p-8 border-b border-surface-100 dark:border-surface-800">
+                     <h3 className="font-bold text-lg mb-2 text-surface-900 dark:text-white font-display flex items-center gap-2">
                        <MessageSquare className="w-5 h-5 text-emerald-500" /> WhatsApp Cloud API
                      </h3>
-                     <p className="text-sm text-zinc-500 mb-6">WhatsApp Business Account को कनेक्ट करें ताकि आप Live Webhooks प्राप्त कर सकें और संदेश भेज सकें।</p>
+                     <p className="text-sm text-surface-500 mb-6">WhatsApp Business Account को कनेक्ट करें ताकि आप Live Webhooks प्राप्त कर सकें और संदेश भेज सकें।</p>
                      
                      <div className="space-y-4 max-w-xl">
                          <div className="mb-6 p-5 bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-2xl flex flex-col items-start gap-3">
@@ -2819,114 +2819,114 @@ function SettingsView() {
                          </div>
                          
                          <div className="flex items-center gap-4 mb-2">
-                           <div className="flex-1 h-px bg-zinc-200 dark:bg-zinc-800"></div>
-                           <span className="text-xs text-zinc-400 font-medium uppercase">
+                           <div className="flex-1 h-px bg-surface-200 dark:bg-surface-800"></div>
+                           <span className="text-xs text-surface-400 font-medium uppercase">
                              {editingId ? "कॉन्फ़िगरेशन संपादित करें" : "या मैन्युअल कॉन्फ़िगरेशन जोड़ें"}
                            </span>
-                           <div className="flex-1 h-px bg-zinc-200 dark:bg-zinc-800"></div>
+                           <div className="flex-1 h-px bg-surface-200 dark:bg-surface-800"></div>
                          </div>
 
                          {editingId && (
                            <div className="flex items-center justify-between p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30 rounded-xl mb-2">
                              <span className="text-xs font-semibold text-amber-800 dark:text-amber-400">संपादित किया जा रहा है: {phoneNumberId || editingId}</span>
-                             <button onClick={cancelEditing} className="text-xs text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 underline font-medium">रद्द करें (Cancel)</button>
+                             <button onClick={cancelEditing} className="text-xs text-surface-500 hover:text-surface-800 dark:hover:text-surface-200 underline font-medium">रद्द करें (Cancel)</button>
                            </div>
                          )}
 
                          <div>
-                           <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">WhatsApp Phone Number ID</label>
-                           <input type="text" value={phoneNumberId} onChange={e => setPhoneNumberId(e.target.value)} placeholder="e.g. 10423049583..." className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all" />
+                           <label className="block text-xs font-semibold text-surface-500 uppercase tracking-wider mb-2">WhatsApp Phone Number ID</label>
+                           <input type="text" value={phoneNumberId} onChange={e => setPhoneNumberId(e.target.value)} placeholder="e.g. 10423049583..." className="w-full bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-surface-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-all" />
                           </div>
                           <div>
-                            <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">WhatsApp Business Account ID (WABA ID) <span className="text-indigo-500 font-normal">[टेंपलेट्स के लिए आवश्यक]</span></label>
-                            <input type="text" value={wabaId} onChange={e => setWabaId(e.target.value)} placeholder="e.g. 109384729482..." className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all" />
+                            <label className="block text-xs font-semibold text-surface-500 uppercase tracking-wider mb-2">WhatsApp Business Account ID (WABA ID) <span className="text-primary-500 font-normal">[टेंपलेट्स के लिए आवश्यक]</span></label>
+                            <input type="text" value={wabaId} onChange={e => setWabaId(e.target.value)} placeholder="e.g. 109384729482..." className="w-full bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-surface-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-all" />
                          </div>
                          <div>
-                           <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">Permanent Access Token</label>
-                           <input type="password" value={accessToken} onChange={e => setAccessToken(e.target.value)} placeholder="EAA..." className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all" />
+                           <label className="block text-xs font-semibold text-surface-500 uppercase tracking-wider mb-2">Permanent Access Token</label>
+                           <input type="password" value={accessToken} onChange={e => setAccessToken(e.target.value)} placeholder="EAA..." className="w-full bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-surface-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-all" />
                          </div>
                          <div>
-                           <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">Webhook Verify Token</label>
-                           <input type="text" value={verifyToken} onChange={e => setVerifyToken(e.target.value)} placeholder="अपनी पसंद का कोई भी सीक्रेट टोकन डालें" className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all" />
+                           <label className="block text-xs font-semibold text-surface-500 uppercase tracking-wider mb-2">Webhook Verify Token</label>
+                           <input type="text" value={verifyToken} onChange={e => setVerifyToken(e.target.value)} placeholder="अपनी पसंद का कोई भी सीक्रेट टोकन डालें" className="w-full bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-surface-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-all" />
                          </div>
 
-                         <div className="mt-6 pt-6 border-t border-zinc-100 dark:border-zinc-800">
-                           <h4 className="block text-sm font-bold text-zinc-900 dark:text-zinc-100 tracking-wider mb-4 flex items-center gap-2">
+                         <div className="mt-6 pt-6 border-t border-surface-100 dark:border-surface-800">
+                           <h4 className="block text-sm font-bold text-surface-900 dark:text-surface-100 tracking-wider mb-4 flex items-center gap-2">
                              <PhoneCall className="w-4 h-4 text-emerald-500" /> WhatsApp Voice Calling (SIP WebRTC)
                            </h4>
                            <div className="space-y-4">
                              <div>
-                               <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">SIP URI</label>
-                               <input type="text" value={""} onChange={e => {}} placeholder="e.g. sip:1234@your-sip-provider.com" className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all" />
+                               <label className="block text-xs font-semibold text-surface-500 uppercase tracking-wider mb-2">SIP URI</label>
+                               <input type="text" value={""} onChange={e => {}} placeholder="e.g. sip:1234@your-sip-provider.com" className="w-full bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-surface-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all" />
                              </div>
                              <div>
-                               <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">SIP WebSocket Server</label>
-                               <input type="text" value={""} onChange={e => {}} placeholder="e.g. wss://your-sip-provider.com:8089/ws" className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all" />
+                               <label className="block text-xs font-semibold text-surface-500 uppercase tracking-wider mb-2">SIP WebSocket Server</label>
+                               <input type="text" value={""} onChange={e => {}} placeholder="e.g. wss://your-sip-provider.com:8089/ws" className="w-full bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-surface-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all" />
                              </div>
                              <div className="grid grid-cols-2 gap-4">
                                <div>
-                                 <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">SIP Username</label>
-                                 <input type="text" value={""} onChange={e => {}} placeholder="Username" className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all" />
+                                 <label className="block text-xs font-semibold text-surface-500 uppercase tracking-wider mb-2">SIP Username</label>
+                                 <input type="text" value={""} onChange={e => {}} placeholder="Username" className="w-full bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-surface-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all" />
                                </div>
                                <div>
-                                 <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">SIP Password</label>
-                                 <input type="password" value={""} onChange={e => {}} placeholder="Password" className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all" />
+                                 <label className="block text-xs font-semibold text-surface-500 uppercase tracking-wider mb-2">SIP Password</label>
+                                 <input type="password" value={""} onChange={e => {}} placeholder="Password" className="w-full bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-surface-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all" />
                                </div>
                              </div>
                            </div>
                          </div>
 
                          {webhookUrl && (
-                           <div className="mt-4 p-4 bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20 rounded-xl">
-                             <p className="text-xs font-semibold text-indigo-800 dark:text-indigo-300 mb-1">Meta Developer Dashboard में यह Webhook URL डालें:</p>
-                             <code className="text-xs text-indigo-600 dark:text-indigo-400 break-all select-all">{webhookUrl}</code>
+                           <div className="mt-4 p-4 bg-primary-50 dark:bg-primary-500/10 border border-primary-100 dark:border-primary-500/20 rounded-xl">
+                             <p className="text-xs font-semibold text-primary-800 dark:text-primary-300 mb-1">Meta Developer Dashboard में यह Webhook URL डालें:</p>
+                             <code className="text-xs text-primary-600 dark:text-primary-400 break-all select-all">{webhookUrl}</code>
                            </div>
                          )}
 
-                         <div className="mt-6 pt-6 border-t border-zinc-100 dark:border-zinc-800">
-                           <h4 className="block text-sm font-bold text-zinc-900 dark:text-zinc-100 tracking-wider mb-4 flex items-center gap-2">
-                             <Bot className="w-4 h-4 text-indigo-500" /> चैटबॉट (Chatbot) और AI सेटिंग्स
+                         <div className="mt-6 pt-6 border-t border-surface-100 dark:border-surface-800">
+                           <h4 className="block text-sm font-bold text-surface-900 dark:text-surface-100 tracking-wider mb-4 flex items-center gap-2">
+                             <Bot className="w-4 h-4 text-primary-500" /> चैटबॉट (Chatbot) और AI सेटिंग्स
                            </h4>
-                           <label className="block text-xs font-medium text-zinc-500 uppercase tracking-wider mb-3">ऑटो-रिप्लाई मोड</label>
+                           <label className="block text-xs font-medium text-surface-500 uppercase tracking-wider mb-3">ऑटो-रिप्लाई मोड</label>
                            <div className="flex flex-col md:flex-row gap-3 mb-6">
-                             <label className={`flex-1 flex flex-col p-4 border rounded-xl cursor-pointer transition-all ${replyMode === 'manual' ? 'bg-indigo-50 border-indigo-200 dark:bg-indigo-500/10 dark:border-indigo-500/30 ring-1 ring-indigo-500' : 'bg-white border-zinc-200 dark:bg-zinc-950 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700'}`}>
+                             <label className={`flex-1 flex flex-col p-4 border rounded-xl cursor-pointer transition-all ${replyMode === 'manual' ? 'bg-primary-50 border-primary-200 dark:bg-primary-500/10 dark:border-primary-500/30 ring-1 ring-primary-500' : 'bg-white border-surface-200 dark:bg-surface-950 dark:border-surface-800 hover:border-surface-300 dark:hover:border-surface-700'}`}>
                                <div className="flex items-center gap-2 mb-1">
                                  <input type="radio" name="replyMode" value="manual" checked={replyMode === 'manual'} onChange={(e) => setReplyMode(e.target.value)} className="hidden" />
-                                 <span className={`w-4 h-4 rounded-full border flex items-center justify-center ${replyMode === 'manual' ? 'border-indigo-600 bg-indigo-600' : 'border-zinc-300'}`}>
+                                 <span className={`w-4 h-4 rounded-full border flex items-center justify-center ${replyMode === 'manual' ? 'border-primary-600 bg-primary-600' : 'border-surface-300'}`}>
                                    {replyMode === 'manual' && <div className="w-1.5 h-1.5 bg-white rounded-full"></div>}
                                  </span>
-                                 <span className="font-semibold text-sm text-zinc-900 dark:text-zinc-100">मैन्युअल (Manual)</span>
+                                 <span className="font-semibold text-sm text-surface-900 dark:text-surface-100">मैन्युअल (Manual)</span>
                                </div>
-                               <p className="text-xs text-zinc-500 pl-6">ऑटो-रिप्लाई बंद रखें। मैं खुद जवाब दूंगा।</p>
+                               <p className="text-xs text-surface-500 pl-6">ऑटो-रिप्लाई बंद रखें। मैं खुद जवाब दूंगा।</p>
                              </label>
-                             <label className={`flex-1 flex flex-col p-4 border rounded-xl cursor-pointer transition-all ${replyMode === 'ai' ? 'bg-indigo-50 border-indigo-200 dark:bg-indigo-500/10 dark:border-indigo-500/30 ring-1 ring-indigo-500' : 'bg-white border-zinc-200 dark:bg-zinc-950 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700'}`}>
+                             <label className={`flex-1 flex flex-col p-4 border rounded-xl cursor-pointer transition-all ${replyMode === 'ai' ? 'bg-primary-50 border-primary-200 dark:bg-primary-500/10 dark:border-primary-500/30 ring-1 ring-primary-500' : 'bg-white border-surface-200 dark:bg-surface-950 dark:border-surface-800 hover:border-surface-300 dark:hover:border-surface-700'}`}>
                                <div className="flex items-center gap-2 mb-1">
                                  <input type="radio" name="replyMode" value="ai" checked={replyMode === 'ai'} onChange={(e) => setReplyMode(e.target.value)} className="hidden" />
-                                 <span className={`w-4 h-4 rounded-full border flex items-center justify-center ${replyMode === 'ai' ? 'border-indigo-600 bg-indigo-600' : 'border-zinc-300'}`}>
+                                 <span className={`w-4 h-4 rounded-full border flex items-center justify-center ${replyMode === 'ai' ? 'border-primary-600 bg-primary-600' : 'border-surface-300'}`}>
                                    {replyMode === 'ai' && <div className="w-1.5 h-1.5 bg-white rounded-full"></div>}
                                  </span>
-                                 <span className="font-semibold text-sm text-zinc-900 dark:text-zinc-100">AI चैटबॉट</span>
+                                 <span className="font-semibold text-sm text-surface-900 dark:text-surface-100">AI चैटबॉट</span>
                                </div>
-                               <p className="text-xs text-zinc-500 pl-6">कृत्रिम बुद्धिमत्ता (AI) द्वारा स्मार्ट जवाब।</p>
+                               <p className="text-xs text-surface-500 pl-6">कृत्रिम बुद्धिमत्ता (AI) द्वारा स्मार्ट जवाब।</p>
                              </label>
-                             <label className={`flex-1 flex flex-col p-4 border rounded-xl cursor-pointer transition-all ${replyMode === 'rule_based' ? 'bg-indigo-50 border-indigo-200 dark:bg-indigo-500/10 dark:border-indigo-500/30 ring-1 ring-indigo-500' : 'bg-white border-zinc-200 dark:bg-zinc-950 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700'}`}>
+                             <label className={`flex-1 flex flex-col p-4 border rounded-xl cursor-pointer transition-all ${replyMode === 'rule_based' ? 'bg-primary-50 border-primary-200 dark:bg-primary-500/10 dark:border-primary-500/30 ring-1 ring-primary-500' : 'bg-white border-surface-200 dark:bg-surface-950 dark:border-surface-800 hover:border-surface-300 dark:hover:border-surface-700'}`}>
                                <div className="flex items-center gap-2 mb-1">
                                  <input type="radio" name="replyMode" value="rule_based" checked={replyMode === 'rule_based'} onChange={(e) => setReplyMode(e.target.value)} className="hidden" />
-                                 <span className={`w-4 h-4 rounded-full border flex items-center justify-center ${replyMode === 'rule_based' ? 'border-indigo-600 bg-indigo-600' : 'border-zinc-300'}`}>
+                                 <span className={`w-4 h-4 rounded-full border flex items-center justify-center ${replyMode === 'rule_based' ? 'border-primary-600 bg-primary-600' : 'border-surface-300'}`}>
                                    {replyMode === 'rule_based' && <div className="w-1.5 h-1.5 bg-white rounded-full"></div>}
                                  </span>
-                                 <span className="font-semibold text-sm text-zinc-900 dark:text-zinc-100">रूल्स (Rule-based)</span>
+                                 <span className="font-semibold text-sm text-surface-900 dark:text-surface-100">रूल्स (Rule-based)</span>
                                </div>
-                               <p className="text-xs text-zinc-500 pl-6">पहले से सेट किए गए कीवर्ड्स के आधार पर।</p>
+                               <p className="text-xs text-surface-500 pl-6">पहले से सेट किए गए कीवर्ड्स के आधार पर।</p>
                              </label>
                            </div>
                          </div>
                          <div className="pt-2 flex gap-3">
-                           <button onClick={saveConfig} disabled={saving} className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl text-sm font-medium transition-colors shadow-md shadow-indigo-600/20 flex items-center gap-2">
+                           <button onClick={saveConfig} disabled={saving} className="bg-primary-600 hover:bg-primary-700 text-white px-6 py-2.5 rounded-xl text-sm font-medium transition-colors shadow-md shadow-primary-600/20 flex items-center gap-2">
                              {saving ? "सुरक्षित किया जा रहा है..." : (editingId ? "अपडेट करें" : "नया अकाउंट जोड़ें")}
                            </button>
                            {editingId && (
-                             <button onClick={cancelEditing} className="border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900 text-zinc-700 dark:text-zinc-300 px-6 py-2.5 rounded-xl text-sm font-medium transition-all">
+                             <button onClick={cancelEditing} className="border border-surface-200 dark:border-surface-800 hover:bg-surface-50 dark:hover:bg-surface-900 text-surface-700 dark:text-surface-300 px-6 py-2.5 rounded-xl text-sm font-medium transition-all">
                                रद्द करें
                              </button>
                            )}
@@ -2936,21 +2936,21 @@ function SettingsView() {
                  </div>
 
                  {/* Connected Accounts Table */}
-                 <div className="p-8 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50">
-                     <h3 className="font-bold text-lg mb-2 text-zinc-900 dark:text-white font-display flex items-center gap-2">
-                       <Phone className="w-5 h-5 text-indigo-500" /> कनेक्टेड WhatsApp अकाउंट्स (Connected WABAs)
+                 <div className="p-8 border-b border-surface-100 dark:border-surface-800 bg-surface-50/50 dark:bg-surface-900/50">
+                     <h3 className="font-bold text-lg mb-2 text-surface-900 dark:text-white font-display flex items-center gap-2">
+                       <Phone className="w-5 h-5 text-primary-500" /> कनेक्टेड WhatsApp अकाउंट्स (Connected WABAs)
                      </h3>
-                     <p className="text-sm text-zinc-500 mb-6">इस वर्कस्पेस में कॉन्फ़िगर किए गए सभी सक्रिय WhatsApp नंबर और लाइन्स।</p>
+                     <p className="text-sm text-surface-500 mb-6">इस वर्कस्पेस में कॉन्फ़िगर किए गए सभी सक्रिय WhatsApp नंबर और लाइन्स।</p>
                      
                      {configs.length === 0 ? (
-                        <div className="p-8 text-center text-zinc-400 border border-dashed border-zinc-200 dark:border-zinc-800 rounded-2xl bg-white dark:bg-zinc-950/30">
+                        <div className="p-8 text-center text-surface-400 border border-dashed border-surface-200 dark:border-surface-800 rounded-2xl bg-white dark:bg-surface-950/30">
                            कोई कनेक्टेड अकाउंट नहीं मिला। शुरू करने के लिए ऊपर से एक अकाउंट जोड़ें।
                         </div>
                      ) : (
-                        <div className="overflow-hidden border border-zinc-200 dark:border-zinc-800 rounded-2xl bg-white dark:bg-zinc-950">
+                        <div className="overflow-hidden border border-surface-200 dark:border-surface-800 rounded-2xl bg-white dark:bg-surface-950">
                            <table className="w-full text-left border-collapse text-sm">
                               <thead>
-                                 <tr className="bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 text-zinc-400 font-semibold">
+                                 <tr className="bg-surface-50 dark:bg-surface-900 border-b border-surface-200 dark:border-surface-800 text-surface-400 font-semibold">
                                     <th className="p-4">Phone Number ID</th>
                                      <th className="p-4">WABA ID</th>
                                     <th className="p-4">ऑटो-रिप्लाई मोड</th>
@@ -2960,24 +2960,24 @@ function SettingsView() {
                               </thead>
                               <tbody>
                                  {configs.map((cfg) => (
-                                    <tr key={cfg.id} className="border-b border-zinc-100 dark:border-zinc-900 hover:bg-zinc-50/50 dark:hover:bg-zinc-900/50 transition-colors">
-                                       <td className="p-4 font-mono text-xs font-semibold text-zinc-700 dark:text-zinc-300">{cfg.phone_number_id}</td>
-                                        <td className="p-4 font-mono text-xs text-zinc-500">{cfg.waba_id || 'N/A'}</td>
+                                    <tr key={cfg.id} className="border-b border-surface-100 dark:border-surface-900 hover:bg-surface-50/50 dark:hover:bg-surface-900/50 transition-colors">
+                                       <td className="p-4 font-mono text-xs font-semibold text-surface-700 dark:text-surface-300">{cfg.phone_number_id}</td>
+                                        <td className="p-4 font-mono text-xs text-surface-500">{cfg.waba_id || 'N/A'}</td>
                                        <td className="p-4">
                                           <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
-                                             cfg.reply_mode === 'ai' ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/30 dark:text-indigo-400' :
+                                             cfg.reply_mode === 'ai' ? 'bg-primary-50 text-primary-700 dark:bg-primary-950/30 dark:text-primary-400' :
                                              cfg.reply_mode === 'rule_based' ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400' :
-                                             'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300'
+                                             'bg-surface-100 text-surface-700 dark:bg-surface-800 dark:text-surface-300'
                                           }`}>
                                              {cfg.reply_mode === 'ai' ? '🤖 AI Bot' : cfg.reply_mode === 'rule_based' ? '⚡ Rules' : '👤 Manual'}
                                           </span>
                                        </td>
-                                       <td className="p-4 text-xs text-zinc-500">{cfg.created_at ? formatUserDateOnly(cfg.created_at) : 'N/A'}</td>
+                                       <td className="p-4 text-xs text-surface-500">{cfg.created_at ? formatUserDateOnly(cfg.created_at) : 'N/A'}</td>
                                        <td className="p-4 text-right flex justify-end gap-2">
-                                          <button onClick={() => startEditing(cfg)} title="बदलें" className="p-2 text-zinc-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 rounded-lg transition-all">
+                                          <button onClick={() => startEditing(cfg)} title="बदलें" className="p-2 text-surface-500 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-950/30 rounded-lg transition-all">
                                              <Edit className="w-4 h-4" />
                                           </button>
-                                          <button onClick={() => deleteConfig(cfg.id)} title="हटाएं" className="p-2 text-zinc-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-all">
+                                          <button onClick={() => deleteConfig(cfg.id)} title="हटाएं" className="p-2 text-surface-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-all">
                                              <Trash2 className="w-4 h-4" />
                                           </button>
                                        </td>
@@ -2991,12 +2991,12 @@ function SettingsView() {
 
 
                  <div className="p-8">
-                     <h3 className="font-bold text-lg mb-2 text-zinc-900 dark:text-white font-display">Social Accounts</h3>
-                     <p className="text-sm text-zinc-500 mb-6">Instagram और Facebook पेजों को OAuth के माध्यम से कनेक्ट करें।</p>
+                     <h3 className="font-bold text-lg mb-2 text-surface-900 dark:text-white font-display">Social Accounts</h3>
+                     <p className="text-sm text-surface-500 mb-6">Instagram और Facebook पेजों को OAuth के माध्यम से कनेक्ट करें।</p>
                      
-                     <div className="flex flex-col items-center justify-center p-10 border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-2xl bg-zinc-50 dark:bg-zinc-950/50">
-                         <Megaphone className="w-10 h-10 text-zinc-300 dark:text-zinc-700 mb-4" />
-                         <p className="text-sm text-zinc-500 font-medium text-center">OAuth इंटीग्रेशन जल्द ही आ रहा है</p>
+                     <div className="flex flex-col items-center justify-center p-10 border-2 border-dashed border-surface-200 dark:border-surface-800 rounded-2xl bg-surface-50 dark:bg-surface-950/50">
+                         <Megaphone className="w-10 h-10 text-surface-300 dark:text-surface-700 mb-4" />
+                         <p className="text-sm text-surface-500 font-medium text-center">OAuth इंटीग्रेशन जल्द ही आ रहा है</p>
                      </div>
                  </div>
              </div>
@@ -3221,7 +3221,7 @@ function TemplatesView({ selectedWaba }: { selectedWaba?: any }) {
     return parts.map((part, index) => {
       if (part.match(/\{\{\d+\}\}/)) {
         return (
-          <span key={index} className="inline-block px-1.5 py-0.5 mx-0.5 rounded bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 text-xs font-semibold font-mono">
+          <span key={index} className="inline-block px-1.5 py-0.5 mx-0.5 rounded bg-primary-100 text-primary-700 dark:bg-primary-900/40 dark:text-primary-300 text-xs font-semibold font-mono">
             {part}
           </span>
         );
@@ -3233,7 +3233,7 @@ function TemplatesView({ selectedWaba }: { selectedWaba?: any }) {
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center p-8">
-        <div className="w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+        <div className="w-8 h-8 border-2 border-primary-600 border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
   }
@@ -3244,24 +3244,24 @@ function TemplatesView({ selectedWaba }: { selectedWaba?: any }) {
     <div className="p-6 md:p-8 w-full max-w-6xl mx-auto space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white font-display">WhatsApp टेम्पलेट्स (Templates)</h2>
-          <p className="text-sm text-zinc-500">अपने WhatsApp Business Account के स्वीकृत टेम्पलेट्स प्रबंधित करें और अभियान शुरू करें।</p>
+          <h2 className="text-2xl font-bold tracking-tight text-surface-900 dark:text-white font-display">WhatsApp टेम्पलेट्स (Templates)</h2>
+          <p className="text-sm text-surface-500">अपने WhatsApp Business Account के स्वीकृत टेम्पलेट्स प्रबंधित करें और अभियान शुरू करें।</p>
         </div>
         <div className="flex gap-3">
-          <button onClick={fetchTemplates} disabled={syncing} className="border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900 text-zinc-700 dark:text-zinc-300 px-4 py-2.5 rounded-xl text-sm font-medium transition-all flex items-center gap-2">
+          <button onClick={fetchTemplates} disabled={syncing} className="border border-surface-200 dark:border-surface-800 hover:bg-surface-50 dark:hover:bg-surface-900 text-surface-700 dark:text-surface-300 px-4 py-2.5 rounded-xl text-sm font-medium transition-all flex items-center gap-2">
             <Activity className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} /> Meta से सिंक करें
           </button>
-          <button onClick={() => setShowCreateModal(true)} className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl text-sm font-medium transition-all shadow-md shadow-indigo-600/10 flex items-center gap-2">
+          <button onClick={() => setShowCreateModal(true)} className="bg-primary-600 hover:bg-primary-700 text-white px-5 py-2.5 rounded-xl text-sm font-medium transition-all shadow-md shadow-primary-600/20 flex items-center gap-2">
             <Plus className="w-4 h-4" /> नया टेम्पलेट बनाएं
           </button>
         </div>
       </div>
 
-      <div className="border-b border-zinc-200 dark:border-zinc-800 flex gap-4">
-        <button onClick={() => setActiveSubTab('meta')} className={`py-3 text-sm font-semibold border-b-2 transition-all flex items-center gap-2 px-1 ${activeSubTab === 'meta' ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-zinc-400 hover:text-zinc-600'}`}>
+      <div className="border-b border-surface-200 dark:border-surface-800 flex gap-4">
+        <button onClick={() => setActiveSubTab('meta')} className={`py-3 text-sm font-semibold border-b-2 transition-all flex items-center gap-2 px-1 ${activeSubTab === 'meta' ? 'border-primary-600 text-primary-600 dark:text-primary-400' : 'border-transparent text-surface-400 hover:text-surface-600'}`}>
           <Megaphone className="w-4 h-4" /> Meta API स्वीकृत ({metaTemplates.length})
         </button>
-        <button onClick={() => setActiveSubTab('local')} className={`py-3 text-sm font-semibold border-b-2 transition-all flex items-center gap-2 px-1 ${activeSubTab === 'local' ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-zinc-400 hover:text-zinc-600'}`}>
+        <button onClick={() => setActiveSubTab('local')} className={`py-3 text-sm font-semibold border-b-2 transition-all flex items-center gap-2 px-1 ${activeSubTab === 'local' ? 'border-primary-600 text-primary-600 dark:text-primary-400' : 'border-transparent text-surface-400 hover:text-surface-600'}`}>
           <FileText className="w-4 h-4" /> लोकल ड्राफ्ट्स ({localTemplates.length})
         </button>
       </div>
@@ -3270,25 +3270,25 @@ function TemplatesView({ selectedWaba }: { selectedWaba?: any }) {
         <div className="p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30 rounded-2xl text-xs text-amber-800 dark:text-amber-400 flex flex-col gap-1">
           <span className="font-bold text-sm">Meta API सिंक चेतावनी (Sync Warning):</span>
           <span>{metaError}</span>
-          <span className="mt-2 text-zinc-500">सुझाव: सुनिश्चित करें कि सेटिंग्स में मान्य WABA ID और Permanent Access Token सेट किया गया है। तब तक आप लोकल ड्राफ्ट्स का उपयोग कर सकते हैं।</span>
+          <span className="mt-2 text-surface-500">सुझाव: सुनिश्चित करें कि सेटिंग्स में मान्य WABA ID और Permanent Access Token सेट किया गया है। तब तक आप लोकल ड्राफ्ट्स का उपयोग कर सकते हैं।</span>
         </div>
       )}
 
       {templatesToShow.length === 0 ? (
-        <div className="p-16 text-center border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-3xl bg-white dark:bg-zinc-950/30 flex flex-col items-center justify-center">
-          <FileText className="w-12 h-12 text-zinc-300 dark:text-zinc-700 mb-4 animate-pulse" />
-          <h3 className="font-bold text-lg text-zinc-800 dark:text-zinc-200 mb-1">कोई टेम्पलेट नहीं मिला</h3>
-          <p className="text-sm text-zinc-500 max-w-md">इस श्रेणी में कोई सक्रिय टेम्पलेट उपलब्ध नहीं है। आप सीधे नया टेम्पलेट बना सकते हैं।</p>
+        <div className="p-16 text-center border-2 border-dashed border-surface-200 dark:border-surface-800 rounded-3xl bg-white dark:bg-surface-950/30 flex flex-col items-center justify-center">
+          <FileText className="w-12 h-12 text-surface-300 dark:text-surface-700 mb-4 animate-pulse" />
+          <h3 className="font-bold text-lg text-surface-800 dark:text-surface-200 mb-1">कोई टेम्पलेट नहीं मिला</h3>
+          <p className="text-sm text-surface-500 max-w-md">इस श्रेणी में कोई सक्रिय टेम्पलेट उपलब्ध नहीं है। आप सीधे नया टेम्पलेट बना सकते हैं।</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {templatesToShow.map((tmpl) => (
-            <motion.div key={tmpl.id} layout className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-sm flex flex-col justify-between hover:border-zinc-300 dark:hover:border-zinc-700 transition-all">
+            <motion.div key={tmpl.id} layout className="bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 rounded-2xl overflow-hidden shadow-sm flex flex-col justify-between hover:border-surface-300 dark:hover:border-surface-700 transition-all">
               <div className="p-6 space-y-4">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <h3 className="font-bold text-zinc-900 dark:text-white font-mono text-sm truncate">{tmpl.name}</h3>
-                    <p className="text-xs text-zinc-400 mt-1 uppercase tracking-wider font-semibold">{tmpl.category}</p>
+                    <h3 className="font-bold text-surface-900 dark:text-white font-mono text-sm truncate">{tmpl.name}</h3>
+                    <p className="text-xs text-surface-400 mt-1 uppercase tracking-wider font-semibold">{tmpl.category}</p>
                   </div>
                   <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
                     tmpl.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400' :
@@ -3299,22 +3299,22 @@ function TemplatesView({ selectedWaba }: { selectedWaba?: any }) {
                   </span>
                 </div>
 
-                <div className="p-4 bg-zinc-50 dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-900 rounded-xl text-sm leading-relaxed text-zinc-700 dark:text-zinc-300 break-words min-h-[100px] whitespace-pre-wrap">
+                <div className="p-4 bg-surface-50 dark:bg-surface-950 border border-surface-100 dark:border-surface-900 rounded-xl text-sm leading-relaxed text-surface-700 dark:text-surface-300 break-words min-h-[100px] whitespace-pre-wrap">
                   {formatBodyText(tmpl.body_text)}
                 </div>
 
-                <div className="flex justify-between items-center text-xs text-zinc-400 font-medium">
-                  <span>भाषा: <span className="font-mono text-zinc-600 dark:text-zinc-400">{tmpl.language}</span></span>
-                  {tmpl.is_meta && <span className="text-indigo-500 font-semibold flex items-center gap-1">● Meta API</span>}
+                <div className="flex justify-between items-center text-xs text-surface-400 font-medium">
+                  <span>भाषा: <span className="font-mono text-surface-600 dark:text-surface-400">{tmpl.language}</span></span>
+                  {tmpl.is_meta && <span className="text-primary-500 font-semibold flex items-center gap-1">● Meta API</span>}
                 </div>
               </div>
 
-              <div className="bg-zinc-50 dark:bg-zinc-950/50 border-t border-zinc-100 dark:border-zinc-900/50 p-4 flex gap-3">
-                <button onClick={() => openSendModal(tmpl)} className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5 shadow-sm">
+              <div className="bg-surface-50 dark:bg-surface-950/50 border-t border-surface-100 dark:border-surface-900/50 p-4 flex gap-3">
+                <button onClick={() => openSendModal(tmpl)} className="flex-1 bg-primary-600 hover:bg-primary-700 text-white py-2 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5 shadow-sm">
                   <Send className="w-3.5 h-3.5" /> टेम्पलेट भेजें
                 </button>
                 {!tmpl.is_meta && (
-                  <button onClick={() => handleDeleteLocalTemplate(tmpl.id)} className="p-2 text-zinc-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-all" title="हटाएं">
+                  <button onClick={() => handleDeleteLocalTemplate(tmpl.id)} className="p-2 text-surface-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-all" title="हटाएं">
                     <Trash2 className="w-4 h-4" />
                   </button>
                 )}
@@ -3327,55 +3327,55 @@ function TemplatesView({ selectedWaba }: { selectedWaba?: any }) {
       {/* CREATE TEMPLATE MODAL */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-white dark:bg-zinc-900 rounded-3xl w-full max-w-lg overflow-hidden border border-zinc-200 dark:border-zinc-800 shadow-2xl">
-            <div className="p-6 border-b border-zinc-100 dark:border-zinc-800 flex justify-between items-center bg-zinc-50 dark:bg-zinc-900">
+          <div className="bg-white dark:bg-surface-900 rounded-3xl w-full max-w-lg overflow-hidden border border-surface-200 dark:border-surface-800 shadow-2xl">
+            <div className="p-6 border-b border-surface-100 dark:border-surface-800 flex justify-between items-center bg-surface-50 dark:bg-surface-900">
               <div>
-                <h3 className="font-bold text-lg text-zinc-900 dark:text-white">नया टेम्पलेट बनाएं</h3>
-                <p className="text-xs text-zinc-500">टेम्पलेट सीधे Meta API पर सबमिट किया जाएगा</p>
+                <h3 className="font-bold text-lg text-surface-900 dark:text-white">नया टेम्पलेट बनाएं</h3>
+                <p className="text-xs text-surface-500">टेम्पलेट सीधे Meta API पर सबमिट किया जाएगा</p>
               </div>
-              <button onClick={() => setShowCreateModal(false)} className="p-2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800">
+              <button onClick={() => setShowCreateModal(false)} className="p-2 text-surface-400 hover:text-surface-600 dark:hover:text-surface-200 rounded-full hover:bg-surface-100 dark:hover:bg-surface-800">
                 <X className="w-5 h-5" />
               </button>
             </div>
             <form onSubmit={handleCreateTemplate} className="p-6 space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">टेम्पलेट नाम (Alphanumeric and underscores only)</label>
-                <input type="text" value={templateName} onChange={e => setTemplateName(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '_'))} placeholder="e.g. welcome_offer_new" className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-indigo-500 font-mono" required />
+                <label className="block text-xs font-semibold text-surface-500 uppercase tracking-wider mb-2">टेम्पलेट नाम (Alphanumeric and underscores only)</label>
+                <input type="text" value={templateName} onChange={e => setTemplateName(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '_'))} placeholder="e.g. welcome_offer_new" className="w-full bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-surface-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-primary-500 font-mono" required />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">श्रेणी (Category)</label>
-                  <select value={category} onChange={e => setCategory(e.target.value)} className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-indigo-500">
+                  <label className="block text-xs font-semibold text-surface-500 uppercase tracking-wider mb-2">श्रेणी (Category)</label>
+                  <select value={category} onChange={e => setCategory(e.target.value)} className="w-full bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-surface-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-primary-500">
                     <option value="UTILITY">UTILITY (उपयोगिता)</option>
                     <option value="MARKETING">MARKETING (विपणन)</option>
                     <option value="AUTHENTICATION">AUTHENTICATION (प्रमाणीकरण)</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">भाषा (Language Code)</label>
-                  <select value={language} onChange={e => setLanguage(e.target.value)} className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-indigo-500 font-mono">
+                  <label className="block text-xs font-semibold text-surface-500 uppercase tracking-wider mb-2">भाषा (Language Code)</label>
+                  <select value={language} onChange={e => setLanguage(e.target.value)} className="w-full bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-surface-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-primary-500 font-mono">
                     <option value="en_US">en_US (अंग्रेज़ी)</option>
                     <option value="hi_IN">hi_IN (हिंदी)</option>
                   </select>
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">टेम्पलेट बॉडी टेक्स्ट (Template Body)</label>
-                <textarea rows={4} value={bodyText} onChange={e => setBodyText(e.target.value)} placeholder="नमस्ते {{1}}, आपके ऑर्डर {{2}} की पुष्टि हो गई है!" className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-indigo-500 resize-none" required />
-                <p className="text-[10px] text-zinc-400 mt-1.5">पैरामीटर वेरिएबल जोड़ने के लिए {"{{1}}"}, {"{{2}}"} आदि का उपयोग करें।</p>
+                <label className="block text-xs font-semibold text-surface-500 uppercase tracking-wider mb-2">टेम्पलेट बॉडी टेक्स्ट (Template Body)</label>
+                <textarea rows={4} value={bodyText} onChange={e => setBodyText(e.target.value)} placeholder="नमस्ते {{1}}, आपके ऑर्डर {{2}} की पुष्टि हो गई है!" className="w-full bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-surface-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-primary-500 resize-none" required />
+                <p className="text-[10px] text-surface-400 mt-1.5">पैरामीटर वेरिएबल जोड़ने के लिए {"{{1}}"}, {"{{2}}"} आदि का उपयोग करें।</p>
               </div>
 
               {createMessage && (
-                <div className="p-3 bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-950/30 rounded-xl text-xs font-medium text-indigo-700 dark:text-indigo-400">
+                <div className="p-3 bg-primary-50 dark:bg-primary-950/20 border border-primary-100 dark:border-primary-950/30 rounded-xl text-xs font-medium text-primary-700 dark:text-primary-400">
                   {createMessage}
                 </div>
               )}
 
               <div className="pt-2 flex gap-3">
-                <button type="submit" disabled={createLoading} className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2">
+                <button type="submit" disabled={createLoading} className="flex-1 bg-primary-600 hover:bg-primary-700 text-white py-3 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2">
                   {createLoading ? "प्रसंस्करण हो रहा है..." : "टेम्पलेट सबमिट करें"}
                 </button>
-                <button type="button" onClick={() => setShowCreateModal(false)} className="border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900 text-zinc-700 dark:text-zinc-300 px-6 rounded-xl text-sm font-medium transition-all">
+                <button type="button" onClick={() => setShowCreateModal(false)} className="border border-surface-200 dark:border-surface-800 hover:bg-surface-50 dark:hover:bg-surface-900 text-surface-700 dark:text-surface-300 px-6 rounded-xl text-sm font-medium transition-all">
                   रद्द करें
                 </button>
               </div>
@@ -3387,27 +3387,27 @@ function TemplatesView({ selectedWaba }: { selectedWaba?: any }) {
       {/* SEND TEMPLATE MODAL */}
       {showSendModal && selectedTemplate && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-white dark:bg-zinc-900 rounded-3xl w-full max-w-lg overflow-hidden border border-zinc-200 dark:border-zinc-800 shadow-2xl">
-            <div className="p-6 border-b border-zinc-100 dark:border-zinc-800 flex justify-between items-center bg-zinc-50 dark:bg-zinc-900">
+          <div className="bg-white dark:bg-surface-900 rounded-3xl w-full max-w-lg overflow-hidden border border-surface-200 dark:border-surface-800 shadow-2xl">
+            <div className="p-6 border-b border-surface-100 dark:border-surface-800 flex justify-between items-center bg-surface-50 dark:bg-surface-900">
               <div>
-                <h3 className="font-bold text-lg text-zinc-900 dark:text-white">टेम्पलेट संदेश भेजें</h3>
-                <p className="text-xs text-zinc-500">टेम्पलेट: <span className="font-mono">{selectedTemplate.name}</span></p>
+                <h3 className="font-bold text-lg text-surface-900 dark:text-white">टेम्पलेट संदेश भेजें</h3>
+                <p className="text-xs text-surface-500">टेम्पलेट: <span className="font-mono">{selectedTemplate.name}</span></p>
               </div>
-              <button onClick={() => setShowSendModal(false)} className="p-2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800">
+              <button onClick={() => setShowSendModal(false)} className="p-2 text-surface-400 hover:text-surface-600 dark:hover:text-surface-200 rounded-full hover:bg-surface-100 dark:hover:bg-surface-800">
                 <X className="w-5 h-5" />
               </button>
             </div>
             <form onSubmit={handleSendTemplate} className="p-6 space-y-4">
               {configs.length > 1 && (
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">प्रेषक नंबर (Sender WABA)</label>
+                  <label className="block text-xs font-semibold text-surface-500 uppercase tracking-wider mb-2">प्रेषक नंबर (Sender WABA)</label>
                   <select 
                     value={chosenWaba?.id || ''} 
                     onChange={e => {
                       const selected = configs.find(c => c.id === e.target.value);
                       setChosenWaba(selected);
                     }}
-                    className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-indigo-500 font-mono"
+                    className="w-full bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-surface-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-primary-500 font-mono"
                   >
                     {configs.map((cfg) => (
                       <option key={cfg.id} value={cfg.id}>
@@ -3418,31 +3418,31 @@ function TemplatesView({ selectedWaba }: { selectedWaba?: any }) {
                 </div>
               )}
               <div>
-                <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">प्राप्तकर्ता का मोबाइल नंबर (देश कोड के साथ)</label>
-                <input type="text" value={recipient} onChange={e => setRecipient(e.target.value.replace(/[^0-9+]/g, ''))} placeholder="e.g. +919876543210" className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-indigo-500 font-mono" required />
+                <label className="block text-xs font-semibold text-surface-500 uppercase tracking-wider mb-2">प्राप्तकर्ता का मोबाइल नंबर (देश कोड के साथ)</label>
+                <input type="text" value={recipient} onChange={e => setRecipient(e.target.value.replace(/[^0-9+]/g, ''))} placeholder="e.g. +919876543210" className="w-full bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-surface-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-primary-500 font-mono" required />
               </div>
 
               {paramValues.length > 0 && (
                 <div className="space-y-3 pt-2">
-                  <h4 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">पैरामीटर मान (Dynamic Values)</h4>
+                  <h4 className="text-xs font-semibold text-surface-400 uppercase tracking-wider mb-2">पैरामीटर मान (Dynamic Values)</h4>
                   {paramValues.map((val, idx) => (
                     <div key={idx} className="flex items-center gap-3">
-                      <span className="w-12 text-xs font-bold font-mono text-indigo-500 text-center bg-indigo-50 dark:bg-indigo-950/20 py-2 rounded-lg border border-indigo-100 dark:border-indigo-950/30">
+                      <span className="w-12 text-xs font-bold font-mono text-primary-500 text-center bg-primary-50 dark:bg-primary-950/20 py-2 rounded-lg border border-primary-100 dark:border-primary-950/30">
                         {"{{" + (idx + 1) + "}}"}
                       </span>
                       <input type="text" value={val} onChange={e => {
                         const copy = [...paramValues];
                         copy[idx] = e.target.value;
                         setParamValues(copy);
-                      }} placeholder={`वैल्यू दर्ज करें (Value for {{${idx+1}}})`} className="flex-1 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-indigo-500" required />
+                      }} placeholder={`वैल्यू दर्ज करें (Value for {{${idx+1}}})`} className="flex-1 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-surface-800 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-primary-500" required />
                     </div>
                   ))}
                 </div>
               )}
 
-              <div className="p-4 bg-zinc-50 dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-900 rounded-xl space-y-1">
-                <span className="text-[10px] uppercase font-bold text-zinc-400">पूर्वावलोकन (Preview):</span>
-                <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed whitespace-pre-wrap">
+              <div className="p-4 bg-surface-50 dark:bg-surface-950 border border-surface-100 dark:border-surface-900 rounded-xl space-y-1">
+                <span className="text-[10px] uppercase font-bold text-surface-400">पूर्वावलोकन (Preview):</span>
+                <p className="text-xs text-surface-600 dark:text-surface-400 leading-relaxed whitespace-pre-wrap">
                   {selectedTemplate.body_text.replace(/\{\{(\d+)\}\}/g, (match: string, p1: string) => {
                     const idx = parseInt(p1) - 1;
                     return paramValues[idx] || match;
@@ -3451,16 +3451,16 @@ function TemplatesView({ selectedWaba }: { selectedWaba?: any }) {
               </div>
 
               {sendMessage && (
-                <div className="p-3 bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-950/30 rounded-xl text-xs font-medium text-indigo-700 dark:text-indigo-400">
+                <div className="p-3 bg-primary-50 dark:bg-primary-950/20 border border-primary-100 dark:border-primary-950/30 rounded-xl text-xs font-medium text-primary-700 dark:text-primary-400">
                   {sendMessage}
                 </div>
               )}
 
               <div className="pt-2 flex gap-3">
-                <button type="submit" disabled={sendLoading} className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2">
+                <button type="submit" disabled={sendLoading} className="flex-1 bg-primary-600 hover:bg-primary-700 text-white py-3 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2">
                   {sendLoading ? "भेजा जा रहा है..." : "टेम्पलेट भेजें"}
                 </button>
-                <button type="button" onClick={() => setShowSendModal(false)} className="border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900 text-zinc-700 dark:text-zinc-300 px-6 rounded-xl text-sm font-medium transition-all">
+                <button type="button" onClick={() => setShowSendModal(false)} className="border border-surface-200 dark:border-surface-800 hover:bg-surface-50 dark:hover:bg-surface-900 text-surface-700 dark:text-surface-300 px-6 rounded-xl text-sm font-medium transition-all">
                   रद्द करें
                 </button>
               </div>
@@ -3756,17 +3756,17 @@ function ContactsView({
   return (
     <div className="p-6 max-w-7xl mx-auto w-full space-y-6">
       {/* Top action bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-zinc-900 p-4 rounded-2xl border border-zinc-200/60 dark:border-zinc-800/60 shadow-xs">
-        <div className="flex bg-zinc-100 dark:bg-zinc-800 p-1 rounded-xl w-fit">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-surface-900 p-4 rounded-2xl border border-surface-200/60 dark:border-surface-800/60 shadow-xs">
+        <div className="flex bg-surface-100 dark:bg-surface-800 p-1 rounded-xl w-fit">
           <button
             onClick={() => setSubTab('all')}
-            className={`px-4 py-2 text-xs font-semibold rounded-lg transition-all ${subTab === 'all' ? 'bg-white dark:bg-zinc-700 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'}`}
+            className={`px-4 py-2 text-xs font-semibold rounded-lg transition-all ${subTab === 'all' ? 'bg-white dark:bg-surface-700 text-primary-600 dark:text-primary-400 shadow-sm' : 'text-surface-500 hover:text-surface-800 dark:hover:text-surface-300'}`}
           >
             सभी संपर्क (All Contacts)
           </button>
           <button
             onClick={() => setSubTab('leads')}
-            className={`px-4 py-2 text-xs font-semibold rounded-lg transition-all ${subTab === 'leads' ? 'bg-white dark:bg-zinc-700 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'}`}
+            className={`px-4 py-2 text-xs font-semibold rounded-lg transition-all ${subTab === 'leads' ? 'bg-white dark:bg-surface-700 text-primary-600 dark:text-primary-400 shadow-sm' : 'text-surface-500 hover:text-surface-800 dark:hover:text-surface-300'}`}
           >
             लीड्स पाइपलाइन (Leads Pipeline)
           </button>
@@ -3783,13 +3783,13 @@ function ContactsView({
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={importing}
-            className="bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 px-4 py-2 rounded-xl text-xs font-semibold shadow-sm border border-zinc-200 dark:border-zinc-700 flex items-center gap-2 transition-all disabled:opacity-50"
+            className="bg-white dark:bg-surface-800 hover:bg-surface-50 dark:hover:bg-surface-700 text-surface-700 dark:text-surface-300 px-4 py-2 rounded-xl text-xs font-semibold shadow-sm border border-surface-200 dark:border-surface-700 flex items-center gap-2 transition-all disabled:opacity-50"
           >
             <Upload className={`w-4 h-4 ${importing ? 'animate-pulse' : ''}`} /> {importing ? 'आयात हो रहा है...' : 'CSV से आयात करें (Import)'}
           </button>
           <button
             onClick={openAddModal}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-md shadow-indigo-600/15 flex items-center gap-2 transition-all"
+            className="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-md shadow-primary-600/20 flex items-center gap-2 transition-all"
           >
             <Plus className="w-4 h-4" /> नया संपर्क जोड़ें (Add Contact)
           </button>
@@ -3800,36 +3800,36 @@ function ContactsView({
         <div className="space-y-4">
           {/* Search bar */}
           <div className="relative">
-            <Search className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <Search className="w-4 h-4 text-surface-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               placeholder="नाम, नंबर, ईमेल या सोशल आईडी से खोजें..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl outline-none focus:border-indigo-500 text-sm transition-all shadow-xs"
+              className="w-full pl-10 pr-4 py-3 bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 rounded-xl outline-none focus:border-primary-500 text-sm transition-all shadow-xs"
             />
           </div>
 
           {loading ? (
-            <div className="text-center py-12 text-sm text-zinc-500">संपर्क लोड हो रहे हैं...</div>
+            <div className="text-center py-12 text-sm text-surface-500">संपर्क लोड हो रहे हैं...</div>
           ) : filteredContacts.length === 0 ? (
-            <div className="text-center py-16 bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200/50 dark:border-zinc-800/50">
-              <Users className="w-10 h-10 text-zinc-300 mx-auto mb-3" />
-              <p className="text-sm text-zinc-500">कोई संपर्क नहीं मिला।</p>
+            <div className="text-center py-16 bg-white dark:bg-surface-900 rounded-2xl border border-surface-200/50 dark:border-surface-800/50">
+              <Users className="w-10 h-10 text-surface-300 mx-auto mb-3" />
+              <p className="text-sm text-surface-500">कोई संपर्क नहीं मिला।</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredContacts.map(c => (
-                <div key={c.id} className="bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800/60 rounded-2xl p-5 shadow-xs hover:shadow-md transition-all flex flex-col justify-between">
+                <div key={c.id} className="bg-white dark:bg-surface-900 border border-surface-200/60 dark:border-surface-800/60 rounded-2xl p-5 shadow-xs hover:shadow-md transition-all flex flex-col justify-between">
                   <div>
                     {/* Header: Name and badges */}
                     <div className="flex justify-between items-start gap-2 mb-3">
                       <div>
-                        <h3 className="font-semibold text-zinc-900 dark:text-zinc-50 text-base flex items-center gap-1.5">
+                        <h3 className="font-semibold text-surface-900 dark:text-surface-50 text-base flex items-center gap-1.5">
                           {c.name}
                         </h3>
                         {c.gender && (
-                          <span className="text-[10px] bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded text-zinc-500 font-medium">
+                          <span className="text-[10px] bg-surface-100 dark:bg-surface-800 px-2 py-0.5 rounded text-surface-500 font-medium">
                             {c.gender === 'Male' ? 'पुरुष (Male)' : c.gender === 'Female' ? 'महिला (Female)' : c.gender}
                           </span>
                         )}
@@ -3839,7 +3839,7 @@ function ContactsView({
                         <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${
                           c.lead_status === 'closed_won' ? 'bg-emerald-500/10 text-emerald-600 border-emerald-200' :
                           c.lead_status === 'closed_lost' ? 'bg-red-500/10 text-red-600 border-red-200' :
-                          'bg-indigo-500/10 text-indigo-600 border-indigo-200'
+                          'bg-primary-500/10 text-primary-600 border-primary-200'
                         }`}>
                           LEAD
                         </span>
@@ -3847,20 +3847,20 @@ function ContactsView({
                     </div>
 
                     {/* Body Info */}
-                    <div className="space-y-2 text-xs text-zinc-600 dark:text-zinc-400 border-t border-zinc-100 dark:border-zinc-800/50 pt-3">
+                    <div className="space-y-2 text-xs text-surface-600 dark:text-surface-400 border-t border-surface-100 dark:border-surface-800/50 pt-3">
                       <div className="flex items-center gap-2">
-                        <Phone className="w-3.5 h-3.5 text-zinc-400" />
+                        <Phone className="w-3.5 h-3.5 text-surface-400" />
                         <span><strong>मुख्य नंबर:</strong> {c.phone || c.platform_contact_id}</span>
                       </div>
                       {c.additional_phone && (
                         <div className="flex items-center gap-2">
-                          <Phone className="w-3.5 h-3.5 text-zinc-400" />
+                          <Phone className="w-3.5 h-3.5 text-surface-400" />
                           <span><strong>अतिरिक्त नंबर:</strong> {c.additional_phone}</span>
                         </div>
                       )}
                       {c.email && (
                         <div className="flex items-center gap-2">
-                          <Mail className="w-3.5 h-3.5 text-zinc-400" />
+                          <Mail className="w-3.5 h-3.5 text-surface-400" />
                           <span className="truncate"><strong>ईमेल:</strong> {c.email}</span>
                         </div>
                       )}
@@ -3887,25 +3887,25 @@ function ContactsView({
                       )}
 
                       {c.notes && (
-                        <div className="bg-zinc-50 dark:bg-zinc-800/30 p-2.5 rounded-lg border border-zinc-100 dark:border-zinc-800/40 text-[11px] text-zinc-500 mt-2 italic">
+                        <div className="bg-surface-50 dark:bg-surface-800/30 p-2.5 rounded-lg border border-surface-100 dark:border-surface-800/40 text-[11px] text-surface-500 mt-2 italic">
                           &ldquo;{c.notes}&rdquo;
                         </div>
                       )}
 
                       {/* Lead Details summary */}
                       {(c.is_lead === 1 || c.is_lead === true) && (
-                        <div className="mt-3 p-2 bg-indigo-50/40 dark:bg-indigo-950/10 rounded-lg border border-indigo-100/40 space-y-1 text-[11px]">
-                          <div className="flex justify-between text-zinc-500">
+                        <div className="mt-3 p-2 bg-primary-50/40 dark:bg-primary-950/10 rounded-lg border border-primary-100/40 space-y-1 text-[11px]">
+                          <div className="flex justify-between text-surface-500">
                             <span>लीड स्टेटस:</span>
-                            <span className="font-semibold text-indigo-600 dark:text-indigo-400 uppercase">{c.lead_status || 'new'}</span>
+                            <span className="font-semibold text-primary-600 dark:text-primary-400 uppercase">{c.lead_status || 'new'}</span>
                           </div>
-                          <div className="flex justify-between text-zinc-500">
+                          <div className="flex justify-between text-surface-500">
                             <span>लीड सोर्स:</span>
-                            <span className="font-semibold capitalize text-zinc-700 dark:text-zinc-300">{c.lead_source || 'manual'}</span>
+                            <span className="font-semibold capitalize text-surface-700 dark:text-surface-300">{c.lead_source || 'manual'}</span>
                           </div>
-                          <div className="flex justify-between text-zinc-500">
+                          <div className="flex justify-between text-surface-500">
                             <span>अनुमानित मूल्य:</span>
-                            <span className="font-semibold text-zinc-800 dark:text-zinc-200">₹{(c.lead_value || 0).toLocaleString()}</span>
+                            <span className="font-semibold text-surface-800 dark:text-surface-200">₹{(c.lead_value || 0).toLocaleString()}</span>
                           </div>
                         </div>
                       )}
@@ -3913,23 +3913,23 @@ function ContactsView({
                   </div>
 
                   {/* Actions */}
-                  <div className="flex gap-2 mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-800/50">
+                  <div className="flex gap-2 mt-4 pt-3 border-t border-surface-100 dark:border-surface-800/50">
                     <button
                       onClick={() => initiateWhatsAppChat(c.id)}
-                      className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm transition-all"
+                      className="flex-1 bg-primary-600 hover:bg-primary-700 text-white px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm transition-all"
                     >
                       <Send className="w-3.5 h-3.5" /> WhatsApp चैट
                     </button>
                     <button
                       onClick={() => openEditModal(c)}
-                      className="p-2 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800 rounded-xl text-zinc-600 dark:text-zinc-400 transition-all"
+                      className="p-2 border border-surface-200 dark:border-surface-800 hover:bg-surface-50 dark:hover:bg-surface-800 rounded-xl text-surface-600 dark:text-surface-400 transition-all"
                       title="Edit Contact"
                     >
                       <Edit className="w-3.5 h-3.5" />
                     </button>
                     <button
                       onClick={() => deleteContact(c.id)}
-                      className="p-2 border border-zinc-200 dark:border-zinc-800 hover:bg-rose-50 dark:hover:bg-rose-950/20 hover:text-rose-600 rounded-xl text-zinc-600 dark:text-zinc-400 transition-all"
+                      className="p-2 border border-surface-200 dark:border-surface-800 hover:bg-rose-50 dark:hover:bg-rose-950/20 hover:text-rose-600 rounded-xl text-surface-600 dark:text-surface-400 transition-all"
                       title="Delete Contact"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -3948,14 +3948,14 @@ function ContactsView({
               const { count, totalValue } = getStageStats(stage.key);
               const stageLeads = leads.filter(l => (l.lead_status || 'new') === stage.key);
               return (
-                <div key={stage.key} className="bg-zinc-100/50 dark:bg-zinc-900/40 border border-zinc-200/50 dark:border-zinc-800/40 rounded-2xl p-4 flex flex-col min-h-[500px]">
+                <div key={stage.key} className="bg-surface-100/50 dark:bg-surface-900/40 border border-surface-200/50 dark:border-surface-800/40 rounded-2xl p-4 flex flex-col min-h-[500px]">
                   {/* Stage Header */}
                   <div className="mb-4">
                     <div className="flex items-center justify-between gap-2 mb-1">
-                      <span className="font-semibold text-xs text-zinc-700 dark:text-zinc-300">{stage.label}</span>
-                      <span className="bg-zinc-200 dark:bg-zinc-800 text-[10px] text-zinc-600 dark:text-zinc-400 px-2 py-0.5 rounded-full font-bold">{count}</span>
+                      <span className="font-semibold text-xs text-surface-700 dark:text-surface-300">{stage.label}</span>
+                      <span className="bg-surface-200 dark:bg-surface-800 text-[10px] text-surface-600 dark:text-surface-400 px-2 py-0.5 rounded-full font-bold">{count}</span>
                     </div>
-                    <div className="text-[11px] text-zinc-500 flex items-center gap-1 font-mono">
+                    <div className="text-[11px] text-surface-500 flex items-center gap-1 font-mono">
                       <Coins className="w-3 h-3 text-amber-500" /> Value: ₹{totalValue.toLocaleString()}
                     </div>
                   </div>
@@ -3963,33 +3963,33 @@ function ContactsView({
                   {/* Stage Lead Cards */}
                   <div className="flex-1 space-y-3 overflow-y-auto">
                     {stageLeads.length === 0 ? (
-                      <div className="text-center py-8 text-[11px] text-zinc-400 border border-dashed border-zinc-200 dark:border-zinc-800 rounded-xl">
+                      <div className="text-center py-8 text-[11px] text-surface-400 border border-dashed border-surface-200 dark:border-surface-800 rounded-xl">
                         कोई लीड नहीं
                       </div>
                     ) : (
                       stageLeads.map(lead => (
-                        <div key={lead.id} className="bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800/60 rounded-xl p-3 shadow-xs hover:shadow-md transition-all space-y-2">
+                        <div key={lead.id} className="bg-white dark:bg-surface-900 border border-surface-200/60 dark:border-surface-800/60 rounded-xl p-3 shadow-xs hover:shadow-md transition-all space-y-2">
                           <div>
-                            <h4 className="font-medium text-xs text-zinc-900 dark:text-zinc-100 truncate">{lead.name}</h4>
-                            <span className="text-[10px] text-zinc-500">{lead.phone || lead.platform_contact_id}</span>
+                            <h4 className="font-medium text-xs text-surface-900 dark:text-surface-100 truncate">{lead.name}</h4>
+                            <span className="text-[10px] text-surface-500">{lead.phone || lead.platform_contact_id}</span>
                           </div>
 
-                          <div className="flex justify-between items-center text-[10px] text-zinc-500">
-                            <span className="bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded capitalize">{lead.lead_source || 'manual'}</span>
-                            <span className="font-bold text-zinc-700 dark:text-zinc-300">₹{(lead.lead_value || 0).toLocaleString()}</span>
+                          <div className="flex justify-between items-center text-[10px] text-surface-500">
+                            <span className="bg-surface-100 dark:bg-surface-800 px-1.5 py-0.5 rounded capitalize">{lead.lead_source || 'manual'}</span>
+                            <span className="font-bold text-surface-700 dark:text-surface-300">₹{(lead.lead_value || 0).toLocaleString()}</span>
                           </div>
 
                           {/* Fast Action Buttons */}
-                          <div className="flex gap-1.5 pt-2 border-t border-zinc-100 dark:border-zinc-800/50">
+                          <div className="flex gap-1.5 pt-2 border-t border-surface-100 dark:border-surface-800/50">
                             <button
                               onClick={() => initiateWhatsAppChat(lead.id)}
-                              className="flex-1 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/20 dark:hover:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 text-[10px] py-1 rounded-md font-bold flex items-center justify-center gap-1 transition-all"
+                              className="flex-1 bg-primary-50 hover:bg-primary-100 dark:bg-primary-950/20 dark:hover:bg-primary-950/40 text-primary-600 dark:text-primary-400 text-[10px] py-1 rounded-md font-bold flex items-center justify-center gap-1 transition-all"
                             >
                               <Send className="w-2.5 h-2.5" /> चैट
                             </button>
                             <button
                               onClick={() => openEditModal(lead)}
-                              className="p-1 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800 rounded-md text-zinc-600 dark:text-zinc-400 transition-all"
+                              className="p-1 border border-surface-200 dark:border-surface-800 hover:bg-surface-50 dark:hover:bg-surface-800 rounded-md text-surface-600 dark:text-surface-400 transition-all"
                             >
                               <Edit className="w-2.5 h-2.5" />
                             </button>
@@ -4008,13 +4008,13 @@ function ContactsView({
       {/* Edit/Add Contact Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-zinc-900 rounded-2xl w-full max-w-lg overflow-hidden border border-zinc-200 dark:border-zinc-800 shadow-2xl flex flex-col max-h-[90vh]">
+          <div className="bg-white dark:bg-surface-900 rounded-2xl w-full max-w-lg overflow-hidden border border-surface-200 dark:border-surface-800 shadow-2xl flex flex-col max-h-[90vh]">
             {/* Header */}
-            <div className="p-5 border-b border-zinc-200 dark:border-zinc-800 flex justify-between items-center bg-zinc-50 dark:bg-zinc-900/50">
-              <h2 className="font-bold text-zinc-950 dark:text-white text-base">
+            <div className="p-5 border-b border-surface-200 dark:border-surface-800 flex justify-between items-center bg-surface-50 dark:bg-surface-900/50">
+              <h2 className="font-bold text-surface-950 dark:text-white text-base">
                 {isEdit ? "संपर्क संपादित करें (Edit Contact)" : "नया संपर्क जोड़ें (Add New Contact)"}
               </h2>
-              <button onClick={() => setShowModal(false)} className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200">
+              <button onClick={() => setShowModal(false)} className="text-surface-400 hover:text-surface-600 dark:hover:text-surface-200">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -4024,20 +4024,20 @@ function ContactsView({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Name */}
                 <div className="sm:col-span-2">
-                  <label className="block text-xs font-semibold text-zinc-500 mb-1">पूरा नाम (Full Name) *</label>
+                  <label className="block text-xs font-semibold text-surface-500 mb-1">पूरा नाम (Full Name) *</label>
                   <input
                     type="text"
                     required
                     value={formName}
                     onChange={(e) => setFormName(e.target.value)}
                     placeholder="उदा. राहुल शर्मा"
-                    className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700/60 rounded-xl text-sm outline-none focus:border-indigo-500"
+                    className="w-full px-3 py-2 bg-surface-50 dark:bg-surface-800/50 border border-surface-200 dark:border-surface-700/60 rounded-xl text-sm outline-none focus:border-primary-500"
                   />
                 </div>
 
                 {/* Primary Phone */}
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-500 mb-1">मुख्य फ़ोन नंबर (Phone) *</label>
+                  <label className="block text-xs font-semibold text-surface-500 mb-1">मुख्य फ़ोन नंबर (Phone) *</label>
                   <PhoneInput
                     international
                     defaultCountry="IN"
@@ -4045,42 +4045,42 @@ function ContactsView({
                     value={formPhone}
                     onChange={(val) => setFormPhone(val || '')}
                     placeholder="फ़ोन नंबर दर्ज करें"
-                    className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700/60 rounded-xl text-sm outline-none focus:border-indigo-500"
+                    className="w-full px-3 py-2 bg-surface-50 dark:bg-surface-800/50 border border-surface-200 dark:border-surface-700/60 rounded-xl text-sm outline-none focus:border-primary-500"
                   />
                 </div>
 
                 {/* Additional Phone */}
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-500 mb-1">अतिरिक्त फ़ोन नंबर</label>
+                  <label className="block text-xs font-semibold text-surface-500 mb-1">अतिरिक्त फ़ोन नंबर</label>
                   <PhoneInput
                     international
                     defaultCountry="IN"
                     value={formAdditionalPhone}
                     onChange={(val) => setFormAdditionalPhone(val || '')}
                     placeholder="अतिरिक्त नंबर दर्ज करें"
-                    className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700/60 rounded-xl text-sm outline-none focus:border-indigo-500"
+                    className="w-full px-3 py-2 bg-surface-50 dark:bg-surface-800/50 border border-surface-200 dark:border-surface-700/60 rounded-xl text-sm outline-none focus:border-primary-500"
                   />
                 </div>
 
                 {/* Email */}
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-500 mb-1">ईमेल (Email)</label>
+                  <label className="block text-xs font-semibold text-surface-500 mb-1">ईमेल (Email)</label>
                   <input
                     type="email"
                     value={formEmail}
                     onChange={(e) => setFormEmail(e.target.value)}
                     placeholder="उदा. rahul@example.com"
-                    className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700/60 rounded-xl text-sm outline-none focus:border-indigo-500"
+                    className="w-full px-3 py-2 bg-surface-50 dark:bg-surface-800/50 border border-surface-200 dark:border-surface-700/60 rounded-xl text-sm outline-none focus:border-primary-500"
                   />
                 </div>
 
                 {/* Gender */}
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-500 mb-1">लिंग (Gender)</label>
+                  <label className="block text-xs font-semibold text-surface-500 mb-1">लिंग (Gender)</label>
                   <select
                     value={formGender}
                     onChange={(e) => setFormGender(e.target.value)}
-                    className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700/60 rounded-xl text-sm outline-none focus:border-indigo-500"
+                    className="w-full px-3 py-2 bg-surface-50 dark:bg-surface-800/50 border border-surface-200 dark:border-surface-700/60 rounded-xl text-sm outline-none focus:border-primary-500"
                   >
                     <option value="Male">पुरुष (Male)</option>
                     <option value="Female">महिला (Female)</option>
@@ -4090,74 +4090,74 @@ function ContactsView({
 
                 {/* Instagram */}
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-500 mb-1">इंस्टाग्राम यूजरनेम</label>
+                  <label className="block text-xs font-semibold text-surface-500 mb-1">इंस्टाग्राम यूजरनेम</label>
                   <input
                     type="text"
                     value={formInstagram}
                     onChange={(e) => setFormInstagram(e.target.value)}
                     placeholder="उदा. rahul_sharma"
-                    className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700/60 rounded-xl text-sm outline-none focus:border-indigo-500"
+                    className="w-full px-3 py-2 bg-surface-50 dark:bg-surface-800/50 border border-surface-200 dark:border-surface-700/60 rounded-xl text-sm outline-none focus:border-primary-500"
                   />
                 </div>
 
                 {/* Facebook */}
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-500 mb-1">फेसबुक यूजरनेम</label>
+                  <label className="block text-xs font-semibold text-surface-500 mb-1">फेसबुक यूजरनेम</label>
                   <input
                     type="text"
                     value={formFacebook}
                     onChange={(e) => setFormFacebook(e.target.value)}
                     placeholder="उदा. rahul.sharma.fb"
-                    className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700/60 rounded-xl text-sm outline-none focus:border-indigo-500"
+                    className="w-full px-3 py-2 bg-surface-50 dark:bg-surface-800/50 border border-surface-200 dark:border-surface-700/60 rounded-xl text-sm outline-none focus:border-primary-500"
                   />
                 </div>
 
                 {/* WhatsApp Username */}
                 <div className="sm:col-span-2">
-                  <label className="block text-xs font-semibold text-zinc-500 mb-1">व्हाट्सएप यूजरनेम / उपनाम</label>
+                  <label className="block text-xs font-semibold text-surface-500 mb-1">व्हाट्सएप यूजरनेम / उपनाम</label>
                   <input
                     type="text"
                     value={formWhatsApp}
                     onChange={(e) => setFormWhatsApp(e.target.value)}
                     placeholder="उदा. Rahul S"
-                    className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700/60 rounded-xl text-sm outline-none focus:border-indigo-500"
+                    className="w-full px-3 py-2 bg-surface-50 dark:bg-surface-800/50 border border-surface-200 dark:border-surface-700/60 rounded-xl text-sm outline-none focus:border-primary-500"
                   />
                 </div>
 
                 {/* Notes */}
                 <div className="sm:col-span-2">
-                  <label className="block text-xs font-semibold text-zinc-500 mb-1">नोट्स / टिप्पणियां</label>
+                  <label className="block text-xs font-semibold text-surface-500 mb-1">नोट्स / टिप्पणियां</label>
                   <textarea
                     value={formNotes}
                     onChange={(e) => setFormNotes(e.target.value)}
                     placeholder="संपर्क के बारे में अतिरिक्त जानकारी..."
-                    className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700/60 rounded-xl text-sm outline-none focus:border-indigo-500 h-20 resize-none"
+                    className="w-full px-3 py-2 bg-surface-50 dark:bg-surface-800/50 border border-surface-200 dark:border-surface-700/60 rounded-xl text-sm outline-none focus:border-primary-500 h-20 resize-none"
                   />
                 </div>
 
                 {/* Is Lead Toggle */}
-                <div className="sm:col-span-2 bg-zinc-50 dark:bg-zinc-800/20 p-4 rounded-xl border border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
+                <div className="sm:col-span-2 bg-surface-50 dark:bg-surface-800/20 p-4 rounded-xl border border-surface-100 dark:border-surface-800 flex items-center justify-between">
                   <div>
-                    <h4 className="text-xs font-bold text-zinc-800 dark:text-zinc-200">क्या यह लीड है? (Mark as Lead)</h4>
-                    <p className="text-[10px] text-zinc-400">लीड के रूप में चिह्नित करने पर आप इसे सेल्स फनल में ट्रैक कर पाएंगे।</p>
+                    <h4 className="text-xs font-bold text-surface-800 dark:text-surface-200">क्या यह लीड है? (Mark as Lead)</h4>
+                    <p className="text-[10px] text-surface-400">लीड के रूप में चिह्नित करने पर आप इसे सेल्स फनल में ट्रैक कर पाएंगे।</p>
                   </div>
                   <input
                     type="checkbox"
                     checked={formIsLead}
                     onChange={(e) => setFormIsLead(e.target.checked)}
-                    className="w-5 h-5 accent-indigo-600 rounded cursor-pointer"
+                    className="w-5 h-5 accent-primary-600 rounded cursor-pointer"
                   />
                 </div>
 
                 {/* Lead fields displayed conditionally */}
                 {formIsLead && (
-                  <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4 bg-indigo-50/20 dark:bg-indigo-950/5 p-4 rounded-xl border border-indigo-100/50 dark:border-indigo-900/10">
+                  <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4 bg-primary-50/20 dark:bg-primary-950/5 p-4 rounded-xl border border-primary-100/50 dark:border-primary-900/10">
                     <div>
-                      <label className="block text-xs font-semibold text-zinc-500 mb-1">लीड स्टेटस</label>
+                      <label className="block text-xs font-semibold text-surface-500 mb-1">लीड स्टेटस</label>
                       <select
                         value={formLeadStatus}
                         onChange={(e) => setFormLeadStatus(e.target.value)}
-                        className="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm outline-none"
+                        className="w-full px-3 py-2 bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 rounded-lg text-sm outline-none"
                       >
                         <option value="new">नई लीड (New)</option>
                         <option value="contacted">संपर्क किया (Contacted)</option>
@@ -4168,11 +4168,11 @@ function ContactsView({
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-zinc-500 mb-1">लीड सोर्स</label>
+                      <label className="block text-xs font-semibold text-surface-500 mb-1">लीड सोर्स</label>
                       <select
                         value={formLeadSource}
                         onChange={(e) => setFormLeadSource(e.target.value)}
-                        className="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm outline-none"
+                        className="w-full px-3 py-2 bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 rounded-lg text-sm outline-none"
                       >
                         <option value="website">वेबसाइट (Website)</option>
                         <option value="facebook">फेसबुक (Facebook)</option>
@@ -4184,13 +4184,13 @@ function ContactsView({
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-zinc-500 mb-1">अनुमानित मूल्य (Value ₹)</label>
+                      <label className="block text-xs font-semibold text-surface-500 mb-1">अनुमानित मूल्य (Value ₹)</label>
                       <input
                         type="number"
                         value={formLeadValue}
                         onChange={(e) => setFormLeadValue(e.target.value)}
                         placeholder="उदा. 15000"
-                        className="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm outline-none"
+                        className="w-full px-3 py-2 bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 rounded-lg text-sm outline-none"
                       />
                     </div>
                   </div>
@@ -4198,17 +4198,17 @@ function ContactsView({
               </div>
 
               {/* Action buttons */}
-              <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800 flex gap-3">
+              <div className="pt-4 border-t border-surface-100 dark:border-surface-800 flex gap-3">
                 <button
                   type="submit"
-                  className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm"
+                  className="flex-1 bg-primary-600 hover:bg-primary-700 text-white py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm"
                 >
                   {isEdit ? "बदलाव सहेजें" : "संपर्क सहेजें"}
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="px-5 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800 rounded-xl text-xs font-medium text-zinc-700 dark:text-zinc-300 transition-all"
+                  className="px-5 border border-surface-200 dark:border-surface-800 hover:bg-surface-50 dark:hover:bg-surface-800 rounded-xl text-xs font-medium text-surface-700 dark:text-surface-300 transition-all"
                 >
                   रद्द करें
                 </button>
@@ -4355,26 +4355,26 @@ function CallsView({
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6 w-full animate-fade-in">
       {/* Top Banner & Calling Switch */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-surface-900 p-6 rounded-2xl border border-surface-200 dark:border-surface-800 shadow-sm">
         <div>
-          <h2 className="text-xl font-bold text-zinc-900 dark:text-white font-display">कॉल प्रबंधन और इतिहास (Calling Management)</h2>
-          <p className="text-xs text-zinc-500 mt-1">व्हाट्सएप बिजनेस क्लाउड एपीआई के माध्यम से सभी कॉल्स को सक्षम/अक्षम करें और ट्रैक करें</p>
+          <h2 className="text-xl font-bold text-surface-900 dark:text-white font-display">कॉल प्रबंधन और इतिहास (Calling Management)</h2>
+          <p className="text-xs text-surface-500 mt-1">व्हाट्सएप बिजनेस क्लाउड एपीआई के माध्यम से सभी कॉल्स को सक्षम/अक्षम करें और ट्रैक करें</p>
         </div>
         <div className="flex items-center gap-4 shrink-0">
           <button
             onClick={() => setShowDialer(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-indigo-500/10"
+            className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-primary-500/20"
           >
             <Phone className="w-3.5 h-3.5" />
             नया कॉल डायल करें
           </button>
           
-          <div className="flex items-center gap-3 bg-zinc-50 dark:bg-zinc-950 p-2 rounded-xl border border-zinc-200/50 dark:border-zinc-800">
-            <span className="text-xs font-semibold text-zinc-600 dark:text-zinc-400">कॉलिंग सेवा</span>
+          <div className="flex items-center gap-3 bg-surface-50 dark:bg-surface-950 p-2 rounded-xl border border-surface-200/50 dark:border-surface-800">
+            <span className="text-xs font-semibold text-surface-600 dark:text-surface-400">कॉलिंग सेवा</span>
             <button
               onClick={toggleCalling}
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-300 outline-none ${
-                callingEnabled ? 'bg-emerald-500' : 'bg-zinc-300 dark:bg-zinc-800'
+                callingEnabled ? 'bg-emerald-500' : 'bg-surface-300 dark:bg-surface-800'
               }`}
             >
               <span
@@ -4383,7 +4383,7 @@ function CallsView({
                 }`}
               />
             </button>
-            <span className={`text-[10px] font-bold uppercase tracking-wider ${callingEnabled ? 'text-emerald-500' : 'text-zinc-400'}`}>
+            <span className={`text-[10px] font-bold uppercase tracking-wider ${callingEnabled ? 'text-emerald-500' : 'text-surface-400'}`}>
               {callingEnabled ? 'सक्रिय' : 'बंद'}
             </span>
           </div>
@@ -4403,7 +4403,7 @@ function CallsView({
           </div>
           <button
             onClick={() => fetchCallsAndConfigs()}
-            className="px-2 py-1 rounded-md bg-white dark:bg-zinc-900 border border-current opacity-80 hover:opacity-100"
+            className="px-2 py-1 rounded-md bg-white dark:bg-surface-900 border border-current opacity-80 hover:opacity-100"
           >
             Refresh
           </button>
@@ -4412,61 +4412,61 @@ function CallsView({
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white dark:bg-zinc-900 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm flex items-center gap-4">
-          <div className="p-3 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 rounded-xl">
+        <div className="bg-white dark:bg-surface-900 p-4 rounded-xl border border-surface-200 dark:border-surface-800 shadow-sm flex items-center gap-4">
+          <div className="p-3 bg-primary-50 dark:bg-primary-950/40 text-primary-600 dark:text-primary-400 rounded-xl">
             <Phone className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">कुल कॉल्स</p>
-            <p className="text-xl font-bold text-zinc-900 dark:text-white mt-0.5">{totalCalls}</p>
+            <p className="text-[10px] text-surface-500 uppercase font-bold tracking-wider">कुल कॉल्स</p>
+            <p className="text-xl font-bold text-surface-900 dark:text-white mt-0.5">{totalCalls}</p>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-zinc-900 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm flex items-center gap-4">
+        <div className="bg-white dark:bg-surface-900 p-4 rounded-xl border border-surface-200 dark:border-surface-800 shadow-sm flex items-center gap-4">
           <div className="p-3 bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 rounded-xl">
             <X className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">मिस्ड कॉल्स</p>
-            <p className="text-xl font-bold text-zinc-900 dark:text-white mt-0.5">{missedCalls}</p>
+            <p className="text-[10px] text-surface-500 uppercase font-bold tracking-wider">मिस्ड कॉल्स</p>
+            <p className="text-xl font-bold text-surface-900 dark:text-white mt-0.5">{missedCalls}</p>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-zinc-900 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm flex items-center gap-4">
+        <div className="bg-white dark:bg-surface-900 p-4 rounded-xl border border-surface-200 dark:border-surface-800 shadow-sm flex items-center gap-4">
           <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 rounded-xl">
             <Check className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">सफल उत्तर</p>
-            <p className="text-xl font-bold text-zinc-900 dark:text-white mt-0.5">{completedCalls}</p>
+            <p className="text-[10px] text-surface-500 uppercase font-bold tracking-wider">सफल उत्तर</p>
+            <p className="text-xl font-bold text-surface-900 dark:text-white mt-0.5">{completedCalls}</p>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-zinc-900 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm flex items-center gap-4">
+        <div className="bg-white dark:bg-surface-900 p-4 rounded-xl border border-surface-200 dark:border-surface-800 shadow-sm flex items-center gap-4">
           <div className="p-3 bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 rounded-xl">
             <Phone className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">आउटगोइंग</p>
-            <p className="text-xl font-bold text-zinc-900 dark:text-white mt-0.5">{outgoingCalls}</p>
+            <p className="text-[10px] text-surface-500 uppercase font-bold tracking-wider">आउटगोइंग</p>
+            <p className="text-xl font-bold text-surface-900 dark:text-white mt-0.5">{outgoingCalls}</p>
           </div>
         </div>
       </div>
 
       
       {/* Main Table Container */}
-      <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden">
+      <div className="bg-white dark:bg-surface-900 rounded-2xl border border-surface-200 dark:border-surface-800 shadow-sm overflow-hidden">
         {/* Filters and Search */}
-        <div className="p-4 border-b border-zinc-200 dark:border-zinc-800 flex flex-col sm:flex-row justify-between items-center gap-4">
-          <div className="flex bg-zinc-50 dark:bg-zinc-950 p-1 rounded-xl border border-zinc-200/50 dark:border-zinc-800 w-full sm:w-auto">
+        <div className="p-4 border-b border-surface-200 dark:border-surface-800 flex flex-col sm:flex-row justify-between items-center gap-4">
+          <div className="flex bg-surface-50 dark:bg-surface-950 p-1 rounded-xl border border-surface-200/50 dark:border-surface-800 w-full sm:w-auto">
             {(["all", "incoming", "outgoing", "missed"] as const).map(type => (
               <button
                 key={type}
                 onClick={() => setFilter(type)}
                 className={`flex-1 sm:flex-initial px-4 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all ${
                   filter === type 
-                    ? 'bg-white dark:bg-zinc-800 text-indigo-600 dark:text-indigo-400 shadow-sm border border-zinc-200/50 dark:border-zinc-700/50' 
-                    : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
+                    ? 'bg-white dark:bg-surface-800 text-primary-600 dark:text-primary-400 shadow-sm border border-surface-200/50 dark:border-surface-700/50' 
+                    : 'text-surface-500 hover:text-surface-900 dark:hover:text-white'
                 }`}
               >
                 {type === 'all' ? 'सभी' : type === 'incoming' ? 'इनकमिंग' : type === 'outgoing' ? 'आउटगोइंग' : 'मिस्ड'}
@@ -4475,13 +4475,13 @@ function CallsView({
           </div>
 
           <div className="relative w-full sm:w-64">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-surface-400" />
             <input
               type="text"
               placeholder="नाम या नंबर से खोजें..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 text-xs bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 focus:bg-white dark:focus:bg-zinc-900 focus:border-indigo-500 rounded-xl outline-none transition-all"
+              className="w-full pl-9 pr-4 py-2 text-xs bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-surface-800 focus:bg-white dark:focus:bg-surface-900 focus:border-primary-500 rounded-xl outline-none transition-all"
             />
           </div>
         </div>
@@ -4489,20 +4489,20 @@ function CallsView({
         {/* Call Logs List */}
         {loading ? (
           <div className="p-12 text-center">
-            <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-            <p className="text-xs text-zinc-500">कॉल लॉग्स लोड हो रहे हैं...</p>
+            <div className="w-6 h-6 border-2 border-primary-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+            <p className="text-xs text-surface-500">कॉल लॉग्स लोड हो रहे हैं...</p>
           </div>
         ) : filteredCalls.length === 0 ? (
           <div className="p-16 text-center">
-            <Phone className="w-10 h-10 text-zinc-300 dark:text-zinc-700 mx-auto mb-3" />
-            <p className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">कोई कॉल लॉग नहीं मिला</p>
-            <p className="text-xs text-zinc-400 mt-1">इस फ़िल्टर के साथ कोई रिकॉर्ड नहीं है।</p>
+            <Phone className="w-10 h-10 text-surface-300 dark:text-surface-700 mx-auto mb-3" />
+            <p className="text-sm font-semibold text-surface-700 dark:text-surface-300">कोई कॉल लॉग नहीं मिला</p>
+            <p className="text-xs text-surface-400 mt-1">इस फ़िल्टर के साथ कोई रिकॉर्ड नहीं है।</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-zinc-50 dark:bg-zinc-950 text-[10px] font-bold text-zinc-500 uppercase tracking-wider border-b border-zinc-200 dark:border-zinc-800">
+                <tr className="bg-surface-50 dark:bg-surface-950 text-[10px] font-bold text-surface-500 uppercase tracking-wider border-b border-surface-200 dark:border-surface-800">
                   <th className="px-6 py-3">सम्पर्क</th>
                   <th className="px-6 py-3">दिशा/प्रकार</th>
                   <th className="px-6 py-3">स्थिति</th>
@@ -4511,7 +4511,7 @@ function CallsView({
                   <th className="px-6 py-3 text-right">कार्रवाई</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800 text-xs">
+              <tbody className="divide-y divide-surface-200 dark:divide-surface-800 text-xs">
                 {filteredCalls.map((call) => {
                   const dateStr = formatUserDateTime(call.created_at, 'hi-IN', {
                     day: 'numeric', month: 'short', year: 'numeric',
@@ -4519,15 +4519,15 @@ function CallsView({
                   });
 
                   return (
-                    <tr key={call.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-950/20 transition-colors">
+                    <tr key={call.id} className="hover:bg-surface-50/50 dark:hover:bg-surface-950/20 transition-colors">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center font-bold text-zinc-700 dark:text-zinc-300">
+                          <div className="w-8 h-8 rounded-full bg-surface-100 dark:bg-surface-800 flex items-center justify-center font-bold text-surface-700 dark:text-surface-300">
                             {call.contact_name?.[0] || '?'}
                           </div>
                           <div>
-                            <p className="font-semibold text-zinc-800 dark:text-zinc-200">{call.contact_name || 'अज्ञात संपर्क'}</p>
-                            <p className="text-[10px] text-zinc-400">+{call.phone}</p>
+                            <p className="font-semibold text-surface-800 dark:text-surface-200">{call.contact_name || 'अज्ञात संपर्क'}</p>
+                            <p className="text-[10px] text-surface-400">+{call.phone}</p>
                           </div>
                         </div>
                       </td>
@@ -4544,7 +4544,7 @@ function CallsView({
                               आउटगोइंग
                             </span>
                           )}
-                          <span className="text-[10px] text-zinc-500 dark:text-zinc-400 capitalize">
+                          <span className="text-[10px] text-surface-500 dark:text-surface-400 capitalize">
                             {call.type === 'voice' ? 'वॉयस कॉल' : 'वीडियो कॉल'}
                           </span>
                         </div>
@@ -4555,13 +4555,13 @@ function CallsView({
                             ? 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600'
                             : call.status === 'missed'
                             ? 'bg-rose-50 dark:bg-rose-950/20 text-rose-600'
-                            : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500'
+                            : 'bg-surface-100 dark:bg-surface-800 text-surface-500'
                         }`}>
                           {call.status === 'completed' || call.status === 'answered' ? 'सफल' : call.status === 'missed' ? 'छूट गया (Missed)' : 'अस्वीकृत'}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-zinc-500 dark:text-zinc-400">{dateStr}</td>
-                      <td className="px-6 py-4 font-mono text-[11px] text-zinc-600 dark:text-zinc-400">
+                      <td className="px-6 py-4 text-surface-500 dark:text-surface-400">{dateStr}</td>
+                      <td className="px-6 py-4 font-mono text-[11px] text-surface-600 dark:text-surface-400">
                         {call.status === 'missed' ? '-' : `${Math.floor(call.duration / 60)}m ${call.duration % 60}s`}
                       </td>
                       <td className="px-6 py-4 text-right">
@@ -4584,14 +4584,14 @@ function CallsView({
                                 }
                               });
                             }}
-                            className="p-1.5 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
+                            className="p-1.5 text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800 rounded-lg transition-colors"
                             title="इनबॉक्स चैट खोलें"
                           >
                             <MessageSquare className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => startOutgoingCall({ id: call.contact_id, name: call.contact_name, phone: call.phone })}
-                            className="p-1.5 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 rounded-lg transition-colors"
+                            className="p-1.5 text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-950/40 rounded-lg transition-colors"
                             title="कॉल बैक करें"
                           >
                             <Phone className="w-4 h-4" />
@@ -4615,42 +4615,42 @@ function CallsView({
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 max-w-sm w-full p-6 shadow-2xl relative"
+              className="bg-white dark:bg-surface-900 rounded-2xl border border-surface-200 dark:border-surface-800 max-w-sm w-full p-6 shadow-2xl relative"
             >
               <button
                 onClick={() => setShowDialer(false)}
-                className="absolute top-4 right-4 p-1.5 text-zinc-400 hover:text-zinc-600 dark:hover:text-white rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                className="absolute top-4 right-4 p-1.5 text-surface-400 hover:text-surface-600 dark:hover:text-white rounded-lg hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
 
               <div className="text-center mb-6">
-                <div className="w-12 h-12 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 rounded-full flex items-center justify-center mx-auto mb-3">
+                <div className="w-12 h-12 bg-primary-50 dark:bg-primary-950/40 text-primary-600 dark:text-primary-400 rounded-full flex items-center justify-center mx-auto mb-3">
                   <Phone className="w-6 h-6" />
                 </div>
-                <h3 className="font-bold text-zinc-950 dark:text-white">नया कॉल शुरू करें</h3>
-                <p className="text-[10px] text-zinc-400 mt-1">अपने किसी भी व्हाट्सएप कांटेक्ट को डायल करें</p>
+                <h3 className="font-bold text-surface-950 dark:text-white">नया कॉल शुरू करें</h3>
+                <p className="text-[10px] text-surface-400 mt-1">अपने किसी भी व्हाट्सएप कांटेक्ट को डायल करें</p>
               </div>
 
               {/* Contact List */}
               <div className="max-h-60 overflow-y-auto space-y-2 pr-1">
                 {contacts.length === 0 ? (
-                  <p className="text-center text-xs text-zinc-400 py-6">कोई भी व्हाट्सएप कांटेक्ट उपलब्ध नहीं है।</p>
+                  <p className="text-center text-xs text-surface-400 py-6">कोई भी व्हाट्सएप कांटेक्ट उपलब्ध नहीं है।</p>
                 ) : (
                   contacts.map(c => (
                     <button
                       key={c.id}
                       onClick={() => startOutgoingCall(c)}
-                      className="w-full flex items-center gap-3 p-2.5 rounded-xl border border-zinc-100 dark:border-zinc-800/50 hover:bg-zinc-50 dark:hover:bg-zinc-800/40 transition-colors text-left"
+                      className="w-full flex items-center gap-3 p-2.5 rounded-xl border border-surface-100 dark:border-surface-800/50 hover:bg-surface-50 dark:hover:bg-surface-800/40 transition-colors text-left"
                     >
-                      <div className="w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center font-bold text-xs text-zinc-700 dark:text-zinc-300 shrink-0">
+                      <div className="w-8 h-8 rounded-full bg-surface-100 dark:bg-surface-800 flex items-center justify-center font-bold text-xs text-surface-700 dark:text-surface-300 shrink-0">
                         {c.name?.[0] || '?'}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold text-zinc-900 dark:text-white truncate">{c.name}</p>
-                        <p className="text-[10px] text-zinc-400 font-mono">+{c.phone || c.platform_contact_id}</p>
+                        <p className="text-xs font-bold text-surface-900 dark:text-white truncate">{c.name}</p>
+                        <p className="text-[10px] text-surface-400 font-mono">+{c.phone || c.platform_contact_id}</p>
                       </div>
-                      <Phone className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                      <Phone className="w-3.5 h-3.5 text-primary-600 shrink-0" />
                     </button>
                   ))
                 )}
@@ -4727,12 +4727,12 @@ function ActiveCallManager({ activeCall, setActiveCall, onHangup, remoteStream, 
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center font-bold text-sm text-indigo-400 shadow-inner">
+        <div className="w-10 h-10 rounded-full bg-surface-800 flex items-center justify-center font-bold text-sm text-primary-400 shadow-inner">
           {activeCall.contact_name?.[0] || '?'}
         </div>
         <div className="flex-1 min-w-0">
           <h4 className="text-xs font-bold text-white truncate">{activeCall.contact_name || 'अज्ञात'}</h4>
-          <p className="text-[10px] text-zinc-400 truncate mt-0.5">
+          <p className="text-[10px] text-surface-400 truncate mt-0.5">
             {activeCall.status === 'ringing' 
               ? (activeCall.direction === 'incoming' ? 'कॉल आ रही है...' : 'डायल हो रहा है...') 
               : 'कॉल कनेक्टेड'}
@@ -4745,12 +4745,12 @@ function ActiveCallManager({ activeCall, setActiveCall, onHangup, remoteStream, 
         </div>
       </div>
 
-      <div className="flex items-center justify-between pt-2 border-t border-zinc-800/60">
+      <div className="flex items-center justify-between pt-2 border-t border-surface-800/60">
         <div className="flex gap-2">
           {/* Mute toggle button */}
           <button 
             onClick={() => setIsMuted(!isMuted)}
-            className="p-1.5 px-2.5 rounded-lg text-[10px] font-bold transition-all bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white"
+            className="p-1.5 px-2.5 rounded-lg text-[10px] font-bold transition-all bg-surface-800 text-surface-400 hover:bg-surface-700 hover:text-white"
             title={isMuted ? 'Unmute' : 'Mute'}
           >
             {isMuted ? 'Unmute' : 'Mute'}
@@ -4759,7 +4759,7 @@ function ActiveCallManager({ activeCall, setActiveCall, onHangup, remoteStream, 
           {/* Speaker toggle button */}
           <button 
             onClick={() => setIsSpeaker(!isSpeaker)}
-            className="p-1.5 px-2.5 rounded-lg text-[10px] font-bold transition-all bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white"
+            className="p-1.5 px-2.5 rounded-lg text-[10px] font-bold transition-all bg-surface-800 text-surface-400 hover:bg-surface-700 hover:text-white"
             title="Speaker"
           >
             Speaker
@@ -4786,42 +4786,42 @@ function IntegrationsView() {
     <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-zinc-900 dark:text-white">इंटीग्रेशन्स (Integrations)</h2>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
+          <h2 className="text-2xl font-bold text-surface-900 dark:text-white">इंटीग्रेशन्स (Integrations)</h2>
+          <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">
             अपने अकाउंट को अन्य सेवाओं से कनेक्ट करें। (Connect your account with other services)
           </p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="bg-white dark:bg-zinc-900 rounded-2xl p-6 border border-zinc-200 dark:border-zinc-800 flex flex-col gap-4">
+        <div className="bg-white dark:bg-surface-900 rounded-2xl p-6 border border-surface-200 dark:border-surface-800 flex flex-col gap-4">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-xl flex items-center justify-center shrink-0">
               <Users className="w-6 h-6" />
             </div>
             <div>
-              <h3 className="font-semibold text-zinc-900 dark:text-white">Google Contacts</h3>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+              <h3 className="font-semibold text-surface-900 dark:text-white">Google Contacts</h3>
+              <p className="text-xs text-surface-500 dark:text-surface-400 mt-1">
                 अपने Google Contacts को सिंक करें। (Sync your Google Contacts)
               </p>
             </div>
           </div>
           <div className="mt-auto pt-4 flex gap-3">
-             <button disabled className="w-full bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 py-2 rounded-xl text-sm font-medium cursor-not-allowed">
+             <button disabled className="w-full bg-surface-100 dark:bg-surface-800 text-surface-400 dark:text-surface-500 py-2 rounded-xl text-sm font-medium cursor-not-allowed">
                Coming Soon
              </button>
           </div>
         </div>
         
         {/* Placeholder for future integrations */}
-        <div className="bg-white dark:bg-zinc-900 rounded-2xl p-6 border border-zinc-200 dark:border-zinc-800 border-dashed flex flex-col gap-4 opacity-50">
+        <div className="bg-white dark:bg-surface-900 rounded-2xl p-6 border border-surface-200 dark:border-surface-800 border-dashed flex flex-col gap-4 opacity-50">
            <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-zinc-100 dark:bg-zinc-800 text-zinc-400 rounded-xl flex items-center justify-center shrink-0">
+            <div className="w-12 h-12 bg-surface-100 dark:bg-surface-800 text-surface-400 rounded-xl flex items-center justify-center shrink-0">
               <Blocks className="w-6 h-6" />
             </div>
             <div>
-              <h3 className="font-semibold text-zinc-900 dark:text-white">Future Integration</h3>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+              <h3 className="font-semibold text-surface-900 dark:text-white">Future Integration</h3>
+              <p className="text-xs text-surface-500 dark:text-surface-400 mt-1">
                 More integrations coming soon
               </p>
             </div>
@@ -5230,33 +5230,33 @@ function WhatsAppManagerView() {
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
       {/* Upper Navigation & Tab Bar */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-surface-900 p-6 rounded-2xl border border-surface-200 dark:border-surface-800 shadow-sm">
         <div>
-          <h2 className="text-2xl font-bold text-zinc-900 dark:text-white flex items-center gap-2">
+          <h2 className="text-2xl font-bold text-surface-900 dark:text-white flex items-center gap-2">
             <Phone className="w-6 h-6 text-emerald-500" /> WhatsApp हब (WhatsApp Hub)
           </h2>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
+          <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">
             अपने कनेक्टेड प्रोफ़ाइल, टेम्पलेट्स और इंटरेक्टिव फ़्लो को प्रबंधित करें।
           </p>
         </div>
         
         {/* Sub Navigation Tabs */}
-        <div className="flex bg-zinc-100 dark:bg-zinc-950 p-1 rounded-xl border border-zinc-200 dark:border-zinc-800 shrink-0 w-full md:w-auto">
+        <div className="flex bg-surface-100 dark:bg-surface-950 p-1 rounded-xl border border-surface-200 dark:border-surface-800 shrink-0 w-full md:w-auto">
           <button 
             onClick={() => setActiveSubTab('profiles')}
-            className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 ${activeSubTab === 'profiles' ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-800'}`}
+            className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 ${activeSubTab === 'profiles' ? 'bg-white dark:bg-surface-900 text-surface-950 dark:text-white shadow-sm' : 'text-surface-500 hover:text-surface-800'}`}
           >
             <User className="w-4 h-4 text-emerald-500" /> प्रोफ़ाइल (Profiles)
           </button>
           <button 
             onClick={() => setActiveSubTab('templates')}
-            className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 ${activeSubTab === 'templates' ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-800'}`}
+            className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 ${activeSubTab === 'templates' ? 'bg-white dark:bg-surface-900 text-surface-950 dark:text-white shadow-sm' : 'text-surface-500 hover:text-surface-800'}`}
           >
-            <FileText className="w-4 h-4 text-indigo-500" /> टेम्पलेट्स (Templates)
+            <FileText className="w-4 h-4 text-primary-500" /> टेम्पलेट्स (Templates)
           </button>
           <button 
             onClick={() => setActiveSubTab('flows')}
-            className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 ${activeSubTab === 'flows' ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-800'}`}
+            className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 ${activeSubTab === 'flows' ? 'bg-white dark:bg-surface-900 text-surface-950 dark:text-white shadow-sm' : 'text-surface-500 hover:text-surface-800'}`}
           >
             <Blocks className="w-4 h-4 text-amber-500" /> फ़्लो (Flows)
           </button>
@@ -5266,8 +5266,8 @@ function WhatsAppManagerView() {
       {/* Main SubTab Contents */}
       {activeSubTab === 'profiles' && (
         <div className="space-y-6">
-          <div className="flex justify-between items-center bg-zinc-50 dark:bg-zinc-900/40 p-4 rounded-xl border border-zinc-100 dark:border-zinc-800/60">
-            <h3 className="font-bold text-zinc-800 dark:text-zinc-200 flex items-center gap-1.5">
+          <div className="flex justify-between items-center bg-surface-50 dark:bg-surface-900/40 p-4 rounded-xl border border-surface-100 dark:border-surface-800/60">
+            <h3 className="font-bold text-surface-800 dark:text-surface-200 flex items-center gap-1.5">
               कनेक्टेड WhatsApp प्रोफ़ाइल ({configs.length})
             </h3>
             <div className="flex gap-3">
@@ -5298,7 +5298,7 @@ function WhatsAppManagerView() {
                     alert("Meta Facebook SDK लोड नहीं हुआ है। कृपया पेज रीलोड करें।");
                   }
                 }}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all shadow-sm flex items-center gap-2"
+                className="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all shadow-sm flex items-center gap-2"
               >
                 <Blocks className="w-4 h-4" /> ऑटो कनेक्ट (Embedded Signup)
               </button>
@@ -5332,48 +5332,48 @@ function WhatsAppManagerView() {
           )}
 
           {loadingConfigs ? (
-            <div className="p-12 text-center text-zinc-400">प्रोफ़ाइल लोड की जा रही हैं...</div>
+            <div className="p-12 text-center text-surface-400">प्रोफ़ाइल लोड की जा रही हैं...</div>
           ) : configs.length === 0 ? (
-            <div className="p-16 text-center border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-3xl bg-white dark:bg-zinc-950/30 flex flex-col items-center">
-              <Phone className="w-12 h-12 text-zinc-300 dark:text-zinc-700 mb-4 animate-bounce" />
+            <div className="p-16 text-center border-2 border-dashed border-surface-200 dark:border-surface-800 rounded-3xl bg-white dark:bg-surface-950/30 flex flex-col items-center">
+              <Phone className="w-12 h-12 text-surface-300 dark:text-surface-700 mb-4 animate-bounce" />
               <h4 className="font-bold text-lg mb-1">कोई सक्रिय खाता नहीं मिला</h4>
-              <p className="text-sm text-zinc-500 max-w-sm mb-6">WhatsApp API का उपयोग शुरू करने के लिए एक खाता मैन्युअल रूप से जोड़ें या एम्बेडेड साइनअप का उपयोग करें।</p>
+              <p className="text-sm text-surface-500 max-w-sm mb-6">WhatsApp API का उपयोग शुरू करने के लिए एक खाता मैन्युअल रूप से जोड़ें या एम्बेडेड साइनअप का उपयोग करें।</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {configs.map((cfg) => (
-                <div key={cfg.id} className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-sm hover:border-zinc-300 dark:hover:border-zinc-700 transition-all flex flex-col justify-between">
+                <div key={cfg.id} className="bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 rounded-2xl overflow-hidden shadow-sm hover:border-surface-300 dark:hover:border-surface-700 transition-all flex flex-col justify-between">
                   <div className="p-6 space-y-4">
                     <div className="flex justify-between items-start">
                       <div>
-                        <h4 className="font-bold text-zinc-900 dark:text-white flex items-center gap-1.5 font-display">
+                        <h4 className="font-bold text-surface-900 dark:text-white flex items-center gap-1.5 font-display">
                           {cfg.phone_number_id ? `+${cfg.phone_number_id.substring(0,2)}...` : "WhatsApp API Line"}
                         </h4>
-                        <p className="text-[11px] text-zinc-400 font-mono mt-1">ID: {cfg.id}</p>
+                        <p className="text-[11px] text-surface-400 font-mono mt-1">ID: {cfg.id}</p>
                       </div>
                       <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                        cfg.reply_mode === 'ai' ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-400' :
+                        cfg.reply_mode === 'ai' ? 'bg-primary-50 text-primary-700 dark:bg-primary-950/40 dark:text-primary-400' :
                         cfg.reply_mode === 'rule_based' ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400' :
-                        'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-400'
+                        'bg-surface-100 text-surface-700 dark:bg-surface-800 dark:text-surface-400'
                       }`}>
                         {cfg.reply_mode === 'ai' ? 'AI Bot' : cfg.reply_mode === 'rule_based' ? 'Rules' : 'Manual'}
                       </span>
                     </div>
 
-                    <div className="space-y-2 border-t border-zinc-100 dark:border-zinc-800 pt-3 text-xs">
-                      <div className="flex justify-between"><span className="text-zinc-400">Phone ID:</span> <span className="font-mono text-zinc-700 dark:text-zinc-300">{cfg.phone_number_id || "None"}</span></div>
-                      <div className="flex justify-between"><span className="text-zinc-400">WABA ID:</span> <span className="font-mono text-zinc-700 dark:text-zinc-300">{cfg.waba_id || "None"}</span></div>
+                    <div className="space-y-2 border-t border-surface-100 dark:border-surface-800 pt-3 text-xs">
+                      <div className="flex justify-between"><span className="text-surface-400">Phone ID:</span> <span className="font-mono text-surface-700 dark:text-surface-300">{cfg.phone_number_id || "None"}</span></div>
+                      <div className="flex justify-between"><span className="text-surface-400">WABA ID:</span> <span className="font-mono text-surface-700 dark:text-surface-300">{cfg.waba_id || "None"}</span></div>
                       {cfg.sip_uri && (
                         <div className="flex justify-between"><span className="text-emerald-500 font-medium">Calling Enabled:</span> <span className="font-mono text-emerald-500">SIP Active</span></div>
                       )}
                     </div>
                   </div>
 
-                  <div className="p-4 bg-zinc-50 dark:bg-zinc-950/50 border-t border-zinc-100 dark:border-zinc-800 flex gap-2">
-                    <button onClick={() => handleEditProfile(cfg)} className="flex-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 py-2 rounded-xl text-xs font-semibold hover:bg-zinc-50 dark:hover:bg-zinc-850 transition-all flex items-center justify-center gap-1.5 shadow-sm">
+                  <div className="p-4 bg-surface-50 dark:bg-surface-950/50 border-t border-surface-100 dark:border-surface-800 flex gap-2">
+                    <button onClick={() => handleEditProfile(cfg)} className="flex-1 bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 text-surface-700 dark:text-surface-300 py-2 rounded-xl text-xs font-semibold hover:bg-surface-50 dark:hover:bg-surface-800 transition-all flex items-center justify-center gap-1.5 shadow-sm">
                       <Edit className="w-3.5 h-3.5" /> संपादित करें (Edit)
                     </button>
-                    <button onClick={() => handleDeleteProfile(cfg.id)} className="p-2 border border-zinc-200 dark:border-zinc-800 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl transition-all">
+                    <button onClick={() => handleDeleteProfile(cfg.id)} className="p-2 border border-surface-200 dark:border-surface-800 text-surface-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl transition-all">
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
@@ -5385,66 +5385,66 @@ function WhatsAppManagerView() {
           {/* Profile Editor Modal */}
           {showProfileModal && (
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-              <div className="bg-white dark:bg-zinc-900 rounded-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto border border-zinc-200 dark:border-zinc-800 shadow-xl animate-in zoom-in-95 duration-250">
-                <div className="p-6 border-b border-zinc-100 dark:border-zinc-800 flex justify-between items-center">
-                  <h3 className="text-lg font-bold text-zinc-900 dark:text-white">
+              <div className="bg-white dark:bg-surface-900 rounded-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto border border-surface-200 dark:border-surface-800 shadow-xl animate-in zoom-in-95 duration-250">
+                <div className="p-6 border-b border-surface-100 dark:border-surface-800 flex justify-between items-center">
+                  <h3 className="text-lg font-bold text-surface-900 dark:text-white">
                     {editingConfig ? "WhatsApp खाता संपादित करें" : "नया WhatsApp खाता जोड़ें"}
                   </h3>
-                  <button onClick={() => setShowProfileModal(false)} className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"><X className="w-5 h-5" /></button>
+                  <button onClick={() => setShowProfileModal(false)} className="text-surface-400 hover:text-surface-600 dark:hover:text-surface-200"><X className="w-5 h-5" /></button>
                 </div>
 
                 <div className="p-6 space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-1">Phone Number ID</label>
+                      <label className="block text-xs font-semibold text-surface-500 uppercase tracking-wider mb-1">Phone Number ID</label>
                       <input 
                         type="text" 
                         value={phoneNumberId} 
                         onChange={(e) => setPhoneNumberId(e.target.value)}
                         placeholder="e.g. 104523912..."
-                        className="w-full text-sm p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 focus:border-indigo-500 outline-none"
+                        className="w-full text-sm p-2.5 rounded-xl border border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-950 focus:border-primary-500 outline-none"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-1">WABA ID</label>
+                      <label className="block text-xs font-semibold text-surface-500 uppercase tracking-wider mb-1">WABA ID</label>
                       <input 
                         type="text" 
                         value={wabaId} 
                         onChange={(e) => setWabaId(e.target.value)}
                         placeholder="e.g. 104234059..."
-                        className="w-full text-sm p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 focus:border-indigo-500 outline-none"
+                        className="w-full text-sm p-2.5 rounded-xl border border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-950 focus:border-primary-500 outline-none"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-1">Permanent Access Token</label>
+                    <label className="block text-xs font-semibold text-surface-500 uppercase tracking-wider mb-1">Permanent Access Token</label>
                     <input 
                       type="password" 
                       value={accessToken} 
                       onChange={(e) => setAccessToken(e.target.value)}
                       placeholder={editingConfig ? "••••••••••••••••" : "EAA..."}
-                      className="w-full text-sm p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 focus:border-indigo-500 outline-none"
+                      className="w-full text-sm p-2.5 rounded-xl border border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-950 focus:border-primary-500 outline-none"
                     />
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-1">Webhook Verify Token</label>
+                      <label className="block text-xs font-semibold text-surface-500 uppercase tracking-wider mb-1">Webhook Verify Token</label>
                       <input 
                         type="text" 
                         value={verifyToken} 
                         onChange={(e) => setVerifyToken(e.target.value)}
                         placeholder="e.g. secureToken123"
-                        className="w-full text-sm p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 focus:border-indigo-500 outline-none"
+                        className="w-full text-sm p-2.5 rounded-xl border border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-950 focus:border-primary-500 outline-none"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-1">ऑटो-रिप्लाई मोड</label>
+                      <label className="block text-xs font-semibold text-surface-500 uppercase tracking-wider mb-1">ऑटो-रिप्लाई मोड</label>
                       <select 
                         value={replyMode} 
                         onChange={(e) => setReplyMode(e.target.value)}
-                        className="w-full text-sm p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 focus:border-indigo-500 outline-none"
+                        className="w-full text-sm p-2.5 rounded-xl border border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-950 focus:border-primary-500 outline-none"
                       >
                         <option value="manual">मैन्युअल (Manual Reply Only)</option>
                         <option value="ai">AI चैटबॉट (AI Automated Answers)</option>
@@ -5454,59 +5454,59 @@ function WhatsAppManagerView() {
                   </div>
 
                   {/* Calling and WebRTC configuration sub-panel */}
-                  <div className="border-t border-zinc-100 dark:border-zinc-800 pt-4 mt-2">
-                    <h4 className="text-xs font-bold text-zinc-800 dark:text-zinc-200 uppercase tracking-wider mb-3">SIP Calling / WebRTC Settings (Optional)</h4>
+                  <div className="border-t border-surface-100 dark:border-surface-800 pt-4 mt-2">
+                    <h4 className="text-xs font-bold text-surface-800 dark:text-surface-200 uppercase tracking-wider mb-3">SIP Calling / WebRTC Settings (Optional)</h4>
                     <div className="space-y-3">
                       <div>
-                        <label className="block text-[11px] font-semibold text-zinc-400 mb-1">SIP Server WS Address</label>
+                        <label className="block text-[11px] font-semibold text-surface-400 mb-1">SIP Server WS Address</label>
                         <input 
                           type="text" 
                           value={sipWsServer} 
                           onChange={(e) => setSipWsServer(e.target.value)}
                           placeholder="wss://sip.example.com:443"
-                          className="w-full text-xs p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 focus:border-indigo-500 outline-none"
+                          className="w-full text-xs p-2.5 rounded-xl border border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-950 focus:border-primary-500 outline-none"
                         />
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                         <div className="md:col-span-2">
-                          <label className="block text-[11px] font-semibold text-zinc-400 mb-1">SIP URI</label>
+                          <label className="block text-[11px] font-semibold text-surface-400 mb-1">SIP URI</label>
                           <input 
                             type="text" 
                             value={sipUri} 
                             onChange={(e) => setSipUri(e.target.value)}
                             placeholder="sip:100@sip.example.com"
-                            className="w-full text-xs p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 focus:border-indigo-500 outline-none"
+                            className="w-full text-xs p-2.5 rounded-xl border border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-950 focus:border-primary-500 outline-none"
                           />
                         </div>
                         <div>
-                          <label className="block text-[11px] font-semibold text-zinc-400 mb-1">SIP Username</label>
+                          <label className="block text-[11px] font-semibold text-surface-400 mb-1">SIP Username</label>
                           <input 
                             type="text" 
                             value={sipUsername} 
                             onChange={(e) => setSipUsername(e.target.value)}
                             placeholder="100"
-                            className="w-full text-xs p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 focus:border-indigo-500 outline-none"
+                            className="w-full text-xs p-2.5 rounded-xl border border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-950 focus:border-primary-500 outline-none"
                           />
                         </div>
                       </div>
                       <div>
-                        <label className="block text-[11px] font-semibold text-zinc-400 mb-1">SIP Password</label>
+                        <label className="block text-[11px] font-semibold text-surface-400 mb-1">SIP Password</label>
                         <input 
                           type="password" 
                           value={sipPassword} 
                           onChange={(e) => setSipPassword(e.target.value)}
                           placeholder="••••••••"
-                          className="w-full text-xs p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 focus:border-indigo-500 outline-none"
+                          className="w-full text-xs p-2.5 rounded-xl border border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-950 focus:border-primary-500 outline-none"
                         />
                       </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="p-6 border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/50 flex gap-3 justify-end">
+                <div className="p-6 border-t border-surface-100 dark:border-surface-800 bg-surface-50 dark:bg-surface-950/50 flex gap-3 justify-end">
                   <button 
                     onClick={() => setShowProfileModal(false)}
-                    className="px-4 py-2 text-sm text-zinc-500 hover:text-zinc-700 bg-zinc-100 dark:bg-zinc-800 rounded-xl font-semibold"
+                    className="px-4 py-2 text-sm text-surface-500 hover:text-surface-700 bg-surface-100 dark:bg-surface-800 rounded-xl font-semibold"
                   >
                     रद्द करें (Cancel)
                   </button>
@@ -5525,15 +5525,15 @@ function WhatsAppManagerView() {
       )}
 
       {activeSubTab === 'templates' && (
-        <div className="bg-zinc-50 dark:bg-zinc-900/10 p-4 rounded-3xl border border-zinc-100 dark:border-zinc-850">
+        <div className="bg-surface-50 dark:bg-surface-900/10 p-4 rounded-3xl border border-surface-100 dark:border-surface-800">
           <TemplatesView />
         </div>
       )}
 
       {activeSubTab === 'flows' && (
         <div className="space-y-6">
-          <div className="flex justify-between items-center bg-zinc-50 dark:bg-zinc-900/40 p-4 rounded-xl border border-zinc-100 dark:border-zinc-800/60">
-            <h3 className="font-bold text-zinc-800 dark:text-zinc-200 flex items-center gap-1.5">
+          <div className="flex justify-between items-center bg-surface-50 dark:bg-surface-900/40 p-4 rounded-xl border border-surface-100 dark:border-surface-800/60">
+            <h3 className="font-bold text-surface-800 dark:text-surface-200 flex items-center gap-1.5">
               WhatsApp फ़्लो / फॉर्म सूची ({flows.length})
             </h3>
             <button 
@@ -5545,39 +5545,39 @@ function WhatsAppManagerView() {
           </div>
 
           {loadingFlows ? (
-            <div className="p-12 text-center text-zinc-400">फ़्लो लोड किए जा रहे हैं...</div>
+            <div className="p-12 text-center text-surface-400">फ़्लो लोड किए जा रहे हैं...</div>
           ) : flows.length === 0 ? (
-            <div className="p-16 text-center border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-3xl bg-white dark:bg-zinc-950/30 flex flex-col items-center">
-              <Blocks className="w-12 h-12 text-zinc-300 dark:text-zinc-700 mb-4 animate-pulse" />
+            <div className="p-16 text-center border-2 border-dashed border-surface-200 dark:border-surface-800 rounded-3xl bg-white dark:bg-surface-950/30 flex flex-col items-center">
+              <Blocks className="w-12 h-12 text-surface-300 dark:text-surface-700 mb-4 animate-pulse" />
               <h4 className="font-bold text-lg mb-1">कोई फ़्लो/फॉर्म नहीं मिला</h4>
-              <p className="text-sm text-zinc-500 max-w-sm mb-6">WhatsApp पर ग्राहकों से सीधे फॉर्म / जानकारी एकत्र करने के लिए एक फ़्लो डिज़ाइन करें।</p>
+              <p className="text-sm text-surface-500 max-w-sm mb-6">WhatsApp पर ग्राहकों से सीधे फॉर्म / जानकारी एकत्र करने के लिए एक फ़्लो डिज़ाइन करें।</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {flows.map((flow) => (
-                <div key={flow.id} className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-sm hover:border-zinc-300 dark:hover:border-zinc-700 transition-all flex flex-col justify-between">
+                <div key={flow.id} className="bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 rounded-2xl overflow-hidden shadow-sm hover:border-surface-300 dark:hover:border-surface-700 transition-all flex flex-col justify-between">
                   <div className="p-6 space-y-4">
                     <div className="flex justify-between items-start">
                       <div>
-                        <h4 className="font-bold text-zinc-900 dark:text-white font-display">{flow.name}</h4>
-                        <p className="text-[11px] text-zinc-400 font-mono mt-1">ID: {flow.id}</p>
+                        <h4 className="font-bold text-surface-900 dark:text-white font-display">{flow.name}</h4>
+                        <p className="text-[11px] text-surface-400 font-mono mt-1">ID: {flow.id}</p>
                       </div>
                       <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                         flow.status === 'PUBLISHED' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400' :
-                        'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-400'
+                        'bg-surface-100 text-surface-700 dark:bg-surface-800 dark:text-surface-400'
                       }`}>
                         {flow.status === 'PUBLISHED' ? 'Live' : 'Draft'}
                       </span>
                     </div>
 
-                    <div className="text-xs text-zinc-500 bg-zinc-50 dark:bg-zinc-950 p-3 rounded-xl border border-zinc-100 dark:border-zinc-900 flex justify-between items-center">
+                    <div className="text-xs text-surface-500 bg-surface-50 dark:bg-surface-950 p-3 rounded-xl border border-surface-100 dark:border-surface-900 flex justify-between items-center">
                       <span>श्रेणी: <strong>{flow.categories || "UTILITY"}</strong></span>
                       <span>स्क्रीन संख्या: <strong>{JSON.parse(flow.screens_json || '[]').length || 1}</strong></span>
                     </div>
                   </div>
 
-                  <div className="p-4 bg-zinc-50 dark:bg-zinc-950/50 border-t border-zinc-100 dark:border-zinc-800 flex gap-2">
-                    <button onClick={() => handleEditFlow(flow)} className="flex-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 py-2 rounded-xl text-xs font-semibold hover:bg-zinc-50 dark:hover:bg-zinc-850 transition-all flex items-center justify-center gap-1.5 shadow-sm">
+                  <div className="p-4 bg-surface-50 dark:bg-surface-950/50 border-t border-surface-100 dark:border-surface-800 flex gap-2">
+                    <button onClick={() => handleEditFlow(flow)} className="flex-1 bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 text-surface-700 dark:text-surface-300 py-2 rounded-xl text-xs font-semibold hover:bg-surface-50 dark:hover:bg-surface-800 transition-all flex items-center justify-center gap-1.5 shadow-sm">
                       <Edit className="w-3.5 h-3.5" /> संपादित करें (Build)
                     </button>
                     {flow.status !== 'PUBLISHED' && (
@@ -5585,7 +5585,7 @@ function WhatsAppManagerView() {
                         लाइव करें (Publish)
                       </button>
                     )}
-                    <button onClick={() => handleDeleteFlow(flow.id)} className="p-2 border border-zinc-200 dark:border-zinc-800 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl transition-all">
+                    <button onClick={() => handleDeleteFlow(flow.id)} className="p-2 border border-surface-200 dark:border-surface-800 text-surface-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl transition-all">
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
@@ -5597,44 +5597,44 @@ function WhatsAppManagerView() {
           {/* Flow Visual Editor Builder Modal */}
           {showFlowModal && (
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-              <div className="bg-white dark:bg-zinc-900 rounded-2xl w-full max-w-6xl h-[90vh] overflow-hidden border border-zinc-200 dark:border-zinc-800 shadow-xl animate-in zoom-in-95 duration-250 flex flex-col">
+              <div className="bg-white dark:bg-surface-900 rounded-2xl w-full max-w-6xl h-[90vh] overflow-hidden border border-surface-200 dark:border-surface-800 shadow-xl animate-in zoom-in-95 duration-250 flex flex-col">
                 
                 {/* Header */}
-                <div className="p-4 md:p-6 border-b border-zinc-100 dark:border-zinc-800 flex justify-between items-center shrink-0">
+                <div className="p-4 md:p-6 border-b border-surface-100 dark:border-surface-800 flex justify-between items-center shrink-0">
                   <div className="flex items-center gap-3">
                     <Blocks className="w-5 h-5 text-amber-500" />
                     <div>
-                      <h3 className="text-lg font-bold text-zinc-900 dark:text-white">
+                      <h3 className="text-lg font-bold text-surface-900 dark:text-white">
                         {editingFlow ? "WhatsApp फ़्लो संपादित करें (Builder)" : "नया WhatsApp फ़्लो बनाएँ (Builder)"}
                       </h3>
-                      <p className="text-xs text-zinc-400 mt-0.5">बिना कोडिंग के WhatsApp फॉर्म्स और इंटरएक्टिव स्क्रीन डिज़ाइन करें</p>
+                      <p className="text-xs text-surface-400 mt-0.5">बिना कोडिंग के WhatsApp फॉर्म्स और इंटरएक्टिव स्क्रीन डिज़ाइन करें</p>
                     </div>
                   </div>
-                  <button onClick={() => setShowFlowModal(false)} className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"><X className="w-5 h-5" /></button>
+                  <button onClick={() => setShowFlowModal(false)} className="text-surface-400 hover:text-surface-600 dark:hover:text-surface-200"><X className="w-5 h-5" /></button>
                 </div>
 
                 {/* Main Body Grid */}
                 <div className="flex-1 overflow-hidden grid grid-cols-1 lg:grid-cols-12">
                   
                   {/* Left Column: Screen Structure & Fields insertion (4 cols) */}
-                  <div className="lg:col-span-4 border-r border-zinc-100 dark:border-zinc-800 p-4 overflow-y-auto space-y-4">
+                  <div className="lg:col-span-4 border-r border-surface-100 dark:border-surface-800 p-4 overflow-y-auto space-y-4">
                     <div>
-                      <label className="block text-[11px] font-semibold text-zinc-400 uppercase tracking-wider mb-1">फ़्लो का नाम (Flow Name)</label>
+                      <label className="block text-[11px] font-semibold text-surface-400 uppercase tracking-wider mb-1">फ़्लो का नाम (Flow Name)</label>
                       <input 
                         type="text" 
                         value={flowName} 
                         onChange={(e) => setFlowName(e.target.value)}
                         placeholder="e.g. Lead Form, Survey"
-                        className="w-full text-sm p-2 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 focus:border-amber-500 outline-none"
+                        className="w-full text-sm p-2 rounded-lg border border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-950 focus:border-amber-500 outline-none"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-semibold text-zinc-400 uppercase tracking-wider mb-1">श्रेणी (Category)</label>
+                      <label className="block text-[11px] font-semibold text-surface-400 uppercase tracking-wider mb-1">श्रेणी (Category)</label>
                       <select 
                         value={flowCategory} 
                         onChange={(e) => setFlowCategory(e.target.value)}
-                        className="w-full text-sm p-2 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 focus:border-amber-500 outline-none"
+                        className="w-full text-sm p-2 rounded-lg border border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-950 focus:border-amber-500 outline-none"
                       >
                         <option value="UTILITY">UTILITY (उपयोगिता)</option>
                         <option value="MARKETING">MARKETING (मार्केटिंग)</option>
@@ -5642,19 +5642,19 @@ function WhatsAppManagerView() {
                     </div>
 
                     {/* Component Actions Palette */}
-                    <div className="border-t border-zinc-100 dark:border-zinc-800 pt-3">
-                      <h4 className="text-xs font-bold text-zinc-800 dark:text-zinc-200 uppercase tracking-wider mb-2">कंपोनेंट्स जोड़ें (Add Fields)</h4>
+                    <div className="border-t border-surface-100 dark:border-surface-800 pt-3">
+                      <h4 className="text-xs font-bold text-surface-800 dark:text-surface-200 uppercase tracking-wider mb-2">कंपोनेंट्स जोड़ें (Add Fields)</h4>
                       <div className="grid grid-cols-2 gap-2">
-                        <button onClick={() => addFlowComponent('text')} className="flex items-center gap-1.5 p-2 bg-zinc-50 dark:bg-zinc-950 hover:bg-zinc-100 dark:hover:bg-zinc-850 rounded-lg border border-zinc-200 dark:border-zinc-800 text-xs font-semibold text-zinc-700 dark:text-zinc-300 text-left transition-all">
-                          <span className="text-indigo-500 font-bold font-mono">T</span> विवरण / निर्देश
+                        <button onClick={() => addFlowComponent('text')} className="flex items-center gap-1.5 p-2 bg-surface-50 dark:bg-surface-950 hover:bg-surface-100 dark:hover:bg-surface-800 rounded-lg border border-surface-200 dark:border-surface-800 text-xs font-semibold text-surface-700 dark:text-surface-300 text-left transition-all">
+                          <span className="text-primary-500 font-bold font-mono">T</span> विवरण / निर्देश
                         </button>
-                        <button onClick={() => addFlowComponent('input')} className="flex items-center gap-1.5 p-2 bg-zinc-50 dark:bg-zinc-950 hover:bg-zinc-100 dark:hover:bg-zinc-850 rounded-lg border border-zinc-200 dark:border-zinc-800 text-xs font-semibold text-zinc-700 dark:text-zinc-300 text-left transition-all">
+                        <button onClick={() => addFlowComponent('input')} className="flex items-center gap-1.5 p-2 bg-surface-50 dark:bg-surface-950 hover:bg-surface-100 dark:hover:bg-surface-800 rounded-lg border border-surface-200 dark:border-surface-800 text-xs font-semibold text-surface-700 dark:text-surface-300 text-left transition-all">
                           <Plus className="w-3.5 h-3.5 text-emerald-500" /> टेक्स्ट इनपुट
                         </button>
-                        <button onClick={() => addFlowComponent('textarea')} className="flex items-center gap-1.5 p-2 bg-zinc-50 dark:bg-zinc-950 hover:bg-zinc-100 dark:hover:bg-zinc-850 rounded-lg border border-zinc-200 dark:border-zinc-800 text-xs font-semibold text-zinc-700 dark:text-zinc-300 text-left transition-all">
+                        <button onClick={() => addFlowComponent('textarea')} className="flex items-center gap-1.5 p-2 bg-surface-50 dark:bg-surface-950 hover:bg-surface-100 dark:hover:bg-surface-800 rounded-lg border border-surface-200 dark:border-surface-800 text-xs font-semibold text-surface-700 dark:text-surface-300 text-left transition-all">
                           <Plus className="w-3.5 h-3.5 text-blue-500" /> लंबा संदेश
                         </button>
-                        <button onClick={() => addFlowComponent('select')} className="flex items-center gap-1.5 p-2 bg-zinc-50 dark:bg-zinc-950 hover:bg-zinc-100 dark:hover:bg-zinc-850 rounded-lg border border-zinc-200 dark:border-zinc-800 text-xs font-semibold text-zinc-700 dark:text-zinc-300 text-left transition-all">
+                        <button onClick={() => addFlowComponent('select')} className="flex items-center gap-1.5 p-2 bg-surface-50 dark:bg-surface-950 hover:bg-surface-100 dark:hover:bg-surface-800 rounded-lg border border-surface-200 dark:border-surface-800 text-xs font-semibold text-surface-700 dark:text-surface-300 text-left transition-all">
                           <Plus className="w-3.5 h-3.5 text-amber-500" /> ड्रॉपडाउन लिस्ट
                         </button>
                         <button onClick={() => addFlowComponent('submit')} className="col-span-2 flex items-center justify-center gap-1.5 p-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-bold transition-all">
@@ -5665,7 +5665,7 @@ function WhatsAppManagerView() {
 
                     {/* Field Properties Panel */}
                     {selectedComponent ? (
-                      <div className="border-t border-zinc-100 dark:border-zinc-800 pt-3 space-y-3 bg-zinc-50/50 dark:bg-zinc-950/20 p-3 rounded-xl border border-dashed">
+                      <div className="border-t border-surface-100 dark:border-surface-800 pt-3 space-y-3 bg-surface-50/50 dark:bg-surface-950/20 p-3 rounded-xl border border-dashed">
                         <div className="flex justify-between items-center">
                           <h4 className="text-xs font-bold text-amber-500 uppercase tracking-wider">फ़ील्ड गुण (Properties)</h4>
                           <button onClick={() => deleteComponent(selectedComponent.id)} className="text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 p-1.5 rounded-lg transition-all" title="Delete Field">
@@ -5674,23 +5674,23 @@ function WhatsAppManagerView() {
                         </div>
 
                         <div>
-                          <label className="block text-[10px] font-bold text-zinc-400 mb-1">लेबल (Label)</label>
+                          <label className="block text-[10px] font-bold text-surface-400 mb-1">लेबल (Label)</label>
                           <input 
                             type="text"
                             value={selectedComponent.label || ""}
                             onChange={(e) => updateComponentProperty(selectedComponent.id, 'label', e.target.value)}
-                            className="w-full text-xs p-2 rounded border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 outline-none"
+                            className="w-full text-xs p-2 rounded border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 outline-none"
                           />
                         </div>
 
                         {selectedComponent.type === 'text' && (
                           <div>
-                            <label className="block text-[10px] font-bold text-zinc-400 mb-1">विवरण सामग्री (Content)</label>
+                            <label className="block text-[10px] font-bold text-surface-400 mb-1">विवरण सामग्री (Content)</label>
                             <textarea 
                               rows={2}
                               value={selectedComponent.content || ""}
                               onChange={(e) => updateComponentProperty(selectedComponent.id, 'content', e.target.value)}
-                              className="w-full text-xs p-2 rounded border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 outline-none resize-none"
+                              className="w-full text-xs p-2 rounded border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 outline-none resize-none"
                             />
                           </div>
                         )}
@@ -5698,12 +5698,12 @@ function WhatsAppManagerView() {
                         {(selectedComponent.type === 'input' || selectedComponent.type === 'textarea') && (
                           <>
                             <div>
-                              <label className="block text-[10px] font-bold text-zinc-400 mb-1">प्लेसहोल्डर (Placeholder)</label>
+                              <label className="block text-[10px] font-bold text-surface-400 mb-1">प्लेसहोल्डर (Placeholder)</label>
                               <input 
                                 type="text"
                                 value={selectedComponent.placeholder || ""}
                                 onChange={(e) => updateComponentProperty(selectedComponent.id, 'placeholder', e.target.value)}
-                                className="w-full text-xs p-2 rounded border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 outline-none"
+                                className="w-full text-xs p-2 rounded border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 outline-none"
                               />
                             </div>
                             <div className="flex items-center gap-2">
@@ -5713,61 +5713,61 @@ function WhatsAppManagerView() {
                                 onChange={(e) => updateComponentProperty(selectedComponent.id, 'required', e.target.checked)}
                                 id="chk_req"
                               />
-                              <label htmlFor="chk_req" className="text-xs text-zinc-600 dark:text-zinc-400 font-semibold cursor-pointer">भरना आवश्यक है? (Required)</label>
+                              <label htmlFor="chk_req" className="text-xs text-surface-600 dark:text-surface-400 font-semibold cursor-pointer">भरना आवश्यक है? (Required)</label>
                             </div>
                           </>
                         )}
 
                         {selectedComponent.type === 'select' && (
                           <div>
-                            <label className="block text-[10px] font-bold text-zinc-400 mb-1">विकल्प सूची (कोमा से अलग करें)</label>
+                            <label className="block text-[10px] font-bold text-surface-400 mb-1">विकल्प सूची (कोमा से अलग करें)</label>
                             <input 
                               type="text"
                               value={selectedComponent.options || ""}
                               onChange={(e) => updateComponentProperty(selectedComponent.id, 'options', e.target.value)}
                               placeholder="उदा. हाँ, नहीं, शायद"
-                              className="w-full text-xs p-2 rounded border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 outline-none"
+                              className="w-full text-xs p-2 rounded border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 outline-none"
                             />
                           </div>
                         )}
 
                         <div>
-                          <label className="block text-[10px] font-bold text-zinc-400 mb-1">वैरिएबल कुंजी (Database Key)</label>
+                          <label className="block text-[10px] font-bold text-surface-400 mb-1">वैरिएबल कुंजी (Database Key)</label>
                           <input 
                             type="text"
                             value={selectedComponent.name || ""}
                             onChange={(e) => updateComponentProperty(selectedComponent.id, 'name', e.target.value)}
-                            className="w-full text-xs p-2 rounded border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 outline-none font-mono"
+                            className="w-full text-xs p-2 rounded border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 outline-none font-mono"
                           />
                         </div>
                       </div>
                     ) : (
-                      <div className="text-center p-6 border-2 border-dashed border-zinc-100 dark:border-zinc-800 rounded-2xl text-zinc-400 text-xs">
+                      <div className="text-center p-6 border-2 border-dashed border-surface-100 dark:border-surface-800 rounded-2xl text-surface-400 text-xs">
                         संपादित करने के लिए लाइव प्रीव्यू स्क्रीन पर किसी फील्ड/अवयव पर क्लिक करें।
                       </div>
                     )}
                   </div>
 
                   {/* Middle/Right Column: Live Simulated Phone Screen & Layout Preview (8 cols) */}
-                  <div className="lg:col-span-8 bg-zinc-50 dark:bg-zinc-950 p-6 flex flex-col md:flex-row gap-6 overflow-y-auto items-center justify-center">
+                  <div className="lg:col-span-8 bg-surface-50 dark:bg-surface-950 p-6 flex flex-col md:flex-row gap-6 overflow-y-auto items-center justify-center">
                     
                     {/* Visual Layout Reorder List */}
                     <div className="w-full md:w-1/2 space-y-3 shrink-0">
-                      <h4 className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">स्क्रीन अवयव क्रम (Layout Fields)</h4>
+                      <h4 className="text-xs font-bold text-surface-500 uppercase tracking-wider mb-2">स्क्रीन अवयव क्रम (Layout Fields)</h4>
                       <div className="space-y-2">
                         {activeScreen?.components.map((comp: any) => (
                           <div 
                             key={comp.id}
                             onClick={() => setSelectedCompId(comp.id)}
-                            className={`p-3 rounded-xl border transition-all flex justify-between items-center cursor-pointer ${selectedCompId === comp.id ? 'bg-amber-500/15 border-amber-500' : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700'}`}
+                            className={`p-3 rounded-xl border transition-all flex justify-between items-center cursor-pointer ${selectedCompId === comp.id ? 'bg-amber-500/15 border-amber-500' : 'bg-white dark:bg-surface-900 border-surface-200 dark:border-surface-800 hover:border-surface-300 dark:hover:border-surface-700'}`}
                           >
                             <div className="min-w-0">
-                              <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-500 font-mono">{comp.type}</span>
-                              <h5 className="text-xs font-bold text-zinc-800 dark:text-zinc-200 mt-1 truncate">{comp.label || comp.content || "बिना नाम की फील्ड"}</h5>
+                              <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-surface-100 dark:bg-surface-800 text-surface-500 font-mono">{comp.type}</span>
+                              <h5 className="text-xs font-bold text-surface-800 dark:text-surface-200 mt-1 truncate">{comp.label || comp.content || "बिना नाम की फील्ड"}</h5>
                             </div>
                             <button 
                               onClick={(e) => { e.stopPropagation(); deleteComponent(comp.id); }}
-                              className="text-zinc-400 hover:text-red-500 p-1 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-850"
+                              className="text-surface-400 hover:text-red-500 p-1 rounded-lg hover:bg-surface-50 dark:hover:bg-surface-800"
                             >
                               <X className="w-3.5 h-3.5" />
                             </button>
@@ -5777,11 +5777,11 @@ function WhatsAppManagerView() {
                     </div>
 
                     {/* WhatsApp Device Mockup frame */}
-                    <div className="w-[300px] h-[580px] bg-zinc-950 rounded-[40px] border-[8px] border-zinc-800 shadow-2xl relative shrink-0 overflow-hidden flex flex-col">
+                    <div className="w-[300px] h-[580px] bg-surface-950 rounded-[40px] border-[8px] border-surface-800 shadow-2xl relative shrink-0 overflow-hidden flex flex-col">
                       {/* Topnotch speaker and camera */}
-                      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-28 h-5 bg-zinc-800 rounded-b-xl z-20 flex items-center justify-center gap-1.5">
-                        <div className="w-2 h-2 rounded-full bg-zinc-900"></div>
-                        <div className="w-10 h-1 bg-zinc-900 rounded-full"></div>
+                      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-28 h-5 bg-surface-800 rounded-b-xl z-20 flex items-center justify-center gap-1.5">
+                        <div className="w-2 h-2 rounded-full bg-surface-900"></div>
+                        <div className="w-10 h-1 bg-surface-900 rounded-full"></div>
                       </div>
 
                       {/* Screen Header */}
@@ -5794,15 +5794,15 @@ function WhatsAppManagerView() {
                       </div>
 
                       {/* Chat / Flow Form Screen area */}
-                      <div className="flex-1 bg-[#efeae2] dark:bg-zinc-900/40 p-4 space-y-4 overflow-y-auto relative">
+                      <div className="flex-1 bg-[#efeae2] dark:bg-surface-900/40 p-4 space-y-4 overflow-y-auto relative">
                         {/* Custom background pattern simulation */}
                         <div className="absolute inset-0 opacity-5 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle, #000 10%, transparent 11%)', backgroundSize: '12px 12px' }}></div>
                         
                         {/* Elegant Form Window simulating WhatsApp Native Flow screen */}
-                        <div className="bg-white dark:bg-zinc-950 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-3 relative z-10">
-                          <h4 className="font-bold text-sm text-zinc-800 dark:text-zinc-200 pb-2 border-b border-zinc-100 dark:border-zinc-900 flex items-center justify-between">
+                        <div className="bg-white dark:bg-surface-950 p-4 rounded-xl border border-surface-200 dark:border-surface-800 shadow-sm space-y-3 relative z-10">
+                          <h4 className="font-bold text-sm text-surface-800 dark:text-surface-200 pb-2 border-b border-surface-100 dark:border-surface-900 flex items-center justify-between">
                             <span>{activeScreen?.title || "शीर्षक"}</span>
-                            <span className="text-[10px] text-zinc-400 uppercase tracking-widest font-bold">1 of 1</span>
+                            <span className="text-[10px] text-surface-400 uppercase tracking-widest font-bold">1 of 1</span>
                           </h4>
 
                           {/* Dynamic components rendering inside Mockup */}
@@ -5810,7 +5810,7 @@ function WhatsAppManagerView() {
                             {activeScreen?.components.map((c: any) => {
                               if (c.type === 'text') {
                                 return (
-                                  <div key={c.id} className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed whitespace-pre-wrap bg-zinc-50 dark:bg-zinc-900 p-2 rounded border border-zinc-100 dark:border-zinc-850">
+                                  <div key={c.id} className="text-xs text-surface-600 dark:text-surface-400 leading-relaxed whitespace-pre-wrap bg-surface-50 dark:bg-surface-900 p-2 rounded border border-surface-100 dark:border-surface-800">
                                     {c.content || "निर्देश प्रविष्ट करें..."}
                                   </div>
                                 );
@@ -5818,14 +5818,14 @@ function WhatsAppManagerView() {
                               if (c.type === 'input') {
                                 return (
                                   <div key={c.id} className="space-y-1">
-                                    <label className="block text-[10px] font-semibold text-zinc-500">
+                                    <label className="block text-[10px] font-semibold text-surface-500">
                                       {c.label || "इनपुट"} {c.required && <span className="text-red-500">*</span>}
                                     </label>
                                     <input 
                                       type="text"
                                       disabled
                                       placeholder={c.placeholder || "विवरण..."}
-                                      className="w-full text-xs p-2 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50 outline-none"
+                                      className="w-full text-xs p-2 rounded-lg border border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-900/50 outline-none"
                                     />
                                   </div>
                                 );
@@ -5833,14 +5833,14 @@ function WhatsAppManagerView() {
                               if (c.type === 'textarea') {
                                 return (
                                   <div key={c.id} className="space-y-1">
-                                    <label className="block text-[10px] font-semibold text-zinc-500">
+                                    <label className="block text-[10px] font-semibold text-surface-500">
                                       {c.label || "लंबा संदेश"} {c.required && <span className="text-red-500">*</span>}
                                     </label>
                                     <textarea 
                                       rows={2}
                                       disabled
                                       placeholder={c.placeholder || "विवरण..."}
-                                      className="w-full text-xs p-2 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50 outline-none resize-none"
+                                      className="w-full text-xs p-2 rounded-lg border border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-900/50 outline-none resize-none"
                                     />
                                   </div>
                                 );
@@ -5849,8 +5849,8 @@ function WhatsAppManagerView() {
                                 const opts = (c.options || "").split(",").map((o: string) => o.trim()).filter((o: string) => o.length > 0);
                                 return (
                                   <div key={c.id} className="space-y-1">
-                                    <label className="block text-[10px] font-semibold text-zinc-500">{c.label || "ड्रॉपडाउन"}</label>
-                                    <select disabled className="w-full text-xs p-2 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50 outline-none">
+                                    <label className="block text-[10px] font-semibold text-surface-500">{c.label || "ड्रॉपडाउन"}</label>
+                                    <select disabled className="w-full text-xs p-2 rounded-lg border border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-900/50 outline-none">
                                       {opts.map((o: string, idx: number) => <option key={idx}>{o}</option>)}
                                     </select>
                                   </div>
@@ -5870,8 +5870,8 @@ function WhatsAppManagerView() {
                       </div>
 
                       {/* Screen footer bar / Home line */}
-                      <div className="h-10 bg-zinc-950 flex items-center justify-center shrink-0">
-                        <div className="w-24 h-1 bg-zinc-700 rounded-full"></div>
+                      <div className="h-10 bg-surface-950 flex items-center justify-center shrink-0">
+                        <div className="w-24 h-1 bg-surface-700 rounded-full"></div>
                       </div>
                     </div>
 
@@ -5879,10 +5879,10 @@ function WhatsAppManagerView() {
                 </div>
 
                 {/* Footer Controls */}
-                <div className="p-4 border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/50 shrink-0 flex gap-3 justify-end">
+                <div className="p-4 border-t border-surface-100 dark:border-surface-800 bg-surface-50 dark:bg-surface-950/50 shrink-0 flex gap-3 justify-end">
                   <button 
                     onClick={() => setShowFlowModal(false)}
-                    className="px-4 py-2 text-sm text-zinc-500 hover:text-zinc-700 bg-zinc-100 dark:bg-zinc-800 rounded-xl font-semibold"
+                    className="px-4 py-2 text-sm text-surface-500 hover:text-surface-700 bg-surface-100 dark:bg-surface-800 rounded-xl font-semibold"
                   >
                     रद्द करें (Cancel)
                   </button>

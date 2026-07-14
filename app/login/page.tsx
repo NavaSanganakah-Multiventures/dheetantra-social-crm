@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
-import { MessageSquare, ArrowRight, Mail, LogIn } from 'lucide-react';
+import { Mail, ArrowRight, LogIn, Sprout } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'motion/react';
@@ -51,22 +51,17 @@ export default function LoginPage() {
     const newOtp = [...otp];
     newOtp[index] = value.slice(-1);
     setOtp(newOtp);
-    if (value && index < 5) {
-      otpRefs.current[index + 1]?.focus();
-    }
+    if (value && index < 5) otpRefs.current[index + 1]?.focus();
   };
 
   const handleOtpKeyDown = (index: number, e: React.KeyboardEvent) => {
-    if (e.key === 'Backspace' && !otp[index] && index > 0) {
-      otpRefs.current[index - 1]?.focus();
-    }
+    if (e.key === 'Backspace' && !otp[index] && index > 0) otpRefs.current[index - 1]?.focus();
   };
 
   const verifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     const otpCode = otp.join('');
     if (otpCode.length !== 6) return;
-
     setLoading(true);
     setMessage('');
     try {
@@ -77,9 +72,7 @@ export default function LoginPage() {
       });
       const data: any = await res.json();
       if (res.ok && data.user) {
-        if (data.workspaceId) {
-          localStorage.setItem('workspaceId', data.workspaceId);
-        }
+        if (data.workspaceId) localStorage.setItem('workspaceId', data.workspaceId);
         router.push('/dashboard');
       } else {
         setMessage(data.error || 'Invalid OTP.');
@@ -98,140 +91,49 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-surface-50 dark:bg-surface-950 p-4 font-sans relative overflow-hidden">
       <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-primary-500/10 dark:bg-primary-500/20 rounded-full blur-3xl pointer-events-none animate-float" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-cyan-500/10 dark:bg-cyan-500/20 rounded-full blur-3xl pointer-events-none animate-float-delayed" />
-
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-sm glass rounded-3xl p-8 shadow-glass-lg relative z-10"
-      >
-        <Link
-          href="/"
-          className="flex items-center justify-center w-12 h-12 rounded-2xl bg-surface-900 dark:bg-white mb-6 mx-auto hover:scale-105 transition-transform"
-        >
-          <MessageSquare className="w-6 h-6 text-white dark:text-surface-900" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-emerald-500/10 dark:bg-emerald-500/20 rounded-full blur-3xl pointer-events-none animate-float-delayed" />
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-sm glass rounded-3xl p-8 shadow-glass-lg relative z-10">
+        <Link href="/" className="flex items-center justify-center w-12 h-12 rounded-2xl bg-gradient-to-br from-primary-500 to-emerald-600 mb-6 mx-auto hover:scale-105 transition-transform shadow-lg shadow-primary-500/30">
+          <Sprout className="w-6 h-6 text-white" />
         </Link>
-
-        <h1 className="text-3xl font-bold text-center mb-2 tracking-tight font-['Inter']">
-          Welcome back
-        </h1>
+        <h1 className="text-3xl font-bold text-center mb-2 tracking-tight font-['Inter']">Welcome back</h1>
         <p className="text-surface-500 dark:text-surface-400 text-sm text-center mb-8">
-          {step === 'email'
-            ? 'Sign in to your account securely'
-            : `Code sent to ${email}`}
+          {step === 'email' ? 'Sign in to your account securely' : `Code sent to ${email}`}
         </p>
-
         <AnimatePresence mode="wait">
           {step === 'email' ? (
-            <motion.form
-              key="email"
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 10 }}
-              onSubmit={requestOtp}
-              className="space-y-5"
-            >
-              <Input
-                label="Email address"
-                type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                placeholder="you@email.com"
-                required
-                icon={<Mail className="w-4 h-4" />}
-              />
-              <Button
-                type="submit"
-                loading={loading}
-                disabled={!email}
-                className="w-full"
-              >
-                Continue with Email <ArrowRight className="w-4 h-4" />
-              </Button>
+            <motion.form key="email" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} onSubmit={requestOtp} className="space-y-5">
+              <Input label="Email address" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@email.com" required icon={<Mail className="w-4 h-4" />} />
+              <Button type="submit" loading={loading} disabled={!email} className="w-full">Continue with Email <ArrowRight className="w-4 h-4" /></Button>
             </motion.form>
           ) : (
-            <motion.form
-              key="otp"
-              initial={{ opacity: 0, x: 10 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -10 }}
-              onSubmit={verifyOtp}
-              className="space-y-5"
-            >
+            <motion.form key="otp" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} onSubmit={verifyOtp} className="space-y-5">
               <div>
-                <label className="block text-sm font-medium mb-3 text-center text-surface-700 dark:text-surface-300">
-                  Enter 6-digit code
-                </label>
+                <label className="block text-sm font-medium mb-3 text-center text-surface-700 dark:text-surface-300">Enter 6-digit code</label>
                 <div className="flex gap-2 justify-center">
                   {otp.map((digit, index) => (
-                    <input
-                      key={index}
-                      ref={el => {
-                        otpRefs.current[index] = el;
-                      }}
-                      type="text"
-                      inputMode="numeric"
-                      maxLength={1}
-                      value={digit}
-                      onChange={e => handleOtpChange(index, e.target.value)}
-                      onKeyDown={e => handleOtpKeyDown(index, e)}
-                      className="w-11 h-12 text-center text-lg font-bold bg-white dark:bg-surface-950 border border-surface-300 dark:border-surface-700 rounded-xl outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
-                    />
+                    <input key={index} ref={el => { otpRefs.current[index] = el; }} type="text" inputMode="numeric" maxLength={1} value={digit}
+                      onChange={e => handleOtpChange(index, e.target.value)} onKeyDown={e => handleOtpKeyDown(index, e)}
+                      className="w-11 h-12 text-center text-lg font-bold bg-white dark:bg-surface-950 border border-surface-300 dark:border-surface-700 rounded-xl outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all" />
                   ))}
                 </div>
               </div>
-              <Button
-                type="submit"
-                loading={loading}
-                disabled={otp.join('').length !== 6}
-                className="w-full"
-              >
-                <LogIn className="w-4 h-4" />
-                Verify Code
-              </Button>
+              <Button type="submit" loading={loading} disabled={otp.join('').length !== 6} className="w-full"><LogIn className="w-4 h-4" /> Verify Code</Button>
               <div className="text-center">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setStep('email');
-                    setOtp(['', '', '', '', '', '']);
-                  }}
-                  className="text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline"
-                >
-                  Use a different email
-                </button>
+                <button type="button" onClick={() => { setStep('email'); setOtp(['', '', '', '', '', '']); }} className="text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline">Use a different email</button>
               </div>
             </motion.form>
           )}
         </AnimatePresence>
-
         <AnimatePresence>
           {message && (
-            <motion.p
-              initial={{ opacity: 0, y: 5 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -5 }}
-              className={`text-sm text-center mt-6 font-medium py-2.5 rounded-lg ${
-                messageType === 'success'
-                  ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10'
-                  : 'text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10'
-              }`}
-            >
-              {message}
-            </motion.p>
+            <motion.p initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }}
+              className={`text-sm text-center mt-6 font-medium py-2.5 rounded-lg ${messageType === 'success' ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10' : 'text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10'}`}>{message}</motion.p>
           )}
         </AnimatePresence>
-
         <div className="mt-8 text-center border-t border-surface-200 dark:border-surface-800 pt-6">
-          <p className="text-sm text-surface-500 dark:text-surface-400">
-            New to DheeTantra?{' '}
-            <Link
-              href="/register"
-              className="font-semibold text-surface-900 dark:text-white hover:underline"
-            >
-              Create an account
-            </Link>
-          </p>
+          <p className="text-sm text-surface-500 dark:text-surface-400">New to DheeTantra?{' '}
+            <Link href="/register" className="font-semibold text-surface-900 dark:text-white hover:underline">Create an account</Link></p>
         </div>
       </motion.div>
     </div>

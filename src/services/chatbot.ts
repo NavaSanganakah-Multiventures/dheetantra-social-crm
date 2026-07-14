@@ -186,13 +186,7 @@ export async function handleIncomingMessage(
   let replyMode = 'manual';
   try {
 
-<<<<<<< HEAD
-    
     const config = await env.DB.prepare('SELECT reply_mode FROM whatsapp_configs WHERE phone_number_id = ?').bind(phoneNumberId).first<{ reply_mode: string }>();
-=======
-
-    const config = await env.DB.prepare('SELECT reply_mode FROM whatsapp_configs WHERE phone_number_id = ?').bind(phoneNumberId).first();
->>>>>>> origin/feature/cloudflare-ai-gateway
     if (config && config.reply_mode) {
       replyMode = config.reply_mode;
     }
