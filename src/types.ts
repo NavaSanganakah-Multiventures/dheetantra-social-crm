@@ -21,5 +21,7 @@ export interface Env {
   TURN_KEY_API_TOKEN: string;
   CLOUDFLARE_CALLS_APP_ID: string;
   CLOUDFLARE_API_TOKEN: string;
-  GEMINI_API_KEY: string;
+  CF_ACCOUNT_ID: string;
+  CF_GATEWAY_ID: string;
+  CF_API_TOKEN: string;
 }
