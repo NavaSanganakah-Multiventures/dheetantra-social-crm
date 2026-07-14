@@ -85,9 +85,23 @@ const inboxEmailWorker = {
       const to = message.headers.get("To"); // e.g., workspace_id@inbox.yourdomain.com
       const subject = message.headers.get("Subject");
       
-      // Basic workspace extraction from email (Implementation specifics depend on your routing rules)
-      const workspaceIdMatch = to.match(/^([^@]+)@/);
-      const mockWorkspaceId = workspaceIdMatch ? workspaceIdMatch[1] : "default-workspace";
+      // Resolve the real workspace from the verified domain email routing table.
+      // We never trust the email local-part as a workspace id.
+      let workspaceId: string | null = null;
+      try {
+        const emailRow = await env.DB.prepare(
+          "SELECT d.workspace_id AS workspace_id FROM domain_emails de JOIN domains d ON de.domain_id = d.id WHERE de.email_address = ? LIMIT 1"
+        ).bind(to).first<{ workspace_id: string }>();
+        workspaceId = emailRow?.workspace_id || null;
+      } catch (e) {
+        console.error("Failed to resolve workspace from email address", e);
+      }
+
+      if (!workspaceId) {
+        // No matching configured domain email → ignore the message safely.
+        console.warn(`No workspace found for inbound email to ${to}; ignoring.`);
+        return;
+      }
       
       // In a real app, parse the readable stream of the email to get body text using a MIME parser like PostalMime
       const content = `Subject: ${subject}\n\nEmail Body requires Mime parsing via PostalMime.`;
@@ -100,7 +114,7 @@ const inboxEmailWorker = {
         const contactId = crypto.randomUUID();
         await env.DB.prepare(
             "INSERT INTO contacts (id, workspace_id, platform_contact_id, platform, name) VALUES (?, ?, ?, ?, ?)"
-        ).bind(contactId, mockWorkspaceId, from, 'email', from).run();
+        ).bind(contactId, workspaceId, from, 'email', from).run();
         contact = { id: contactId };
       }
 
@@ -113,7 +127,7 @@ const inboxEmailWorker = {
         const conversationId = crypto.randomUUID();
         await env.DB.prepare(
             "INSERT INTO conversations (id, workspace_id, contact_id, platform) VALUES (?, ?, ?, ?)"
-        ).bind(conversationId, mockWorkspaceId, contact.id, 'email').run();
+        ).bind(conversationId, workspaceId, contact.id, 'email').run();
         conversation = { id: conversationId };
       }
 
@@ -134,7 +148,7 @@ const inboxEmailWorker = {
 
       // 3. Notify Durable Object to broadcast to connected Next.js frontends
       if (env.INBOX_DO) {
-        const doId = env.INBOX_DO.idFromName(mockWorkspaceId);
+        const doId = env.INBOX_DO.idFromName(workspaceId);
         const stub = env.INBOX_DO.get(doId);
         
         // Internal call to DO

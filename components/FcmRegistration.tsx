@@ -7,6 +7,12 @@ export function FcmRegistration() {
     async function registerFcm() {
       if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
         try {
+          // Only register push tokens for authenticated users.
+          const meRes = await fetch('/api/auth/me');
+          if (!meRes.ok) return;
+          const meData: any = await meRes.json();
+          if (!meData.user) return;
+
           const { requestFcmToken, onMessageListener } = await import('../lib/firebase-client');
           const token = await requestFcmToken();
           if (token) {
@@ -18,15 +24,20 @@ export function FcmRegistration() {
             console.log("FCM token registered with server.");
           }
 
-          const listen = async () => {
+          // Keep listening for foreground messages (onMessageListener resolves once).
+          const listenLoop = async () => {
             try {
-              const payload: any = await onMessageListener();
-              if (payload) {
-                console.log("Foreground message received:", payload);
+              while (true) {
+                const payload: any = await onMessageListener();
+                if (payload) {
+                  console.log("Foreground message received:", payload);
+                }
               }
-            } catch (e) {}
+            } catch (e) {
+              console.error("FCM listener error:", e);
+            }
           };
-          listen();
+          listenLoop();
         } catch (e) {
           console.error("Failed to register FCM", e);
         }

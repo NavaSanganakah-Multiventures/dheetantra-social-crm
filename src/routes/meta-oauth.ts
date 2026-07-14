@@ -10,6 +10,49 @@ function base64UrlDecode(str: string) {
   return atob(base64);
 }
 
+// Convert an ArrayBuffer to a base64url string (for HMAC signature comparison)
+function bufToBase64Url(buf: ArrayBuffer): string {
+  const bytes = new Uint8Array(buf);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+// Verify Meta signed_request: HMAC-SHA256 of the base64url payload using the app secret.
+// Returns the parsed payload only if the signature is valid.
+async function verifySignedRequest(signedRequest: string, appSecret: string): Promise<{ valid: boolean; payload: any }> {
+  const parts = signedRequest.split('.');
+  if (parts.length !== 2) return { valid: false, payload: null };
+
+  const [signature, payloadBase64] = parts;
+  let payload: any = null;
+  try {
+    payload = JSON.parse(base64UrlDecode(payloadBase64));
+  } catch (e) {
+    return { valid: false, payload: null };
+  }
+
+  try {
+    const key = await crypto.subtle.importKey(
+      'raw',
+      new TextEncoder().encode(appSecret),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign']
+    );
+    const sigBuffer = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(payloadBase64));
+    const expectedSig = bufToBase64Url(sigBuffer);
+    if (expectedSig !== signature) {
+      return { valid: false, payload: null };
+    }
+    return { valid: true, payload };
+  } catch (e) {
+    return { valid: false, payload: null };
+  }
+}
+
 // Meta Data Deletion Callback
 metaOauth.post('/data-deletion', async (c) => {
   try {
@@ -20,14 +63,18 @@ metaOauth.post('/data-deletion', async (c) => {
       return c.json({ error: 'Missing signed_request' }, 400);
     }
 
-    const parts = signedRequest.split('.');
-    if (parts.length !== 2) {
-      return c.json({ error: 'Invalid signed_request format' }, 400);
+    // SECURITY: verify the signature of the signed_request before trusting it.
+    const appSecret = c.env.SECRETS_KV ? await c.env.SECRETS_KV.get('META_APP_SECRET') : null;
+    if (!appSecret) {
+      console.error('[Data Deletion] META_APP_SECRET not configured in KV');
+      return c.json({ error: 'Server configuration error' }, 500);
     }
 
-    const payloadBase64 = parts[1];
-    const payloadStr = base64UrlDecode(payloadBase64);
-    const payload = JSON.parse(payloadStr);
+    const { valid, payload } = await verifySignedRequest(signedRequest, appSecret);
+    if (!valid || !payload) {
+      console.error('[Data Deletion] Invalid signed_request signature');
+      return c.json({ error: 'Invalid signed_request' }, 400);
+    }
 
     const userId = payload.user_id;
     if (!userId) {
@@ -98,7 +145,15 @@ metaOauth.get('/data-deletion-status/:code', async (c) => {
 
 // This endpoint receives the onboarding data after the user completes the Embedded Signup flow
 metaOauth.post('/embedded-signup', async (c) => {
-  const { workspaceId, accessToken, wabaId, phoneNumberIds } = await c.req.json();
+  const body = await c.req.json();
+  const accessToken = body.accessToken;
+  const wabaId = body.wabaId;
+  const phoneNumberIds = body.phoneNumberIds;
+
+  // Trust the authenticated workspace from the session/header, not the request body,
+  // so a caller cannot link a WABA to a workspace they don't belong to.
+  // authMiddleware has already verified the caller is a member of this workspace.
+  const workspaceId = c.req.header('x-workspace-id');
 
   if (!workspaceId || !wabaId || !phoneNumberIds || !Array.isArray(phoneNumberIds)) {
     return c.json({ error: 'Missing required parameters' }, 400);

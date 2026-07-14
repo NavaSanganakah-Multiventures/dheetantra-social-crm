@@ -1,19 +1,12 @@
-import type { D1Database, KVNamespace } from '@cloudflare/workers-types';
 import type { NextRequest } from 'next/server';
+import type { Env } from '../src/types';
 
 /**
  * Cloudflare Environment Bindings.
  * These match the bindings configured in your wrangler.toml or Cloudflare dashboard.
+ * Re-exported from the canonical `Env` type so the Worker, Workers and libs stay in sync.
  */
-export interface CloudflareEnv {
-  DB: D1Database;
-  SECRETS_KV: KVNamespace;
-  EMAIL_SENDER: any;
-  INBOX_DO: any;
-  BROADCAST_QUEUE: any;
-  POST_PUBLISHER_WORKFLOW: any;
-  MEDIA_BUCKET: any;
-}
+export type CloudflareEnv = Env;
 
 /**
  * Helper to safely extract Cloudflare Environment variables in the Next.js Edge Runtime.

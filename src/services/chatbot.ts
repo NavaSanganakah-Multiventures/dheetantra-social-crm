@@ -79,8 +79,9 @@ export async function handleIncomingMessage(
 
 
         await env.DB.prepare(`
-          INSERT OR IGNORE INTO messages (id, conversation_id, sender_type, message_type, content, media_url, platform_message_id)
+          INSERT INTO messages (id, conversation_id, sender_type, message_type, content, media_url, platform_message_id)
           VALUES (?, ?, 'contact', ?, ?, ?, ?)
+          ON CONFLICT(platform_message_id) DO NOTHING
         `).bind(incomingMessageId, conversationId, messageType, messageText, mediaUrl || null, messageId).run();
         console.log(`[handleIncomingMessage] Incoming message saved. id=${incomingMessageId}`);
 

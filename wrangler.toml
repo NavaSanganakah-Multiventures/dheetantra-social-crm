@@ -113,6 +113,12 @@ head_sampling_rate = 1
 [[send_email]]
 name = "EMAIL_SENDER"
 
+# Worker-level environment variables (non-secret strings). Secrets should go in KV.
+[vars]
+# FCM service account JSON for push notifications (lib/fcm.ts). Set this to your
+# Firebase service account JSON string so push notifications actually send.
+FCM_SERVICE_ACCOUNT_JSON = ""
+
 [[rules]]
 type = "Text"
 globs = ["**/*.sql", "**/*.txt", "**/*.html"]
