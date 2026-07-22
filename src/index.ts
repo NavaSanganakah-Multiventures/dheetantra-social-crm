@@ -219,6 +219,8 @@ app.use('/api/domains/*', authMiddleware);
 app.use('/api/email-templates', authMiddleware);
 app.use('/api/email-templates/*', authMiddleware);
 app.use('/api/domain-emails/*', authMiddleware);
+app.use('/api/whatsapp/upload', authMiddleware);
+app.use('/api/whatsapp/media', authMiddleware);
 
 app.route('/api/meta', metaOauth);
 app.route('/api/admin', adminRouter);
@@ -643,8 +645,8 @@ app.post('/api/whatsapp/webhook', async (c) => {
 
               console.log(`[Calling] Event: ${event}, Call ID: ${callId}, From: ${callerNumber}, Direction: ${direction}, HasSDP: ${!!sdp}`);
 
-              const config = await c.env.DB.prepare('SELECT workspace_id FROM whatsapp_configs WHERE phone_number_id = ?')
-                .bind(phoneNumberId).first<{ workspace_id: string }>();
+              const config = await c.env.DB.prepare('SELECT workspace_id, calling_enabled, call_schedule FROM whatsapp_configs WHERE phone_number_id = ?')
+                .bind(phoneNumberId).first<{ workspace_id: string; calling_enabled: number; call_schedule: string }>();
 
               if (!config) {
                 console.error(`[Calling] ❌ No config found for phone_number_id: ${phoneNumberId}`);
@@ -652,6 +654,41 @@ app.post('/api/whatsapp/webhook', async (c) => {
               }
 
               console.log(`[Calling] Found workspace_id: ${config.workspace_id} for phone_number_id: ${phoneNumberId}`);
+
+              // Check call schedule for incoming calls
+              if (config.calling_enabled === 0) {
+                console.log(`[Calling] ⛔ Calling is disabled for ${phoneNumberId}. Skipping incoming call.`);
+                continue;
+              }
+              if (config.call_schedule && (event === 'connect' || event === 'offer')) {
+                try {
+                  const schedule = JSON.parse(config.call_schedule);
+                  if (schedule.enabled) {
+                    const now = new Date();
+                    const currentHour = now.getHours();
+                    const currentMin = now.getMinutes();
+                    const currentTime = currentHour * 60 + currentMin;
+                    const startParts = (schedule.start_time || '09:00').split(':').map(Number);
+                    const endParts = (schedule.end_time || '17:00').split(':').map(Number);
+                    const startMin = startParts[0] * 60 + (startParts[1] || 0);
+                    const endMin = endParts[0] * 60 + (endParts[1] || 0);
+                    const dayOfWeek = now.getDay() === 0 ? 7 : now.getDay();
+                    const days = Array.isArray(schedule.days) ? schedule.days : [1,2,3,4,5];
+
+                    if (!days.includes(dayOfWeek) || currentTime < startMin || currentTime > endMin) {
+                      console.log(`[Calling] ⛔ Outside call schedule for ${phoneNumberId}. Day=${dayOfWeek}, Time=${currentHour}:${currentMin}, Schedule=${schedule.start_time}-${schedule.end_time}`);
+                      const callId = crypto.randomUUID();
+                      await c.env.DB.prepare(`
+                        INSERT INTO calls (id, workspace_id, contact_id, phone_number_id, caller_number, type, direction, status, duration)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                      `).bind(callId, config.workspace_id, '', phoneNumberId, callerNumber || 'unknown', 'voice', 'incoming', 'missed', 0).run();
+                      continue;
+                    }
+                  }
+                } catch (e) {
+                  console.error(`[Calling] Error parsing call_schedule for ${phoneNumberId}:`, e);
+                }
+              }
 
               if (event === 'connect' || event === 'offer') {
                 // Incoming call — save to DB + broadcast to frontend
@@ -1326,7 +1363,12 @@ app.post('/api/inbox/conversations/initiate', async (c) => {
   if (!contact) return c.json({ error: 'संपर्क नहीं मिला' }, 404);
 
   let finalPhoneNumberId = phone_number_id;
-  if (!finalPhoneNumberId) {
+  if (finalPhoneNumberId) {
+    // Verify phone_number_id belongs to workspace
+    const config = await c.env.DB.prepare('SELECT phone_number_id FROM whatsapp_configs WHERE workspace_id = ? AND phone_number_id = ?')
+      .bind(workspaceId, finalPhoneNumberId).first<{ phone_number_id: string }>();
+    if (!config) return c.json({ error: 'Invalid phone_number_id for this workspace' }, 400);
+  } else {
     const config = await c.env.DB.prepare('SELECT phone_number_id FROM whatsapp_configs WHERE workspace_id = ? ORDER BY created_at DESC LIMIT 1')
       .bind(workspaceId).first<{ phone_number_id: string }>();
     if (config) {
@@ -1614,8 +1656,189 @@ app.delete('/api/whatsapp/config/:id', async (c) => {
 });
 
 // ==========================================
-// WHATSAPP TEMPLATE MANAGEMENT
+// WHATSAPP BUSINESS PROFILE API
 // ==========================================
+
+// GET WhatsApp Business Profile from Meta
+app.get('/api/whatsapp/config/profile', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  const phoneNumberId = c.req.query('phoneNumberId');
+  if (!phoneNumberId) return c.json({ error: 'phoneNumberId query param required' }, 400);
+
+  try {
+    const config = await c.env.DB.prepare(
+      'SELECT id, phone_number_id, waba_id, access_token, about, description, website, email, address, username, profile_picture_url FROM whatsapp_configs WHERE workspace_id = ? AND phone_number_id = ?'
+    ).bind(workspaceId, phoneNumberId).first<any>();
+    if (!config) return c.json({ error: 'WhatsApp config not found' }, 404);
+
+    const profileRes = await fetch(
+      `https://graph.facebook.com/v20.0/${phoneNumberId}/whatsapp_business_profile?fields=about,description,email,websites,address,vertical,profile_picture_url`,
+      { headers: { 'Authorization': `Bearer ${config.access_token}` } }
+    );
+    const profileData: any = await profileRes.json();
+
+    if (profileData.data && profileData.data[0]) {
+      const metaProfile = profileData.data[0];
+      return c.json({
+        profile: {
+          about: metaProfile.about || config.about || '',
+          description: metaProfile.description || config.description || '',
+          website: metaProfile.websites?.[0] || config.website || '',
+          email: metaProfile.email || config.email || '',
+          address: metaProfile.address || config.address || '',
+          vertical: metaProfile.vertical || '',
+          profile_picture_url: metaProfile.profile_picture_url || '',
+          username: config.username || '',
+        },
+        source: 'meta'
+      });
+    }
+
+    return c.json({
+      profile: {
+        about: config.about || '',
+        description: config.description || '',
+        website: config.website || '',
+        email: config.email || '',
+        address: config.address || '',
+        username: config.username || '',
+      },
+      source: 'local'
+    });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+// PUT Update WhatsApp Business Profile (syncs to Meta + DB)
+app.put('/api/whatsapp/config/profile', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  const { phone_number_id, about, description, website, email, address, username } = await c.req.json();
+  if (!phone_number_id) return c.json({ error: 'phone_number_id required' }, 400);
+
+  try {
+    const config = await c.env.DB.prepare(
+      'SELECT id, access_token FROM whatsapp_configs WHERE workspace_id = ? AND phone_number_id = ?'
+    ).bind(workspaceId, phone_number_id).first<any>();
+    if (!config) return c.json({ error: 'WhatsApp config not found' }, 404);
+
+    const metaPayload: any = {};
+    if (about !== undefined) metaPayload.about = about;
+    if (description !== undefined) metaPayload.description = description;
+    if (email !== undefined) metaPayload.email = email;
+    if (website !== undefined) metaPayload.websites = [website];
+    if (address !== undefined) metaPayload.address = address;
+
+    if (Object.keys(metaPayload).length > 0) {
+      const syncRes = await fetch(
+        `https://graph.facebook.com/v20.0/${phone_number_id}/whatsapp_business_profile`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${config.access_token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(metaPayload)
+        }
+      );
+      const syncData = await syncRes.json();
+      if (!syncRes.ok) {
+        console.error('[Profile] Meta API error:', syncData);
+      }
+    }
+
+    const updates: string[] = [];
+    const binds: any[] = [];
+    if (about !== undefined) { updates.push('about = ?'); binds.push(about); }
+    if (description !== undefined) { updates.push('description = ?'); binds.push(description); }
+    if (website !== undefined) { updates.push('website = ?'); binds.push(website); }
+    if (email !== undefined) { updates.push('email = ?'); binds.push(email); }
+    if (address !== undefined) { updates.push('address = ?'); binds.push(address); }
+    if (username !== undefined) { updates.push('username = ?'); binds.push(username); }
+
+    if (updates.length > 0) {
+      binds.push(config.id);
+      await c.env.DB.prepare(
+        `UPDATE whatsapp_configs SET ${updates.join(', ')} WHERE id = ?`
+      ).bind(...binds).run();
+    }
+
+    return c.json({ success: true, message: 'Profile updated' });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+// ==========================================
+// CALL SCHEDULE API
+// ==========================================
+
+// GET call schedule for a WhatsApp config
+app.get('/api/whatsapp/config/call-schedule', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  const phoneNumberId = c.req.query('phoneNumberId');
+  if (!phoneNumberId) return c.json({ error: 'phoneNumberId query param required' }, 400);
+
+  try {
+    const config = await c.env.DB.prepare(
+      'SELECT id, calling_enabled, call_schedule FROM whatsapp_configs WHERE workspace_id = ? AND phone_number_id = ?'
+    ).bind(workspaceId, phoneNumberId).first<any>();
+
+    if (!config) return c.json({ error: 'WhatsApp config not found' }, 404);
+
+    let schedule = { enabled: false, start_time: '09:00', end_time: '17:00', days: [1,2,3,4,5] };
+    try { schedule = JSON.parse(config.call_schedule || '{}'); } catch (e) {}
+
+    return c.json({
+      calling_enabled: config.calling_enabled === 1,
+      schedule
+    });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+// PUT update call schedule
+app.put('/api/whatsapp/config/call-schedule', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  const { phone_number_id, calling_enabled, schedule } = await c.req.json();
+  if (!phone_number_id) return c.json({ error: 'phone_number_id required' }, 400);
+
+  try {
+    const config = await c.env.DB.prepare(
+      'SELECT id FROM whatsapp_configs WHERE workspace_id = ? AND phone_number_id = ?'
+    ).bind(workspaceId, phone_number_id).first<any>();
+    if (!config) return c.json({ error: 'WhatsApp config not found' }, 404);
+
+    if (calling_enabled !== undefined) {
+      await c.env.DB.prepare('UPDATE whatsapp_configs SET calling_enabled = ? WHERE id = ?')
+        .bind(calling_enabled ? 1 : 0, config.id).run();
+    }
+
+    if (schedule !== undefined) {
+      const scheduleStr = JSON.stringify({
+        enabled: schedule.enabled || false,
+        start_time: schedule.start_time || '09:00',
+        end_time: schedule.end_time || '17:00',
+        days: Array.isArray(schedule.days) ? schedule.days : [1,2,3,4,5]
+      });
+      await c.env.DB.prepare('UPDATE whatsapp_configs SET call_schedule = ? WHERE id = ?')
+        .bind(scheduleStr, config.id).run();
+    }
+
+    return c.json({ success: true, message: 'Call schedule updated' });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
 
 // Get all local and Meta templates
 app.get('/api/whatsapp/templates', async (c) => {
@@ -1995,6 +2218,11 @@ app.post('/api/whatsapp/send', async (c) => {
   if (!to || !conversationId) return c.json({ error: 'Missing required fields' }, 400);
 
   try {
+    // Verify conversation belongs to workspace
+    const convCheck = await c.env.DB.prepare('SELECT id FROM conversations WHERE id = ? AND workspace_id = ?')
+      .bind(conversationId, workspaceId).first();
+    if (!convCheck) return c.json({ error: 'Conversation not found in this workspace' }, 404);
+
     let config: any = null;
     if (phoneNumberId) {
       config = await c.env.DB.prepare('SELECT phone_number_id, access_token FROM whatsapp_configs WHERE workspace_id = ? AND phone_number_id = ?').bind(workspaceId, phoneNumberId).first();
@@ -2012,31 +2240,37 @@ app.post('/api/whatsapp/send', async (c) => {
       type: type
     };
 
-
-    // Check if it's a relative path starting with / or an absolute URL starting with http
-    const isMediaId = mediaUrl && !mediaUrl.startsWith('http') && !mediaUrl.startsWith('/');
-
-    // Ensure relative R2 paths are converted to fully qualified absolute public URLs for Meta Cloud API
-    let finalMediaUrl = mediaUrl;
-    if (mediaUrl && mediaUrl.startsWith('/')) {
-      const origin = new URL(c.req.url).origin;
-      finalMediaUrl = `${origin}${mediaUrl}`;
-    }
-
-    const mediaObj = isMediaId ? { id: mediaUrl } : { link: finalMediaUrl };
-
     if (type === 'text') {
       if (!text) return c.json({ error: 'Text content is required for text messages' }, 400);
       payload.text = { preview_url: false, body: text };
     } else if (type === 'image') {
       if (!mediaUrl) return c.json({ error: 'Media URL is required for image messages' }, 400);
-      payload.image = { ...mediaObj, caption: text || "" };
+      // Compute mediaObj only inside type block
+      const isMediaId = !mediaUrl.startsWith('http') && !mediaUrl.startsWith('/');
+      let finalMediaUrl = mediaUrl;
+      if (mediaUrl.startsWith('/')) {
+        const origin = new URL(c.req.url).origin;
+        finalMediaUrl = `${origin}${mediaUrl}`;
+      }
+      payload.image = { ...(isMediaId ? { id: mediaUrl } : { link: finalMediaUrl }), caption: text || "" };
     } else if (type === 'video') {
       if (!mediaUrl) return c.json({ error: 'Media URL is required for video messages' }, 400);
-      payload.video = { ...mediaObj, caption: text || "" };
+      const isMediaId = !mediaUrl.startsWith('http') && !mediaUrl.startsWith('/');
+      let finalMediaUrl = mediaUrl;
+      if (mediaUrl.startsWith('/')) {
+        const origin = new URL(c.req.url).origin;
+        finalMediaUrl = `${origin}${mediaUrl}`;
+      }
+      payload.video = { ...(isMediaId ? { id: mediaUrl } : { link: finalMediaUrl }), caption: text || "" };
     } else if (type === 'document') {
       if (!mediaUrl) return c.json({ error: 'Media URL is required for document messages' }, 400);
-      payload.document = { ...mediaObj, filename: filename || 'Document.pdf', caption: text || "" };
+      const isMediaId = !mediaUrl.startsWith('http') && !mediaUrl.startsWith('/');
+      let finalMediaUrl = mediaUrl;
+      if (mediaUrl.startsWith('/')) {
+        const origin = new URL(c.req.url).origin;
+        finalMediaUrl = `${origin}${mediaUrl}`;
+      }
+      payload.document = { ...(isMediaId ? { id: mediaUrl } : { link: finalMediaUrl }), filename: filename || 'Document.pdf', caption: text || "" };
     } else if (type === 'location') {
       if (!location || !location.latitude || !location.longitude) {
         return c.json({ error: 'Latitude and longitude are required for location messages' }, 400);

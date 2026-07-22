@@ -3,6 +3,9 @@ main = "src/index.ts"
 compatibility_date = "2025-07-14"
 compatibility_flags = ["nodejs_compat"]
 
+[build]
+command = "npm run build"
+
 # ==========================================
 # 1. WORKERS WITH ASSETS (NO PAGES)
 # ==========================================

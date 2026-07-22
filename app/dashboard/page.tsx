@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Download,  Upload, Bot, MessageSquare, Megaphone, CalendarClock, Settings, LayoutDashboard, Search, Bell, Menu, Send, Paperclip, LogOut, User, Blocks, AlertCircle, Phone, PhoneCall, X, History, MapPin, Building2, Tag, ChevronDown, ChevronRight, Activity, Users, Zap, Check, CheckCheck, FileText, Plus, Trash2, Edit, Archive, RefreshCw, Instagram, Facebook, Mail, TrendingUp, Coins } from 'lucide-react';
+import { Download,  Upload, Bot, MessageSquare, MessageCircle, Megaphone, CalendarClock, Settings, LayoutDashboard, Search, Bell, Menu, Send, Paperclip, LogOut, User, Blocks, AlertCircle, Phone, PhoneCall, X, History, MapPin, Building2, Tag, ChevronDown, ChevronRight, Activity, Users, Zap, Check, CheckCheck, FileText, Plus, Trash2, Edit, Archive, RefreshCw, Instagram, Facebook, Mail, TrendingUp, Coins } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useRouter } from 'next/navigation';
 import Papa from 'papaparse';
@@ -9,7 +9,9 @@ import { useWhatsAppWebRTC } from '@/lib/hooks/useWhatsAppWebRTC';
 import PhoneInput, { isValidPhoneNumber } from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
 import GeminiVoiceBridge from "@/app/components/GeminiVoiceBridge";
-type activeTab = 'dashboard' | 'inbox' | 'broadcast' | 'templates' | 'schedule' | 'settings' | 'contacts' | 'calls' | 'integrations' | 'accounts-whatsapp';
+import ActiveConversationsView from '@/components/ActiveConversationsView';
+import { useToast } from '@/components/ui/Toast';
+type activeTab = 'dashboard' | 'inbox' | 'active-conversations' | 'broadcast' | 'templates' | 'schedule' | 'settings' | 'contacts' | 'calls' | 'integrations' | 'accounts-whatsapp';
 
 const getUserTimezone = () => {
   if (typeof window === 'undefined') return 'Asia/Kolkata';
@@ -20,17 +22,24 @@ const getUserTimezone = () => {
 
 const ensureUTC = (dateStr: string | Date | number) => {
   if (typeof dateStr === 'string') {
+    // Already has timezone info
     if (dateStr.endsWith('Z') || dateStr.match(/[+-]\d{2}:\d{2}$/)) {
-      return new Date(dateStr);
+      const d = new Date(dateStr);
+      return isNaN(d.getTime()) ? new Date() : d;
     }
+    // SQLite format: "2024-01-01 12:00:00" or with milliseconds
     if (dateStr.includes(' ') && !dateStr.includes('T')) {
-      return new Date(dateStr.replace(' ', 'T') + 'Z');
+      const d = new Date(dateStr.replace(' ', 'T') + 'Z');
+      return isNaN(d.getTime()) ? new Date() : d;
     }
+    // ISO-like but missing Z: "2024-01-01T12:00:00"
     if (dateStr.includes('T')) {
-      return new Date(dateStr + 'Z');
+      const d = new Date(dateStr + 'Z');
+      return isNaN(d.getTime()) ? new Date() : d;
     }
   }
-  return new Date(dateStr);
+  const d = new Date(dateStr);
+  return isNaN(d.getTime()) ? new Date() : d;
 };
 
 export const formatUserTimeOnly = (dateStr: string | Date | number, options?: Intl.DateTimeFormatOptions) => {
@@ -422,6 +431,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
               <div className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-4 px-3">ओवरव्यू</div>
               <NavItem icon={<LayoutDashboard />} label="डैशबोर्ड" isActive={activeTab === 'dashboard'} onClick={() => { setActiveTab('dashboard'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
               <NavItem icon={<MessageSquare />} label="इनबॉक्स" isActive={activeTab === 'inbox'} onClick={() => { setActiveTab('inbox'); if (window.innerWidth < 768) setSidebarOpen(false); }} badge={openConversationsCount > 0 ? openConversationsCount.toString() : undefined} />
+              <NavItem icon={<Activity />} label="सक्रिय चैट" isActive={activeTab === 'active-conversations'} onClick={() => { setActiveTab('active-conversations'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
               <NavItem icon={<Users />} label="संपर्क और लीड्स" isActive={activeTab === 'contacts'} onClick={() => { setActiveTab('contacts'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
               <NavItem icon={<Phone />} label="कॉल लॉग्स" isActive={activeTab === 'calls'} onClick={() => { setActiveTab('calls'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
               
@@ -463,7 +473,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
               <Menu className="w-5 h-5" />
             </button>
             <h1 className="text-lg font-bold capitalize text-zinc-900 dark:text-white font-display">
-              {activeTab === 'dashboard' ? 'डैशबोर्ड' : activeTab === 'inbox' ? 'इनबॉक्स' : activeTab === 'broadcast' ? 'ब्रॉडकास्ट' : activeTab === 'schedule' ? 'शेड्यूलर' : activeTab === 'contacts' ? 'संपर्क और लीड्स' : activeTab === 'accounts-whatsapp' ? 'WhatsApp अकाउंट्स' : activeTab === 'calls' ? 'कॉल लॉग्स' : 'सेटिंग्स'}
+              {activeTab === 'dashboard' ? 'डैशबोर्ड' : activeTab === 'inbox' ? 'इनबॉक्स' : activeTab === 'active-conversations' ? 'सक्रिय बातचीत' : activeTab === 'broadcast' ? 'ब्रॉडकास्ट' : activeTab === 'schedule' ? 'शेड्यूलर' : activeTab === 'contacts' ? 'संपर्क और लीड्स' : activeTab === 'accounts-whatsapp' ? 'WhatsApp अकाउंट्स' : activeTab === 'calls' ? 'कॉल लॉग्स' : 'सेटिंग्स'}
             </h1>
           </div>
           
@@ -509,6 +519,12 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                   onInitiateCall={(contact: any) => {
                     alert('WhatsApp Outbound calls abhi supported nahi hain. Sirf incoming calls receive ho sakti hain.');
                   }}
+                />
+              )}
+              {activeTab === 'active-conversations' && (
+                <ActiveConversationsView 
+                  setActiveTab={setActiveTab} 
+                  setPreselectedChat={setPreselectedChat} 
                 />
               )}
               {activeTab === 'broadcast' && <BroadcastView />}
@@ -826,6 +842,7 @@ function InboxView({
   setPreselectedChat?: (chat: any) => void,
   onInitiateCall?: (contact: any) => void
 }) {
+  const { toast } = useToast();
   const [conversations, setConversations] = useState<any[]>([]);
   const [messages, setMessages] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -854,13 +871,10 @@ function InboxView({
 
   useEffect(() => {
     if (preselectedChat) {
-      const timer = setTimeout(() => {
-        setActiveChat(preselectedChat);
-        if (setPreselectedChat) {
-          setPreselectedChat(null);
-        }
-      }, 0);
-      return () => clearTimeout(timer);
+      setActiveChat(preselectedChat);
+      if (setPreselectedChat) {
+        setPreselectedChat(null);
+      }
     }
   }, [preselectedChat, setPreselectedChat]);
 
@@ -889,6 +903,24 @@ function InboxView({
   const [selectedInboxTemplate, setSelectedInboxTemplate] = useState<any>(null);
   const [inboxTemplateParams, setInboxTemplateParams] = useState<string[]>([]);
   const [inboxTemplateSending, setInboxTemplateSending] = useState(false);
+
+  const [isAtBottom, setIsAtBottom] = useState(true);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const scrollThrottleRef = useRef<number>(0);
+
+  // Business Profile + Call Schedule state (used in contact info panel)
+  const [profilePictureUrl, setProfilePictureUrl] = useState("");
+  const [profileAbout, setProfileAbout] = useState("");
+  const [profileDescription, setProfileDescription] = useState("");
+  const [profileWebsite, setProfileWebsite] = useState("");
+  const [profileEmail, setProfileEmail] = useState("");
+  const [profileAddress, setProfileAddress] = useState("");
+  const [profileUsername, setProfileUsername] = useState("");
+  const [callScheduleEnabled, setCallScheduleEnabled] = useState(false);
+  const [callScheduleStart, setCallScheduleStart] = useState("09:00");
+  const [callScheduleEnd, setCallScheduleEnd] = useState("17:00");
+  const [callScheduleDays, setCallScheduleDays] = useState<number[]>([1,2,3,4,5]);
+  const [callingEnabled, setCallingEnabled] = useState(true);
 
   useEffect(() => {
     const wId = localStorage.getItem('workspaceId');
@@ -972,7 +1004,7 @@ function InboxView({
   };
 
   const sendRichMessage = async () => {
-    if (!activeChat || sending || !attachmentType) return;
+    if (!activeChat || sending || !attachmentType || isTemplateRequired) return;
     
     const resolvedPhoneId = activeChat.phone_number_id || (selectedWaba && selectedWaba.phone_number_id !== 'all' ? selectedWaba.phone_number_id : undefined);
 
@@ -987,7 +1019,7 @@ function InboxView({
       let finalMediaUrl = mediaUrlInput.trim();
       let finalR2Url = null;
       if (mediaFileState) {
-         setSending(true);
+         // Upload sequential; sending is set at the call site
          const formData = new FormData();
          formData.append('file', mediaFileState);
          
@@ -1107,26 +1139,43 @@ function InboxView({
     }).then(r => r.json()).then((data: any) => {
         if (data.conversations) {
             setConversations(data.conversations);
+            // Update activeChat if it's still the same conversation
+            setActiveChat((prev: any) => {
+                if (!prev) return null;
+                const updated = data.conversations.find((c: any) => c.id === prev.id);
+                return updated ? { ...prev, ...updated } : prev;
+            });
         }
         setLoading(false);
     }).catch(() => setLoading(false));
   }, [selectedWaba]);
 
+  // Ref to always have latest fetchConversations without causing WebSocket reconnects
+  const fetchConversationsRef = useRef(fetchConversations);
+  fetchConversationsRef.current = fetchConversations;
+
   useEffect(() => {
     fetchConversations();
-    const interval = setInterval(() => fetchConversations(), 5000);
+    const interval = setInterval(() => fetchConversations(), 30000); // 30s fallback
     return () => clearInterval(interval);
   }, [fetchConversations]);
 
-  const loadMessages = (conversationId: string) => {
+  const loadMessages = useCallback((conversationId: string) => {
     fetch(`/api/inbox/messages/${conversationId}`, {
       headers: { 'x-workspace-id': localStorage.getItem('workspaceId') || '' }
     }).then(r => r.json()).then((data: any) => {
         if (data.messages) {
-            setMessages(data.messages);
+            // Merge with existing state to not overwrite concurrent WebSocket updates
+            setMessages(prev => {
+                const serverIds = new Set(data.messages.map((m: any) => m.id));
+                const localOnly = prev.filter(m => m.id.startsWith('optimistic-') && !serverIds.has(m.id));
+                return [...data.messages, ...localOnly].sort(
+                    (a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+                );
+            });
         }
-    });
-  };
+    }).catch(err => console.error("Failed to load messages:", err));
+  }, []);
 
   useEffect(() => {
     if (!activeChat) return;
@@ -1138,6 +1187,7 @@ function InboxView({
     let socket: WebSocket | null = null;
     let reconnectTimeout: any = null;
     let active = true;
+    const convId = activeChat.id;
 
     function connectWs() {
       if (!active) return;
@@ -1148,12 +1198,22 @@ function InboxView({
           try {
             const data = JSON.parse(event.data);
             if (data.type === 'new_message' && data.message) {
-              fetchConversations();
+              fetchConversationsRef.current();
 
-              if (data.message.conversation_id === activeChat.id) {
+              if (data.message.conversation_id === convId) {
                 setMessages(prev => {
                   if (prev.some(m => m.id === data.message.id)) return prev;
-                  const matchedOptimisticIndex = prev.findIndex(m => m.id.startsWith('optimistic-') && m.content === data.message.content);
+                  // Match optimistic messages by ID if server assigned our tempId's content, else by content+timer
+                  const matchedOptimisticIndex = prev.findIndex(m => {
+                    if (!m.id.startsWith('optimistic-')) return false;
+                    // If server returned this message and we matched it already in sendMessage callback, skip
+                    if (m.status === 'sent' || m.status === 'failed') return false;
+                    if (m.content !== data.message.content) return false;
+                    // Check timestamps within 5 seconds
+                    const t1 = new Date(m.created_at).getTime();
+                    const t2 = new Date(data.message.created_at).getTime();
+                    return Math.abs(t1 - t2) < 5000;
+                  });
                   if (matchedOptimisticIndex !== -1) {
                     const next = [...prev];
                     next[matchedOptimisticIndex] = data.message;
@@ -1167,19 +1227,19 @@ function InboxView({
                 }
               }
             } else if (data.type === 'conversation_status_updated') {
-              fetchConversations();
-              if (activeChat && activeChat.id === data.conversation_id) {
+              fetchConversationsRef.current();
+              if (convId === data.conversation_id) {
                 setActiveChat((prev: any) => prev ? { ...prev, status: data.status } : null);
               }
             } else if (data.type === 'message_status_updated') {
-              if (activeChat && activeChat.id === data.conversation_id) {
+              if (convId === data.conversation_id) {
                 setMessages((prev: any[]) => prev.map(m => 
                   m.id === data.message_id ? { ...m, status: data.status } : m
                 ));
               }
             } else if (data.type === 'conversation_deleted') {
-              fetchConversations();
-              if (activeChat && activeChat.id === data.conversation_id) {
+              fetchConversationsRef.current();
+              if (convId === data.conversation_id) {
                 setActiveChat(null);
               }
             }
@@ -1208,7 +1268,7 @@ function InboxView({
     connectWs();
 
     const failSafeInterval = setInterval(() => {
-      loadMessages(activeChat.id);
+      loadMessages(convId);
     }, 10000);
 
     return () => {
@@ -1219,14 +1279,14 @@ function InboxView({
         socket.close();
       }
     };
-  }, [activeChat, fetchConversations]);
+  }, [activeChat?.id]); // Only reconnect when conversation changes, not when WABA filter changes
 
   const sendMessage = async () => {
-    if (!messageInput.trim() || !activeChat) return;
+    if (!messageInput.trim() || !activeChat || isTemplateRequired) return;
     const textToSend = messageInput.trim();
     setMessageInput("");
 
-    const tempId = `optimistic-${Date.now()}`;
+    const tempId = `optimistic-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     const optimisticMsg = {
       id: tempId,
       content: textToSend,
@@ -1255,17 +1315,18 @@ function InboxView({
         })
       });
       const data: any = await res.json();
-      if (data.success) {
-        setMessages(prev => prev.map(m => m.id === tempId ? { ...m, id: data.data?.id || m.id, status: 'sent' } : m));
+      if (data.success && data.data?.id) {
+        setMessages(prev => prev.map(m => m.id === tempId ? { ...m, id: data.data.id, status: 'sent' } : m));
         fetchConversations();
       } else {
-        setMessages(prev => prev.filter(m => m.id !== tempId));
-        alert(data.error || "संदेश भेजने में विफल");
+        // Keep optimistic but mark as failed instead of removing — user can see what failed
+        setMessages(prev => prev.map(m => m.id === tempId ? { ...m, status: 'failed' } : m));
+        toast('error', data.error || "संदेश भेजने में विफल");
         setMessageInput(textToSend);
       }
     } catch (e) {
-      setMessages(prev => prev.filter(m => m.id !== tempId));
-      alert("त्रुटि हुई");
+      setMessages(prev => prev.map(m => m.id === tempId ? { ...m, status: 'failed' } : m));
+      toast('error', "त्रुटि हुई");
       setMessageInput(textToSend);
     }
   };
@@ -1274,7 +1335,12 @@ function InboxView({
     if (!selectedInboxTemplate || !activeChat) return;
     setInboxTemplateSending(true);
     const wId = localStorage.getItem('workspaceId');
-    const resolvedPhoneId = activeChat.phone_number_id || (configs.length > 0 ? configs[0].phone_number_id : undefined);
+    // Match phone_number_id from activeChat config, not configs[0]
+    const matchingConfig = activeChat.phone_number_id 
+      ? configs.find(c => c.phone_number_id === activeChat.phone_number_id) 
+      : null;
+    const resolvedPhoneId = activeChat.phone_number_id || matchingConfig?.phone_number_id || (configs.length > 0 ? configs[configs.length - 1].phone_number_id : undefined);
+    const currentConvId = activeChat.id; // capture before await
     try {
       const res = await fetch('/api/whatsapp/templates/send', {
         method: 'POST',
@@ -1292,22 +1358,24 @@ function InboxView({
         setSelectedInboxTemplate(null);
         setInboxTemplateParams([]);
         fetchConversations();
-        setTimeout(() => loadMessages(activeChat.id), 500);
+        // Use captured convId, not activeChat.id from stale closure
+        loadMessages(currentConvId);
       } else {
-        alert(data.error || "टेम्पलेट भेजने में विफल");
+        toast('error', data.error || "टेम्पलेट भेजने में विफल");
       }
     } catch {
-      alert("सर्वर एरर");
+      toast('error', "सर्वर एरर");
     } finally {
       setInboxTemplateSending(false);
     }
   };
 
   useEffect(() => {
-    if (messagesEndRef.current) {
+    // Only auto-scroll if user is already near the bottom
+    if (messagesEndRef.current && isAtBottom) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [messages]);
+  }, [messages, isAtBottom]);
 
   const updateConversationStatus = async (convId: string, newStatus: 'open' | 'closed') => {
     try {
@@ -1372,7 +1440,7 @@ function InboxView({
               <label className="block text-[9px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-1">WhatsApp Line</label>
               <div className="relative">
                 <select 
-                  value={selectedWaba ? selectedWaba.id : ''} 
+                  value={selectedWaba ? (configs.some(c => c.id === selectedWaba.id) ? selectedWaba.id : 'all') : ''} 
                   onChange={(e) => {
                     if (e.target.value === 'all') {
                       setSelectedWaba({ id: 'all', phone_number_id: 'all' });
@@ -1563,7 +1631,18 @@ function InboxView({
               </div>
 
               {/* Chat Messages Area */}
-              <div className="flex-1 overflow-y-auto p-6 space-y-6 flex flex-col">
+              <div 
+                ref={messagesContainerRef}
+                onScroll={(e) => {
+                    // Throttle to avoid excessive re-renders during fast scrolling
+                    const now = Date.now();
+                    if (now - scrollThrottleRef.current < 150) return;
+                    scrollThrottleRef.current = now;
+                    const el = e.currentTarget;
+                    const threshold = 100;
+                    setIsAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < threshold);
+                }}
+                className="flex-1 overflow-y-auto p-6 space-y-6 flex flex-col">
                  {messages.length === 0 ? (
                     <p className="text-center text-zinc-500 text-sm mt-10">कोई संदेश नहीं</p>
                   ) : (
@@ -1759,7 +1838,21 @@ function InboxView({
                       {attachmentType === 'contacts' && '👤 संपर्क (Contact) भेजें'}
                     </span>
                     <button 
-                      onClick={() => { setAttachmentType(null); setMediaFileState(null); setAttachmentMenuOpen(false); }}
+                      onClick={() => { 
+                        setAttachmentType(null); 
+                        setMediaFileState(null); 
+                        setAttachmentMenuOpen(false);
+                        setMediaUrlInput('');
+                        setMediaPreviewUrl(null);
+                        setCaptionInput('');
+                        setDocFilenameInput('');
+                        setContactNameInput('');
+                        setContactPhoneInput('');
+                        setLatInput('28.6139');
+                        setLngInput('77.2090');
+                        setLocNameInput('Dhitantra Headquarters');
+                        setLocAddressInput('');
+                      }}
                       className="p-1 rounded-full text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800"
                     >
                       <X className="w-4 h-4" />
@@ -1881,7 +1974,21 @@ function InboxView({
 
                   <div className="flex gap-2 justify-end mt-1">
                     <button 
-                      onClick={() => { setAttachmentType(null); setMediaFileState(null); setAttachmentMenuOpen(false); }}
+                      onClick={() => { 
+                        setAttachmentType(null); 
+                        setMediaFileState(null); 
+                        setAttachmentMenuOpen(false);
+                        setMediaUrlInput('');
+                        setMediaPreviewUrl(null);
+                        setCaptionInput('');
+                        setDocFilenameInput('');
+                        setContactNameInput('');
+                        setContactPhoneInput('');
+                        setLatInput('28.6139');
+                        setLngInput('77.2090');
+                        setLocNameInput('Dhitantra Headquarters');
+                        setLocAddressInput('');
+                      }}
                       className="px-3 py-1.5 text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300 transition-colors"
                     >
                       रद्द करें
@@ -1902,14 +2009,17 @@ function InboxView({
                  <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg text-amber-800 dark:text-amber-200 text-xs font-medium space-y-2">
                    <p className="text-center">{!lastCustomerMessageAt ? "ग्राहक के रिप्लाई का इंतज़ार है।" : "24-घंटे की सर्विस विंडो समाप्त हो चुकी है।"} टेम्पलेट भेजकर बातचीत शुरू करें।</p>
                    <div className="flex gap-2">
-                     <select onChange={e => {
-                       const tmpl = inboxTemplates.find(t => t.name === e.target.value);
-                       if (tmpl) {
-                         setSelectedInboxTemplate(tmpl);
-                         const matches = (tmpl.body_text || '').match(/\{\{\d+\}\}/g);
-                         setInboxTemplateParams(matches ? new Array(matches.length).fill('') : []);
-                       }
-                     }} defaultValue="" className="flex-1 bg-white dark:bg-zinc-950 border border-amber-300 dark:border-amber-700 rounded-lg px-3 py-2 text-xs outline-none font-mono">
+                      <select onChange={e => {
+                        const tmpl = inboxTemplates.find(t => t.name === e.target.value);
+                        if (tmpl) {
+                          setSelectedInboxTemplate(tmpl);
+                          const matches = (tmpl.body_text || '').match(/\{\{\d+\}\}/g);
+                          setInboxTemplateParams(matches ? new Array(matches.length).fill('') : []);
+                        } else {
+                          setSelectedInboxTemplate(null);
+                          setInboxTemplateParams([]);
+                        }
+                      }} value={selectedInboxTemplate?.name || ''} className="flex-1 bg-white dark:bg-zinc-950 border border-amber-300 dark:border-amber-700 rounded-lg px-3 py-2 text-xs outline-none font-mono">
                        <option value="" disabled>टेम्पलेट चुनें...</option>
                        {inboxTemplates.map(t => <option key={t.name} value={t.name}>{t.name}</option>)}
                      </select>
@@ -2197,6 +2307,7 @@ function InboxView({
 }
 
 function BroadcastView() {
+  const { toast } = useToast();
   const [campaignName, setCampaignName] = useState("");
   const [contacts, setContacts] = useState<any[]>([]);
   const [selectedContactIds, setSelectedContactIds] = useState<Set<string>>(new Set());
@@ -2210,6 +2321,8 @@ function BroadcastView() {
   const [sending, setSending] = useState(false);
   const [campaignId, setCampaignId] = useState<string | null>(null);
   const [progress, setProgress] = useState<{ total: number; sent: number; failed: number; pending: number } | null>(null);
+  const [activeOnly, setActiveOnly] = useState(false);
+  const [activeContactIds, setActiveContactIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const wId = localStorage.getItem('workspaceId');
@@ -2226,6 +2339,21 @@ function BroadcastView() {
       if (configData.configs?.length) {
         setConfigs(configData.configs);
         setChosenWaba(configData.configs[0]);
+      }
+      // Build set of contact IDs that have active (open) conversations
+      const wId = localStorage.getItem('workspaceId');
+      if (wId) {
+        fetch('/api/inbox/conversations?status=open&limit=500', {
+          headers: { 'x-workspace-id': wId }
+        }).then(r => r.json()).then((convData: any) => {
+          if (convData.conversations) {
+            const activeIds = new Set<string>();
+            convData.conversations.forEach((c: any) => {
+              if (c.contact_id) activeIds.add(c.contact_id);
+            });
+            setActiveContactIds(activeIds);
+          }
+        }).catch(() => {});
       }
     }).finally(() => setLoading(false));
   }, []);
@@ -2249,7 +2377,11 @@ function BroadcastView() {
 
   const filteredContacts = contacts.filter(c => {
     const q = contactSearch.toLowerCase();
-    return (c.name || '').toLowerCase().includes(q) || (c.phone || c.platform_contact_id || '').toLowerCase().includes(q);
+    const matchesSearch = (c.name || '').toLowerCase().includes(q) || (c.phone || c.platform_contact_id || '').toLowerCase().includes(q);
+    if (!matchesSearch) return false;
+    // Active conversations filter
+    if (activeOnly && !activeContactIds.has(c.id)) return false;
+    return true;
   });
 
   const toggleContact = (id: string) => {
@@ -2408,13 +2540,32 @@ function BroadcastView() {
               <div className="p-4 border-b border-zinc-200 dark:border-zinc-800 space-y-3">
                 <div className="flex items-center justify-between">
                   <h3 className="font-semibold text-sm">प्राप्तकर्ता चुनें <span className="text-zinc-400 font-normal">({selectedContactIds.size} चुने गए)</span></h3>
-                  <button onClick={toggleAll} className="text-xs text-indigo-600 dark:text-indigo-400 font-medium hover:underline">
-                    {selectedContactIds.size === filteredContacts.length ? 'सभी हटाएं' : 'सभी चुनें'}
-                  </button>
+                  <div className="flex items-center gap-3">
+                    <span className={`text-xs ${activeOnly ? 'text-indigo-600 dark:text-indigo-400' : 'text-zinc-400'}`}>
+                      {activeContactIds.size} सक्रिय
+                    </span>
+                    <button onClick={toggleAll} className="text-xs text-indigo-600 dark:text-indigo-400 font-medium hover:underline">
+                      {selectedContactIds.size === filteredContacts.length ? 'सभी हटाएं' : 'सभी चुनें'}
+                    </button>
+                  </div>
                 </div>
                 <div className="relative">
                   <Search className="w-4 h-4 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input type="text" value={contactSearch} onChange={e => setContactSearch(e.target.value)} placeholder="नाम या नंबर से खोजें..." className="w-full pl-9 pr-4 py-2.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-sm outline-none focus:border-indigo-500" />
+                </div>
+                {/* Active conversations filter toggle */}
+                <div className="flex items-center gap-2 pt-1">
+                  <button
+                    onClick={() => setActiveOnly(!activeOnly)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border ${
+                      activeOnly
+                        ? 'bg-indigo-50 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-400'
+                        : 'bg-zinc-50 dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
+                    }`}
+                  >
+                    <MessageCircle className="w-3.5 h-3.5" />
+                    केवल सक्रिय बातचीत वाले
+                  </button>
                 </div>
               </div>
               <div className="flex-1 overflow-y-auto">
@@ -2424,9 +2575,14 @@ function BroadcastView() {
                   filteredContacts.map(c => (
                     <label key={c.id} className={`flex items-center gap-3 px-4 py-3 border-b border-zinc-100 dark:border-zinc-800/50 cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors ${selectedContactIds.has(c.id) ? 'bg-indigo-50/50 dark:bg-indigo-900/10' : ''}`}>
                       <input type="checkbox" checked={selectedContactIds.has(c.id)} onChange={() => toggleContact(c.id)} className="w-4 h-4 rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">{c.name || 'अज्ञात'}</p>
-                        <p className="text-xs text-zinc-500">{c.phone || c.platform_contact_id}</p>
+                      <div className="flex-1 min-w-0 flex items-center gap-2">
+                        {activeContactIds.has(c.id) && (
+                          <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 shrink-0" title="Active conversation" />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">{c.name || 'अज्ञात'}</p>
+                          <p className="text-xs text-zinc-500">{c.phone || c.platform_contact_id}</p>
+                        </div>
                       </div>
                       {c.email && <span className="text-[10px] text-zinc-400 hidden md:block">{c.email}</span>}
                     </label>
@@ -2492,6 +2648,7 @@ function ScheduleView() {
 }
 
 function SettingsView() {
+    const { toast } = useToast();
     const [phoneNumberId, setPhoneNumberId] = useState("");
     const [wabaId, setWabaId] = useState("");
     const [accessToken, setAccessToken] = useState("");
@@ -3012,6 +3169,7 @@ function SettingsView() {
 }
 
 function TemplatesView({ selectedWaba }: { selectedWaba?: any }) {
+  const { toast } = useToast();
   const [localTemplates, setLocalTemplates] = useState<any[]>([]);
   const [metaTemplates, setMetaTemplates] = useState<any[]>([]);
   const [metaError, setMetaError] = useState<string | null>(null);
@@ -3486,6 +3644,7 @@ function ContactsView({
   setActiveTab: (tab: activeTab) => void,
   setActiveChat: (chat: any) => void
 }) {
+  const { toast } = useToast();
   const [contacts, setContacts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -4241,6 +4400,7 @@ function CallsView({
   setActiveCall: (call: any) => void, 
   setPreselectedChat: (chat: any) => void,
 }) {
+  const { toast } = useToast();
   const [calls, setCalls] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [callingEnabled, setCallingEnabled] = useState(true);
@@ -4840,6 +5000,7 @@ function IntegrationsView() {
 }
 
 function WhatsAppManagerView() {
+  const { toast } = useToast();
   const [activeSubTab, setActiveSubTab] = useState<'profiles' | 'templates' | 'flows'>('profiles');
   
   // Profiles states
@@ -4863,6 +5024,22 @@ function WhatsAppManagerView() {
   const [aiVoiceInstructions, setAiVoiceInstructions] = useState("");
   const [savingConfig, setSavingConfig] = useState(false);
   const [metaConfigId, setMetaConfigId] = useState("");
+
+  // Business Profile states
+  const [profileAbout, setProfileAbout] = useState("");
+  const [profileDescription, setProfileDescription] = useState("");
+  const [profileWebsite, setProfileWebsite] = useState("");
+  const [profileEmail, setProfileEmail] = useState("");
+  const [profileAddress, setProfileAddress] = useState("");
+  const [profileUsername, setProfileUsername] = useState("");
+  const [profilePictureUrl, setProfilePictureUrl] = useState("");
+
+  // Call Schedule states
+  const [callScheduleEnabled, setCallScheduleEnabled] = useState(false);
+  const [callScheduleStart, setCallScheduleStart] = useState("09:00");
+  const [callScheduleEnd, setCallScheduleEnd] = useState("17:00");
+  const [callScheduleDays, setCallScheduleDays] = useState<number[]>([1,2,3,4,5]);
+  const [callingEnabledSettings, setCallingEnabledSettings] = useState(true);
 
   // Flows states
   const [flows, setFlows] = useState<any[]>([]);
@@ -4996,7 +5173,22 @@ function WhatsAppManagerView() {
         sip_username: sipUsername,
         sip_password: sipPassword,
         ai_provider: aiProvider,
-        ai_voice_instructions: aiVoiceInstructions
+        ai_voice_instructions: aiVoiceInstructions,
+        // Business Profile fields
+        about: profileAbout,
+        description: profileDescription,
+        website: profileWebsite,
+        email: profileEmail,
+        address: profileAddress,
+        username: profileUsername,
+        // Call settings
+        calling_enabled: callingEnabledSettings ? 1 : 0,
+        call_schedule: JSON.stringify({
+          enabled: callScheduleEnabled,
+          start_time: callScheduleStart,
+          end_time: callScheduleEnd,
+          days: callScheduleDays
+        })
       };
       if (accessToken && accessToken !== "••••••••••••••••") {
         payload.access_token = accessToken;
@@ -5039,6 +5231,27 @@ function WhatsAppManagerView() {
     setAiProvider(cfg.ai_provider || "gemini");
     setAiVoiceInstructions(cfg.ai_voice_instructions || "");
     setShowProfileModal(true);
+
+    // Business Profile fields
+    setProfileAbout(cfg.about || "");
+    setProfileDescription(cfg.description || "");
+    setProfileWebsite(cfg.website || "");
+    setProfileEmail(cfg.email || "");
+    setProfileAddress(cfg.address || "");
+    setProfileUsername(cfg.username || "");
+    setProfilePictureUrl(cfg.profile_picture_url || "");
+
+    // Call schedule
+    setCallingEnabledSettings(cfg.calling_enabled !== 0);
+    if (cfg.call_schedule) {
+      try {
+        const s = JSON.parse(cfg.call_schedule);
+        setCallScheduleEnabled(s.enabled || false);
+        setCallScheduleStart(s.start_time || "09:00");
+        setCallScheduleEnd(s.end_time || "17:00");
+        setCallScheduleDays(s.days || [1,2,3,4,5]);
+      } catch (e) {}
+    }
   };
 
   const handleDeleteProfile = async (id: string) => {
@@ -5376,9 +5589,18 @@ function WhatsAppManagerView() {
                     <div className="space-y-2 border-t border-zinc-100 dark:border-zinc-800 pt-3 text-xs">
                       <div className="flex justify-between"><span className="text-zinc-400">Phone ID:</span> <span className="font-mono text-zinc-700 dark:text-zinc-300">{cfg.phone_number_id || "None"}</span></div>
                       <div className="flex justify-between"><span className="text-zinc-400">WABA ID:</span> <span className="font-mono text-zinc-700 dark:text-zinc-300">{cfg.waba_id || "None"}</span></div>
-                      {cfg.sip_uri && (
-                        <div className="flex justify-between"><span className="text-emerald-500 font-medium">Calling Enabled:</span> <span className="font-mono text-emerald-500">SIP Active</span></div>
+                      {cfg.username && (
+                        <div className="flex justify-between"><span className="text-zinc-400">Username:</span> <span className="font-mono text-indigo-600 dark:text-indigo-400">@{cfg.username}</span></div>
                       )}
+                      {cfg.about && (
+                        <div className="flex justify-between"><span className="text-zinc-400">About:</span> <span className="text-zinc-700 dark:text-zinc-300 truncate max-w-[180px]">{cfg.about}</span></div>
+                      )}
+                      <div className="flex justify-between">
+                        <span className="text-zinc-400">Calling:</span>
+                        <span className={`font-mono ${cfg.calling_enabled ? 'text-emerald-500' : 'text-red-400'}`}>
+                          {cfg.calling_enabled ? 'ENABLED' : 'DISABLED'}
+                        </span>
+                      </div>
                     </div>
                   </div>
 
@@ -5537,6 +5759,169 @@ function WhatsAppManagerView() {
                           placeholder="••••••••"
                           className="w-full text-xs p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 focus:border-indigo-500 outline-none"
                         />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Business Profile Section */}
+                  <div className="border-t border-zinc-100 dark:border-zinc-800 pt-4 mt-2">
+                    <h4 className="text-xs font-bold text-zinc-800 dark:text-zinc-200 uppercase tracking-wider mb-3">WhatsApp Business Profile</h4>
+                    <div className="space-y-3">
+                      {profilePictureUrl && (
+                        <div className="flex justify-center mb-3">
+                          <img src={profilePictureUrl} alt="Profile" className="w-20 h-20 rounded-full object-cover border-2 border-zinc-200" />
+                        </div>
+                      )}
+                      <div>
+                        <label className="block text-[11px] font-semibold text-zinc-400 mb-1">About (जानकारी / Description)</label>
+                        <textarea
+                          value={profileAbout}
+                          onChange={(e) => setProfileAbout(e.target.value)}
+                          placeholder="Your WhatsApp Business about text"
+                          rows={2}
+                          className="w-full text-xs p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 focus:border-indigo-500 outline-none resize-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-zinc-400 mb-1">Description (विस्तृत विवरण)</label>
+                        <textarea
+                          value={profileDescription}
+                          onChange={(e) => setProfileDescription(e.target.value)}
+                          placeholder="Detailed business description"
+                          rows={3}
+                          className="w-full text-xs p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 focus:border-indigo-500 outline-none resize-none"
+                        />
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[11px] font-semibold text-zinc-400 mb-1">Website</label>
+                          <input 
+                            type="url" 
+                            value={profileWebsite} 
+                            onChange={(e) => setProfileWebsite(e.target.value)}
+                            placeholder="https://example.com"
+                            className="w-full text-xs p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 focus:border-indigo-500 outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-semibold text-zinc-400 mb-1">Email (ईमेल पता)</label>
+                          <input 
+                            type="email" 
+                            value={profileEmail} 
+                            onChange={(e) => setProfileEmail(e.target.value)}
+                            placeholder="business@example.com"
+                            className="w-full text-xs p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 focus:border-indigo-500 outline-none"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-zinc-400 mb-1">Address (पता)</label>
+                        <input 
+                          type="text" 
+                          value={profileAddress} 
+                          onChange={(e) => setProfileAddress(e.target.value)}
+                          placeholder="123 Main St, City, Country"
+                          className="w-full text-xs p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 focus:border-indigo-500 outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-zinc-400 mb-1">WhatsApp Username (@यूज़रनेम)</label>
+                        <div className="flex items-center gap-1">
+                          <span className="text-zinc-400 text-xs font-mono">@</span>
+                          <input 
+                            type="text" 
+                            value={profileUsername} 
+                            onChange={(e) => setProfileUsername(e.target.value.replace(/[^a-zA-Z0-9_.]/g, ''))}
+                            placeholder="yourbusiness"
+                            className="flex-1 text-xs p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 focus:border-indigo-500 outline-none"
+                          />
+                        </div>
+                        <p className="text-[10px] text-zinc-400 mt-1">Only letters, numbers, underscore and dots</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Call Settings Section */}
+                  <div className="border-t border-zinc-100 dark:border-zinc-800 pt-4 mt-2">
+                    <h4 className="text-xs font-bold text-zinc-800 dark:text-zinc-200 uppercase tracking-wider mb-3">Call Settings (कॉल सेटिंग्स)</h4>
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Calling Enabled (कॉलिंग सक्षम)</label>
+                        <button 
+                          onClick={() => setCallingEnabledSettings(!callingEnabledSettings)}
+                          className={`relative w-11 h-6 rounded-full transition-colors ${callingEnabledSettings ? 'bg-emerald-500' : 'bg-zinc-300 dark:bg-zinc-600'}`}
+                        >
+                          <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${callingEnabledSettings ? 'translate-x-5' : 'translate-x-0'}`} />
+                        </button>
+                      </div>
+
+                      <div className="border-t border-zinc-100 dark:border-zinc-800 pt-3">
+                        <div className="flex items-center justify-between mb-3">
+                          <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Call Schedule (कॉल शेड्यूल)</label>
+                          <button 
+                            onClick={() => setCallScheduleEnabled(!callScheduleEnabled)}
+                            className={`relative w-11 h-6 rounded-full transition-colors ${callScheduleEnabled ? 'bg-indigo-500' : 'bg-zinc-300 dark:bg-zinc-600'}`}
+                          >
+                            <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${callScheduleEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
+                          </button>
+                        </div>
+
+                        {callScheduleEnabled && (
+                          <>
+                            <div className="grid grid-cols-2 gap-3 mb-3">
+                              <div>
+                                <label className="block text-[11px] font-semibold text-zinc-400 mb-1">Start Time</label>
+                                <input 
+                                  type="time" 
+                                  value={callScheduleStart} 
+                                  onChange={(e) => setCallScheduleStart(e.target.value)}
+                                  className="w-full text-xs p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 focus:border-indigo-500 outline-none"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[11px] font-semibold text-zinc-400 mb-1">End Time</label>
+                                <input 
+                                  type="time" 
+                                  value={callScheduleEnd} 
+                                  onChange={(e) => setCallScheduleEnd(e.target.value)}
+                                  className="w-full text-xs p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 focus:border-indigo-500 outline-none"
+                                />
+                              </div>
+                            </div>
+                            <div>
+                              <label className="block text-[11px] font-semibold text-zinc-400 mb-2">Active Days</label>
+                              <div className="flex gap-1.5 flex-wrap">
+                                {[
+                                  { key: 1, label: 'S' },
+                                  { key: 2, label: 'M' },
+                                  { key: 3, label: 'T' },
+                                  { key: 4, label: 'W' },
+                                  { key: 5, label: 'T' },
+                                  { key: 6, label: 'F' },
+                                  { key: 7, label: 'S' },
+                                ].map(d => (
+                                  <button
+                                    key={d.key}
+                                    onClick={() => {
+                                      setCallScheduleDays(prev => 
+                                        prev.includes(d.key) 
+                                          ? prev.filter(k => k !== d.key)
+                                          : [...prev, d.key].sort()
+                                      );
+                                    }}
+                                    className={`w-8 h-8 rounded-full text-[11px] font-bold transition-all ${
+                                      callScheduleDays.includes(d.key)
+                                        ? 'bg-indigo-500 text-white'
+                                        : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400'
+                                    }`}
+                                  >
+                                    {d.label}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
