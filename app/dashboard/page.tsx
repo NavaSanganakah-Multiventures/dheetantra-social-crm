@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Download,  Upload, Bot, MessageSquare, Megaphone, CalendarClock, Settings, LayoutDashboard, Search, Bell, Menu, Send, Paperclip, LogOut, User, Blocks, AlertCircle, Phone, PhoneCall, X, History, MapPin, Building2, Tag, ChevronDown, ChevronRight, Activity, Users, Zap, Check, CheckCheck, FileText, Plus, Trash2, Edit, Archive, RefreshCw, Instagram, Facebook, Mail, TrendingUp, Coins } from 'lucide-react';
+import { Download,  Upload, Bot, MessageSquare, MessageCircle, Megaphone, CalendarClock, Settings, LayoutDashboard, Search, Bell, Menu, Send, Paperclip, LogOut, User, Blocks, AlertCircle, Phone, PhoneCall, X, History, MapPin, Building2, Tag, ChevronDown, ChevronRight, Activity, Users, Zap, Check, CheckCheck, FileText, Plus, Trash2, Edit, Archive, RefreshCw, Instagram, Facebook, Mail, TrendingUp, Coins } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useRouter } from 'next/navigation';
 import Papa from 'papaparse';
@@ -9,7 +9,8 @@ import { useWhatsAppWebRTC } from '@/lib/hooks/useWhatsAppWebRTC';
 import PhoneInput, { isValidPhoneNumber } from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
 import { useToast } from '@/components/ui/Toast';
-type activeTab = 'dashboard' | 'inbox' | 'broadcast' | 'templates' | 'schedule' | 'settings' | 'contacts' | 'calls' | 'integrations' | 'accounts-whatsapp';
+import ActiveConversationsView from '@/components/ActiveConversationsView';
+type activeTab = 'dashboard' | 'inbox' | 'active-conversations' | 'broadcast' | 'templates' | 'schedule' | 'settings' | 'contacts' | 'calls' | 'integrations' | 'accounts-whatsapp';
 
 const getUserTimezone = () => {
   if (typeof window === 'undefined') return 'Asia/Kolkata';
@@ -428,6 +429,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
               <div className="text-xs font-semibold text-surface-500 uppercase tracking-wider mb-4 px-3">ओवरव्यू</div>
               <NavItem icon={<LayoutDashboard />} label="डैशबोर्ड" isActive={activeTab === 'dashboard'} onClick={() => { setActiveTab('dashboard'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
               <NavItem icon={<MessageSquare />} label="इनबॉक्स" isActive={activeTab === 'inbox'} onClick={() => { setActiveTab('inbox'); if (window.innerWidth < 768) setSidebarOpen(false); }} badge={openConversationsCount > 0 ? openConversationsCount.toString() : undefined} />
+              <NavItem icon={<MessageCircle />} label="सक्रिय बातचीत" isActive={activeTab === 'active-conversations'} onClick={() => { setActiveTab('active-conversations'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
               <NavItem icon={<Users />} label="संपर्क और लीड्स" isActive={activeTab === 'contacts'} onClick={() => { setActiveTab('contacts'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
               <NavItem icon={<Phone />} label="कॉल लॉग्स" isActive={activeTab === 'calls'} onClick={() => { setActiveTab('calls'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
               
@@ -515,6 +517,12 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                   onInitiateCall={(contact: any) => {
                     toast('info', 'WhatsApp Outbound calls abhi supported nahi hain. Sirf incoming calls receive ho sakti hain.');
                   }}
+                />
+              )}
+              {activeTab === 'active-conversations' && (
+                <ActiveConversationsView 
+                  setActiveTab={setActiveTab} 
+                  setPreselectedChat={setPreselectedChat} 
                 />
               )}
               {activeTab === 'broadcast' && <BroadcastView />}
@@ -2381,6 +2389,8 @@ function BroadcastView() {
   const [sending, setSending] = useState(false);
   const [campaignId, setCampaignId] = useState<string | null>(null);
   const [progress, setProgress] = useState<{ total: number; sent: number; failed: number; pending: number } | null>(null);
+  const [activeOnly, setActiveOnly] = useState(false);
+  const [activeContactIds, setActiveContactIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const wId = localStorage.getItem('workspaceId');
@@ -2388,7 +2398,8 @@ function BroadcastView() {
       fetch('/api/crm/contacts', { headers: { 'x-workspace-id': wId || '' }, credentials: 'include' }).then(r => r.json()),
       fetch('/api/whatsapp/templates', { headers: { 'x-workspace-id': wId || '' }, credentials: 'include' }).then(r => r.json()),
       fetch('/api/whatsapp/config', { headers: { 'x-workspace-id': wId || '' }, credentials: 'include' }).then(r => r.json()),
-    ]).then(([contactData, templateData, configData]: any[]) => {
+      fetch('/api/inbox/conversations?limit=500', { headers: { 'x-workspace-id': wId || '' }, credentials: 'include' }).then(r => r.json()),
+    ]).then(([contactData, templateData, configData, convData]: any[]) => {
       if (contactData.contacts) setContacts(contactData.contacts);
       if (templateData.success) {
         const all = [...(templateData.meta || []), ...(templateData.local || [])];
@@ -2397,6 +2408,16 @@ function BroadcastView() {
       if (configData.configs?.length) {
         setConfigs(configData.configs);
         setChosenWaba(configData.configs[0]);
+      }
+      // Build set of contact IDs that have active (open) conversations
+      if (convData.conversations) {
+        const activeIds = new Set<string>();
+        for (const c of convData.conversations) {
+          if ((c.status || 'open') === 'open' && c.contact_id) {
+            activeIds.add(c.contact_id);
+          }
+        }
+        setActiveContactIds(activeIds);
       }
     }).finally(() => setLoading(false));
   }, []);
@@ -2420,7 +2441,11 @@ function BroadcastView() {
 
   const filteredContacts = contacts.filter(c => {
     const q = contactSearch.toLowerCase();
-    return (c.name || '').toLowerCase().includes(q) || (c.phone || c.platform_contact_id || '').toLowerCase().includes(q);
+    const matchesSearch = (c.name || '').toLowerCase().includes(q) || (c.phone || c.platform_contact_id || '').toLowerCase().includes(q);
+    if (!matchesSearch) return false;
+    // Active conversations filter
+    if (activeOnly && !activeContactIds.has(c.id)) return false;
+    return true;
   });
 
   const toggleContact = (id: string) => {
@@ -2579,13 +2604,32 @@ function BroadcastView() {
               <div className="p-4 border-b border-surface-200 dark:border-surface-800 space-y-3">
                 <div className="flex items-center justify-between">
                   <h3 className="font-semibold text-sm">प्राप्तकर्ता चुनें <span className="text-surface-400 font-normal">({selectedContactIds.size} चुने गए)</span></h3>
-                  <button onClick={toggleAll} className="text-xs text-primary-600 dark:text-primary-400 font-medium hover:underline">
-                    {selectedContactIds.size === filteredContacts.length ? 'सभी हटाएं' : 'सभी चुनें'}
-                  </button>
+                  <div className="flex items-center gap-3">
+                    <span className={`text-xs ${activeOnly ? 'text-primary-600 dark:text-primary-400' : 'text-surface-400'}`}>
+                      {activeContactIds.size} सक्रिय
+                    </span>
+                    <button onClick={toggleAll} className="text-xs text-primary-600 dark:text-primary-400 font-medium hover:underline">
+                      {selectedContactIds.size === filteredContacts.length ? 'सभी हटाएं' : 'सभी चुनें'}
+                    </button>
+                  </div>
                 </div>
                 <div className="relative">
                   <Search className="w-4 h-4 text-surface-400 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input type="text" value={contactSearch} onChange={e => setContactSearch(e.target.value)} placeholder="नाम या नंबर से खोजें..." className="w-full pl-9 pr-4 py-2.5 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-surface-800 rounded-lg text-sm outline-none focus:border-primary-500" />
+                </div>
+                {/* Active conversations filter toggle */}
+                <div className="flex items-center gap-2 pt-1">
+                  <button
+                    onClick={() => setActiveOnly(!activeOnly)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border ${
+                      activeOnly
+                        ? 'bg-primary-50 dark:bg-primary-950/40 border-primary-200 dark:border-primary-800 text-primary-700 dark:text-primary-400'
+                        : 'bg-surface-50 dark:bg-surface-950 border-surface-200 dark:border-surface-800 text-surface-500 hover:text-surface-700 dark:hover:text-surface-300'
+                    }`}
+                  >
+                    <MessageCircle className="w-3.5 h-3.5" />
+                    केवल सक्रिय बातचीत वाले
+                  </button>
                 </div>
               </div>
               <div className="flex-1 overflow-y-auto">
@@ -2596,7 +2640,12 @@ function BroadcastView() {
                     <label key={c.id} className={`flex items-center gap-3 px-4 py-3 border-b border-surface-100 dark:border-surface-800/50 cursor-pointer hover:bg-surface-50 dark:hover:bg-surface-800/30 transition-colors ${selectedContactIds.has(c.id) ? 'bg-primary-50/50 dark:bg-primary-900/10' : ''}`}>
                       <input type="checkbox" checked={selectedContactIds.has(c.id)} onChange={() => toggleContact(c.id)} className="w-4 h-4 rounded border-surface-300 text-primary-600 focus:ring-primary-500" />
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-surface-900 dark:text-surface-100 truncate">{c.name || 'अज्ञात'}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-medium text-surface-900 dark:text-surface-100 truncate">{c.name || 'अज्ञात'}</p>
+                          {activeContactIds.has(c.id) && (
+                            <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 shrink-0" title="Active conversation" />
+                          )}
+                        </div>
                         <p className="text-xs text-surface-500">{c.phone || c.platform_contact_id}</p>
                       </div>
                       {c.email && <span className="text-[10px] text-surface-400 hidden md:block">{c.email}</span>}
