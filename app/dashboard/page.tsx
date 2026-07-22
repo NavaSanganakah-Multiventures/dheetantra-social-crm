@@ -841,6 +841,7 @@ function InboxView({
   setPreselectedChat?: (chat: any) => void,
   onInitiateCall?: (contact: any) => void
 }) {
+  const { toast } = useToast();
   const [conversations, setConversations] = useState<any[]>([]);
   const [messages, setMessages] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -2467,6 +2468,7 @@ function InboxView({
 }
 
 function BroadcastView() {
+  const { toast } = useToast();
   const [campaignName, setCampaignName] = useState("");
   const [contacts, setContacts] = useState<any[]>([]);
   const [selectedContactIds, setSelectedContactIds] = useState<Set<string>>(new Set());
@@ -2803,6 +2805,7 @@ function ScheduleView() {
 }
 
 function SettingsView() {
+    const { toast } = useToast();
     const [phoneNumberId, setPhoneNumberId] = useState("");
     const [wabaId, setWabaId] = useState("");
     const [accessToken, setAccessToken] = useState("");
@@ -3323,6 +3326,7 @@ function SettingsView() {
 }
 
 function TemplatesView({ selectedWaba }: { selectedWaba?: any }) {
+  const { toast } = useToast();
   const [localTemplates, setLocalTemplates] = useState<any[]>([]);
   const [metaTemplates, setMetaTemplates] = useState<any[]>([]);
   const [metaError, setMetaError] = useState<string | null>(null);
@@ -3797,6 +3801,7 @@ function ContactsView({
   setActiveTab: (tab: activeTab) => void,
   setActiveChat: (chat: any) => void
 }) {
+  const { toast } = useToast();
   const [contacts, setContacts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -4552,6 +4557,7 @@ function CallsView({
   setActiveCall: (call: any) => void, 
   setPreselectedChat: (chat: any) => void,
 }) {
+  const { toast } = useToast();
   const [calls, setCalls] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [callingEnabled, setCallingEnabled] = useState(true);
@@ -5151,6 +5157,7 @@ function IntegrationsView() {
 }
 
 function WhatsAppManagerView() {
+  const { toast } = useToast();
   const [activeSubTab, setActiveSubTab] = useState<'profiles' | 'templates' | 'flows'>('profiles');
   
   // Profiles states

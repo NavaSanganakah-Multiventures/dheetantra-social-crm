@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "NODE_ENV=production next build && wrangler dev --port 3000",
     "build": "next build",
-    "deploy": "wrangler d1 migrations apply dhitantra_db_prod --remote && wrangler deploy",
+    "deploy": "next build && wrangler d1 migrations apply dhitantra_db_prod --remote && wrangler deploy",
     "start": "next start",
     "lint": "eslint .",
     "clean": "next clean"
