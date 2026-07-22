@@ -118,6 +118,11 @@ name = "EMAIL_SENDER"
 # FCM service account JSON for push notifications (lib/fcm.ts). Set this to your
 # Firebase service account JSON string so push notifications actually send.
 FCM_SERVICE_ACCOUNT_JSON = ""
+# AI Gateway vars (optional - also read from KV with same keys).
+# CF_API_TOKEN should be set as a secret or in KV, not in plain text here.
+CF_ACCOUNT_ID = ""
+CF_GATEWAY_ID = ""
+CF_API_TOKEN = ""
 
 [[rules]]
 type = "Text"

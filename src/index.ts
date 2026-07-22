@@ -3,6 +3,7 @@ import { cors } from 'hono/cors';
 import { getCookie, setCookie, deleteCookie } from 'hono/cookie';
 import { Env } from './types';
 import { handleIncomingMessage } from './services/chatbot';
+import { sendBatchPushNotifications } from '../lib/fcm';
 import { DurableObject, WorkflowEntrypoint } from 'cloudflare:workers';
 import { EmailMessage } from 'cloudflare:email';
 import metaOauth from './routes/meta-oauth';
@@ -110,7 +111,7 @@ export class AutomationWorkflow extends WorkflowEntrypoint<Env, any> {
 // Uses "Workers with Assets" Architecture
 // ==========================================
 
-const app = new Hono<{ Bindings: Env }>();
+const app = new Hono<{ Bindings: Env; Variables: { user: any; workspaceRole: string } }>();
 
 // Security, Domain Verification, and Rate Limiting Middleware
 app.use('/api/*', async (c, next) => {
@@ -142,13 +143,13 @@ app.use('/api/*', async (c, next) => {
         const currentReqs = parseInt(await c.env.SECRETS_KV.get(rateKey) || '0', 10);
         
         if (currentReqs >= 100) {
-          // Auto-block the domain due to spam
-          await c.env.SECRETS_KV.put(`DOMAIN:${originHost}`, 'blocked');
+          // Auto-block the domain due to spam — expires after 15 minutes
+          await c.env.SECRETS_KV.put(`DOMAIN:${originHost}`, 'blocked', { expirationTtl: 900 });
           if (c.env.DB) {
             await c.env.DB.prepare("UPDATE api_domains SET status = 'blocked', blocked_reason = 'rate_limit_exceeded', updated_at = CURRENT_TIMESTAMP WHERE domain = ?").bind(originHost).run();
           }
           console.warn(`[Security] Auto-blocked domain ${originHost} due to rate limiting.`);
-          c.res && c.res.headers && c.res.headers.set('X-RateLimit-Warning', `Your domain ${originHost} has been auto-blocked due to exceeding rate limits`);
+          c.header('X-RateLimit-Warning', `Your domain ${originHost} has been auto-blocked due to exceeding rate limits`);
           return c.text('Too Many Requests. Domain automatically blocked due to spam activity.', 429);
         }
         
@@ -232,6 +233,7 @@ app.use('/api/domains/*', authMiddleware);
 app.use('/api/email-templates', authMiddleware);
 app.use('/api/email-templates/*', authMiddleware);
 app.use('/api/domain-emails/*', authMiddleware);
+app.use('/api/chat/*', authMiddleware);
 
 app.route('/api/meta', metaOauth);
 app.route('/api/admin', adminRouter);
@@ -694,14 +696,14 @@ app.post('/api/whatsapp/webhook', async (c) => {
                           const tokens = await c.env.DB.prepare(`SELECT token FROM fcm_tokens WHERE user_id IN (${placeholders})`)
                             .bind(...userIds).all<{ token: string }>();
 
-                          const { sendPushNotification } = await import('../lib/fcm');
-                          if (tokens.results) {
-                            for (const row of tokens.results) {
-                              await sendPushNotification(c.env, row.token,
+                          if (tokens.results && tokens.results.length > 0) {
+                            const tokenList = tokens.results.map(r => r.token);
+                            c.executionCtx.waitUntil(
+                              sendBatchPushNotifications(c.env, tokenList,
                                 `मिस्ड कॉल +${callerNumber}`,
                                 'आपकी एक WhatsApp वॉयस कॉल मिस हो गई',
-                                { workspaceId: config.workspace_id, type: 'missed_call' });
-                            }
+                                { workspaceId: config.workspace_id, type: 'missed_call' })
+                            );
                           }
                         }
                       } catch (e) {
@@ -724,7 +726,17 @@ app.post('/api/whatsapp/webhook', async (c) => {
             let messageType = 'text';
             let mediaUrl: string | null = null;
 
-            if (message.text) {
+            // Check message.type first for robustness
+            if (message.type === 'system') {
+              if (message.system && message.system.type === 'user_initiated_call') {
+                messageText = 'इनकमिंग कॉल (Incoming Voice Call)';
+                messageType = 'system_call';
+              } else {
+                messageText = message.system?.body || 'System Message';
+                messageType = 'system';
+                mediaUrl = JSON.stringify(message.system);
+              }
+            } else if (message.text) {
               messageText = message.text.body;
               messageType = 'text';
             } else if (message.interactive) {
@@ -776,15 +788,6 @@ app.post('/api/whatsapp/webhook', async (c) => {
               messageText = `Contact: ${contactName} (${contactPhone})`;
               messageType = 'contacts';
               mediaUrl = JSON.stringify(message.contacts);
-            } else if (message.type === 'system') {
-              if (message.system && message.system.type === 'user_initiated_call') {
-                messageText = 'इनकमिंग कॉल (Incoming Voice Call)';
-                messageType = 'system_call';
-              } else {
-                messageText = message.system?.body || 'System Message';
-                messageType = 'system';
-                mediaUrl = JSON.stringify(message.system);
-              }
             } else {
               messageText = `Unsupported message type: ${message.type}`;
               messageType = message.type || 'unknown';
@@ -844,24 +847,15 @@ app.post('/api/whatsapp/webhook', async (c) => {
                         const placeholders = userIds.map(() => '?').join(',');
                         const tokens = await c.env.DB.prepare(`SELECT token FROM fcm_tokens WHERE user_id IN (${placeholders})`).bind(...userIds).all<{ token: string }>();
 
-                        const { sendPushNotification } = await import('../lib/fcm');
                         const title = `New message from ${contact.profile.name}`;
                         const bodyPreview = messageText.length > 100 ? messageText.substring(0, 97) + '...' : messageText;
 
-                        if (tokens.results) {
-                          for (const row of tokens.results) {
-                            await sendPushNotification(c.env, row.token, title, bodyPreview, { workspaceId: config.workspace_id, contactName: contact?.profile?.name ?? 'Unknown' });
-                          }
-                        }
-
-                        const emails = await c.env.DB.prepare(`SELECT email FROM users WHERE id IN (${placeholders})`).bind(...userIds).all<{ email: string }>();
-                        if (emails.results && c.env.EMAIL_SENDER && typeof c.env.EMAIL_SENDER.send === 'function') {
-                          const { EmailMessage } = await import('cloudflare:email');
-                          for (const row of emails.results) {
-                            const senderEmail = c.env.EMAIL_SENDER_ADDRESS || 'dheetantra@navasanganakah.com';
-                            const rawEmail = `From: DheeTantra <${senderEmail}>\r\nTo: ${row.email}\r\nSubject: [DheeTantra] ${title}\r\n\r\nYou have a new message:\n\n${bodyPreview}\n\nReply in the CRM dashboard.`;
-                            await c.env.EMAIL_SENDER.send(new EmailMessage(senderEmail, row.email, rawEmail));
-                          }
+                        if (tokens.results && tokens.results.length > 0) {
+                          const tokenList = tokens.results.map(r => r.token);
+                          // Send ALL push notifications in parallel with single OAuth token
+                          c.executionCtx.waitUntil(
+                            sendBatchPushNotifications(c.env, tokenList, title, bodyPreview, { workspaceId: config.workspace_id, contactName: contact?.profile?.name ?? 'Unknown' })
+                          );
                         }
                       }
                     }
@@ -1025,12 +1019,19 @@ app.get('/api/crm/contacts', async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
-  // Fetch from D1 (Relational Data)
-  const { results } = await c.env.DB.prepare(
-    'SELECT * FROM contacts WHERE workspace_id = ? ORDER BY created_at DESC'
-  ).bind(workspaceId).all();
+  const limit = Math.min(parseInt(c.req.query('limit') || '50'), 200);
+  const offset = Math.max(parseInt(c.req.query('offset') || '0'), 0);
 
-  return c.json({ contacts: results });
+  // Fetch from D1 (Relational Data) with pagination
+  const { results } = await c.env.DB.prepare(
+    'SELECT * FROM contacts WHERE workspace_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?'
+  ).bind(workspaceId, limit, offset).all();
+
+  const countResult = await c.env.DB.prepare(
+    'SELECT COUNT(*) as total FROM contacts WHERE workspace_id = ?'
+  ).bind(workspaceId).first<{ total: number }>();
+
+  return c.json({ contacts: results, total: countResult?.total || 0, limit, offset });
 });
 
 
@@ -1043,7 +1044,7 @@ app.post('/api/crm/contacts/import', async (c) => {
   if (!contacts || !Array.isArray(contacts)) return c.json({ error: 'Invalid data format' }, 400);
 
   try {
-    let imported = 0;
+    const stmts: any[] = [];
     for (const contact of contacts) {
       if (!contact.phone && !contact.Phone) continue;
 
@@ -1056,14 +1057,28 @@ app.post('/api/crm/contacts/import', async (c) => {
       const email = contact.email || contact.Email || null;
       const platformContactId = rawPhone;
 
-      await c.env.DB.prepare(
-        'INSERT OR IGNORE INTO contacts (id, workspace_id, platform, platform_contact_id, name, phone, email) VALUES (?, ?, ?, ?, ?, ?, ?)'
-      ).bind(contactId, workspaceId, 'whatsapp', platformContactId, name, rawPhone, email).run();
-
-      imported++;
+      stmts.push(
+        c.env.DB.prepare(
+          'INSERT OR IGNORE INTO contacts (id, workspace_id, platform, platform_contact_id, name, phone, email) VALUES (?, ?, ?, ?, ?, ?, ?)'
+        ).bind(contactId, workspaceId, 'whatsapp', platformContactId, name, rawPhone, email)
+      );
     }
 
-    return c.json({ success: true, imported });
+    // D1 batch in chunks of 100 (D1 limit)
+    const BATCH_SIZE = 100;
+    let imported = 0;
+    for (let i = 0; i < stmts.length; i += BATCH_SIZE) {
+      const batch = stmts.slice(i, i + BATCH_SIZE);
+      const results = await c.env.DB.batch(batch);
+      // Count successful inserts (INSERT OR IGNORE returns changes count)
+      for (const result of results) {
+        if (result.meta && result.meta.changes > 0) {
+          imported += result.meta.changes;
+        }
+      }
+    }
+
+    return c.json({ success: true, imported, total: stmts.length });
   } catch (err: any) {
     return c.json({ error: err.message }, 500);
   }
@@ -1220,13 +1235,9 @@ app.delete('/api/crm/contacts/:contactId', async (c) => {
   if (!existing) return c.json({ error: 'संपर्क नहीं मिला' }, 404);
 
   // Delete conversations and messages associated with this contact
-  const convs = await c.env.DB.prepare('SELECT id FROM conversations WHERE contact_id = ?').bind(contactId).all<{ id: string }>();
-  if (convs.results) {
-    for (const conv of convs.results) {
-      await c.env.DB.prepare('DELETE FROM messages WHERE conversation_id = ?').bind(conv.id).run();
-      await c.env.DB.prepare('DELETE FROM conversations WHERE id = ?').bind(conv.id).run();
-    }
-  }
+  // (D1 does not enforce FK CASCADE by default)
+  await c.env.DB.prepare('DELETE FROM messages WHERE conversation_id IN (SELECT id FROM conversations WHERE contact_id = ?)').bind(contactId).run();
+  await c.env.DB.prepare('DELETE FROM conversations WHERE contact_id = ?').bind(contactId).run();
 
   await c.env.DB.prepare('DELETE FROM contacts WHERE id = ? AND workspace_id = ?')
     .bind(contactId, workspaceId).run();
@@ -2071,6 +2082,9 @@ app.get('/api/inbox/conversations', async (c) => {
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
   const phoneNumberId = c.req.query('phoneNumberId');
+  const limit = Math.min(parseInt(c.req.query('limit') || '50'), 200);
+  const offset = Math.max(parseInt(c.req.query('offset') || '0'), 0);
+
   let query = `
     SELECT c.id, c.status, c.updated_at, c.customer_last_message_at, c.phone_number_id, ct.name as contact_name, ct.platform_contact_id as phone, ct.id as contact_id
     FROM conversations c
@@ -2082,11 +2096,20 @@ app.get('/api/inbox/conversations', async (c) => {
     query += ` AND (c.phone_number_id = ? OR c.phone_number_id IS NULL)`;
     binds.push(phoneNumberId);
   }
-  query += ` ORDER BY c.updated_at DESC`;
+  query += ` ORDER BY c.updated_at DESC LIMIT ? OFFSET ?`;
+  binds.push(limit, offset);
 
   const { results } = await c.env.DB.prepare(query).bind(...binds).all();
 
-  return c.json({ conversations: results || [] });
+  let total = 0;
+  try {
+    const countResult = await c.env.DB.prepare(
+      'SELECT COUNT(*) as total FROM conversations WHERE workspace_id = ?'
+    ).bind(workspaceId).first<{ total: number }>();
+    total = countResult?.total || 0;
+  } catch (e) {}
+
+  return c.json({ conversations: results || [], total, limit, offset });
 });
 
 // Get Messages for a Conversation
@@ -2095,15 +2118,18 @@ app.get('/api/inbox/messages/:conversationId', async (c) => {
   const conversationId = c.req.param('conversationId');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
+  const limit = Math.min(parseInt(c.req.query('limit') || '100'), 500);
+  const offset = Math.max(parseInt(c.req.query('offset') || '0'), 0);
+
   // Validate conversation belongs to workspace
   const conv = await c.env.DB.prepare('SELECT id FROM conversations WHERE id = ? AND workspace_id = ?').bind(conversationId, workspaceId).first();
   if (!conv) return c.json({ error: 'Forbidden' }, 403);
 
   const { results } = await c.env.DB.prepare(
-    'SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at ASC'
-  ).bind(conversationId).all();
+    'SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at ASC LIMIT ? OFFSET ?'
+  ).bind(conversationId, limit, offset).all();
 
-  return c.json({ messages: results });
+  return c.json({ messages: results, limit, offset });
 });
 
 // Update conversation status (open/closed)
@@ -2186,15 +2212,26 @@ app.get('/api/whatsapp/calls', async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
+  const limit = Math.min(parseInt(c.req.query('limit') || '50'), 200);
+  const offset = Math.max(parseInt(c.req.query('offset') || '0'), 0);
+
   const { results } = await c.env.DB.prepare(`
     SELECT cl.*, ct.name as contact_name, ct.platform_contact_id as phone
     FROM calls cl
     LEFT JOIN contacts ct ON cl.contact_id = ct.id
     WHERE cl.workspace_id = ?
-    ORDER BY cl.created_at DESC
-  `).bind(workspaceId).all();
+    ORDER BY cl.created_at DESC LIMIT ? OFFSET ?
+  `).bind(workspaceId, limit, offset).all();
 
-  return c.json({ calls: results || [] });
+  let total = 0;
+  try {
+    const countResult = await c.env.DB.prepare(
+      'SELECT COUNT(*) as total FROM calls WHERE workspace_id = ?'
+    ).bind(workspaceId).first<{ total: number }>();
+    total = countResult?.total || 0;
+  } catch (e) {}
+
+  return c.json({ calls: results || [], total, limit, offset });
 });
 
 // CREATE a manual or outgoing call log
@@ -2931,9 +2968,9 @@ app.get('/api/workspace', async (c) => {
 // MEDIA ROUTES (moved BEFORE export to ensure registration)
 // ==========================================
 
-// Proxy for downloading WhatsApp media
+// Proxy for downloading WhatsApp media (secured via x-workspace-id header)
 app.get('/api/whatsapp/media', async (c) => {
-  const workspaceId = c.req.query('workspaceId');
+  const workspaceId = c.req.header('x-workspace-id');
   const mediaUrl = c.req.query('url');
 
   if (!workspaceId || !mediaUrl) {

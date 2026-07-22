@@ -202,16 +202,21 @@ export async function handleIncomingMessage(
 
   if (replyMode === 'ai') {
     try {
-      if (!env.CF_ACCOUNT_ID || !env.CF_GATEWAY_ID || !env.CF_API_TOKEN) {
-        throw new Error("Cloudflare AI Gateway configuration is missing.");
+      // Read AI Gateway credentials from KV first, fallback to env vars
+      const cfAccountId = (env.SECRETS_KV ? await env.SECRETS_KV.get('CF_ACCOUNT_ID') : null) || env.CF_ACCOUNT_ID || '';
+      const cfGatewayId = (env.SECRETS_KV ? await env.SECRETS_KV.get('CF_GATEWAY_ID') : null) || env.CF_GATEWAY_ID || '';
+      const cfApiToken = (env.SECRETS_KV ? await env.SECRETS_KV.get('CF_API_TOKEN') : null) || env.CF_API_TOKEN || '';
+
+      if (!cfAccountId || !cfGatewayId || !cfApiToken) {
+        throw new Error("Cloudflare AI Gateway configuration is missing. Set CF_ACCOUNT_ID, CF_GATEWAY_ID, and CF_API_TOKEN in KV Secrets.");
       }
 
-      const url = `https://gateway.ai.cloudflare.com/v1/${env.CF_ACCOUNT_ID}/${env.CF_GATEWAY_ID}/workers-ai/@cf/meta/llama-3-8b-instruct`;
+      const url = `https://gateway.ai.cloudflare.com/v1/${cfAccountId}/${cfGatewayId}/workers-ai/@cf/meta/llama-3-8b-instruct`;
 
       const response = await fetch(url, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${env.CF_API_TOKEN}`,
+          'Authorization': `Bearer ${cfApiToken}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({

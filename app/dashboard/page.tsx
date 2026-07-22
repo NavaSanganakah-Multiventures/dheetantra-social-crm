@@ -8,6 +8,7 @@ import Papa from 'papaparse';
 import { useWhatsAppWebRTC } from '@/lib/hooks/useWhatsAppWebRTC';
 import PhoneInput, { isValidPhoneNumber } from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
+import { useToast } from '@/components/ui/Toast';
 type activeTab = 'dashboard' | 'inbox' | 'broadcast' | 'templates' | 'schedule' | 'settings' | 'contacts' | 'calls' | 'integrations' | 'accounts-whatsapp';
 
 const getUserTimezone = () => {
@@ -105,6 +106,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
   const [callsFieldStatus, setCallsFieldStatus] = useState<'checking' | 'subscribed' | 'not_subscribed' | 'unknown'>('unknown');
 
   const { status: rtcStatus, answer: answerWebRTC, hangup: hangupWebRTC, handleRemoteHangup, remoteStream: rtcRemoteStream, localStream: rtcLocalStream } = useWhatsAppWebRTC();
+  const { toast } = useToast();
 
   // Load Calling Config
   useEffect(() => {
@@ -206,25 +208,32 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
     activeCallRef.current = activeCall;
   }, [incomingCall, activeCall]);
 
+  // AudioContext singleton — reused across calls to avoid resource leaks
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const getAudioCtx = () => {
+    if (!audioCtxRef.current || audioCtxRef.current.state === 'closed') {
+      audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
+    if (audioCtxRef.current.state === 'suspended') audioCtxRef.current.resume();
+    return audioCtxRef.current;
+  };
+
   // Play ringtone instantly and robustly
   useEffect(() => {
     let interval: any;
-    let audioCtx: any = null;
     if (incomingCall && incomingCall.status === 'ringing') {
       try {
-        audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const ctx = getAudioCtx();
         const playRing = () => {
-          if (!audioCtx) return;
-          const osc = audioCtx.createOscillator();
-          const gain = audioCtx.createGain();
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
           osc.connect(gain);
-          gain.connect(audioCtx.destination);
+          gain.connect(ctx.destination);
           osc.type = 'sine';
-          osc.frequency.setValueAtTime(587.33, audioCtx.currentTime);
-          gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+          osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+          gain.gain.setValueAtTime(0.15, ctx.currentTime);
           osc.start();
-          osc.stop(audioCtx.currentTime + 1.2);
+          osc.stop(ctx.currentTime + 1.2);
         };
         playRing();
         interval = setInterval(playRing, 2000);
@@ -234,9 +243,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
     }
     return () => {
       if (interval) clearInterval(interval);
-      if (audioCtx) {
-        audioCtx.close().catch(() => {});
-      }
+      // Don't close AudioContext — reuse it for next call
     };
   }, [incomingCall?.status]);
 
@@ -506,7 +513,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                   preselectedChat={preselectedChat} 
                   setPreselectedChat={setPreselectedChat} 
                   onInitiateCall={(contact: any) => {
-                    alert('WhatsApp Outbound calls abhi supported nahi hain. Sirf incoming calls receive ho sakti hain.');
+                    toast('info', 'WhatsApp Outbound calls abhi supported nahi hain. Sirf incoming calls receive ho sakti hain.');
                   }}
                 />
               )}
@@ -599,7 +606,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                   onClick={async () => {
                     try {
                       if (!incomingCall.sdp) {
-                        alert('SDP डेटा उपलब्ध नहीं है। कृपया WhatsApp Cloud API की Calling Webhook सेटिंग जांचें और सुनिश्चित करें कि "calls" field subscribed है।');
+                        toast('error', 'SDP डेटा उपलब्ध नहीं है। कृपया WhatsApp Cloud API की Calling Webhook सेटिंग जांचें और सुनिश्चित करें कि "calls" field subscribed है।');
                         setIncomingCall(null);
                         return;
                       }
@@ -628,7 +635,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                       setIncomingCall(null);
                     } catch(e) {
                       console.error("WebRTC answer failed", e);
-                      alert('कॉल उत्तर देने में विफल: ' + (e instanceof Error ? e.message : 'अज्ञात त्रुटि'));
+                      toast('error', 'कॉल उत्तर देने में विफल: ' + (e instanceof Error ? e.message : 'अज्ञात त्रुटि'));
                     }
                   }}
                   className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white py-3.5 rounded-2xl text-xs font-bold transition-all shadow-lg shadow-emerald-500/20 active:scale-95 flex items-center justify-center gap-2"
@@ -932,7 +939,7 @@ function InboxView({
   const toggleAI = async () => {
     const targetPhoneId = activeWabaPhoneId;
     if (!targetPhoneId) {
-      alert("AI टॉगल करने के लिए कृपया एक विशिष्ट WhatsApp लाइन या बातचीत चुनें।");
+      toast('error', "AI टॉगल करने के लिए कृपया एक विशिष्ट WhatsApp लाइन या बातचीत चुनें।");
       return;
     }
 
@@ -995,19 +1002,19 @@ function InboxView({
                finalMediaUrl = uploadData.mediaUrl;
                finalR2Url = uploadData.r2Url;
             } else {
-               alert('File upload failed: ' + uploadData.error);
+               toast('error', "File upload failed: " + uploadData.error);
                setSending(false);
                return;
             }
          } catch(e) {
-            alert('File upload error');
+            toast('error', 'File upload error');
             setSending(false);
             return;
          }
       }
       
       if (!finalMediaUrl) {
-        alert("कृपया मीडिया चुनें या यूआरएल प्रदान करें");
+        toast('error', "कृपया मीडिया चुनें या यूआरएल प्रदान करें");
         setSending(false);
         return;
       }
@@ -1021,13 +1028,13 @@ function InboxView({
       }
     } else if (attachmentType === 'location') {
       if (!latInput.trim() || !lngInput.trim() || !locNameInput.trim()) {
-        alert("कृपया अक्षांश, देशांतर और लोकेशन का नाम प्रदान करें");
+        toast('error', "कृपया अक्षांश, देशांतर और लोकेशन का नाम प्रदान करें");
         return;
       }
       const latNum = parseFloat(latInput);
       const lngNum = parseFloat(lngInput);
       if (isNaN(latNum) || isNaN(lngNum) || latNum < -90 || latNum > 90 || lngNum < -180 || lngNum > 180) {
-        alert("कृपया वैध अक्षांश (-90 से 90) और देशांतर (-180 से 180) दर्ज करें");
+        toast('error', "कृपया वैध अक्षांश (-90 से 90) और देशांतर (-180 से 180) दर्ज करें");
         return;
       }
       payload.location = {
@@ -1038,11 +1045,11 @@ function InboxView({
       };
     } else if (attachmentType === 'contacts') {
       if (!contactNameInput.trim() || !contactPhoneInput) {
-        alert("कृपया संपर्क का नाम और फ़ोन नंबर प्रदान करें");
+        toast('error', "कृपया संपर्क का नाम और फ़ोन नंबर प्रदान करें");
         return;
       }
       if (!isValidPhoneNumber(contactPhoneInput)) {
-        alert("कृपया सही फ़ोन नंबर दर्ज करें। (Invalid phone number)");
+        toast('error', "कृपया सही फ़ोन नंबर दर्ज करें। (Invalid phone number)");
         return;
       }
       const sanitizedPhone = contactPhoneInput.startsWith('+') ? contactPhoneInput.slice(1) : contactPhoneInput;
@@ -1080,10 +1087,10 @@ function InboxView({
         setContactPhoneInput('');
         loadMessages(activeChat.id);
       } else {
-        alert(data.error || "संदेश भेजने में विफल");
+        toast('error', data.error || "संदेश भेजने में विफल");
       }
     } catch (e) {
-      alert("त्रुटि हुई");
+      toast('error', "त्रुटि हुई");
     } finally {
       setSending(false);
     }
@@ -1146,7 +1153,15 @@ function InboxView({
               if (data.message.conversation_id === activeChat.id) {
                 setMessages(prev => {
                   if (prev.some(m => m.id === data.message.id)) return prev;
-                  const matchedOptimisticIndex = prev.findIndex(m => m.id.startsWith('optimistic-') && m.content === data.message.content);
+                  // Match optimistic messages by tempId prefix + content + close timestamp
+                  const matchedOptimisticIndex = prev.findIndex(m => {
+                    if (!m.id.startsWith('optimistic-')) return false;
+                    if (m.content !== data.message.content) return false;
+                    // Check timestamps within 5 seconds to avoid wrong matches
+                    const t1 = new Date(m.created_at).getTime();
+                    const t2 = new Date(data.message.created_at).getTime();
+                    return Math.abs(t1 - t2) < 5000;
+                  });
                   if (matchedOptimisticIndex !== -1) {
                     const next = [...prev];
                     next[matchedOptimisticIndex] = data.message;
@@ -1253,12 +1268,12 @@ function InboxView({
         fetchConversations();
       } else {
         setMessages(prev => prev.filter(m => m.id !== tempId));
-        alert(data.error || "संदेश भेजने में विफल");
+        toast('error', data.error || "संदेश भेजने में विफल");
         setMessageInput(textToSend);
       }
     } catch (e) {
       setMessages(prev => prev.filter(m => m.id !== tempId));
-      alert("त्रुटि हुई");
+      toast('error', "त्रुटि हुई");
       setMessageInput(textToSend);
     }
   };
@@ -1287,10 +1302,10 @@ function InboxView({
         fetchConversations();
         setTimeout(() => loadMessages(activeChat.id), 500);
       } else {
-        alert(data.error || "टेम्पलेट भेजने में विफल");
+        toast('error', data.error || "टेम्पलेट भेजने में विफल");
       }
     } catch {
-      alert("सर्वर एरर");
+      toast('error', "सर्वर एरर");
     } finally {
       setInboxTemplateSending(false);
     }
@@ -1318,10 +1333,10 @@ function InboxView({
         setActiveChat((prev: any) => prev && prev.id === convId ? { ...prev, status: newStatus } : prev);
         setConversations((prev: any[]) => prev.map((c: any) => c.id === convId ? { ...c, status: newStatus } : c));
       } else {
-        alert(data.error || "अपडेट करने में विफल");
+        toast('error', data.error || "अपडेट करने में विफल");
       }
     } catch (e) {
-      alert("त्रुटि हुई");
+      toast('error', "त्रुटि हुई");
     }
   };
 
@@ -1340,10 +1355,10 @@ function InboxView({
         setActiveChat(null);
         setConversations(prev => prev.filter(c => c.id !== convId));
       } else {
-        alert(data.error || "हटाने में विफल");
+        toast('error', data.error || "हटाने में विफल");
       }
     } catch (e) {
-      alert("त्रुटि हुई");
+      toast('error', "त्रुटि हुई");
     }
   };
 
@@ -2290,10 +2305,10 @@ function BroadcastView() {
         setCampaignId(data.campaignId);
         setProgress({ total: data.total, sent: 0, failed: 0, pending: data.total });
       } else {
-        alert(data.error || 'ब्रॉडकास्ट बनाने में विफल');
+        toast('error', data.error || 'ब्रॉडकास्ट बनाने में विफल');
       }
     } catch {
-      alert('सर्वर एरर');
+      toast('error', 'सर्वर एरर');
     } finally {
       setSending(false);
     }
@@ -2550,10 +2565,10 @@ function SettingsView() {
           setMessage("अकाउंट सफलतापूर्वक हटा दिया गया।");
           loadAllConfigs();
         } else {
-          alert(data.error || "हटाने में विफलता");
+          toast('error', data.error || "हटाने में विफलता");
         }
       } catch (e) {
-        alert("त्रुटि हुई");
+        toast('error', "त्रुटि हुई");
       }
     };
 
@@ -3155,10 +3170,10 @@ function TemplatesView({ selectedWaba }: { selectedWaba?: any }) {
       if (data.success) {
         fetchTemplates();
       } else {
-        alert(data.error || "हटाने में विफलता");
+        toast('error', data.error || "हटाने में विफलता");
       }
     } catch (e) {
-      alert("सर्वर एरर");
+      toast('error', "सर्वर एरर");
     }
   };
 
@@ -3530,20 +3545,20 @@ function ContactsView({
 
           const data: any = await res.json();
           if (data.success) {
-            alert(`सफलतापूर्वक ${data.imported} संपर्क आयात किए गए (Successfully imported ${data.imported} contacts)`);
+            toast('success', `सफलतापूर्वक ${data.imported} संपर्क आयात किए गए (Successfully imported ${data.imported} contacts)`);
             loadContacts();
           } else {
-            alert(data.error || 'संपर्क आयात करने में विफल');
+            toast('error', data.error || 'संपर्क आयात करने में विफल');
           }
         } catch (error) {
-          alert('संपर्क आयात करते समय त्रुटि हुई');
+          toast('error', 'संपर्क आयात करते समय त्रुटि हुई');
         } finally {
           setImporting(false);
           if (fileInputRef.current) fileInputRef.current.value = '';
         }
       },
       error: (error: any) => {
-        alert('CSV पार्स करने में विफल: ' + error.message);
+        toast('error', 'CSV पार्स करने में विफल: ' + error.message);
         setImporting(false);
         if (fileInputRef.current) fileInputRef.current.value = '';
       }
@@ -3624,15 +3639,15 @@ function ContactsView({
   const saveContact = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formName.trim() || !formPhone) {
-      alert("कृपया नाम और फ़ोन नंबर भरें।");
+      toast('error', "कृपया नाम और फ़ोन नंबर भरें।");
       return;
     }
     if (!isValidPhoneNumber(formPhone)) {
-      alert("मुख्य फ़ोन नंबर अमान्य है। कृपया सही नंबर और देश चुनें। (Invalid phone number)");
+      toast('error', "मुख्य फ़ोन नंबर अमान्य है। कृपया सही नंबर और देश चुनें। (Invalid phone number)");
       return;
     }
     if (formAdditionalPhone && !isValidPhoneNumber(formAdditionalPhone)) {
-      alert("अतिरिक्त फ़ोन नंबर अमान्य है। (Invalid additional phone number)");
+      toast('error', "अतिरिक्त फ़ोन नंबर अमान्य है। (Invalid additional phone number)");
       return;
     }
 
@@ -3674,10 +3689,10 @@ function ContactsView({
         setShowModal(false);
         loadContacts();
       } else {
-        alert(data.error || "संपर्क सहेजने में विफल");
+        toast('error', data.error || "संपर्क सहेजने में विफल");
       }
     } catch (err) {
-      alert("त्रुटि हुई");
+      toast('error', "त्रुटि हुई");
     }
   };
 
@@ -3694,10 +3709,10 @@ function ContactsView({
       if (res.ok) {
         loadContacts();
       } else {
-        alert("हटाने में विफल");
+        toast('error', "हटाने में विफल");
       }
     } catch (e) {
-      alert("त्रुटि हुई");
+      toast('error', "त्रुटि हुई");
     }
   };
 
@@ -3717,10 +3732,10 @@ function ContactsView({
         setActiveChat(data.conversation);
         setActiveTab('inbox');
       } else {
-        alert(data.error || "चैट शुरू करने में असमर्थ। कृपया WhatsApp सेटिंग्स की जांच करें।");
+        toast('error', data.error || "चैट शुरू करने में असमर्थ। कृपया WhatsApp सेटिंग्स की जांच करें।");
       }
     } catch (e) {
-      alert("चैट शुरू करने में त्रुटि हुई");
+      toast('error', "चैट शुरू करने में त्रुटि हुई");
     }
   };
 
@@ -4330,7 +4345,7 @@ function CallsView({
   };
 
   const startOutgoingCall = async (contact: any) => {
-    alert('WhatsApp Outbound calls abhi supported nahi hain. Sirf incoming calls receive ho sakti hain.');
+    toast('info', 'WhatsApp Outbound calls abhi supported nahi hain. Sirf incoming calls receive ho sakti hain.');
   };
 
   const filteredCalls = calls.filter(c => {
@@ -5039,10 +5054,10 @@ function WhatsAppManagerView() {
       if (data.success) {
         loadConfigs();
       } else {
-        alert(data.error);
+        toast('error', data.error);
       }
     } catch (e) {
-      alert("त्रुटि हुई");
+      toast('error', "त्रुटि हुई");
     }
   };
 
@@ -5086,7 +5101,7 @@ function WhatsAppManagerView() {
 
   const handleSaveFlow = async () => {
     if (!flowName.trim()) {
-      alert("फ़्लो का नाम आवश्यक है");
+      toast('error', "फ़्लो का नाम आवश्यक है");
       return;
     }
     try {
@@ -5110,10 +5125,10 @@ function WhatsAppManagerView() {
         setShowFlowModal(false);
         loadFlows();
       } else {
-        alert(data.error);
+        toast('error', data.error);
       }
     } catch (e) {
-      alert("सहेजने में विफलता");
+      toast('error', "सहेजने में विफलता");
     }
   };
 
@@ -5128,10 +5143,10 @@ function WhatsAppManagerView() {
       if (data.success) {
         loadFlows();
       } else {
-        alert(data.error);
+        toast('error', data.error);
       }
     } catch (e) {
-      alert("त्रुटि हुई");
+      toast('error', "त्रुटि हुई");
     }
   };
 
@@ -5146,10 +5161,10 @@ function WhatsAppManagerView() {
       if (data.success) {
         loadFlows();
       } else {
-        alert(data.error);
+        toast('error', data.error);
       }
     } catch (e) {
-      alert("त्रुटि हुई");
+      toast('error', "त्रुटि हुई");
     }
   };
 
@@ -5295,7 +5310,7 @@ function WhatsAppManagerView() {
                       }
                     });
                   } else {
-                    alert("Meta Facebook SDK लोड नहीं हुआ है। कृपया पेज रीलोड करें।");
+                    toast('error', "Meta Facebook SDK लोड नहीं हुआ है। कृपया पेज रीलोड करें।");
                   }
                 }}
                 className="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all shadow-sm flex items-center gap-2"

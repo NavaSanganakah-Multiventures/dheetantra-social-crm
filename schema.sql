@@ -59,9 +59,6 @@ CREATE TABLE IF NOT EXISTS otps (
 -- Index for faster OTP lookup by email during verification
 CREATE INDEX IF NOT EXISTS idx_otps_email ON otps(email);
 
--- Index for faster conversations lookup
-CREATE INDEX IF NOT EXISTS idx_conversations_contact ON conversations(contact_id);
-
 -- ==========================================
 -- STEP 2 SCHEMA: OMNICHANNEL INBOX
 -- ==========================================
@@ -89,6 +86,7 @@ CREATE TABLE IF NOT EXISTS contacts (
   FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
   UNIQUE(workspace_id, platform, platform_contact_id) -- Prevent duplicate contacts per workspace per platform
 );
+CREATE INDEX IF NOT EXISTS idx_contacts_workspace_platform ON contacts(workspace_id, platform, platform_contact_id);
 
 -- Conversations (links a contact to a workspace context)
 CREATE TABLE IF NOT EXISTS conversations (
@@ -121,7 +119,9 @@ CREATE TABLE IF NOT EXISTS messages (
 
 -- Indexes for fast inbox querying
 CREATE INDEX IF NOT EXISTS idx_conversations_workspace ON conversations(workspace_id, status);
+CREATE INDEX IF NOT EXISTS idx_conversations_contact ON conversations(contact_id);
 CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_messages_platform ON messages(platform_message_id);
 
 -- WhatsApp API Configurations
 CREATE TABLE IF NOT EXISTS whatsapp_configs (
@@ -136,6 +136,7 @@ CREATE TABLE IF NOT EXISTS whatsapp_configs (
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
 );
+CREATE INDEX IF NOT EXISTS idx_whatsapp_configs_phone ON whatsapp_configs(phone_number_id);
 
 CREATE TABLE IF NOT EXISTS whatsapp_templates (
   id TEXT PRIMARY KEY,
@@ -176,6 +177,8 @@ CREATE TABLE IF NOT EXISTS calls (
   FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
   FOREIGN KEY (contact_id) REFERENCES contacts(id) ON DELETE CASCADE
 );
+CREATE INDEX IF NOT EXISTS idx_calls_caller_workspace ON calls(caller_number, workspace_id);
+CREATE INDEX IF NOT EXISTS idx_calls_workspace_created ON calls(workspace_id, created_at);
 
 -- ==========================================
 -- STEP 4 & 5 SCHEMA: BROADCASTS & PUBLISHING
