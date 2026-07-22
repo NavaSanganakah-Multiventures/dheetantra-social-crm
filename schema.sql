@@ -133,6 +133,14 @@ CREATE TABLE IF NOT EXISTS whatsapp_configs (
   verify_token TEXT,
   reply_mode TEXT DEFAULT 'manual',
   calling_enabled INTEGER DEFAULT 1,
+  about TEXT DEFAULT '',
+  description TEXT DEFAULT '',
+  website TEXT DEFAULT '',
+  email TEXT DEFAULT '',
+  address TEXT DEFAULT '',
+  username TEXT DEFAULT '',
+  profile_picture_url TEXT DEFAULT '',
+  call_schedule TEXT DEFAULT '{"enabled":false,"start_time":"09:00","end_time":"17:00","days":[1,2,3,4,5,6,7]}',
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
 );

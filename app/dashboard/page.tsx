@@ -1443,8 +1443,171 @@ function InboxView({
                   >
                     बंद (Closed)
                   </button>
-                </div>
-            </div>
+                    </div>
+                  </div>
+
+                  {/* Business Profile Section */}
+                  <div className="border-t border-surface-100 dark:border-surface-800 pt-4 mt-2">
+                    <h4 className="text-xs font-bold text-surface-800 dark:text-surface-200 uppercase tracking-wider mb-3">WhatsApp Business Profile</h4>
+                    <div className="space-y-3">
+                      {profilePictureUrl && (
+                        <div className="flex justify-center mb-3">
+                          <img src={profilePictureUrl} alt="Profile" className="w-20 h-20 rounded-full object-cover border-2 border-surface-200" />
+                        </div>
+                      )}
+                      <div>
+                        <label className="block text-[11px] font-semibold text-surface-400 mb-1">About (स्टेटस / Description)</label>
+                        <textarea
+                          value={profileAbout}
+                          onChange={(e) => setProfileAbout(e.target.value)}
+                          placeholder="Your WhatsApp Business about text"
+                          rows={2}
+                          className="w-full text-xs p-2.5 rounded-xl border border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-950 focus:border-primary-500 outline-none resize-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-surface-400 mb-1">Description (विस्तृत विवरण)</label>
+                        <textarea
+                          value={profileDescription}
+                          onChange={(e) => setProfileDescription(e.target.value)}
+                          placeholder="Detailed business description"
+                          rows={3}
+                          className="w-full text-xs p-2.5 rounded-xl border border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-950 focus:border-primary-500 outline-none resize-none"
+                        />
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[11px] font-semibold text-surface-400 mb-1">Website</label>
+                          <input 
+                            type="url" 
+                            value={profileWebsite} 
+                            onChange={(e) => setProfileWebsite(e.target.value)}
+                            placeholder="https://example.com"
+                            className="w-full text-xs p-2.5 rounded-xl border border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-950 focus:border-primary-500 outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-semibold text-surface-400 mb-1">Email (व्यावसायिक ईमेल)</label>
+                          <input 
+                            type="email" 
+                            value={profileEmail} 
+                            onChange={(e) => setProfileEmail(e.target.value)}
+                            placeholder="business@example.com"
+                            className="w-full text-xs p-2.5 rounded-xl border border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-950 focus:border-primary-500 outline-none"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-surface-400 mb-1">Address (पता)</label>
+                        <input 
+                          type="text" 
+                          value={profileAddress} 
+                          onChange={(e) => setProfileAddress(e.target.value)}
+                          placeholder="123 Main St, City, Country"
+                          className="w-full text-xs p-2.5 rounded-xl border border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-950 focus:border-primary-500 outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-surface-400 mb-1">WhatsApp Username (@यूज़रनेम)</label>
+                        <div className="flex items-center gap-1">
+                          <span className="text-surface-400 text-xs font-mono">@</span>
+                          <input 
+                            type="text" 
+                            value={profileUsername} 
+                            onChange={(e) => setProfileUsername(e.target.value.replace(/[^a-zA-Z0-9_.]/g, ''))}
+                            placeholder="yourbusiness"
+                            className="flex-1 text-xs p-2.5 rounded-xl border border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-950 focus:border-primary-500 outline-none"
+                          />
+                        </div>
+                        <p className="text-[10px] text-surface-400 mt-1">Only letters, numbers, underscore and dots</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Call Settings Section */}
+                  <div className="border-t border-surface-100 dark:border-surface-800 pt-4 mt-2">
+                    <h4 className="text-xs font-bold text-surface-800 dark:text-surface-200 uppercase tracking-wider mb-3">Call Settings (कॉल सेटिंग्स)</h4>
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-medium text-surface-700 dark:text-surface-300">Calling Enabled (कॉलिंग सक्षम)</label>
+                        <button 
+                          onClick={() => setCallingEnabled(!callingEnabled)}
+                          className={`relative w-11 h-6 rounded-full transition-colors ${callingEnabled ? 'bg-emerald-500' : 'bg-surface-300 dark:bg-surface-600'}`}
+                        >
+                          <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${callingEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
+                        </button>
+                      </div>
+
+                      <div className="border-t border-surface-100 dark:border-surface-800 pt-3">
+                        <div className="flex items-center justify-between mb-3">
+                          <label className="text-xs font-medium text-surface-700 dark:text-surface-300">Call Schedule (कॉल शेड्यूल)</label>
+                          <button 
+                            onClick={() => setCallScheduleEnabled(!callScheduleEnabled)}
+                            className={`relative w-11 h-6 rounded-full transition-colors ${callScheduleEnabled ? 'bg-primary-500' : 'bg-surface-300 dark:bg-surface-600'}`}
+                          >
+                            <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${callScheduleEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
+                          </button>
+                        </div>
+
+                        {callScheduleEnabled && (
+                          <>
+                            <div className="grid grid-cols-2 gap-3 mb-3">
+                              <div>
+                                <label className="block text-[11px] font-semibold text-surface-400 mb-1">Start Time</label>
+                                <input 
+                                  type="time" 
+                                  value={callScheduleStart} 
+                                  onChange={(e) => setCallScheduleStart(e.target.value)}
+                                  className="w-full text-xs p-2.5 rounded-xl border border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-950 focus:border-primary-500 outline-none"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[11px] font-semibold text-surface-400 mb-1">End Time</label>
+                                <input 
+                                  type="time" 
+                                  value={callScheduleEnd} 
+                                  onChange={(e) => setCallScheduleEnd(e.target.value)}
+                                  className="w-full text-xs p-2.5 rounded-xl border border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-950 focus:border-primary-500 outline-none"
+                                />
+                              </div>
+                            </div>
+                            <div>
+                              <label className="block text-[11px] font-semibold text-surface-400 mb-2">Active Days</label>
+                              <div className="flex gap-1.5 flex-wrap">
+                                {[
+                                  { key: 1, label: 'S' },
+                                  { key: 2, label: 'M' },
+                                  { key: 3, label: 'T' },
+                                  { key: 4, label: 'W' },
+                                  { key: 5, label: 'T' },
+                                  { key: 6, label: 'F' },
+                                  { key: 7, label: 'S' },
+                                ].map(d => (
+                                  <button
+                                    key={d.key}
+                                    onClick={() => {
+                                      setCallScheduleDays(prev => 
+                                        prev.includes(d.key) 
+                                          ? prev.filter(k => k !== d.key)
+                                          : [...prev, d.key].sort()
+                                      );
+                                    }}
+                                    className={`w-8 h-8 rounded-full text-[11px] font-bold transition-all ${
+                                      callScheduleDays.includes(d.key)
+                                        ? 'bg-primary-500 text-white'
+                                        : 'bg-surface-100 dark:bg-surface-800 text-surface-400'
+                                    }`}
+                                  >
+                                    {d.label}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
         </div>
         <div className="flex-1 overflow-y-auto">
             {loading ? (
@@ -4870,6 +5033,22 @@ function WhatsAppManagerView() {
   const [savingConfig, setSavingConfig] = useState(false);
   const [metaConfigId, setMetaConfigId] = useState("");
 
+  // Business Profile states
+  const [profileAbout, setProfileAbout] = useState("");
+  const [profileDescription, setProfileDescription] = useState("");
+  const [profileWebsite, setProfileWebsite] = useState("");
+  const [profileEmail, setProfileEmail] = useState("");
+  const [profileAddress, setProfileAddress] = useState("");
+  const [profileUsername, setProfileUsername] = useState("");
+  const [profilePictureUrl, setProfilePictureUrl] = useState("");
+
+  // Call Schedule states
+  const [callScheduleEnabled, setCallScheduleEnabled] = useState(false);
+  const [callScheduleStart, setCallScheduleStart] = useState("09:00");
+  const [callScheduleEnd, setCallScheduleEnd] = useState("17:00");
+  const [callScheduleDays, setCallScheduleDays] = useState<number[]>([1,2,3,4,5]);
+  const [callingEnabled, setCallingEnabled] = useState(true);
+
   // Flows states
   const [flows, setFlows] = useState<any[]>([]);
   const [loadingFlows, setLoadingFlows] = useState(true);
@@ -5000,7 +5179,21 @@ function WhatsAppManagerView() {
         sip_uri: sipUri,
         sip_ws_server: sipWsServer,
         sip_username: sipUsername,
-        sip_password: sipPassword
+        sip_password: sipPassword,
+        // Business Profile fields
+        about: profileAbout,
+        description: profileDescription,
+        website: profileWebsite,
+        email: profileEmail,
+        address: profileAddress,
+        username: profileUsername,
+        // Call schedule
+        call_schedule: JSON.stringify({
+          enabled: callScheduleEnabled,
+          start_time: callScheduleStart,
+          end_time: callScheduleEnd,
+          days: callScheduleDays
+        })
       };
       if (accessToken && accessToken !== "••••••••••••••••") {
         payload.access_token = accessToken;
@@ -5040,6 +5233,28 @@ function WhatsAppManagerView() {
     setSipWsServer(cfg.sip_ws_server || "");
     setSipUsername(cfg.sip_username || "");
     setSipPassword(cfg.sip_password || "");
+
+    // Business Profile fields
+    setProfileAbout(cfg.about || "");
+    setProfileDescription(cfg.description || "");
+    setProfileWebsite(cfg.website || "");
+    setProfileEmail(cfg.email || "");
+    setProfileAddress(cfg.address || "");
+    setProfileUsername(cfg.username || "");
+    setProfilePictureUrl(cfg.profile_picture_url || "");
+
+    // Call schedule
+    setCallingEnabled(cfg.calling_enabled !== 0);
+    if (cfg.call_schedule) {
+      try {
+        const s = JSON.parse(cfg.call_schedule);
+        setCallScheduleEnabled(s.enabled || false);
+        setCallScheduleStart(s.start_time || "09:00");
+        setCallScheduleEnd(s.end_time || "17:00");
+        setCallScheduleDays(s.days || [1,2,3,4,5]);
+      } catch (e) {}
+    }
+
     setShowProfileModal(true);
   };
 
@@ -5378,9 +5593,18 @@ function WhatsAppManagerView() {
                     <div className="space-y-2 border-t border-surface-100 dark:border-surface-800 pt-3 text-xs">
                       <div className="flex justify-between"><span className="text-surface-400">Phone ID:</span> <span className="font-mono text-surface-700 dark:text-surface-300">{cfg.phone_number_id || "None"}</span></div>
                       <div className="flex justify-between"><span className="text-surface-400">WABA ID:</span> <span className="font-mono text-surface-700 dark:text-surface-300">{cfg.waba_id || "None"}</span></div>
-                      {cfg.sip_uri && (
-                        <div className="flex justify-between"><span className="text-emerald-500 font-medium">Calling Enabled:</span> <span className="font-mono text-emerald-500">SIP Active</span></div>
+                      {cfg.username && (
+                        <div className="flex justify-between"><span className="text-surface-400">Username:</span> <span className="font-mono text-primary-600 dark:text-primary-400">@{cfg.username}</span></div>
                       )}
+                      {cfg.about && (
+                        <div className="flex justify-between"><span className="text-surface-400">About:</span> <span className="text-surface-700 dark:text-surface-300 truncate max-w-[180px]">{cfg.about}</span></div>
+                      )}
+                      <div className="flex justify-between">
+                        <span className="text-surface-400">Calling:</span>
+                        <span className={`font-mono ${cfg.calling_enabled ? 'text-emerald-500' : 'text-red-400'}`}>
+                          {cfg.calling_enabled ? 'ENABLED' : 'DISABLED'}
+                        </span>
+                      </div>
                     </div>
                   </div>
 
