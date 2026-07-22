@@ -234,6 +234,8 @@ app.use('/api/email-templates', authMiddleware);
 app.use('/api/email-templates/*', authMiddleware);
 app.use('/api/domain-emails/*', authMiddleware);
 app.use('/api/chat/*', authMiddleware);
+app.use('/api/whatsapp/upload', authMiddleware);
+app.use('/api/whatsapp/media', authMiddleware);
 
 app.route('/api/meta', metaOauth);
 app.route('/api/admin', adminRouter);
@@ -1295,7 +1297,12 @@ app.post('/api/inbox/conversations/initiate', async (c) => {
   if (!contact) return c.json({ error: 'संपर्क नहीं मिला' }, 404);
 
   let finalPhoneNumberId = phone_number_id;
-  if (!finalPhoneNumberId) {
+  if (finalPhoneNumberId) {
+    // Bug #24: verify phone_number_id belongs to workspace
+    const config = await c.env.DB.prepare('SELECT phone_number_id FROM whatsapp_configs WHERE workspace_id = ? AND phone_number_id = ?')
+      .bind(workspaceId, finalPhoneNumberId).first<{ phone_number_id: string }>();
+    if (!config) return c.json({ error: 'Invalid phone_number_id for this workspace' }, 400);
+  } else {
     const config = await c.env.DB.prepare('SELECT phone_number_id FROM whatsapp_configs WHERE workspace_id = ? ORDER BY created_at DESC LIMIT 1')
       .bind(workspaceId).first<{ phone_number_id: string }>();
     if (config) {
@@ -2171,6 +2178,11 @@ app.post('/api/whatsapp/send', async (c) => {
   if (!to || !conversationId) return c.json({ error: 'Missing required fields' }, 400);
 
   try {
+    // Bug #23: verify conversation belongs to workspace
+    const convCheck = await c.env.DB.prepare('SELECT id FROM conversations WHERE id = ? AND workspace_id = ?')
+      .bind(conversationId, workspaceId).first();
+    if (!convCheck) return c.json({ error: 'Conversation not found in this workspace' }, 404);
+
     let config: any = null;
     if (phoneNumberId) {
       config = await c.env.DB.prepare('SELECT phone_number_id, access_token FROM whatsapp_configs WHERE workspace_id = ? AND phone_number_id = ?').bind(workspaceId, phoneNumberId).first();
@@ -2189,30 +2201,37 @@ app.post('/api/whatsapp/send', async (c) => {
     };
 
 
-    // Check if it's a relative path starting with / or an absolute URL starting with http
-    const isMediaId = mediaUrl && !mediaUrl.startsWith('http') && !mediaUrl.startsWith('/');
-
-    // Ensure relative R2 paths are converted to fully qualified absolute public URLs for Meta Cloud API
-    let finalMediaUrl = mediaUrl;
-    if (mediaUrl && mediaUrl.startsWith('/')) {
-      const origin = new URL(c.req.url).origin;
-      finalMediaUrl = `${origin}${mediaUrl}`;
-    }
-
-    const mediaObj = isMediaId ? { id: mediaUrl } : { link: finalMediaUrl };
-
     if (type === 'text') {
       if (!text) return c.json({ error: 'Text content is required for text messages' }, 400);
       payload.text = { preview_url: false, body: text };
     } else if (type === 'image') {
       if (!mediaUrl) return c.json({ error: 'Media URL is required for image messages' }, 400);
-      payload.image = { ...mediaObj, caption: text || "" };
+      // Bug #25: compute mediaObj only inside type block
+      const isMediaId = !mediaUrl.startsWith('http') && !mediaUrl.startsWith('/');
+      let finalMediaUrl = mediaUrl;
+      if (mediaUrl.startsWith('/')) {
+        const origin = new URL(c.req.url).origin;
+        finalMediaUrl = `${origin}${mediaUrl}`;
+      }
+      payload.image = { ...(isMediaId ? { id: mediaUrl } : { link: finalMediaUrl }), caption: text || "" };
     } else if (type === 'video') {
       if (!mediaUrl) return c.json({ error: 'Media URL is required for video messages' }, 400);
-      payload.video = { ...mediaObj, caption: text || "" };
+      const isMediaId = !mediaUrl.startsWith('http') && !mediaUrl.startsWith('/');
+      let finalMediaUrl = mediaUrl;
+      if (mediaUrl.startsWith('/')) {
+        const origin = new URL(c.req.url).origin;
+        finalMediaUrl = `${origin}${mediaUrl}`;
+      }
+      payload.video = { ...(isMediaId ? { id: mediaUrl } : { link: finalMediaUrl }), caption: text || "" };
     } else if (type === 'document') {
       if (!mediaUrl) return c.json({ error: 'Media URL is required for document messages' }, 400);
-      payload.document = { ...mediaObj, filename: filename || 'Document.pdf', caption: text || "" };
+      const isMediaId = !mediaUrl.startsWith('http') && !mediaUrl.startsWith('/');
+      let finalMediaUrl = mediaUrl;
+      if (mediaUrl.startsWith('/')) {
+        const origin = new URL(c.req.url).origin;
+        finalMediaUrl = `${origin}${mediaUrl}`;
+      }
+      payload.document = { ...(isMediaId ? { id: mediaUrl } : { link: finalMediaUrl }), filename: filename || 'Document.pdf', caption: text || "" };
     } else if (type === 'location') {
       if (!location || !location.latitude || !location.longitude) {
         return c.json({ error: 'Latitude and longitude are required for location messages' }, 400);

@@ -21,17 +21,24 @@ const getUserTimezone = () => {
 
 const ensureUTC = (dateStr: string | Date | number) => {
   if (typeof dateStr === 'string') {
+    // Already has timezone info
     if (dateStr.endsWith('Z') || dateStr.match(/[+-]\d{2}:\d{2}$/)) {
-      return new Date(dateStr);
+      const d = new Date(dateStr);
+      return isNaN(d.getTime()) ? new Date() : d;
     }
+    // SQLite format: "2024-01-01 12:00:00" or with milliseconds
     if (dateStr.includes(' ') && !dateStr.includes('T')) {
-      return new Date(dateStr.replace(' ', 'T') + 'Z');
+      const d = new Date(dateStr.replace(' ', 'T') + 'Z');
+      return isNaN(d.getTime()) ? new Date() : d;
     }
+    // ISO-like but missing Z: "2024-01-01T12:00:00"
     if (dateStr.includes('T')) {
-      return new Date(dateStr + 'Z');
+      const d = new Date(dateStr + 'Z');
+      return isNaN(d.getTime()) ? new Date() : d;
     }
   }
-  return new Date(dateStr);
+  const d = new Date(dateStr);
+  return isNaN(d.getTime()) ? new Date() : d;
 };
 
 export const formatUserTimeOnly = (dateStr: string | Date | number, options?: Intl.DateTimeFormatOptions) => {
@@ -862,19 +869,20 @@ function InboxView({
 
   useEffect(() => {
     if (preselectedChat) {
-      const timer = setTimeout(() => {
-        setActiveChat(preselectedChat);
-        if (setPreselectedChat) {
-          setPreselectedChat(null);
-        }
-      }, 0);
-      return () => clearTimeout(timer);
+      setActiveChat(preselectedChat);
+      if (setPreselectedChat) {
+        setPreselectedChat(null);
+      }
     }
   }, [preselectedChat, setPreselectedChat]);
 
   const [configs, setConfigs] = useState<any[]>([]);
   const [selectedWaba, setSelectedWaba] = useState<any>({ id: 'all', phone_number_id: 'all' });
   const [mediaPreviewUrl, setMediaPreviewUrl] = useState<string | null>(null);
+
+  const [isAtBottom, setIsAtBottom] = useState(true);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const scrollThrottleRef = useRef<number>(0);
 
   const [attachmentMenuOpen, setAttachmentMenuOpen] = useState(false);
   const [attachmentType, setAttachmentType] = useState<'text' | 'image' | 'video' | 'document' | 'location' | 'contacts' | null>(null);
@@ -897,6 +905,20 @@ function InboxView({
   const [selectedInboxTemplate, setSelectedInboxTemplate] = useState<any>(null);
   const [inboxTemplateParams, setInboxTemplateParams] = useState<string[]>([]);
   const [inboxTemplateSending, setInboxTemplateSending] = useState(false);
+
+  // Business Profile + Call Schedule state (used in contact info panel)
+  const [profilePictureUrl, setProfilePictureUrl] = useState("");
+  const [profileAbout, setProfileAbout] = useState("");
+  const [profileDescription, setProfileDescription] = useState("");
+  const [profileWebsite, setProfileWebsite] = useState("");
+  const [profileEmail, setProfileEmail] = useState("");
+  const [profileAddress, setProfileAddress] = useState("");
+  const [profileUsername, setProfileUsername] = useState("");
+  const [callScheduleEnabled, setCallScheduleEnabled] = useState(false);
+  const [callScheduleStart, setCallScheduleStart] = useState("09:00");
+  const [callScheduleEnd, setCallScheduleEnd] = useState("17:00");
+  const [callScheduleDays, setCallScheduleDays] = useState<number[]>([1,2,3,4,5]);
+  const [callingEnabled, setCallingEnabled] = useState(true);
 
   useEffect(() => {
     const wId = localStorage.getItem('workspaceId');
@@ -980,7 +1002,7 @@ function InboxView({
   };
 
   const sendRichMessage = async () => {
-    if (!activeChat || sending || !attachmentType) return;
+    if (!activeChat || sending || !attachmentType || isTemplateRequired) return;
     
     const resolvedPhoneId = activeChat.phone_number_id || (selectedWaba && selectedWaba.phone_number_id !== 'all' ? selectedWaba.phone_number_id : undefined);
 
@@ -995,7 +1017,7 @@ function InboxView({
       let finalMediaUrl = mediaUrlInput.trim();
       let finalR2Url = null;
       if (mediaFileState) {
-         setSending(true);
+         // Sending already set to true at end; upload is sequential, no double-set needed
          const formData = new FormData();
          formData.append('file', mediaFileState);
          
@@ -1115,26 +1137,43 @@ function InboxView({
     }).then(r => r.json()).then((data: any) => {
         if (data.conversations) {
             setConversations(data.conversations);
+            // Bug #9: update activeChat if it's still the same conversation
+            setActiveChat((prev: any) => {
+                if (!prev) return null;
+                const updated = data.conversations.find((c: any) => c.id === prev.id);
+                return updated ? { ...prev, ...updated } : prev;
+            });
         }
         setLoading(false);
     }).catch(() => setLoading(false));
   }, [selectedWaba]);
 
+  // Ref to always have latest fetchConversations without causing WebSocket reconnects (Bug #3)
+  const fetchConversationsRef = useRef(fetchConversations);
+  fetchConversationsRef.current = fetchConversations;
+
   useEffect(() => {
     fetchConversations();
-    const interval = setInterval(() => fetchConversations(), 5000);
+    const interval = setInterval(() => fetchConversations(), 30000); // 30s fallback (Bug #13)
     return () => clearInterval(interval);
   }, [fetchConversations]);
 
-  const loadMessages = (conversationId: string) => {
+  const loadMessages = useCallback((conversationId: string) => {
     fetch(`/api/inbox/messages/${conversationId}`, {
       headers: { 'x-workspace-id': localStorage.getItem('workspaceId') || '' }
     }).then(r => r.json()).then((data: any) => {
         if (data.messages) {
-            setMessages(data.messages);
+            // Bug #2 + #12: merge with existing state to not overwrite concurrent WebSocket updates
+            setMessages(prev => {
+                const serverIds = new Set(data.messages.map((m: any) => m.id));
+                const localOnly = prev.filter(m => m.id.startsWith('optimistic-') && !serverIds.has(m.id));
+                return [...data.messages, ...localOnly].sort(
+                    (a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+                );
+            });
         }
-    });
-  };
+    }).catch(err => console.error("Failed to load messages:", err));
+  }, []);
 
   useEffect(() => {
     if (!activeChat) return;
@@ -1156,16 +1195,18 @@ function InboxView({
           try {
             const data = JSON.parse(event.data);
             if (data.type === 'new_message' && data.message) {
-              fetchConversations();
+              fetchConversationsRef.current();
 
               if (data.message.conversation_id === activeChat.id) {
                 setMessages(prev => {
                   if (prev.some(m => m.id === data.message.id)) return prev;
-                  // Match optimistic messages by tempId prefix + content + close timestamp
+                  // Match optimistic messages by ID if server assigned our tempId's content, else by content+timer
                   const matchedOptimisticIndex = prev.findIndex(m => {
                     if (!m.id.startsWith('optimistic-')) return false;
+                    // If server returned this message and we matched it already in sendMessage callback, skip
+                    if (m.status === 'sent' || m.status === 'failed') return false;
                     if (m.content !== data.message.content) return false;
-                    // Check timestamps within 5 seconds to avoid wrong matches
+                    // Check timestamps within 5 seconds
                     const t1 = new Date(m.created_at).getTime();
                     const t2 = new Date(data.message.created_at).getTime();
                     return Math.abs(t1 - t2) < 5000;
@@ -1183,7 +1224,7 @@ function InboxView({
                 }
               }
             } else if (data.type === 'conversation_status_updated') {
-              fetchConversations();
+              fetchConversationsRef.current();
               if (activeChat && activeChat.id === data.conversation_id) {
                 setActiveChat((prev: any) => prev ? { ...prev, status: data.status } : null);
               }
@@ -1194,7 +1235,7 @@ function InboxView({
                 ));
               }
             } else if (data.type === 'conversation_deleted') {
-              fetchConversations();
+              fetchConversationsRef.current();
               if (activeChat && activeChat.id === data.conversation_id) {
                 setActiveChat(null);
               }
@@ -1235,14 +1276,14 @@ function InboxView({
         socket.close();
       }
     };
-  }, [activeChat, fetchConversations]);
+  }, [activeChat?.id]); // Bug #3: only reconnect when conversation changes, not when WABA filter changes
 
   const sendMessage = async () => {
-    if (!messageInput.trim() || !activeChat) return;
+    if (!messageInput.trim() || !activeChat || isTemplateRequired) return;
     const textToSend = messageInput.trim();
     setMessageInput("");
 
-    const tempId = `optimistic-${Date.now()}`;
+    const tempId = `optimistic-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     const optimisticMsg = {
       id: tempId,
       content: textToSend,
@@ -1271,16 +1312,17 @@ function InboxView({
         })
       });
       const data: any = await res.json();
-      if (data.success) {
-        setMessages(prev => prev.map(m => m.id === tempId ? { ...m, id: data.data?.id || m.id, status: 'sent' } : m));
+      if (data.success && data.data?.id) {
+        setMessages(prev => prev.map(m => m.id === tempId ? { ...m, id: data.data.id, status: 'sent' } : m));
         fetchConversations();
       } else {
-        setMessages(prev => prev.filter(m => m.id !== tempId));
+        // Keep optimistic but mark as failed instead of removing — user can see what failed
+        setMessages(prev => prev.map(m => m.id === tempId ? { ...m, status: 'failed' } : m));
         toast('error', data.error || "संदेश भेजने में विफल");
         setMessageInput(textToSend);
       }
     } catch (e) {
-      setMessages(prev => prev.filter(m => m.id !== tempId));
+      setMessages(prev => prev.map(m => m.id === tempId ? { ...m, status: 'failed' } : m));
       toast('error', "त्रुटि हुई");
       setMessageInput(textToSend);
     }
@@ -1290,7 +1332,12 @@ function InboxView({
     if (!selectedInboxTemplate || !activeChat) return;
     setInboxTemplateSending(true);
     const wId = localStorage.getItem('workspaceId');
-    const resolvedPhoneId = activeChat.phone_number_id || (configs.length > 0 ? configs[0].phone_number_id : undefined);
+    // Bug #4: match phone_number_id from activeChat config, not configs[0]
+    const matchingConfig = activeChat.phone_number_id 
+      ? configs.find(c => c.phone_number_id === activeChat.phone_number_id) 
+      : null;
+    const resolvedPhoneId = activeChat.phone_number_id || matchingConfig?.phone_number_id || (configs.length > 0 ? configs[configs.length - 1].phone_number_id : undefined);
+    const currentConvId = activeChat.id; // capture before await
     try {
       const res = await fetch('/api/whatsapp/templates/send', {
         method: 'POST',
@@ -1308,7 +1355,8 @@ function InboxView({
         setSelectedInboxTemplate(null);
         setInboxTemplateParams([]);
         fetchConversations();
-        setTimeout(() => loadMessages(activeChat.id), 500);
+        // Bug #5: use captured convId, not activeChat.id from stale closure
+        loadMessages(currentConvId);
       } else {
         toast('error', data.error || "टेम्पलेट भेजने में विफल");
       }
@@ -1320,10 +1368,11 @@ function InboxView({
   };
 
   useEffect(() => {
-    if (messagesEndRef.current) {
+    // Bug #11: only auto-scroll if user is already near the bottom
+    if (messagesEndRef.current && isAtBottom) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [messages]);
+  }, [messages, isAtBottom]);
 
   const updateConversationStatus = async (convId: string, newStatus: 'open' | 'closed') => {
     try {
@@ -1388,7 +1437,7 @@ function InboxView({
               <label className="block text-[9px] font-bold text-surface-400 dark:text-surface-500 uppercase tracking-wider mb-1">WhatsApp Line</label>
               <div className="relative">
                 <select 
-                  value={selectedWaba ? selectedWaba.id : ''} 
+                  value={selectedWaba ? (configs.some(c => c.id === selectedWaba.id) ? selectedWaba.id : 'all') : ''} 
                   onChange={(e) => {
                     if (e.target.value === 'all') {
                       setSelectedWaba({ id: 'all', phone_number_id: 'all' });
@@ -1742,7 +1791,18 @@ function InboxView({
               </div>
 
               {/* Chat Messages Area */}
-              <div className="flex-1 overflow-y-auto p-6 space-y-6 flex flex-col">
+              <div 
+                ref={messagesContainerRef}
+                onScroll={(e) => {
+                    // Throttle to avoid excessive re-renders during fast scrolling
+                    const now = Date.now();
+                    if (now - scrollThrottleRef.current < 150) return;
+                    scrollThrottleRef.current = now;
+                    const el = e.currentTarget;
+                    const threshold = 100;
+                    setIsAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < threshold);
+                }}
+                className="flex-1 overflow-y-auto p-6 space-y-6 flex flex-col">
                  {messages.length === 0 ? (
                     <p className="text-center text-surface-500 text-sm mt-10">कोई संदेश नहीं</p>
                   ) : (
@@ -1938,7 +1998,21 @@ function InboxView({
                       {attachmentType === 'contacts' && '👤 संपर्क (Contact) भेजें'}
                     </span>
                     <button 
-                      onClick={() => { setAttachmentType(null); setMediaFileState(null); setAttachmentMenuOpen(false); }}
+                      onClick={() => { 
+                        setAttachmentType(null); 
+                        setMediaFileState(null); 
+                        setAttachmentMenuOpen(false);
+                        setMediaUrlInput('');
+                        setMediaPreviewUrl(null);
+                        setCaptionInput('');
+                        setDocFilenameInput('');
+                        setContactNameInput('');
+                        setContactPhoneInput('');
+                        setLatInput('28.6139');
+                        setLngInput('77.2090');
+                        setLocNameInput('Dhitantra Headquarters');
+                        setLocAddressInput('');
+                      }}
                       className="p-1 rounded-full text-surface-400 hover:text-surface-600 dark:hover:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-800"
                     >
                       <X className="w-4 h-4" />
@@ -2060,7 +2134,21 @@ function InboxView({
 
                   <div className="flex gap-2 justify-end mt-1">
                     <button 
-                      onClick={() => { setAttachmentType(null); setMediaFileState(null); setAttachmentMenuOpen(false); }}
+                      onClick={() => { 
+                        setAttachmentType(null); 
+                        setMediaFileState(null); 
+                        setAttachmentMenuOpen(false);
+                        setMediaUrlInput('');
+                        setMediaPreviewUrl(null);
+                        setCaptionInput('');
+                        setDocFilenameInput('');
+                        setContactNameInput('');
+                        setContactPhoneInput('');
+                        setLatInput('28.6139');
+                        setLngInput('77.2090');
+                        setLocNameInput('Dhitantra Headquarters');
+                        setLocAddressInput('');
+                      }}
                       className="px-3 py-1.5 text-xs rounded-lg border border-surface-200 dark:border-surface-800 hover:bg-surface-100 dark:hover:bg-surface-800 text-surface-600 dark:text-surface-300 transition-colors"
                     >
                       रद्द करें
@@ -2081,15 +2169,18 @@ function InboxView({
                  <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg text-amber-800 dark:text-amber-200 text-xs font-medium space-y-2">
                    <p className="text-center">{!lastCustomerMessageAt ? "ग्राहक के रिप्लाई का इंतज़ार है।" : "24-घंटे की सर्विस विंडो समाप्त हो चुकी है।"} टेम्पलेट भेजकर बातचीत शुरू करें।</p>
                    <div className="flex gap-2">
-                     <select onChange={e => {
-                       const tmpl = inboxTemplates.find(t => t.name === e.target.value);
-                       if (tmpl) {
-                         setSelectedInboxTemplate(tmpl);
-                         const matches = (tmpl.body_text || '').match(/\{\{\d+\}\}/g);
-                         setInboxTemplateParams(matches ? new Array(matches.length).fill('') : []);
-                       }
-                     }} defaultValue="" className="flex-1 bg-white dark:bg-surface-950 border border-amber-300 dark:border-amber-700 rounded-lg px-3 py-2 text-xs outline-none font-mono">
-                       <option value="" disabled>टेम्पलेट चुनें...</option>
+                      <select onChange={e => {
+                        const tmpl = inboxTemplates.find(t => t.name === e.target.value);
+                        if (tmpl) {
+                          setSelectedInboxTemplate(tmpl);
+                          const matches = (tmpl.body_text || '').match(/\{\{\d+\}\}/g);
+                          setInboxTemplateParams(matches ? new Array(matches.length).fill('') : []);
+                        } else {
+                          setSelectedInboxTemplate(null);
+                          setInboxTemplateParams([]);
+                        }
+                      }} value={selectedInboxTemplate?.name || ''} className="flex-1 bg-white dark:bg-surface-950 border border-amber-300 dark:border-amber-700 rounded-lg px-3 py-2 text-xs outline-none font-mono">
+                        <option value="" disabled>टेम्पलेट चुनें...</option>
                        {inboxTemplates.map(t => <option key={t.name} value={t.name}>{t.name}</option>)}
                      </select>
                    </div>
