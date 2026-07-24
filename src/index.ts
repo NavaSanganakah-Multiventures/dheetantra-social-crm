@@ -1359,7 +1359,7 @@ app.post('/api/whatsapp/config', async (c) => {
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
   const {
-    id, phone_number_id, waba_id, access_token, verify_token, reply_mode
+    id, phone_number_id, waba_id, access_token, verify_token, reply_mode, ai_provider, ai_voice_instructions
   } = await c.req.json();
   const newId = id || crypto.randomUUID();
 
@@ -1369,34 +1369,36 @@ app.post('/api/whatsapp/config', async (c) => {
 
     let existing: any = null;
     if (id) {
-      existing = await c.env.DB.prepare('SELECT id, waba_id, access_token, verify_token, reply_mode FROM whatsapp_configs WHERE id = ?').bind(id).first();
+      existing = await c.env.DB.prepare('SELECT id, waba_id, access_token, verify_token, reply_mode, ai_provider, ai_voice_instructions FROM whatsapp_configs WHERE id = ?').bind(id).first();
     } else {
-      existing = await c.env.DB.prepare('SELECT id, waba_id, access_token, verify_token, reply_mode FROM whatsapp_configs WHERE workspace_id = ? AND phone_number_id = ?').bind(workspaceId, phone_number_id).first();
+      existing = await c.env.DB.prepare('SELECT id, waba_id, access_token, verify_token, reply_mode, ai_provider, ai_voice_instructions FROM whatsapp_configs WHERE workspace_id = ? AND phone_number_id = ?').bind(workspaceId, phone_number_id).first();
     }
 
     const finalId = id || existing?.id || newId;
     const finalToken = access_token !== undefined ? access_token : (existing?.access_token || '');
     const finalReplyMode = reply_mode !== undefined ? reply_mode : (existing?.reply_mode || 'manual');
+    const finalAiProvider = ai_provider !== undefined ? ai_provider : (existing?.ai_provider || 'gemini');
+    const finalAiVoiceInstructions = ai_voice_instructions !== undefined ? ai_voice_instructions : (existing?.ai_voice_instructions || null);
     const finalWabaId = waba_id !== undefined ? waba_id : (existing?.waba_id || null);
     const finalVerifyToken = verify_token !== undefined ? verify_token : (existing?.verify_token || null);
 
     if (existing || id) {
       await c.env.DB.prepare(
         `UPDATE whatsapp_configs SET 
-          phone_number_id = ?, waba_id = ?, access_token = ?, verify_token = ?, reply_mode = ?
+          phone_number_id = ?, waba_id = ?, access_token = ?, verify_token = ?, reply_mode = ?, ai_provider = ?, ai_voice_instructions = ?
         WHERE id = ?`
       ).bind(
-        phone_number_id, finalWabaId, finalToken, finalVerifyToken, finalReplyMode,
+        phone_number_id, finalWabaId, finalToken, finalVerifyToken, finalReplyMode, finalAiProvider, finalAiVoiceInstructions,
         finalId
       ).run();
     } else {
       await c.env.DB.prepare(
         `INSERT INTO whatsapp_configs (
-          id, workspace_id, phone_number_id, waba_id, access_token, verify_token, reply_mode
+          id, workspace_id, phone_number_id, waba_id, access_token, verify_token, reply_mode, ai_provider, ai_voice_instructions
         ) 
-         VALUES (?, ?, ?, ?, ?, ?, ?)`
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
       ).bind(
-        finalId, workspaceId, phone_number_id, finalWabaId, finalToken, finalVerifyToken, finalReplyMode
+        finalId, workspaceId, phone_number_id, finalWabaId, finalToken, finalVerifyToken, finalReplyMode, finalAiProvider, finalAiVoiceInstructions
       ).run();
     }
 
@@ -1460,7 +1462,7 @@ app.get('/api/whatsapp/config', async (c) => {
   try {
 
 
-    const { results } = await c.env.DB.prepare('SELECT id, phone_number_id, waba_id, verify_token, reply_mode, calling_enabled, created_at FROM whatsapp_configs WHERE workspace_id = ?').bind(workspaceId).all();
+    const { results } = await c.env.DB.prepare('SELECT id, phone_number_id, waba_id, verify_token, reply_mode, calling_enabled, ai_provider, ai_voice_instructions, created_at FROM whatsapp_configs WHERE workspace_id = ?').bind(workspaceId).all();
     const config = results && results.length > 0 ? results[0] : null;
     return c.json({ config: config || null, configs: results || [] });
   } catch (err: any) {
