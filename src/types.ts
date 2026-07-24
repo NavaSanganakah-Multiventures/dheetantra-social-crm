@@ -9,6 +9,7 @@ export interface Env {
   NOTIFICATION_QUEUE: Queue<any>;
   BROADCAST_QUEUE: Queue<any>;
   ENVIRONMENT: string;
+  AI: any;
   EMAIL_SENDER: any;
   EMAIL_SENDER_ADDRESS?: string;
 }
