@@ -677,7 +677,7 @@ app.post('/api/whatsapp/webhook', async (c) => {
                   direction === 'BUSINESS_INITIATED' ? 'outgoing' : 'incoming', 'ringing', 0).run();
                 console.log(`[Calling] Call saved to DB: ${callId}`);
 
-                // Broadcast to frontend via Durable Object
+                // Broadcast to frontend via Durable Object for human answering
                 try {
                   console.log(`[Calling] Broadcasting to DO: global-${config.workspace_id}`);
                   const globalDoId = c.env.CHAT_DO.idFromName(`global-${config.workspace_id}`);
@@ -699,6 +699,19 @@ app.post('/api/whatsapp/webhook', async (c) => {
                 } catch (e) {
                   console.error('[Calling] ❌ Failed to broadcast incoming call:', e);
                 }
+
+                // AI Voice Agent Hook: If AI voice agent is configured for this number, trigger the bridge
+                c.executionCtx.waitUntil((async () => {
+                  try {
+                    const aiConfig = await c.env.DB.prepare('SELECT ai_voice_instructions FROM whatsapp_configs WHERE phone_number_id = ?').bind(phoneNumberId).first<{ ai_voice_instructions: string }>();
+                    if (aiConfig && aiConfig.ai_voice_instructions) {
+                      const { initiateVoiceAgentBridge } = await import('./services/voiceAgent');
+                      await initiateVoiceAgentBridge(c.env, config.workspace_id, callerNumber, aiConfig.ai_voice_instructions, callId, sdp, phoneNumberId);
+                    }
+                  } catch(err) {
+                    console.error('[Calling] Failed to trigger Voice Agent Bridge', err);
+                  }
+                })());
 
               } else if (event === 'terminate') {
                 console.log(`[Calling] Call terminated: ${callId}`);

@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
@@ -32,14 +31,14 @@ export default function GeminiVoiceBridge({ workspaceId }: GeminiVoiceBridgeProp
       try {
         const data = JSON.parse(event.data);
         if (data.type === 'voice_agent_active' && data.payload) {
-          const { from, instructions, provider, callId, sdp } = data.payload;
+          const { from, instructions, provider, callId, sdp, phoneNumberId } = data.payload;
 
           if (provider === 'gemini') {
             setIsActive(true);
             setStatus("Connecting to Secure AI Proxy...");
 
             try {
-              // 1. Initialize Audio Context properly before we receive chunks
+              // 1. Initialize Audio Context
               if (!audioContextRef.current) {
                   const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
                   audioContextRef.current = new AudioContextClass({ sampleRate: 16000 });
@@ -52,7 +51,7 @@ export default function GeminiVoiceBridge({ workspaceId }: GeminiVoiceBridgeProp
               let iceServers = [{ urls: 'stun:stun.cloudflare.com:3478' }, { urls: 'stun:stun.l.google.com:19302' }];
               try {
                   const iceRes = await fetch('/api/webrtc/ice-servers');
-                  const iceData: any = await iceRes.json();
+                  const iceData = await iceRes.json() as any;
                   if (iceData.iceServers) {
                       iceServers = iceData.iceServers;
                   }
@@ -60,16 +59,17 @@ export default function GeminiVoiceBridge({ workspaceId }: GeminiVoiceBridgeProp
                   console.warn("Failed to fetch TURN servers, using fallback STUN", e);
               }
 
-              pcRef.current = new RTCPeerConnection({ iceServers });
+              const pc = new RTCPeerConnection({ iceServers });
+              pcRef.current = pc;
 
-              // Attach our AI Audio destination to the WebRTC connection
+              // Attach our AI Audio destination to the WebRTC connection (so caller hears Gemini)
               if (mediaStreamDestinationRef.current) {
                   mediaStreamDestinationRef.current.stream.getTracks().forEach(track => {
-                      if (pcRef.current) pcRef.current.addTrack(track, mediaStreamDestinationRef.current!.stream);
+                      pc.addTrack(track, mediaStreamDestinationRef.current!.stream);
                   });
               }
 
-              pcRef.current.ontrack = (e) => {
+              pc.ontrack = (e) => {
                   const stream = e.streams[0];
                   if (!audioContextRef.current) return;
 
@@ -104,7 +104,7 @@ export default function GeminiVoiceBridge({ workspaceId }: GeminiVoiceBridgeProp
                   processor.connect(audioContextRef.current.destination);
               };
 
-              // 3. Connect to Secure Backend Proxy
+              // 3. Connect to Secure Backend Proxy for Gemini
               const proxyWsUrl = `${protocol}//${window.location.host}/api/ai/gemini-stream/${workspaceId}`;
               geminiProxyWsRef.current = new WebSocket(proxyWsUrl);
 
@@ -166,10 +166,51 @@ export default function GeminiVoiceBridge({ workspaceId }: GeminiVoiceBridgeProp
                  } catch (err) {}
               };
 
-              if (sdp) {
-                  await pcRef.current.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp }));
-                  const answer = await pcRef.current.createAnswer();
-                  await pcRef.current.setLocalDescription(answer);
+              // 4. Accept Call via WebRTC & Meta Cloud API
+              if (sdp && callId && phoneNumberId) {
+                  await pc.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp }));
+                  const answer = await pc.createAnswer();
+                  await pc.setLocalDescription(answer);
+
+                  // Wait for ICE gathering to complete before sending SDP
+                  await new Promise<void>((resolve) => {
+                    if (pc.iceGatheringState === 'complete') {
+                      resolve();
+                    } else {
+                      const checkState = () => {
+                        if (pc.iceGatheringState === 'complete') {
+                          pc.removeEventListener('icegatheringstatechange', checkState);
+                          resolve();
+                        }
+                      };
+                      pc.addEventListener('icegatheringstatechange', checkState);
+                      // Timeout fallback
+                      setTimeout(() => {
+                        pc.removeEventListener('icegatheringstatechange', checkState);
+                        resolve();
+                      }, 5000);
+                    }
+                  });
+
+                  const finalSdp = pc.localDescription?.sdp;
+
+                  // Send SDP answer to backend to formally accept the call on Meta's side
+                  const res = await fetch(`/api/whatsapp/calls/${callId}/answer`, {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'x-workspace-id': workspaceId
+                    },
+                    body: JSON.stringify({
+                      sdp: finalSdp,
+                      phoneNumberId: phoneNumberId
+                    })
+                  });
+
+                  const result = await res.json() as { success: boolean };
+                  if (!result.success) {
+                    console.error('[GeminiVoiceBridge] Backend failed to accept call');
+                  }
               }
 
               setStatus("AI Agent Active & Listening");
@@ -209,6 +250,7 @@ export default function GeminiVoiceBridge({ workspaceId }: GeminiVoiceBridgeProp
             const proxyWs = geminiProxyWsRef.current;
             if (proxyWs) proxyWs.close();
             if (pcRef.current) pcRef.current.close();
+            if (audioContextRef.current) audioContextRef.current.close();
         }}
         className="ml-4 text-xs bg-red-500/20 text-red-400 px-2 py-1 rounded hover:bg-red-500/30"
       >
