@@ -201,20 +201,10 @@ export async function handleIncomingMessage(
 
   // Voice AI Agent Handling (System Calls)
   if (messageType === 'system_call') {
-    console.log(`[Calling] system_call received. Instructions: ${aiVoiceInstructions}`);
-
-    // Trigger the voice AI pipeline
-    if (aiVoiceInstructions) {
-        // Since we are not in Hono context here (we are in a helper function),
-        // we await it directly or use env (if env had executionCtx)
-        // For now, we will await it directly so the DO broadcast happens.
-        await import('./voiceAgent').then(async ({ initiateVoiceAgentBridge }) => {
-            if (workspaceId) {
-              await initiateVoiceAgentBridge(env, workspaceId, from, aiVoiceInstructions);
-            }
-        }).catch(err => console.error("Failed to load voiceAgent", err));
-    }
-
+    console.log(`[Calling] system_call received via message webhook. Instructions: ${aiVoiceInstructions}`);
+    // Note: The WebRTC SDP doesn't come through the messages webhook,
+    // it comes through the calls webhook. So we intercept it there (src/index.ts).
+    // This block catches the text representation of the call.
     return; // Stop execution as system_calls don't get text replies
   }
 

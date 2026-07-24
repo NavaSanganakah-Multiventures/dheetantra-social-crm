@@ -1,10 +1,6 @@
 import { Env } from '../types';
 
-export async function initiateVoiceAgentBridge(env: Env, workspaceId: string, from: string, aiVoiceInstructions: string) {
-    // This function can set up a Durable Object session state or directly signal to connect Gemini Live API
-    // Since actual WebRTC audio bridging requires frontend or a dedicated WebRTC media server,
-    // we establish a "Session" in the Durable Object to expect Gemini bridging instructions.
-
+export async function initiateVoiceAgentBridge(env: Env, workspaceId: string, from: string, aiVoiceInstructions: string, callId?: string, sdp?: string, phoneNumberId?: string) {
     console.log(`[VoiceAgent] Initiating Gemini Voice bridging for ${from} with instructions: ${aiVoiceInstructions}`);
 
     try {
@@ -27,7 +23,10 @@ export async function initiateVoiceAgentBridge(env: Env, workspaceId: string, fr
                     from,
                     workspaceId,
                     instructions: aiVoiceInstructions,
-                    provider: 'gemini'
+                    provider: 'gemini',
+                    callId,
+                    sdp,
+                    phoneNumberId
                 }
             })
         }));
