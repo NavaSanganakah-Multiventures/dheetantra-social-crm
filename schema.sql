@@ -133,6 +133,8 @@ CREATE TABLE IF NOT EXISTS whatsapp_configs (
   verify_token TEXT,
   reply_mode TEXT DEFAULT 'manual',
   calling_enabled INTEGER DEFAULT 1,
+  ai_provider TEXT DEFAULT 'gemini',
+  ai_voice_instructions TEXT,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
 );
