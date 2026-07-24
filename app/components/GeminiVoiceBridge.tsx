@@ -62,6 +62,9 @@ export default function GeminiVoiceBridge({ workspaceId }: GeminiVoiceBridgeProp
               const pc = new RTCPeerConnection({ iceServers });
               pcRef.current = pc;
 
+              // Ensure we expect audio back from the WebRTC peer and send audio to it
+              pc.addTransceiver('audio', { direction: 'sendrecv' });
+
               // Attach our AI Audio destination to the WebRTC connection (so caller hears Gemini)
               if (mediaStreamDestinationRef.current) {
                   mediaStreamDestinationRef.current.stream.getTracks().forEach(track => {
@@ -70,6 +73,12 @@ export default function GeminiVoiceBridge({ workspaceId }: GeminiVoiceBridgeProp
               }
 
               pc.ontrack = (e) => {
+                  // Browsers often suspend AudioContext if created without user interaction.
+                  // Resuming it here just before processing audio ensures it's running.
+                  if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+                      audioContextRef.current.resume();
+                  }
+
                   const stream = e.streams[0];
                   if (!audioContextRef.current) return;
 

@@ -677,27 +677,49 @@ app.post('/api/whatsapp/webhook', async (c) => {
                   direction === 'BUSINESS_INITIATED' ? 'outgoing' : 'incoming', 'ringing', 0).run();
                 console.log(`[Calling] Call saved to DB: ${callId}`);
 
-                // Broadcast to frontend via Durable Object for human answering
+                // AI vs Human routing logic
+                let routedToAI = false;
                 try {
-                  console.log(`[Calling] Broadcasting to DO: global-${config.workspace_id}`);
-                  const globalDoId = c.env.CHAT_DO.idFromName(`global-${config.workspace_id}`);
-                  const globalDo = c.env.CHAT_DO.get(globalDoId);
-                  const broadcastResp = await globalDo.fetch(new Request('http://internal/broadcast', {
-                    method: 'POST',
-                    body: JSON.stringify({
-                      type: 'whatsapp_incoming_call',
-                      callId: callId,
-                      from: callerNumber,
-                      sdp: sdp,
-                      sdpType: sdpType,
-                      phoneNumberId: phoneNumberId,
-                      direction: direction
-                    })
-                  }));
-                  const broadcastBody = await broadcastResp.text();
-                  console.log(`[Calling] ✅ Broadcast response from DO: ${broadcastBody}`);
+                  const aiConfig = await c.env.DB.prepare('SELECT reply_mode, ai_voice_instructions FROM whatsapp_configs WHERE phone_number_id = ?').bind(phoneNumberId).first<{ reply_mode: string, ai_voice_instructions: string }>();
+                  if (aiConfig && aiConfig.reply_mode === 'ai' && aiConfig.ai_voice_instructions) {
+                    routedToAI = true;
+                    console.log(`[Calling] Routing call to AI Voice Agent...`);
+                    c.executionCtx.waitUntil((async () => {
+                      try {
+                        const { initiateVoiceAgentBridge } = await import('./services/voiceAgent');
+                        await initiateVoiceAgentBridge(c.env, config.workspace_id, callerNumber, aiConfig.ai_voice_instructions, callId, sdp, phoneNumberId);
+                      } catch(err) {
+                        console.error('[Calling] Failed to trigger Voice Agent Bridge', err);
+                      }
+                    })());
+                  }
                 } catch (e) {
-                  console.error('[Calling] ❌ Failed to broadcast incoming call:', e);
+                   console.error('[Calling] Failed to check AI routing config', e);
+                }
+
+                // Broadcast to frontend via Durable Object ONLY if not routed to AI
+                if (!routedToAI) {
+                  try {
+                    console.log(`[Calling] Broadcasting to DO: global-${config.workspace_id} for Human Answering`);
+                    const globalDoId = c.env.CHAT_DO.idFromName(`global-${config.workspace_id}`);
+                    const globalDo = c.env.CHAT_DO.get(globalDoId);
+                    const broadcastResp = await globalDo.fetch(new Request('http://internal/broadcast', {
+                      method: 'POST',
+                      body: JSON.stringify({
+                        type: 'whatsapp_incoming_call',
+                        callId: callId,
+                        from: callerNumber,
+                        sdp: sdp,
+                        sdpType: sdpType,
+                        phoneNumberId: phoneNumberId,
+                        direction: direction
+                      })
+                    }));
+                    const broadcastBody = await broadcastResp.text();
+                    console.log(`[Calling] ✅ Broadcast response from DO: ${broadcastBody}`);
+                  } catch (e) {
+                    console.error('[Calling] ❌ Failed to broadcast incoming call:', e);
+                  }
                 }
 
                 // AI Voice Agent Hook: If AI voice agent is configured for this number, trigger the bridge
