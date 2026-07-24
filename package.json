@@ -24,7 +24,7 @@
     "lucide-react": "^0.553.0",
     "motion": "^12.23.24",
     "papaparse": "^5.5.4",
-    "postcss": "^8.5.6",
+    "postcss": "^8.5.16",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
     "react-phone-number-input": "^3.4.17",
