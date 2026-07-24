@@ -722,6 +722,19 @@ app.post('/api/whatsapp/webhook', async (c) => {
                   }
                 }
 
+                // AI Voice Agent Hook: If AI voice agent is configured for this number, trigger the bridge
+                c.executionCtx.waitUntil((async () => {
+                  try {
+                    const aiConfig = await c.env.DB.prepare('SELECT ai_voice_instructions FROM whatsapp_configs WHERE phone_number_id = ?').bind(phoneNumberId).first<{ ai_voice_instructions: string }>();
+                    if (aiConfig && aiConfig.ai_voice_instructions) {
+                      const { initiateVoiceAgentBridge } = await import('./services/voiceAgent');
+                      await initiateVoiceAgentBridge(c.env, config.workspace_id, callerNumber, aiConfig.ai_voice_instructions, callId, sdp, phoneNumberId);
+                    }
+                  } catch(err) {
+                    console.error('[Calling] Failed to trigger Voice Agent Bridge', err);
+                  }
+                })());
+
               } else if (event === 'terminate') {
                 console.log(`[Calling] Call terminated: ${callId}`);
                 const hangupCause = callData.hangup_cause || 'normal';
