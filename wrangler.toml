@@ -117,3 +117,9 @@ name = "EMAIL_SENDER"
 type = "Text"
 globs = ["**/*.sql", "**/*.txt", "**/*.html"]
 fallthrough = false
+
+# ==========================================
+# 10. AI BINDING
+# ==========================================
+[ai]
+binding = "AI"
