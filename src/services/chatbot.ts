@@ -208,7 +208,7 @@ export async function handleIncomingMessage(
         // Since we are not in Hono context here (we are in a helper function),
         // we await it directly or use env (if env had executionCtx)
         // For now, we will await it directly so the DO broadcast happens.
-        import('./voiceAgent').then(async ({ initiateVoiceAgentBridge }) => {
+        await import('./voiceAgent').then(async ({ initiateVoiceAgentBridge }) => {
             if (workspaceId) {
               await initiateVoiceAgentBridge(env, workspaceId, from, aiVoiceInstructions);
             }
