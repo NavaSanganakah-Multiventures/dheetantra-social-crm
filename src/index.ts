@@ -228,6 +228,100 @@ app.get('/api/health', (c) => {
   return c.json({ status: 'active', environment: c.env.ENVIRONMENT || 'preview' });
 });
 
+// ==========================================
+// SECURE GEMINI VOICE WEBSOCKET PROXY
+// ==========================================
+app.get('/api/ai/gemini-stream/:workspaceId', async (c) => {
+  const upgradeHeader = c.req.header('Upgrade');
+  if (upgradeHeader !== 'websocket') {
+    return c.text('Expected Upgrade: websocket', 426);
+  }
+
+  // 1. Authenticate the request using standard cookie auth
+  const sessionId = getCookie(c, 'auth_session');
+  if (!sessionId) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  let user = null;
+  if (c.env.SECRETS_KV) {
+    const userDataStr = await c.env.SECRETS_KV.get(`SESSION:${sessionId}`);
+    if (userDataStr) user = JSON.parse(userDataStr);
+  }
+  if (!user) return c.json({ error: 'Unauthorized' }, 401);
+
+  const workspaceId = c.req.param('workspaceId');
+
+  // 1.5 Authorize Workspace Access
+  if (c.env.DB) {
+    const member = await c.env.DB.prepare('SELECT role FROM workspace_members WHERE workspace_id = ? AND user_id = ?').bind(workspaceId, user.id).first();
+    if (!member) {
+      return c.json({ error: 'Forbidden: You do not have access to this workspace' }, 403);
+    }
+  } else {
+    return c.json({ error: 'Database unavailable' }, 500);
+  }
+
+  // 2. Fetch Secure API Key from KV
+  const geminiKey = await c.env.SECRETS_KV.get('GEMINI_API_KEY');
+  if (!geminiKey) {
+    return c.text('Gemini API key not configured', 500);
+  }
+
+  // 3. Connect to Gemini Live API
+  const geminiUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=${geminiKey}`;
+
+  try {
+    // Cloudflare Workers Native fetch supports WebSockets!
+    const geminiResponse = await fetch(geminiUrl, {
+      headers: {
+        'Upgrade': 'websocket'
+      }
+    });
+
+    if (geminiResponse.status !== 101) {
+      console.error(`[Gemini Proxy] Failed to connect to Gemini: ${geminiResponse.status}`);
+      return c.text('Failed to bridge to Gemini', 502);
+    }
+
+    const geminiWebSocket = geminiResponse.webSocket;
+    if (!geminiWebSocket) {
+      return c.text('Failed to get WebSocket from Gemini', 502);
+    }
+
+    // 4. Accept client connection and pipe data
+    const pair = new WebSocketPair();
+    const [client, server] = Object.values(pair);
+
+    server.accept();
+    geminiWebSocket.accept();
+
+    // From Client -> Gemini
+    server.addEventListener('message', (event) => {
+      if (geminiWebSocket.readyState === WebSocket.OPEN) {
+        geminiWebSocket.send(event.data);
+      }
+    });
+
+    // From Gemini -> Client
+    geminiWebSocket.addEventListener('message', (event) => {
+      if (server.readyState === WebSocket.OPEN) {
+        server.send(event.data);
+      }
+    });
+
+    server.addEventListener('close', () => geminiWebSocket.close());
+    geminiWebSocket.addEventListener('close', () => server.close());
+
+    return new Response(null, {
+      status: 101,
+      webSocket: client,
+    });
+  } catch (err: any) {
+    console.error("[Gemini Proxy] Error:", err);
+    return c.text('Internal Server Error', 500);
+  }
+});
+
 // Meta Public Config
 app.get('/api/config/meta', async (c) => {
   const appId = await c.env.SECRETS_KV.get('FB_APP_ID');
