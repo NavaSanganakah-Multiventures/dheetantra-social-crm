@@ -8,6 +8,7 @@ import Papa from 'papaparse';
 import { useWhatsAppWebRTC } from '@/lib/hooks/useWhatsAppWebRTC';
 import PhoneInput, { isValidPhoneNumber } from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
+import GeminiVoiceBridge from "@/app/components/GeminiVoiceBridge";
 type activeTab = 'dashboard' | 'inbox' | 'broadcast' | 'templates' | 'schedule' | 'settings' | 'contacts' | 'calls' | 'integrations' | 'accounts-whatsapp';
 
 const getUserTimezone = () => {
@@ -526,6 +527,12 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
             </motion.div>
           </AnimatePresence>
         </main>
+
+        {/* Gemini Voice Agent Bridge (Client-side connection via Secure Proxy) */}
+        {typeof window !== 'undefined' && localStorage.getItem('workspaceId') && (
+          <GeminiVoiceBridge workspaceId={localStorage.getItem('workspaceId') as string} />
+        )}
+
       </div>
 
       {/* Floating Calling Overlays */}
@@ -4852,6 +4859,8 @@ function WhatsAppManagerView() {
   const [sipWsServer, setSipWsServer] = useState("");
   const [sipUsername, setSipUsername] = useState("");
   const [sipPassword, setSipPassword] = useState("");
+  const [aiProvider, setAiProvider] = useState("gemini");
+  const [aiVoiceInstructions, setAiVoiceInstructions] = useState("");
   const [savingConfig, setSavingConfig] = useState(false);
   const [metaConfigId, setMetaConfigId] = useState("");
 
@@ -4985,7 +4994,9 @@ function WhatsAppManagerView() {
         sip_uri: sipUri,
         sip_ws_server: sipWsServer,
         sip_username: sipUsername,
-        sip_password: sipPassword
+        sip_password: sipPassword,
+        ai_provider: aiProvider,
+        ai_voice_instructions: aiVoiceInstructions
       };
       if (accessToken && accessToken !== "••••••••••••••••") {
         payload.access_token = accessToken;
@@ -5025,6 +5036,8 @@ function WhatsAppManagerView() {
     setSipWsServer(cfg.sip_ws_server || "");
     setSipUsername(cfg.sip_username || "");
     setSipPassword(cfg.sip_password || "");
+    setAiProvider(cfg.ai_provider || "gemini");
+    setAiVoiceInstructions(cfg.ai_voice_instructions || "");
     setShowProfileModal(true);
   };
 
@@ -5452,6 +5465,32 @@ function WhatsAppManagerView() {
                       </select>
                     </div>
                   </div>
+
+                  {replyMode === 'ai' && (
+                    <div className="grid grid-cols-1 gap-4 bg-zinc-50 dark:bg-zinc-900 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800">
+                      <div>
+                        <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-1">AI Provider</label>
+                        <select
+                          value={aiProvider}
+                          onChange={(e) => setAiProvider(e.target.value)}
+                          className="w-full text-sm p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 focus:border-indigo-500 outline-none"
+                        >
+                          <option value="gemini">Google Gemini</option>
+                          <option value="workers_ai">Cloudflare Workers AI (Llama 3)</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-1">Voice AI Agent Instructions (Gemini Voice)</label>
+                        <textarea
+                          value={aiVoiceInstructions}
+                          onChange={(e) => setAiVoiceInstructions(e.target.value)}
+                          placeholder="e.g. You are a helpful AI assistant for voice calls. Speak politely in Hindi."
+                          className="w-full text-sm p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 focus:border-indigo-500 outline-none h-20"
+                        />
+                        <p className="text-[10px] text-zinc-400 mt-1">ये निर्देश तब उपयोग किए जाएंगे जब कोई यूज़र WhatsApp पर वॉइस कॉल करेगा (WebRTC System Call)।</p>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Calling and WebRTC configuration sub-panel */}
                   <div className="border-t border-zinc-100 dark:border-zinc-800 pt-4 mt-2">
