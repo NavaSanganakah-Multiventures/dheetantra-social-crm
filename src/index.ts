@@ -228,6 +228,100 @@ app.get('/api/health', (c) => {
   return c.json({ status: 'active', environment: c.env.ENVIRONMENT || 'preview' });
 });
 
+// ==========================================
+// SECURE GEMINI VOICE WEBSOCKET PROXY
+// ==========================================
+app.get('/api/ai/gemini-stream/:workspaceId', async (c) => {
+  const upgradeHeader = c.req.header('Upgrade');
+  if (upgradeHeader !== 'websocket') {
+    return c.text('Expected Upgrade: websocket', 426);
+  }
+
+  // 1. Authenticate the request using standard cookie auth
+  const sessionId = getCookie(c, 'auth_session');
+  if (!sessionId) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  let user = null;
+  if (c.env.SECRETS_KV) {
+    const userDataStr = await c.env.SECRETS_KV.get(`SESSION:${sessionId}`);
+    if (userDataStr) user = JSON.parse(userDataStr);
+  }
+  if (!user) return c.json({ error: 'Unauthorized' }, 401);
+
+  const workspaceId = c.req.param('workspaceId');
+
+  // 1.5 Authorize Workspace Access
+  if (c.env.DB) {
+    const member = await c.env.DB.prepare('SELECT role FROM workspace_members WHERE workspace_id = ? AND user_id = ?').bind(workspaceId, user.id).first();
+    if (!member) {
+      return c.json({ error: 'Forbidden: You do not have access to this workspace' }, 403);
+    }
+  } else {
+    return c.json({ error: 'Database unavailable' }, 500);
+  }
+
+  // 2. Fetch Secure API Key from KV
+  const geminiKey = await c.env.SECRETS_KV.get('GEMINI_API_KEY');
+  if (!geminiKey) {
+    return c.text('Gemini API key not configured', 500);
+  }
+
+  // 3. Connect to Gemini Live API
+  const geminiUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=${geminiKey}`;
+
+  try {
+    // Cloudflare Workers Native fetch supports WebSockets!
+    const geminiResponse = await fetch(geminiUrl, {
+      headers: {
+        'Upgrade': 'websocket'
+      }
+    });
+
+    if (geminiResponse.status !== 101) {
+      console.error(`[Gemini Proxy] Failed to connect to Gemini: ${geminiResponse.status}`);
+      return c.text('Failed to bridge to Gemini', 502);
+    }
+
+    const geminiWebSocket = geminiResponse.webSocket;
+    if (!geminiWebSocket) {
+      return c.text('Failed to get WebSocket from Gemini', 502);
+    }
+
+    // 4. Accept client connection and pipe data
+    const pair = new WebSocketPair();
+    const [client, server] = Object.values(pair);
+
+    server.accept();
+    geminiWebSocket.accept();
+
+    // From Client -> Gemini
+    server.addEventListener('message', (event) => {
+      if (geminiWebSocket.readyState === WebSocket.OPEN) {
+        geminiWebSocket.send(event.data);
+      }
+    });
+
+    // From Gemini -> Client
+    geminiWebSocket.addEventListener('message', (event) => {
+      if (server.readyState === WebSocket.OPEN) {
+        server.send(event.data);
+      }
+    });
+
+    server.addEventListener('close', () => geminiWebSocket.close());
+    geminiWebSocket.addEventListener('close', () => server.close());
+
+    return new Response(null, {
+      status: 101,
+      webSocket: client,
+    });
+  } catch (err: any) {
+    console.error("[Gemini Proxy] Error:", err);
+    return c.text('Internal Server Error', 500);
+  }
+});
+
 // Meta Public Config
 app.get('/api/config/meta', async (c) => {
   const appId = await c.env.SECRETS_KV.get('FB_APP_ID');
@@ -583,27 +677,49 @@ app.post('/api/whatsapp/webhook', async (c) => {
                   direction === 'BUSINESS_INITIATED' ? 'outgoing' : 'incoming', 'ringing', 0).run();
                 console.log(`[Calling] Call saved to DB: ${callId}`);
 
-                // Broadcast to frontend via Durable Object
+                // AI vs Human routing logic
+                let routedToAI = false;
                 try {
-                  console.log(`[Calling] Broadcasting to DO: global-${config.workspace_id}`);
-                  const globalDoId = c.env.CHAT_DO.idFromName(`global-${config.workspace_id}`);
-                  const globalDo = c.env.CHAT_DO.get(globalDoId);
-                  const broadcastResp = await globalDo.fetch(new Request('http://internal/broadcast', {
-                    method: 'POST',
-                    body: JSON.stringify({
-                      type: 'whatsapp_incoming_call',
-                      callId: callId,
-                      from: callerNumber,
-                      sdp: sdp,
-                      sdpType: sdpType,
-                      phoneNumberId: phoneNumberId,
-                      direction: direction
-                    })
-                  }));
-                  const broadcastBody = await broadcastResp.text();
-                  console.log(`[Calling] ✅ Broadcast response from DO: ${broadcastBody}`);
+                  const aiConfig = await c.env.DB.prepare('SELECT reply_mode, ai_voice_instructions FROM whatsapp_configs WHERE phone_number_id = ?').bind(phoneNumberId).first<{ reply_mode: string, ai_voice_instructions: string }>();
+                  if (aiConfig && aiConfig.reply_mode === 'ai' && aiConfig.ai_voice_instructions) {
+                    routedToAI = true;
+                    console.log(`[Calling] Routing call to AI Voice Agent...`);
+                    c.executionCtx.waitUntil((async () => {
+                      try {
+                        const { initiateVoiceAgentBridge } = await import('./services/voiceAgent');
+                        await initiateVoiceAgentBridge(c.env, config.workspace_id, callerNumber, aiConfig.ai_voice_instructions, callId, sdp, phoneNumberId);
+                      } catch(err) {
+                        console.error('[Calling] Failed to trigger Voice Agent Bridge', err);
+                      }
+                    })());
+                  }
                 } catch (e) {
-                  console.error('[Calling] ❌ Failed to broadcast incoming call:', e);
+                   console.error('[Calling] Failed to check AI routing config', e);
+                }
+
+                // Broadcast to frontend via Durable Object ONLY if not routed to AI
+                if (!routedToAI) {
+                  try {
+                    console.log(`[Calling] Broadcasting to DO: global-${config.workspace_id} for Human Answering`);
+                    const globalDoId = c.env.CHAT_DO.idFromName(`global-${config.workspace_id}`);
+                    const globalDo = c.env.CHAT_DO.get(globalDoId);
+                    const broadcastResp = await globalDo.fetch(new Request('http://internal/broadcast', {
+                      method: 'POST',
+                      body: JSON.stringify({
+                        type: 'whatsapp_incoming_call',
+                        callId: callId,
+                        from: callerNumber,
+                        sdp: sdp,
+                        sdpType: sdpType,
+                        phoneNumberId: phoneNumberId,
+                        direction: direction
+                      })
+                    }));
+                    const broadcastBody = await broadcastResp.text();
+                    console.log(`[Calling] ✅ Broadcast response from DO: ${broadcastBody}`);
+                  } catch (e) {
+                    console.error('[Calling] ❌ Failed to broadcast incoming call:', e);
+                  }
                 }
 
               } else if (event === 'terminate') {
@@ -1359,7 +1475,7 @@ app.post('/api/whatsapp/config', async (c) => {
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
   const {
-    id, phone_number_id, waba_id, access_token, verify_token, reply_mode
+    id, phone_number_id, waba_id, access_token, verify_token, reply_mode, ai_provider, ai_voice_instructions
   } = await c.req.json();
   const newId = id || crypto.randomUUID();
 
@@ -1369,34 +1485,36 @@ app.post('/api/whatsapp/config', async (c) => {
 
     let existing: any = null;
     if (id) {
-      existing = await c.env.DB.prepare('SELECT id, waba_id, access_token, verify_token, reply_mode FROM whatsapp_configs WHERE id = ?').bind(id).first();
+      existing = await c.env.DB.prepare('SELECT id, waba_id, access_token, verify_token, reply_mode, ai_provider, ai_voice_instructions FROM whatsapp_configs WHERE id = ?').bind(id).first();
     } else {
-      existing = await c.env.DB.prepare('SELECT id, waba_id, access_token, verify_token, reply_mode FROM whatsapp_configs WHERE workspace_id = ? AND phone_number_id = ?').bind(workspaceId, phone_number_id).first();
+      existing = await c.env.DB.prepare('SELECT id, waba_id, access_token, verify_token, reply_mode, ai_provider, ai_voice_instructions FROM whatsapp_configs WHERE workspace_id = ? AND phone_number_id = ?').bind(workspaceId, phone_number_id).first();
     }
 
     const finalId = id || existing?.id || newId;
     const finalToken = access_token !== undefined ? access_token : (existing?.access_token || '');
     const finalReplyMode = reply_mode !== undefined ? reply_mode : (existing?.reply_mode || 'manual');
+    const finalAiProvider = ai_provider !== undefined ? ai_provider : (existing?.ai_provider || 'gemini');
+    const finalAiVoiceInstructions = ai_voice_instructions !== undefined ? ai_voice_instructions : (existing?.ai_voice_instructions || null);
     const finalWabaId = waba_id !== undefined ? waba_id : (existing?.waba_id || null);
     const finalVerifyToken = verify_token !== undefined ? verify_token : (existing?.verify_token || null);
 
     if (existing || id) {
       await c.env.DB.prepare(
         `UPDATE whatsapp_configs SET 
-          phone_number_id = ?, waba_id = ?, access_token = ?, verify_token = ?, reply_mode = ?
+          phone_number_id = ?, waba_id = ?, access_token = ?, verify_token = ?, reply_mode = ?, ai_provider = ?, ai_voice_instructions = ?
         WHERE id = ?`
       ).bind(
-        phone_number_id, finalWabaId, finalToken, finalVerifyToken, finalReplyMode,
+        phone_number_id, finalWabaId, finalToken, finalVerifyToken, finalReplyMode, finalAiProvider, finalAiVoiceInstructions,
         finalId
       ).run();
     } else {
       await c.env.DB.prepare(
         `INSERT INTO whatsapp_configs (
-          id, workspace_id, phone_number_id, waba_id, access_token, verify_token, reply_mode
+          id, workspace_id, phone_number_id, waba_id, access_token, verify_token, reply_mode, ai_provider, ai_voice_instructions
         ) 
-         VALUES (?, ?, ?, ?, ?, ?, ?)`
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
       ).bind(
-        finalId, workspaceId, phone_number_id, finalWabaId, finalToken, finalVerifyToken, finalReplyMode
+        finalId, workspaceId, phone_number_id, finalWabaId, finalToken, finalVerifyToken, finalReplyMode, finalAiProvider, finalAiVoiceInstructions
       ).run();
     }
 
@@ -1460,7 +1578,7 @@ app.get('/api/whatsapp/config', async (c) => {
   try {
 
 
-    const { results } = await c.env.DB.prepare('SELECT id, phone_number_id, waba_id, verify_token, reply_mode, calling_enabled, created_at FROM whatsapp_configs WHERE workspace_id = ?').bind(workspaceId).all();
+    const { results } = await c.env.DB.prepare('SELECT id, phone_number_id, waba_id, verify_token, reply_mode, calling_enabled, ai_provider, ai_voice_instructions, created_at FROM whatsapp_configs WHERE workspace_id = ?').bind(workspaceId).all();
     const config = results && results.length > 0 ? results[0] : null;
     return c.json({ config: config || null, configs: results || [] });
   } catch (err: any) {

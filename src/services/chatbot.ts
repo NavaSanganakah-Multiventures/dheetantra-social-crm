@@ -184,15 +184,28 @@ export async function handleIncomingMessage(
 
   // Check Bot Settings
   let replyMode = 'manual';
+  let aiProvider = 'gemini';
+  let aiVoiceInstructions = '';
   try {
 
     
-    const config = await env.DB.prepare('SELECT reply_mode FROM whatsapp_configs WHERE phone_number_id = ?').bind(phoneNumberId).first<{ reply_mode: string }>();
-    if (config && config.reply_mode) {
-      replyMode = config.reply_mode;
+    const config = await env.DB.prepare('SELECT reply_mode, ai_provider, ai_voice_instructions FROM whatsapp_configs WHERE phone_number_id = ?').bind(phoneNumberId).first<{ reply_mode: string, ai_provider: string, ai_voice_instructions: string }>();
+    if (config) {
+      replyMode = config.reply_mode || 'manual';
+      aiProvider = config.ai_provider || 'gemini';
+      aiVoiceInstructions = config.ai_voice_instructions || '';
     }
   } catch (e) {
     console.error("Failed to get reply_mode", e);
+  }
+
+  // Voice AI Agent Handling (System Calls)
+  if (messageType === 'system_call') {
+    console.log(`[Calling] system_call received via message webhook. Instructions: ${aiVoiceInstructions}`);
+    // Note: The WebRTC SDP doesn't come through the messages webhook,
+    // it comes through the calls webhook. So we intercept it there (src/index.ts).
+    // This block catches the text representation of the call.
+    return; // Stop execution as system_calls don't get text replies
   }
 
   if (replyMode === 'manual') {
@@ -202,23 +215,39 @@ export async function handleIncomingMessage(
   let replyText = '';
   
   if (replyMode === 'ai') {
-    const geminiKey = await env.SECRETS_KV.get('GEMINI_API_KEY');
-    if (!geminiKey) {
-      replyText = "Sorry, our AI service is temporarily unavailable. Our team will assist you shortly.";
-    } else {
+    if (aiProvider === 'workers_ai') {
       try {
-        const ai = new GoogleGenAI({ apiKey: geminiKey });
-        const aiResponse = await ai.models.generateContent({
-            model: 'gemini-3.5-flash',
-            contents: `You are a helpful customer support AI for Dhitantra. 
-User message: "${messageText}" 
-User Name: ${contactName}
-Respond naturally and helpfully in the same language as the user. Keep it concise for WhatsApp.`
+        const response = await env.AI.run('@cf/meta/llama-3-8b-instruct', {
+          messages: [
+            { role: 'system', content: `You are a helpful customer support AI for Dhitantra. Respond naturally and helpfully in the same language as the user. Keep it concise for WhatsApp. User Name is ${contactName}.` },
+            { role: 'user', content: messageText }
+          ]
         });
-        replyText = aiResponse.text || "I'm sorry, I couldn't process that request right now.";
+        replyText = response.response || "I'm sorry, I couldn't process that request right now.";
       } catch (e) {
-        console.error("AI Generation failed", e);
-       replyText = "Sorry, our AI system is currently unavailable. We will get back to you shortly.";
+        console.error("Workers AI Generation failed", e);
+        replyText = "Sorry, our AI system (Workers AI) is currently unavailable. We will get back to you shortly.";
+      }
+    } else {
+      // Default to Gemini
+      const geminiKey = await env.SECRETS_KV.get('GEMINI_API_KEY');
+      if (!geminiKey) {
+        replyText = "Sorry, our AI service is temporarily unavailable. Our team will assist you shortly.";
+      } else {
+        try {
+          const ai = new GoogleGenAI({ apiKey: geminiKey });
+          const aiResponse = await ai.models.generateContent({
+              model: 'gemini-3.5-flash',
+              contents: `You are a helpful customer support AI for Dhitantra.
+  User message: "${messageText}"
+  User Name: ${contactName}
+  Respond naturally and helpfully in the same language as the user. Keep it concise for WhatsApp.`
+          });
+          replyText = aiResponse.text || "I'm sorry, I couldn't process that request right now.";
+        } catch (e) {
+          console.error("AI Generation failed", e);
+         replyText = "Sorry, our AI system is currently unavailable. We will get back to you shortly.";
+        }
       }
     }
   } else {
