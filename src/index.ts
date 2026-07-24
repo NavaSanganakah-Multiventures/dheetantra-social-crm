@@ -251,6 +251,16 @@ app.get('/api/ai/gemini-stream/:workspaceId', async (c) => {
 
   const workspaceId = c.req.param('workspaceId');
 
+  // 1.5 Authorize Workspace Access
+  if (c.env.DB) {
+    const member = await c.env.DB.prepare('SELECT role FROM workspace_members WHERE workspace_id = ? AND user_id = ?').bind(workspaceId, user.id).first();
+    if (!member) {
+      return c.json({ error: 'Forbidden: You do not have access to this workspace' }, 403);
+    }
+  } else {
+    return c.json({ error: 'Database unavailable' }, 500);
+  }
+
   // 2. Fetch Secure API Key from KV
   const geminiKey = await c.env.SECRETS_KV.get('GEMINI_API_KEY');
   if (!geminiKey) {
