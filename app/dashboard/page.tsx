@@ -8,6 +8,7 @@ import Papa from 'papaparse';
 import { useWhatsAppWebRTC } from '@/lib/hooks/useWhatsAppWebRTC';
 import PhoneInput, { isValidPhoneNumber } from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
+import GeminiVoiceBridge from "@/app/components/GeminiVoiceBridge";
 type activeTab = 'dashboard' | 'inbox' | 'broadcast' | 'templates' | 'schedule' | 'settings' | 'contacts' | 'calls' | 'integrations' | 'accounts-whatsapp';
 
 const getUserTimezone = () => {
@@ -526,6 +527,12 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
             </motion.div>
           </AnimatePresence>
         </main>
+
+        {/* Gemini Voice Agent Bridge (Client-side connection via Secure Proxy) */}
+        {typeof window !== 'undefined' && localStorage.getItem('workspaceId') && (
+          <GeminiVoiceBridge workspaceId={localStorage.getItem('workspaceId') as string} />
+        )}
+
       </div>
 
       {/* Floating Calling Overlays */}
