@@ -4862,6 +4862,199 @@ function WhatsAppManagerView() {
   const [aiProvider, setAiProvider] = useState("gemini");
   const [aiVoiceInstructions, setAiVoiceInstructions] = useState("");
   const [savingConfig, setSavingConfig] = useState(false);
+  const [showMicTestModal, setShowMicTestModal] = useState(false);
+  const [isMicTesting, setIsMicTesting] = useState(false);
+  const [micTestStatus, setMicTestStatus] = useState("Idle");
+
+  // Refs for Mic Test audio streaming
+  const micAudioContextRef = useRef<AudioContext | null>(null);
+  const micWsRef = useRef<WebSocket | null>(null);
+  const micStreamRef = useRef<MediaStream | null>(null);
+  const micSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
+  const micProcessorRef = useRef<ScriptProcessorNode | null>(null);
+
+  const startMicTest = async () => {
+    try {
+      setIsMicTesting(true);
+      setMicTestStatus("Connecting to Gemini...");
+
+      const wId = localStorage.getItem('workspaceId');
+      if (!wId) {
+        setMicTestStatus("Error: No Workspace ID");
+        setIsMicTesting(false);
+        return;
+      }
+
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const proxyWsUrl = `${protocol}//${window.location.host}/api/ai/gemini-stream/${wId}`;
+
+      const ws = new WebSocket(proxyWsUrl);
+      micWsRef.current = ws;
+
+      ws.onopen = async () => {
+        setMicTestStatus("Connected, setting up mic...");
+
+        // 1. Send Setup message with instructions
+        ws.send(JSON.stringify({
+          setup: {
+            model: "models/gemini-2.0-flash-exp",
+            systemInstruction: { parts: [{ text: aiVoiceInstructions || "You are a helpful AI assistant. Speak politely in Hindi." }] },
+            generationConfig: { responseModalities: ["AUDIO"] }
+          }
+        }));
+
+        try {
+            // 2. Setup Audio Context & Mic
+            const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+            micAudioContextRef.current = new AudioContextClass({ sampleRate: 16000 });
+
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: {
+                sampleRate: 16000,
+                channelCount: 1,
+                echoCancellation: true,
+                noiseSuppression: true,
+            } });
+            micStreamRef.current = stream;
+
+            const source = micAudioContextRef.current.createMediaStreamSource(stream);
+            micSourceRef.current = source;
+
+            const processor = micAudioContextRef.current.createScriptProcessor(4096, 1, 1);
+            micProcessorRef.current = processor;
+
+            processor.onaudioprocess = (e) => {
+              if (ws.readyState !== WebSocket.OPEN) return;
+
+              const inputData = e.inputBuffer.getChannelData(0);
+              const pcm16 = new Int16Array(inputData.length);
+              for (let i = 0; i < inputData.length; i++) {
+                  let s = Math.max(-1, Math.min(1, inputData[i]));
+                  pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+              }
+
+              const buffer = new Uint8Array(pcm16.buffer);
+              let binary = '';
+              for (let i = 0; i < buffer.byteLength; i++) {
+                  binary += String.fromCharCode(buffer[i]);
+              }
+              const base64Data = window.btoa(binary);
+
+              ws.send(JSON.stringify({
+                  realtimeInput: {
+                      mediaChunks: [{ mimeType: "audio/pcm;rate=16000", data: base64Data }]
+                  }
+              }));
+            };
+
+            source.connect(processor);
+            processor.connect(micAudioContextRef.current.destination);
+
+            setMicTestStatus("Listening (Gemini से बात करें)");
+
+        } catch (err) {
+            console.error("Mic error:", err);
+            setMicTestStatus("Error accessing microphone.");
+            stopMicTest();
+        }
+      };
+
+      let nextPlayTime = 0;
+
+      ws.onmessage = async (event) => {
+        try {
+             let textData = event.data;
+             if (event.data instanceof Blob) textData = await event.data.text();
+             const geminiData = JSON.parse(textData);
+
+             if (geminiData.serverContent && geminiData.serverContent.modelTurn) {
+                 const parts = geminiData.serverContent.modelTurn.parts;
+                 for (const part of parts) {
+                     if (part.inlineData && part.inlineData.data) {
+                         const base64Audio = part.inlineData.data;
+                         const binaryString = window.atob(base64Audio);
+                         const bytes = new Uint8Array(binaryString.length);
+                         for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
+
+                         if (micAudioContextRef.current) {
+                             const int16Array = new Int16Array(bytes.buffer);
+                             const float32Array = new Float32Array(int16Array.length);
+                             for (let i = 0; i < int16Array.length; i++) {
+                                 float32Array[i] = int16Array[i] / (int16Array[i] < 0 ? 0x8000 : 0x7FFF);
+                             }
+
+                             const audioBuffer = micAudioContextRef.current.createBuffer(1, float32Array.length, 16000);
+                             audioBuffer.copyToChannel(float32Array, 0);
+
+                             const source = micAudioContextRef.current.createBufferSource();
+                             source.buffer = audioBuffer;
+                             source.connect(micAudioContextRef.current.destination);
+
+                             const currentTime = micAudioContextRef.current.currentTime;
+                             if (nextPlayTime < currentTime) {
+                                 nextPlayTime = currentTime;
+                             }
+                             source.start(nextPlayTime);
+                             nextPlayTime += audioBuffer.duration;
+                         }
+                     }
+                 }
+             }
+        } catch (err) {
+            console.error("Error processing Gemini audio:", err);
+        }
+      };
+
+      ws.onerror = () => {
+          setMicTestStatus("WebSocket Error.");
+          stopMicTest();
+      };
+
+      ws.onclose = () => {
+          setMicTestStatus("Disconnected.");
+          stopMicTest();
+      };
+
+    } catch (err) {
+      console.error(err);
+      setMicTestStatus("Failed to start.");
+      setIsMicTesting(false);
+    }
+  };
+
+  const stopMicTest = () => {
+      setIsMicTesting(false);
+      setMicTestStatus("Idle");
+
+      if (micProcessorRef.current) {
+          micProcessorRef.current.disconnect();
+          micProcessorRef.current = null;
+      }
+      if (micSourceRef.current) {
+          micSourceRef.current.disconnect();
+          micSourceRef.current = null;
+      }
+      if (micStreamRef.current) {
+          micStreamRef.current.getTracks().forEach(track => track.stop());
+          micStreamRef.current = null;
+      }
+      if (micAudioContextRef.current) {
+          micAudioContextRef.current.close().catch(()=>{});
+          micAudioContextRef.current = null;
+      }
+      if (micWsRef.current) {
+          micWsRef.current.close();
+          micWsRef.current = null;
+      }
+  };
+
+  // Cleanup on unmount
+  useEffect(() => {
+      return () => {
+          stopMicTest();
+      };
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const [metaConfigId, setMetaConfigId] = useState("");
 
   // Flows states
@@ -5395,6 +5588,58 @@ function WhatsAppManagerView() {
             </div>
           )}
 
+          {/* Mic Test Modal */}
+          {showMicTestModal && (
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+              <div className="bg-white dark:bg-zinc-900 rounded-2xl w-full max-w-sm overflow-hidden border border-zinc-200 dark:border-zinc-800 shadow-xl animate-in zoom-in-95 duration-250">
+                <div className="p-4 border-b border-zinc-100 dark:border-zinc-800 flex justify-between items-center">
+                  <h3 className="text-lg font-bold text-zinc-900 dark:text-white flex items-center gap-2">
+                    <Phone className="w-5 h-5 text-indigo-500" /> Gemini से बात करें
+                  </h3>
+                  <button onClick={() => { stopMicTest(); setShowMicTestModal(false); }} className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200">
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                <div className="p-6 text-center space-y-6">
+                  <div className="relative mx-auto w-20 h-20 flex items-center justify-center">
+                    {isMicTesting && (
+                      <>
+                        <span className="absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-20 animate-ping"></span>
+                        <span className="absolute inline-flex h-16 w-16 rounded-full bg-indigo-500 opacity-20 animate-pulse"></span>
+                      </>
+                    )}
+                    <div className={`w-14 h-14 rounded-full flex items-center justify-center text-white shadow-lg z-10 transition-colors ${isMicTesting ? 'bg-indigo-600' : 'bg-zinc-400'}`}>
+                      <Phone className="w-6 h-6" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="font-bold text-zinc-900 dark:text-white">{isMicTesting ? 'माइक चालू है' : 'टेस्ट के लिए तैयार'}</h4>
+                    <p className="text-xs text-zinc-500 mt-1">{micTestStatus}</p>
+                  </div>
+
+                  <div className="flex gap-3 justify-center">
+                    {!isMicTesting ? (
+                      <button
+                        onClick={startMicTest}
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl text-sm font-bold shadow-sm transition-all"
+                      >
+                        Start (शुरू करें)
+                      </button>
+                    ) : (
+                      <button
+                        onClick={stopMicTest}
+                        className="bg-rose-500 hover:bg-rose-600 text-white px-6 py-2.5 rounded-xl text-sm font-bold shadow-sm transition-all flex items-center gap-2"
+                      >
+                         Stop (रोकें)
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Profile Editor Modal */}
           {showProfileModal && (
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -5488,6 +5733,12 @@ function WhatsAppManagerView() {
                           className="w-full text-sm p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 focus:border-indigo-500 outline-none h-20"
                         />
                         <p className="text-[10px] text-zinc-400 mt-1">ये निर्देश तब उपयोग किए जाएंगे जब कोई यूज़र WhatsApp पर वॉइस कॉल करेगा (WebRTC System Call)।</p>
+                        <button
+                          onClick={() => setShowMicTestModal(true)}
+                          className="mt-3 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all shadow-sm flex items-center gap-2"
+                        >
+                          <Phone className="w-4 h-4" /> Gemini से बात करें (Test Mic)
+                        </button>
                       </div>
                     </div>
                   )}
