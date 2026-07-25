@@ -378,8 +378,24 @@ app.get("/api/ai/gemini-stream/:workspaceId", async (c) => {
       }
     });
 
-    server.addEventListener("close", () => geminiWebSocket.close());
-    geminiWebSocket.addEventListener("close", () => server.close());
+    server.addEventListener("close", (e) => {
+      console.log(
+        `[Gemini Proxy] Client WS closed: code=${e.code}, reason=${e.reason}`,
+      );
+      geminiWebSocket.close();
+    });
+    geminiWebSocket.addEventListener("close", (e) => {
+      console.log(
+        `[Gemini Proxy] Gemini WS closed: code=${e.code}, reason=${e.reason}`,
+      );
+      server.close();
+    });
+    server.addEventListener("error", (e) => {
+      console.error(`[Gemini Proxy] Client WS error:`, e);
+    });
+    geminiWebSocket.addEventListener("error", (e) => {
+      console.error(`[Gemini Proxy] Gemini WS error:`, e);
+    });
 
     return new Response(null, {
       status: 101,
