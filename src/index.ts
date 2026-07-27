@@ -1530,19 +1530,18 @@ app.post('/api/whatsapp/config', async (c) => {
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
   const {
-    id, phone_number_id, waba_id, access_token, verify_token, reply_mode, ai_provider, ai_voice_instructions
+    id, phone_number_id, waba_id, access_token, verify_token, reply_mode, ai_provider, ai_voice_instructions,
+    about, description, website, email, address, username, calling_enabled, call_schedule
   } = await c.req.json();
   const newId = id || crypto.randomUUID();
 
   try {
 
-    // SIP columns removed — using Cloudflare Realtime TURN instead
-
     let existing: any = null;
     if (id) {
-      existing = await c.env.DB.prepare('SELECT id, waba_id, access_token, verify_token, reply_mode, ai_provider, ai_voice_instructions FROM whatsapp_configs WHERE id = ?').bind(id).first();
+      existing = await c.env.DB.prepare('SELECT id, waba_id, access_token, verify_token, reply_mode, ai_provider, ai_voice_instructions, about, description, website, email, address, username, calling_enabled, call_schedule FROM whatsapp_configs WHERE id = ?').bind(id).first();
     } else {
-      existing = await c.env.DB.prepare('SELECT id, waba_id, access_token, verify_token, reply_mode, ai_provider, ai_voice_instructions FROM whatsapp_configs WHERE workspace_id = ? AND phone_number_id = ?').bind(workspaceId, phone_number_id).first();
+      existing = await c.env.DB.prepare('SELECT id, waba_id, access_token, verify_token, reply_mode, ai_provider, ai_voice_instructions, about, description, website, email, address, username, calling_enabled, call_schedule FROM whatsapp_configs WHERE workspace_id = ? AND phone_number_id = ?').bind(workspaceId, phone_number_id).first();
     }
 
     const finalId = id || existing?.id || newId;
@@ -1552,24 +1551,43 @@ app.post('/api/whatsapp/config', async (c) => {
     const finalAiVoiceInstructions = ai_voice_instructions !== undefined ? ai_voice_instructions : (existing?.ai_voice_instructions || null);
     const finalWabaId = waba_id !== undefined ? waba_id : (existing?.waba_id || null);
     const finalVerifyToken = verify_token !== undefined ? verify_token : (existing?.verify_token || null);
+    const finalAbout = about !== undefined ? about : (existing?.about || '');
+    const finalDescription = description !== undefined ? description : (existing?.description || '');
+    const finalWebsite = website !== undefined ? website : (existing?.website || '');
+    const finalEmail = email !== undefined ? email : (existing?.email || '');
+    const finalAddress = address !== undefined ? address : (existing?.address || '');
+    const finalUsername = username !== undefined ? username : (existing?.username || '');
+    const finalCallingEnabled = calling_enabled !== undefined ? calling_enabled : (existing?.calling_enabled ?? 1);
+    const finalCallSchedule = call_schedule !== undefined ? call_schedule : (existing?.call_schedule || '{"enabled":false,"start_time":"09:00","end_time":"17:00","days":[1,2,3,4,5,6,7]}');
 
     if (existing || id) {
       await c.env.DB.prepare(
         `UPDATE whatsapp_configs SET 
-          phone_number_id = ?, waba_id = ?, access_token = ?, verify_token = ?, reply_mode = ?, ai_provider = ?, ai_voice_instructions = ?
+          phone_number_id = ?, waba_id = ?, access_token = ?, verify_token = ?, reply_mode = ?, 
+          ai_provider = ?, ai_voice_instructions = ?,
+          about = ?, description = ?, website = ?, email = ?, address = ?, username = ?,
+          calling_enabled = ?, call_schedule = ?
         WHERE id = ?`
       ).bind(
-        phone_number_id, finalWabaId, finalToken, finalVerifyToken, finalReplyMode, finalAiProvider, finalAiVoiceInstructions,
+        phone_number_id, finalWabaId, finalToken, finalVerifyToken, finalReplyMode,
+        finalAiProvider, finalAiVoiceInstructions,
+        finalAbout, finalDescription, finalWebsite, finalEmail, finalAddress, finalUsername,
+        finalCallingEnabled, finalCallSchedule,
         finalId
       ).run();
     } else {
       await c.env.DB.prepare(
         `INSERT INTO whatsapp_configs (
-          id, workspace_id, phone_number_id, waba_id, access_token, verify_token, reply_mode, ai_provider, ai_voice_instructions
+          id, workspace_id, phone_number_id, waba_id, access_token, verify_token, reply_mode, 
+          ai_provider, ai_voice_instructions,
+          about, description, website, email, address, username, calling_enabled, call_schedule
         ) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       ).bind(
-        finalId, workspaceId, phone_number_id, finalWabaId, finalToken, finalVerifyToken, finalReplyMode, finalAiProvider, finalAiVoiceInstructions
+        finalId, workspaceId, phone_number_id, finalWabaId, finalToken, finalVerifyToken, finalReplyMode,
+        finalAiProvider, finalAiVoiceInstructions,
+        finalAbout, finalDescription, finalWebsite, finalEmail, finalAddress, finalUsername,
+        finalCallingEnabled, finalCallSchedule
       ).run();
     }
 
@@ -1633,7 +1651,7 @@ app.get('/api/whatsapp/config', async (c) => {
   try {
 
 
-    const { results } = await c.env.DB.prepare('SELECT id, phone_number_id, waba_id, verify_token, reply_mode, calling_enabled, ai_provider, ai_voice_instructions, created_at FROM whatsapp_configs WHERE workspace_id = ?').bind(workspaceId).all();
+    const { results } = await c.env.DB.prepare('SELECT id, phone_number_id, waba_id, access_token, verify_token, reply_mode, calling_enabled, ai_provider, ai_voice_instructions, about, description, website, email, address, username, profile_picture_url, call_schedule, created_at FROM whatsapp_configs WHERE workspace_id = ?').bind(workspaceId).all();
     const config = results && results.length > 0 ? results[0] : null;
     return c.json({ config: config || null, configs: results || [] });
   } catch (err: any) {
@@ -1768,6 +1786,93 @@ app.put('/api/whatsapp/config/profile', async (c) => {
     }
 
     return c.json({ success: true, message: 'Profile updated' });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+// POST Upload & update WhatsApp Business Profile picture
+app.post('/api/whatsapp/config/profile/picture', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  try {
+    const body = await c.req.parseBody();
+    const file = body['file'];
+    const phoneNumberId = body['phone_number_id'] as string || c.req.query('phoneNumberId');
+
+    if (!file || typeof file === 'string') {
+      return c.json({ error: 'No file uploaded' }, 400);
+    }
+    if (!phoneNumberId) {
+      return c.json({ error: 'phone_number_id required' }, 400);
+    }
+
+    const config = await c.env.DB.prepare(
+      'SELECT id, access_token FROM whatsapp_configs WHERE workspace_id = ? AND phone_number_id = ?'
+    ).bind(workspaceId, phoneNumberId).first<any>();
+    if (!config) return c.json({ error: 'WhatsApp config not found' }, 404);
+
+    // Save to R2
+    const arrayBuffer = await file.arrayBuffer();
+    const extension = file.name ? file.name.split('.').pop() : 'png';
+    const key = `profile_${crypto.randomUUID()}.${extension}`;
+    await c.env.MEDIA_BUCKET.put(key, arrayBuffer, {
+      httpMetadata: { contentType: file.type || 'image/png' }
+    });
+    const origin = new URL(c.req.url).origin;
+    const r2Url = `${origin}/api/public/media/${key}`;
+
+    // Update profile_picture_url in local DB
+    await c.env.DB.prepare(
+      'UPDATE whatsapp_configs SET profile_picture_url = ? WHERE id = ?'
+    ).bind(r2Url, config.id).run();
+
+    // Try to sync to Meta API (non-blocking)
+    c.executionCtx.waitUntil(
+      (async () => {
+        try {
+          // Step 1: Upload file to Meta to get an upload handle
+          const uploadForm = new FormData();
+          const blob = new Blob([arrayBuffer], { type: file.type || 'image/png' });
+          uploadForm.append('file', blob, file.name || 'profile.png');
+          uploadForm.append('type', 'image/png');
+          uploadForm.append('messaging_product', 'whatsapp');
+
+          const uploadRes = await fetch(
+            `https://graph.facebook.com/v20.0/${phoneNumberId}/uploads`,
+            {
+              method: 'POST',
+              headers: { 'Authorization': `Bearer ${config.access_token}` },
+              body: uploadForm
+            }
+          );
+          const uploadData: any = await uploadRes.json();
+
+          if (uploadRes.ok && uploadData.id) {
+            // Step 2: Update business profile with the upload handle
+            await fetch(
+              `https://graph.facebook.com/v20.0/${phoneNumberId}/whatsapp_business_profile`,
+              {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${config.access_token}`,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ profile_picture_handle: uploadData.id })
+              }
+            );
+            console.log(`[Profile] Meta profile picture updated for ${phoneNumberId}`);
+          } else {
+            console.error('[Profile] Meta upload failed:', uploadData);
+          }
+        } catch (e) {
+          console.error('[Profile] Meta sync error:', e);
+        }
+      })()
+    );
+
+    return c.json({ success: true, profile_picture_url: r2Url });
   } catch (err: any) {
     return c.json({ error: err.message }, 500);
   }

@@ -5023,6 +5023,7 @@ function WhatsAppManagerView() {
   const [aiProvider, setAiProvider] = useState("gemini");
   const [aiVoiceInstructions, setAiVoiceInstructions] = useState("");
   const [savingConfig, setSavingConfig] = useState(false);
+  const [uploadingPicture, setUploadingPicture] = useState(false);
   const [showMicTestModal, setShowMicTestModal] = useState(false);
   const [isMicTesting, setIsMicTesting] = useState(false);
   const [micTestStatus, setMicTestStatus] = useState("Idle");
@@ -6018,20 +6019,78 @@ function WhatsAppManagerView() {
                   <div className="border-t border-zinc-100 dark:border-zinc-800 pt-4 mt-2">
                     <h4 className="text-xs font-bold text-zinc-800 dark:text-zinc-200 uppercase tracking-wider mb-3">WhatsApp Business Profile</h4>
                     <div className="space-y-3">
-                      {profilePictureUrl && (
-                        <div className="flex justify-center mb-3">
-                          <img src={profilePictureUrl} alt="Profile" className="w-20 h-20 rounded-full object-cover border-2 border-zinc-200" />
+                      {/* Profile Picture with Upload */}
+                      <div className="flex flex-col items-center mb-4">
+                        <div className="relative">
+                          {profilePictureUrl ? (
+                            <img src={profilePictureUrl} alt="Profile" className="w-24 h-24 rounded-full object-cover border-2 border-zinc-200 dark:border-zinc-700" />
+                          ) : (
+                            <div className="w-24 h-24 rounded-full bg-zinc-100 dark:bg-zinc-800 border-2 border-dashed border-zinc-300 dark:border-zinc-600 flex items-center justify-center">
+                              <span className="text-zinc-400 text-xs">No Photo</span>
+                            </div>
+                          )}
+                          <label className="absolute -bottom-1 -right-1 w-8 h-8 bg-indigo-500 hover:bg-indigo-600 text-white rounded-full flex items-center justify-center cursor-pointer shadow-md transition-colors">
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              disabled={uploadingPicture}
+                              onChange={async (e) => {
+                                const file = e.target.files?.[0];
+                                if (!file) return;
+                                setUploadingPicture(true);
+                                try {
+                                  const formData = new FormData();
+                                  formData.append('file', file);
+                                  formData.append('phone_number_id', phoneNumberId);
+                                  const res = await fetch('/api/whatsapp/config/profile/picture', {
+                                    method: 'POST',
+                                    headers: { 'x-workspace-id': localStorage.getItem('workspaceId') || '' },
+                                    body: formData
+                                  });
+                                  const data: any = await res.json();
+                                  if (data.success) {
+                                    setProfilePictureUrl(data.profile_picture_url);
+                                    setMessage("प्रोफ़ाइल फ़ोटो अपडेट की गई!");
+                                  } else {
+                                    setMessage("त्रुटि: " + (data.error || "अपलोड विफल"));
+                                  }
+                                } catch (err) {
+                                  setMessage("अपलोड त्रुटि");
+                                } finally {
+                                  setUploadingPicture(false);
+                                }
+                              }}
+                            />
+                            {uploadingPicture ? (
+                              <span className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
+                            ) : (
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                            )}
+                          </label>
                         </div>
-                      )}
+                        <p className="text-[10px] text-zinc-400 mt-2">Profile picture — syncs to WhatsApp</p>
+                      </div>
+
+                      {/* About with character counter */}
                       <div>
-                        <label className="block text-[11px] font-semibold text-zinc-400 mb-1">About (जानकारी / Description)</label>
-                        <textarea
-                          value={profileAbout}
-                          onChange={(e) => setProfileAbout(e.target.value)}
-                          placeholder="Your WhatsApp Business about text"
-                          rows={2}
-                          className="w-full text-xs p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 focus:border-indigo-500 outline-none resize-none"
-                        />
+                        <label className="block text-[11px] font-semibold text-zinc-400 mb-1">About (जानकारी)</label>
+                        <div className="relative">
+                          <textarea
+                            value={profileAbout}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val.length <= 139) setProfileAbout(val);
+                            }}
+                            placeholder="Your WhatsApp Business about text"
+                            rows={2}
+                            className="w-full text-xs p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 focus:border-indigo-500 outline-none resize-none pr-16"
+                          />
+                          <span className={`absolute bottom-2 right-2 text-[10px] font-mono ${profileAbout.length > 130 ? 'text-red-500' : 'text-zinc-400'}`}>
+                            {profileAbout.length}/139
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-zinc-400 mt-1">Meta allows max 139 characters. Syncs to WhatsApp Business Profile.</p>
                       </div>
                       <div>
                         <label className="block text-[11px] font-semibold text-zinc-400 mb-1">Description (विस्तृत विवरण)</label>
@@ -6042,6 +6101,7 @@ function WhatsAppManagerView() {
                           rows={3}
                           className="w-full text-xs p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 focus:border-indigo-500 outline-none resize-none"
                         />
+                        <p className="text-[10px] text-zinc-400 mt-1">Syncs to WhatsApp Business Profile</p>
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div>
@@ -6053,6 +6113,7 @@ function WhatsAppManagerView() {
                             placeholder="https://example.com"
                             className="w-full text-xs p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 focus:border-indigo-500 outline-none"
                           />
+                          <p className="text-[10px] text-zinc-400 mt-1">Syncs to WhatsApp Business Profile</p>
                         </div>
                         <div>
                           <label className="block text-[11px] font-semibold text-zinc-400 mb-1">Email (ईमेल पता)</label>
@@ -6063,6 +6124,7 @@ function WhatsAppManagerView() {
                             placeholder="business@example.com"
                             className="w-full text-xs p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 focus:border-indigo-500 outline-none"
                           />
+                          <p className="text-[10px] text-zinc-400 mt-1">Syncs to WhatsApp Business Profile</p>
                         </div>
                       </div>
                       <div>
@@ -6074,6 +6136,7 @@ function WhatsAppManagerView() {
                           placeholder="123 Main St, City, Country"
                           className="w-full text-xs p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 focus:border-indigo-500 outline-none"
                         />
+                        <p className="text-[10px] text-zinc-400 mt-1">Syncs to WhatsApp Business Profile</p>
                       </div>
                       <div>
                         <label className="block text-[11px] font-semibold text-zinc-400 mb-1">WhatsApp Username (@यूज़रनेम)</label>
@@ -6087,7 +6150,7 @@ function WhatsAppManagerView() {
                             className="flex-1 text-xs p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 focus:border-indigo-500 outline-none"
                           />
                         </div>
-                        <p className="text-[10px] text-zinc-400 mt-1">Only letters, numbers, underscore and dots</p>
+                        <p className="text-[10px] text-zinc-400 mt-1">Letters, numbers, underscore and dots only. Local-only (not synced to Meta).</p>
                       </div>
                     </div>
                   </div>
@@ -6178,20 +6241,32 @@ function WhatsAppManagerView() {
                   </div>
                 </div>
 
-                <div className="p-6 border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/50 flex gap-3 justify-end">
-                  <button 
-                    onClick={() => setShowProfileModal(false)}
-                    className="px-4 py-2 text-sm text-zinc-500 hover:text-zinc-700 bg-zinc-100 dark:bg-zinc-800 rounded-xl font-semibold"
-                  >
-                    रद्द करें (Cancel)
-                  </button>
-                  <button 
-                    onClick={handleSaveProfile}
-                    disabled={savingConfig}
-                    className="px-6 py-2 text-sm bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition-all"
-                  >
-                    {savingConfig ? "सहेजा जा रहा है..." : "सुरक्षित करें (Save)"}
-                  </button>
+                <div className="p-6 border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/50">
+                  {message && (
+                    <div className="mb-4 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-300 p-3 rounded-xl border border-emerald-100 dark:border-emerald-900 text-xs font-medium">
+                      {message}
+                    </div>
+                  )}
+                  <div className="flex gap-3 justify-end">
+                    <button 
+                      onClick={() => setShowProfileModal(false)}
+                      className="px-4 py-2 text-sm text-zinc-500 hover:text-zinc-700 bg-zinc-100 dark:bg-zinc-800 rounded-xl font-semibold"
+                    >
+                      रद्द करें (Cancel)
+                    </button>
+                    <button 
+                      onClick={handleSaveProfile}
+                      disabled={savingConfig || uploadingPicture}
+                      className="px-6 py-2 text-sm bg-emerald-600 hover:bg-emerald-700 disabled:bg-zinc-400 text-white rounded-xl font-bold transition-all"
+                    >
+                      {savingConfig ? (
+                        <span className="flex items-center gap-2">
+                          <span className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
+                          सहेजा जा रहा है...
+                        </span>
+                      ) : "सुरक्षित करें (Save)"}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
