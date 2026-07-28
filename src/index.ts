@@ -121,9 +121,8 @@ app.use('/api/*', async (c, next) => {
 
   // Verify Flutter App Signature if present
   if (appSignature) {
-    // Ideally fetch this from env.SECRETS_KV, for now hardcoding or using fallback
-    const validSignature = 'FLUTTER_APP_SECRET_SIGNATURE_2024';
-    if (appSignature !== validSignature) {
+    const validSignature = c.env.SECRETS_KV ? await c.env.SECRETS_KV.get('FLUTTER_APP_SIGNATURE') : null;
+    if (!validSignature || appSignature !== validSignature) {
       return c.json({ error: 'Unauthorized: Invalid App Signature' }, 401);
     }
     // Proceed if signature is valid (bypassing origin checks since apps don't have standard origins)
