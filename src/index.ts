@@ -113,9 +113,23 @@ export class AutomationWorkflow extends WorkflowEntrypoint<Env, any> {
 const app = new Hono<{ Bindings: Env }>();
 
 // Security, Domain Verification, and Rate Limiting Middleware
+
 app.use('/api/*', async (c, next) => {
   const origin = c.req.header('origin');
   const ip = c.req.header('cf-connecting-ip') || 'unknown';
+  const appSignature = c.req.header('x-app-signature');
+
+  // Verify Flutter App Signature if present
+  if (appSignature) {
+    // Ideally fetch this from env.SECRETS_KV, for now hardcoding or using fallback
+    const validSignature = 'FLUTTER_APP_SECRET_SIGNATURE_2024';
+    if (appSignature !== validSignature) {
+      return c.json({ error: 'Unauthorized: Invalid App Signature' }, 401);
+    }
+    // Proceed if signature is valid (bypassing origin checks since apps don't have standard origins)
+    return await next();
+  }
+
 
   if (origin) {
     let originHost = '';
