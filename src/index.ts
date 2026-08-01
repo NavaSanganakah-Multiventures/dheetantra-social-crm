@@ -1634,6 +1634,36 @@ app.post('/api/whatsapp/config', async (c) => {
               console.error(`[Webhook] Failed to subscribe for WABA ${finalWabaId}:`, e);
             }
           }
+
+          // Sync Profile info to Meta
+          const metaPayload: any = { messaging_product: 'whatsapp' };
+          let shouldSyncProfile = false;
+          if (finalAbout !== undefined && finalAbout !== null) { metaPayload.about = finalAbout; shouldSyncProfile = true; }
+          if (finalDescription !== undefined && finalDescription !== null) { metaPayload.description = finalDescription; shouldSyncProfile = true; }
+          if (finalEmail !== undefined && finalEmail !== null) { metaPayload.email = finalEmail; shouldSyncProfile = true; }
+          if (finalWebsite !== undefined && finalWebsite !== null) { metaPayload.websites = [finalWebsite]; shouldSyncProfile = true; }
+          if (finalAddress !== undefined && finalAddress !== null) { metaPayload.address = finalAddress; shouldSyncProfile = true; }
+          
+          if (shouldSyncProfile) {
+            try {
+              const profileRes = await fetch(`https://graph.facebook.com/v20.0/${phone_number_id}/whatsapp_business_profile`, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${finalToken}`,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(metaPayload)
+              });
+              const profileData = await profileRes.json();
+              if (!profileRes.ok) {
+                console.error('[Profile] Failed to sync config profile:', profileData);
+              } else {
+                console.log('[Profile] Synced config profile to Meta API');
+              }
+            } catch (e) {
+              console.error('[Profile] Error syncing config profile to Meta API:', e);
+            }
+          }
         })()
       );
     }
@@ -1744,7 +1774,7 @@ app.put('/api/whatsapp/config/profile', async (c) => {
     ).bind(workspaceId, phone_number_id).first<any>();
     if (!config) return c.json({ error: 'WhatsApp config not found' }, 404);
 
-    const metaPayload: any = {};
+    const metaPayload: any = { messaging_product: 'whatsapp' };
     if (about !== undefined) metaPayload.about = about;
     if (description !== undefined) metaPayload.description = description;
     if (email !== undefined) metaPayload.email = email;
@@ -1832,25 +1862,46 @@ app.post('/api/whatsapp/config/profile/picture', async (c) => {
     c.executionCtx.waitUntil(
       (async () => {
         try {
-          // Step 1: Upload file to Meta to get an upload handle
-          const uploadForm = new FormData();
-          const blob = new Blob([arrayBuffer], { type: file.type || 'image/png' });
-          uploadForm.append('file', blob, file.name || 'profile.png');
-          uploadForm.append('type', 'image/png');
-          uploadForm.append('messaging_product', 'whatsapp');
+          // Step 1: Get App ID from the token
+          const debugRes = await fetch(`https://graph.facebook.com/v20.0/debug_token?input_token=${config.access_token}&access_token=${config.access_token}`);
+          const debugData: any = await debugRes.json();
+          const appId = debugData.data?.app_id;
 
-          const uploadRes = await fetch(
-            `https://graph.facebook.com/v20.0/${phoneNumberId}/uploads`,
+          if (!appId) {
+            console.error('[Profile] Failed to fetch app_id for Resumable Upload API:', debugData);
+            return;
+          }
+
+          // Step 2: Create Resumable Upload Session
+          const sessionRes = await fetch(
+            `https://graph.facebook.com/v20.0/${appId}/uploads?file_length=${arrayBuffer.byteLength}&file_type=${file.type || 'image/png'}`,
             {
               method: 'POST',
-              headers: { 'Authorization': `Bearer ${config.access_token}` },
-              body: uploadForm
+              headers: { 'Authorization': `Bearer ${config.access_token}` }
             }
           );
-          const uploadData: any = await uploadRes.json();
+          const sessionData: any = await sessionRes.json();
+          const uploadSessionId = sessionData.id;
 
-          if (uploadRes.ok && uploadData.id) {
-            // Step 2: Update business profile with the upload handle
+          if (!uploadSessionId) {
+            console.error('[Profile] Failed to create upload session:', sessionData);
+            return;
+          }
+
+          // Step 3: Upload the actual file bytes
+          const uploadRes = await fetch(`https://graph.facebook.com/v20.0/${uploadSessionId}`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `OAuth ${config.access_token}`,
+              'file_offset': '0'
+            },
+            body: arrayBuffer
+          });
+          const uploadData: any = await uploadRes.json();
+          const handle = uploadData.h;
+
+          if (uploadRes.ok && handle) {
+            // Step 4: Update business profile with the upload handle
             await fetch(
               `https://graph.facebook.com/v20.0/${phoneNumberId}/whatsapp_business_profile`,
               {
@@ -1859,12 +1910,12 @@ app.post('/api/whatsapp/config/profile/picture', async (c) => {
                   'Authorization': `Bearer ${config.access_token}`,
                   'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ profile_picture_handle: uploadData.id })
+                body: JSON.stringify({ messaging_product: 'whatsapp', profile_picture_handle: handle })
               }
             );
             console.log(`[Profile] Meta profile picture updated for ${phoneNumberId}`);
           } else {
-            console.error('[Profile] Meta upload failed:', uploadData);
+            console.error('[Profile] Meta Resumable Upload failed:', uploadData);
           }
         } catch (e) {
           console.error('[Profile] Meta sync error:', e);
