@@ -7,6 +7,7 @@ import {
   deleteZone,
   enableEmailRouting,
   findZone,
+  getCloudflareCredentials,
   getZone,
   listRoutingRules,
   listZoneDnsRecords,
@@ -30,6 +31,27 @@ export function validateEmailAddress(email: string): boolean {
 // MIME headers must never contain CR/LF (header injection protection)
 export function sanitizeHeaderValue(value: string): string {
   return String(value || '').replace(/[\r\n]/g, ' ').trim();
+}
+
+// Attachment types that are safe to serve inline; everything else is forced
+// to application/octet-stream so attacker-controlled MIME types (e.g. text/html
+// or image/svg+xml) can never render as content on the dashboard origin.
+const ALLOWED_ATTACHMENT_TYPES = new Set([
+  'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+  'application/pdf',
+  'text/plain', 'text/csv', 'application/json',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-powerpoint',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'audio/mpeg', 'audio/ogg', 'video/mp4',
+]);
+
+export function sanitizeAttachmentType(type: string): string {
+  const t = String(type || '').split(';')[0].trim().toLowerCase();
+  return ALLOWED_ATTACHMENT_TYPES.has(t) ? t : 'application/octet-stream';
 }
 
 export function mapSendErrorCode(code: string, fallbackMessage: string): { status: number; message: string } {
@@ -90,10 +112,13 @@ export async function sendEmail(env: any, input: SendEmailInput): Promise<{ mess
     const code = err?.code || '';
     const msg = err?.message || String(err);
 
-    // Fallback to the legacy raw-MIME API ONLY when the structured payload shape
-    // was rejected (binding may not support it). Never retry other errors —
-    // they may have occurred after the email was already accepted.
-    if (code === 'E_VALIDATION_ERROR') {
+    // Fallback to the legacy raw-MIME API when the structured payload shape
+    // was rejected. The legacy `[[send_email]]` binding does not accept the
+    // structured payload and rejects with an uncoded error (e.g. TypeError),
+    // so treat missing code as shape rejection too. Errors that carry a
+    // Cloudflare code happened after acceptance and must NOT be retried,
+    // otherwise the email could be delivered twice.
+    if (!code || code === 'E_VALIDATION_ERROR') {
       try {
         const raw = buildRawMime(input);
         const message = new EmailMessage(input.from, input.to, raw);
@@ -248,12 +273,15 @@ export async function onboardDomain(env: any, row: any) {
   const updates: Record<string, any> = { last_checked_at: new Date().toISOString() };
 
   try {
+    // Credentials are immutable within this run: fetch once, pass to every
+    // Cloudflare call instead of re-reading KV per call
+    const creds = await getCloudflareCredentials(env);
     let zoneId = row.zone_id;
 
     // 1. Create (or adopt an existing) Cloudflare zone if missing — idempotent
     if (!zoneId) {
-      const existing = await findZone(env, row.domain_name);
-      const created = existing || await createZone(env, row.domain_name, row.setup_mode === 'cname' ? 'partial' : 'full');
+      const existing = await findZone(env, row.domain_name, creds);
+      const created = existing || await createZone(env, row.domain_name, row.setup_mode === 'cname' ? 'partial' : 'full', creds);
       zoneId = created.id;
       await env.DB.prepare('UPDATE domains SET zone_id = ? WHERE id = ?').bind(zoneId, row.id).run();
       row.zone_id = zoneId;
@@ -269,7 +297,7 @@ export async function onboardDomain(env: any, row: any) {
       }
     }
 
-    const zone = await getZone(env, zoneId);
+    const zone = await getZone(env, zoneId, creds);
     if (zone.name_servers && zone.name_servers.length) {
       updates.nameservers = JSON.stringify(zone.name_servers);
     }
@@ -280,17 +308,17 @@ export async function onboardDomain(env: any, row: any) {
       // keep it 'failed' so checkDomain retries the routing steps.
       let routingReady = true;
       try {
-        await enableEmailRouting(env, zoneId);
-        await addEmailRoutingDns(env, zoneId).catch((e: any) => console.error('[Email] routing dns step failed (may already exist):', e.message));
+        await enableEmailRouting(env, zoneId, creds);
+        await addEmailRoutingDns(env, zoneId, creds).catch((e: any) => console.error('[Email] routing dns step failed (may already exist):', e.message));
 
         let ruleId = row.routing_rule_id;
         if (!ruleId) {
-          const rules = await listRoutingRules(env, zoneId);
+          const rules = await listRoutingRules(env, zoneId, creds);
           const existing = (rules || []).find((r: any) => (r.matchers || []).some((m: any) => m.type === 'all'));
           if (existing) {
             ruleId = existing.id;
           } else {
-            const rule = await createCatchAllRule(env, zoneId, env.WORKER_NAME || DEFAULT_WORKER_NAME);
+            const rule = await createCatchAllRule(env, zoneId, env.WORKER_NAME || DEFAULT_WORKER_NAME, creds);
             ruleId = rule.id;
           }
         }
@@ -304,7 +332,7 @@ export async function onboardDomain(env: any, row: any) {
       if (routingReady) {
         // 3. Capture DNS records for the UI
         try {
-          const records = await listZoneDnsRecords(env, zoneId);
+          const records = await listZoneDnsRecords(env, zoneId, creds);
           const mx = records.filter((r: any) => r.type === 'MX').map((r: any) => ({ name: r.name, content: r.content, priority: r.priority }));
           const spf = records.filter((r: any) => r.type === 'TXT' && r.content.includes('v=spf1')).map((r: any) => ({ name: r.name, content: r.content }));
           const dkim = records.filter((r: any) => r.type === 'TXT' && r.name.toLowerCase().includes('_domainkey')).map((r: any) => ({ name: r.name, content: r.content }));
@@ -339,31 +367,55 @@ export async function checkDomain(env: any, row: any) {
     return onboardDomain(env, row);
   }
   try {
-    const zone = await getZone(env, row.zone_id);
-    // Re-run onboarding whenever the zone is active but the domain is not
-    // fully onboarded (includes repairing a 'failed' domain or a missing
-    // catch-all routing rule).
-    if (zone.status === 'active' && (row.status !== 'active' || !row.routing_rule_id)) {
-      return onboardDomain(env, row);
+    const creds = await getCloudflareCredentials(env);
+    const zone = await getZone(env, row.zone_id, creds);
+
+    // Zone deleted/moved/initializing: drop the stale references and re-onboard
+    // (findZone will re-adopt the zone if it still exists under this account)
+    if (zone.status === 'deleted' || zone.status === 'moved') {
+      await env.DB.prepare('UPDATE domains SET zone_id = NULL, routing_rule_id = NULL WHERE id = ?').bind(row.id).run();
+      return onboardDomain(env, { ...row, zone_id: null, routing_rule_id: null });
     }
+
+    if (zone.status === 'active') {
+      // Re-run onboarding whenever the domain is not fully onboarded
+      // (includes repairing a 'failed' domain or a missing catch-all rule)
+      if (row.status !== 'active' || !row.routing_rule_id) {
+        return onboardDomain(env, row);
+      }
+      // Catch-all rule deleted externally: detect and repair
+      try {
+        const rules = await listRoutingRules(env, row.zone_id, creds);
+        const hasCatchAll = (rules || []).some((r: any) => (r.matchers || []).some((m: any) => m.type === 'all'));
+        if (!hasCatchAll) {
+          return onboardDomain(env, row);
+        }
+      } catch (e: any) {
+        console.error('[Email] Failed to list routing rules during check:', e.message);
+      }
+    }
+
     const updates: Record<string, any> = { last_checked_at: new Date().toISOString(), error_message: null };
     if (zone.status !== 'active') updates.status = 'pending';
     await persistDomainUpdates(env, row.id, updates);
     return { ...row, ...updates };
   } catch (e: any) {
-    await persistDomainUpdates(env, row.id, { status: 'failed', error_message: e.message || 'Failed to check domain', last_checked_at: new Date().toISOString() });
-    return { ...row, status: 'failed', error_message: e.message };
+    // Zone inaccessible (deleted or API error): clear stale references so the
+    // domain can re-onboard instead of being stuck on a dead zone_id forever
+    await env.DB.prepare('UPDATE domains SET zone_id = NULL, routing_rule_id = NULL WHERE id = ?').bind(row.id).run();
+    return onboardDomain(env, { ...row, zone_id: null, routing_rule_id: null });
   }
 }
 
 export async function removeDomain(env: any, row: any) {
   const errors: string[] = [];
+  const creds = await getCloudflareCredentials(env);
   if (row.routing_rule_id && row.zone_id) {
-    try { await deleteRoutingRule(env, row.zone_id, row.routing_rule_id); } catch (e: any) { errors.push(`rule: ${e.message}`); }
+    try { await deleteRoutingRule(env, row.zone_id, row.routing_rule_id, creds); } catch (e: any) { errors.push(`rule: ${e.message}`); }
   }
   let zoneDeleted = true;
   if (row.zone_id) {
-    try { await deleteZone(env, row.zone_id); } catch (e: any) { zoneDeleted = false; errors.push(`zone: ${e.message}`); }
+    try { await deleteZone(env, row.zone_id, creds); } catch (e: any) { zoneDeleted = false; errors.push(`zone: ${e.message}`); }
   }
   // Keep the DB row when the Cloudflare zone could not be deleted, so the
   // delete can be retried instead of orphaning a live zone.
@@ -410,6 +462,14 @@ export async function handleIncomingEmail(message: any, env: any, ctx: any) {
     const senderEmail = (parsed.fromAddress || String(message.from || '')).toLowerCase().trim();
     if (!senderEmail || senderEmail === 'postmaster@' + recipient.domain) return;
 
+    // Best-effort sender verification: flag messages whose SPF/DKIM
+    // authentication headers explicitly report failure (e.g. forged From).
+    // Only explicit fail/softfail markers are used, so legitimate mail is
+    // never mislabeled. The flag is surfaced in the inbox UI.
+    const topHeaders = splitHeadersBody(rawText).headers;
+    const authResults = `${topHeaders.get('authentication-results') || ''} ${topHeaders.get('received-spf') || ''}`;
+    const senderUnverified = /(spf|dkim)[\s=:]*\b(fail|softfail)\b/i.test(authResults);
+
     const workspaceId = domainRow.workspace_id;
 
     // Best-effort inbound throttle: per sender domain, per minute (KV is
@@ -451,7 +511,8 @@ export async function handleIncomingEmail(message: any, env: any, ctx: any) {
       await env.DB.prepare('UPDATE conversations SET customer_last_message_at = CURRENT_TIMESTAMP WHERE id = ?').bind(conversation.id).run();
     }
 
-    // Attachments -> R2 (parallel uploads)
+    // Attachments -> R2 (parallel uploads; content types whitelisted, forced
+    // to download-only so attacker-controlled MIME can never render inline)
     const attachments: any[] = [];
     await Promise.all((parsed.attachments || []).map(async (att) => {
       try {
@@ -459,9 +520,12 @@ export async function handleIncomingEmail(message: any, env: any, ctx: any) {
         const safeName = (att.filename || 'file').replace(/[^\w.\-]+/g, '_');
         const key = `email/${crypto.randomUUID()}-${safeName}`;
         await env.MEDIA_BUCKET.put(key, att.data, {
-          httpMetadata: { contentType: att.type || 'application/octet-stream' },
+          httpMetadata: {
+            contentType: sanitizeAttachmentType(att.type || ''),
+            contentDisposition: 'attachment',
+          },
         });
-        attachments.push({ name: safeName, type: att.type || 'application/octet-stream', url: `/api/public/media/${key}` });
+        attachments.push({ name: safeName, type: sanitizeAttachmentType(att.type || ''), url: `/api/public/media/${key}` });
       } catch (e) {
         console.error('[Email] Attachment storage failed:', e);
       }
@@ -472,6 +536,7 @@ export async function handleIncomingEmail(message: any, env: any, ctx: any) {
       subject: parsed.subject || '',
       attachments,
       to: recipient.full,
+      unverified: senderUnverified,
     });
 
     const messageId = crypto.randomUUID();

@@ -294,6 +294,7 @@ CREATE TABLE IF NOT EXISTS email_rate_limits (
 );
 
 CREATE INDEX IF NOT EXISTS idx_email_rate_limits_workspace ON email_rate_limits(workspace_id);
+CREATE INDEX IF NOT EXISTS idx_email_rate_limits_created ON email_rate_limits(created_at);
 
 -- Customizable Email Templates
 CREATE TABLE IF NOT EXISTS email_templates (

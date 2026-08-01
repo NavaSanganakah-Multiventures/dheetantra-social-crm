@@ -95,8 +95,9 @@ export default function EmailServiceView() {
       const res = await fetch(`/api/domains/${id}/verify`, { method: 'POST', headers: getHeaders() });
       const data: any = await res.json();
       if (data.success) {
-        toast('success', 'डोमेन स्थिति अपडेट हो गई (Domain status updated)');
+        toast('success', 'जांच शुरू हो गई — स्थिति कुछ सेकंड में अपडेट होगी');
         refreshDomains();
+        setTimeout(refreshDomains, 7000);
       } else {
         toast('error', data.error || 'Verification failed');
       }
@@ -115,6 +116,7 @@ export default function EmailServiceView() {
         refreshDomains();
       } else {
         toast('error', data.error || 'Failed to remove domain');
+        refreshDomains();
       }
     } catch (e: any) {
       toast('error', e.message || 'Failed to remove domain');

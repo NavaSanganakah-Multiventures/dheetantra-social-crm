@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Download, Copy, Upload, Bot, MessageSquare, MessageCircle, Megaphone, CalendarClock, Settings, LayoutDashboard, Search, Bell, Menu, Send, Paperclip, LogOut, User, Blocks, AlertCircle, Phone, PhoneCall, X, History, MapPin, Building2, Tag, ChevronDown, ChevronRight, Activity, Users, Zap, Check, CheckCheck, FileText, Plus, Trash2, Edit, Archive, RefreshCw, Instagram, Facebook, Mail, TrendingUp, Coins } from 'lucide-react';
+import { Download, Copy, AlertTriangle, Upload, Bot, MessageSquare, MessageCircle, Megaphone, CalendarClock, Settings, LayoutDashboard, Search, Bell, Menu, Send, Paperclip, LogOut, User, Blocks, AlertCircle, Phone, PhoneCall, X, History, MapPin, Building2, Tag, ChevronDown, ChevronRight, Activity, Users, Zap, Check, CheckCheck, FileText, Plus, Trash2, Edit, Archive, RefreshCw, Instagram, Facebook, Mail, TrendingUp, Coins } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useRouter } from 'next/navigation';
 import Papa from 'papaparse';
@@ -1802,6 +1802,11 @@ function InboxView({
                                  <div className="flex flex-col gap-2">
                                    {emailMeta?.subject && (
                                      <p className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-300 uppercase tracking-wide">📧 {emailMeta.subject}</p>
+                                   )}
+                                   {emailMeta?.unverified && (
+                                     <p className="text-[10px] font-medium text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                                       <AlertTriangle className="w-3 h-3" /> प्रेषक सत्यापित नहीं (SPF/DKIM fail)
+                                     </p>
                                    )}
                                    {msg.content && <p className="leading-relaxed whitespace-pre-wrap">{msg.content}</p>}
                                    {emailAttachments.length > 0 && (

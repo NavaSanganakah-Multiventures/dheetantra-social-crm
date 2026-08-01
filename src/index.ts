@@ -1550,8 +1550,13 @@ app.post('/api/domains/:id/verify', async (c) => {
   if (!row) return c.json({ error: 'Domain not found' }, 404);
 
   const { checkDomain } = await import('./services/emailService');
-  const updated = await checkDomain(c.env, row);
-  return c.json({ success: true, domain: parseDomain(updated) });
+  // Full verification runs several Cloudflare calls and can take 5-15s.
+  // Run it in the background and return the current stored status immediately
+  // so the request does not block the worker.
+  c.executionCtx.waitUntil(
+    checkDomain(c.env, row).catch((e: any) => console.error('[Email] Background verification failed for', row.domain_name, e))
+  );
+  return c.json({ success: true, domain: parseDomain(row) });
 });
 
 // Remove Domain (deletes Cloudflare zone + row)
@@ -1566,6 +1571,11 @@ app.delete('/api/domains/:id', async (c) => {
 
   const { removeDomain } = await import('./services/emailService');
   const errors = await removeDomain(c.env, row);
+  if (errors.length) {
+    // Cloudflare deletion failed (row kept so the delete can be retried);
+    // surface the real outcome instead of claiming success
+    return c.json({ success: false, error: 'Cloudflare cleanup failed', errors }, 502);
+  }
   return c.json({ success: true, errors });
 });
 
@@ -1702,17 +1712,27 @@ app.post('/api/email/send', async (c) => {
 
   try {
     const result = await sendEmail(c.env, { to, from: resolved.fromEmail, subject, html: bodyHtml, text: bodyText });
-    await logEmailSend(c.env, {
-      workspaceId, domainId: resolved.domain.id, fromEmail: resolved.fromEmail, toEmail: to,
-      subject, status: 'sent', messageId: result.messageId,
-    });
-    await c.env.DB.prepare('UPDATE domains SET sending_onboarded = 1 WHERE id = ?').bind(resolved.domain.id).run();
+    // Bookkeeping must never turn a delivered email into a failure response:
+    // log/flag errors are swallowed (logged) and success is returned regardless
+    try {
+      await logEmailSend(c.env, {
+        workspaceId, domainId: resolved.domain.id, fromEmail: resolved.fromEmail, toEmail: to,
+        subject, status: 'sent', messageId: result.messageId,
+      });
+      await c.env.DB.prepare('UPDATE domains SET sending_onboarded = 1 WHERE id = ?').bind(resolved.domain.id).run();
+    } catch (bookkeepingErr) {
+      console.error('[Email] Send bookkeeping failed (email was delivered):', bookkeepingErr);
+    }
     return c.json({ success: true, messageId: result.messageId });
   } catch (e: any) {
-    await logEmailSend(c.env, {
-      workspaceId, domainId: resolved.domain.id, fromEmail: resolved.fromEmail, toEmail: to,
-      subject, status: 'failed', errorCode: e.code, errorMessage: e.message,
-    });
+    try {
+      await logEmailSend(c.env, {
+        workspaceId, domainId: resolved.domain.id, fromEmail: resolved.fromEmail, toEmail: to,
+        subject, status: 'failed', errorCode: e.code, errorMessage: e.message,
+      });
+    } catch (logErr) {
+      console.error('[Email] Failed to log send error:', logErr);
+    }
     return c.json({ success: false, error: e.message, code: e.code || 'E_SEND_FAILED' }, e.status || 500);
   }
 });
@@ -1752,17 +1772,25 @@ app.post('/api/email/test', async (c) => {
       to, from: fromEmail, subject: 'DheeTantra test email',
       text: `This is a test email from ${row.domain_name}. If you can read this, sending is working!`,
     });
-    await logEmailSend(c.env, {
-      workspaceId, domainId: row.id, fromEmail, toEmail: to,
-      subject: 'DheeTantra test email', status: 'sent', messageId: result.messageId,
-    });
-    await c.env.DB.prepare('UPDATE domains SET sending_onboarded = 1 WHERE id = ?').bind(row.id).run();
+    try {
+      await logEmailSend(c.env, {
+        workspaceId, domainId: row.id, fromEmail, toEmail: to,
+        subject: 'DheeTantra test email', status: 'sent', messageId: result.messageId,
+      });
+      await c.env.DB.prepare('UPDATE domains SET sending_onboarded = 1 WHERE id = ?').bind(row.id).run();
+    } catch (bookkeepingErr) {
+      console.error('[Email] Test-send bookkeeping failed (email was delivered):', bookkeepingErr);
+    }
     return c.json({ success: true, messageId: result.messageId });
   } catch (e: any) {
-    await logEmailSend(c.env, {
-      workspaceId, domainId: row.id, fromEmail, toEmail: to,
-      subject: 'DheeTantra test email', status: 'failed', errorCode: e.code, errorMessage: e.message,
-    });
+    try {
+      await logEmailSend(c.env, {
+        workspaceId, domainId: row.id, fromEmail, toEmail: to,
+        subject: 'DheeTantra test email', status: 'failed', errorCode: e.code, errorMessage: e.message,
+      });
+    } catch (logErr) {
+      console.error('[Email] Failed to log test-send error:', logErr);
+    }
     return c.json({ success: false, error: e.message, code: e.code || 'E_SEND_FAILED' }, 400);
   }
 });
@@ -1773,10 +1801,16 @@ app.get('/api/email/send-logs', async (c) => {
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
   const limit = Math.min(parseInt(c.req.query('limit') || '50', 10) || 50, 200);
-  const { results } = await c.env.DB.prepare(
-    'SELECT * FROM email_send_logs WHERE workspace_id = ? ORDER BY created_at DESC LIMIT ?'
-  ).bind(workspaceId, limit).all();
-  return c.json({ logs: results });
+  try {
+    const { results } = await c.env.DB.prepare(
+      'SELECT * FROM email_send_logs WHERE workspace_id = ? ORDER BY created_at DESC LIMIT ?'
+    ).bind(workspaceId, limit).all();
+    return c.json({ logs: results });
+  } catch (e) {
+    // Fail open (empty list) so a schema/DB hiccup does not hard-500 the UI
+    console.error('[Email] Failed to fetch send logs:', e);
+    return c.json({ logs: [] });
+  }
 });
 
 // All mailboxes of the workspace (single query for the compose From picker)
@@ -3778,6 +3812,9 @@ app.get('/api/public/media/:key', async (c) => {
     const headers = new Headers();
     object.writeHttpMetadata(headers);
     headers.set('etag', object.httpEtag);
+    // Block MIME sniffing: resources served here must not be reinterpreted
+    // as HTML/script regardless of their stored content type
+    headers.set('X-Content-Type-Options', 'nosniff');
 
     return new Response(object.body, {
       headers
