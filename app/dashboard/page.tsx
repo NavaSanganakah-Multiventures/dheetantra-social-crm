@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Download,  Upload, Bot, MessageSquare, MessageCircle, Megaphone, CalendarClock, Settings, LayoutDashboard, Search, Bell, Menu, Send, Paperclip, LogOut, User, Blocks, AlertCircle, Phone, PhoneCall, X, History, MapPin, Building2, Tag, ChevronDown, ChevronRight, Activity, Users, Zap, Check, CheckCheck, FileText, Plus, Trash2, Edit, Archive, RefreshCw, Instagram, Facebook, Mail, TrendingUp, Coins } from 'lucide-react';
+import { Download, Copy, Upload, Bot, MessageSquare, MessageCircle, Megaphone, CalendarClock, Settings, LayoutDashboard, Search, Bell, Menu, Send, Paperclip, LogOut, User, Blocks, AlertCircle, Phone, PhoneCall, X, History, MapPin, Building2, Tag, ChevronDown, ChevronRight, Activity, Users, Zap, Check, CheckCheck, FileText, Plus, Trash2, Edit, Archive, RefreshCw, Instagram, Facebook, Mail, TrendingUp, Coins } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useRouter } from 'next/navigation';
 import Papa from 'papaparse';
@@ -10,8 +10,9 @@ import PhoneInput, { isValidPhoneNumber } from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
 import GeminiVoiceBridge from "@/app/components/GeminiVoiceBridge";
 import ActiveConversationsView from '@/components/ActiveConversationsView';
+import EmailServiceView from '@/components/EmailServiceView';
 import { useToast } from '@/components/ui/Toast';
-type activeTab = 'dashboard' | 'inbox' | 'active-conversations' | 'broadcast' | 'templates' | 'schedule' | 'settings' | 'contacts' | 'calls' | 'integrations' | 'accounts-whatsapp';
+type activeTab = 'dashboard' | 'inbox' | 'active-conversations' | 'broadcast' | 'templates' | 'schedule' | 'settings' | 'contacts' | 'calls' | 'integrations' | 'accounts-whatsapp' | 'email';
 
 const getUserTimezone = () => {
   if (typeof window === 'undefined') return 'Asia/Kolkata';
@@ -440,6 +441,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
 
               <div className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-4 mt-8 px-3">मार्केटिंग</div>
               <NavItem icon={<Megaphone />} label="ब्रॉडकास्ट" isActive={activeTab === 'broadcast'} onClick={() => { setActiveTab('broadcast'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
+              <NavItem icon={<Mail />} label="ईमेल सेवा" isActive={activeTab === 'email'} onClick={() => { setActiveTab('email'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
               <NavItem icon={<CalendarClock />} label="शेड्यूल्ड पोस्ट्स" isActive={activeTab === 'schedule'} onClick={() => { setActiveTab('schedule'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
             </nav>
 
@@ -473,7 +475,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
               <Menu className="w-5 h-5" />
             </button>
             <h1 className="text-lg font-bold capitalize text-zinc-900 dark:text-white font-display">
-              {activeTab === 'dashboard' ? 'डैशबोर्ड' : activeTab === 'inbox' ? 'इनबॉक्स' : activeTab === 'active-conversations' ? 'सक्रिय बातचीत' : activeTab === 'broadcast' ? 'ब्रॉडकास्ट' : activeTab === 'schedule' ? 'शेड्यूलर' : activeTab === 'contacts' ? 'संपर्क और लीड्स' : activeTab === 'accounts-whatsapp' ? 'WhatsApp अकाउंट्स' : activeTab === 'calls' ? 'कॉल लॉग्स' : 'सेटिंग्स'}
+              {activeTab === 'dashboard' ? 'डैशबोर्ड' : activeTab === 'inbox' ? 'इनबॉक्स' : activeTab === 'active-conversations' ? 'सक्रिय बातचीत' : activeTab === 'broadcast' ? 'ब्रॉडकास्ट' : activeTab === 'schedule' ? 'शेड्यूलर' : activeTab === 'contacts' ? 'संपर्क और लीड्स' : activeTab === 'accounts-whatsapp' ? 'WhatsApp अकाउंट्स' : activeTab === 'calls' ? 'कॉल लॉग्स' : activeTab === 'email' ? 'ईमेल सेवा' : 'सेटिंग्स'}
             </h1>
           </div>
           
@@ -528,6 +530,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                 />
               )}
               {activeTab === 'broadcast' && <BroadcastView />}
+              {activeTab === 'email' && <EmailServiceView />}
               {activeTab === 'accounts-whatsapp' && <WhatsAppManagerView />}
               {activeTab === 'schedule' && <ScheduleView />}
               {activeTab === 'integrations' && <IntegrationsView />}
@@ -1787,6 +1790,37 @@ function InboxView({
                                } catch (e) {
                                  return <p className="italic text-xs text-zinc-400">Contact: {msg.content}</p>;
                                }
+                             })()}
+
+                             {mType === 'email' && (() => {
+                               let emailMeta: any = null;
+                               try {
+                                 if (msg.media_url && msg.media_url.startsWith('{')) emailMeta = JSON.parse(msg.media_url);
+                               } catch { emailMeta = null; }
+                               const emailAttachments: any[] = emailMeta?.attachments || [];
+                               return (
+                                 <div className="flex flex-col gap-2">
+                                   {emailMeta?.subject && (
+                                     <p className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-300 uppercase tracking-wide">📧 {emailMeta.subject}</p>
+                                   )}
+                                   {msg.content && <p className="leading-relaxed whitespace-pre-wrap">{msg.content}</p>}
+                                   {emailAttachments.length > 0 && (
+                                     <div className="flex flex-col gap-1.5">
+                                       {emailAttachments.map((a: any, i: number) => (
+                                         <a
+                                           key={i}
+                                           href={a.url}
+                                           target="_blank"
+                                           rel="noopener noreferrer"
+                                           className="inline-flex items-center gap-2 text-[11px] font-medium text-indigo-500 dark:text-indigo-400 bg-zinc-50/10 px-3 py-1.5 rounded-lg border border-zinc-100/10 hover:bg-zinc-50/20 transition-colors"
+                                         >
+                                           <FileText className="w-3.5 h-3.5" /> {a.name}
+                                         </a>
+                                       ))}
+                                     </div>
+                                   )}
+                                 </div>
+                               );
                              })()}
 
                              {(mType === 'text' || mType === 'interactive' || mType === 'order') && (
@@ -3650,6 +3684,11 @@ function ContactsView({
   const [searchQuery, setSearchQuery] = useState("");
   const [subTab, setSubTab] = useState<'all' | 'leads'>('all');
 
+  // Selection and Export state
+  const [selectedContactIds, setSelectedContactIds] = useState<Set<string>>(new Set());
+  const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [copyFormat, setCopyFormat] = useState<'newline' | 'comma'>('newline');
+
   // Form state
   const [showModal, setShowModal] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
@@ -3939,6 +3978,14 @@ function ContactsView({
         </div>
 
         <div className="flex items-center gap-2 self-start sm:self-auto">
+          {selectedContactIds.size > 0 && (
+            <button
+              onClick={() => setExportModalOpen(true)}
+              className="bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-zinc-200 px-4 py-2 rounded-xl text-xs font-semibold shadow-sm transition-all whitespace-nowrap"
+            >
+              एक्सपोर्ट / कॉपी करें ({selectedContactIds.size})
+            </button>
+          )}
           <input
             type="file"
             accept=".csv"
@@ -3964,16 +4011,32 @@ function ContactsView({
 
       {subTab === 'all' ? (
         <div className="space-y-4">
-          {/* Search bar */}
-          <div className="relative">
-            <Search className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="नाम, नंबर, ईमेल या सोशल आईडी से खोजें..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl outline-none focus:border-indigo-500 text-sm transition-all shadow-xs"
-            />
+          {/* Search and Select All */}
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="नाम, नंबर, ईमेल या सोशल आईडी से खोजें..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl outline-none focus:border-indigo-500 text-sm transition-all shadow-xs"
+              />
+            </div>
+            {filteredContacts.length > 0 && (
+              <button
+                onClick={() => {
+                  if (selectedContactIds.size === filteredContacts.length) {
+                    setSelectedContactIds(new Set());
+                  } else {
+                    setSelectedContactIds(new Set(filteredContacts.map(c => c.id)));
+                  }
+                }}
+                className="whitespace-nowrap px-4 py-3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm font-medium hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all text-zinc-700 dark:text-zinc-300"
+              >
+                {selectedContactIds.size === filteredContacts.length ? 'सभी सेलेक्ट हटाएँ (Deselect All)' : 'सभी चुनें (Select All)'}
+              </button>
+            )}
           </div>
 
           {loading ? (
@@ -3986,10 +4049,25 @@ function ContactsView({
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredContacts.map(c => (
-                <div key={c.id} className="bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800/60 rounded-2xl p-5 shadow-xs hover:shadow-md transition-all flex flex-col justify-between">
+                <div key={c.id} className={`relative bg-white dark:bg-zinc-900 border rounded-2xl p-5 shadow-xs hover:shadow-md transition-all flex flex-col justify-between ${selectedContactIds.has(c.id) ? 'border-indigo-500 ring-1 ring-indigo-500' : 'border-zinc-200/60 dark:border-zinc-800/60'}`}>
+                  <div className="absolute top-4 right-4 z-10">
+                    <input
+                      type="checkbox"
+                      checked={selectedContactIds.has(c.id)}
+                      onChange={() => {
+                        setSelectedContactIds(prev => {
+                          const newSet = new Set(prev);
+                          if (newSet.has(c.id)) newSet.delete(c.id);
+                          else newSet.add(c.id);
+                          return newSet;
+                        });
+                      }}
+                      className="w-4 h-4 rounded border-zinc-300 text-indigo-600 focus:ring-indigo-600 cursor-pointer"
+                    />
+                  </div>
                   <div>
                     {/* Header: Name and badges */}
-                    <div className="flex justify-between items-start gap-2 mb-3">
+                    <div className="flex justify-between items-start gap-2 mb-3 pr-6">
                       <div>
                         <h3 className="font-semibold text-zinc-900 dark:text-zinc-50 text-base flex items-center gap-1.5">
                           {c.name}
@@ -4380,6 +4458,109 @@ function ContactsView({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Export / Copy Modal */}
+      {exportModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-zinc-900 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl border border-zinc-200 dark:border-zinc-800 animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-5 border-b border-zinc-100 dark:border-zinc-800">
+              <h2 className="text-lg font-bold text-zinc-900 dark:text-white">एक्सपोर्ट / कॉपी करें</h2>
+              <p className="text-xs text-zinc-500 mt-1">{selectedContactIds.size} संपर्क चुने गए</p>
+            </div>
+            
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-zinc-500 mb-2">कॉपी फॉरमैट (Format)</label>
+                <div className="flex gap-2 p-1 bg-zinc-100 dark:bg-zinc-800 rounded-lg">
+                  <button 
+                    onClick={() => setCopyFormat('newline')}
+                    className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all ${copyFormat === 'newline' ? 'bg-white dark:bg-zinc-700 shadow-sm text-indigo-600 dark:text-indigo-400' : 'text-zinc-500 hover:text-zinc-700'}`}
+                  >
+                    लाइन-बाय-लाइन
+                  </button>
+                  <button 
+                    onClick={() => setCopyFormat('comma')}
+                    className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all ${copyFormat === 'comma' ? 'bg-white dark:bg-zinc-700 shadow-sm text-indigo-600 dark:text-indigo-400' : 'text-zinc-500 hover:text-zinc-700'}`}
+                  >
+                    कौमा (Comma)
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-2 pt-2">
+                <button
+                  onClick={() => {
+                    const selected = filteredContacts.filter(c => selectedContactIds.has(c.id));
+                    const values = selected.map(c => c.phone).filter(v => !!v);
+                    if (!values.length) { alert('कोई फ़ोन नंबर नहीं मिला।'); return; }
+                    navigator.clipboard.writeText(values.join(copyFormat === 'comma' ? ', ' : '\\n')).then(() => {
+                      toast('success', `${values.length} नंबर क्लिपबोर्ड में कॉपी हो गए।`);
+                      setExportModalOpen(false);
+                    });
+                  }}
+                  className="w-full py-2.5 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-500/10 dark:hover:bg-indigo-500/20 text-indigo-700 dark:text-indigo-400 text-sm font-semibold rounded-xl transition-colors text-left px-4 flex items-center justify-between"
+                >
+                  <span>सिर्फ फ़ोन नंबर कॉपी करें</span>
+                  <Copy className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => {
+                    const selected = filteredContacts.filter(c => selectedContactIds.has(c.id));
+                    const values = selected.map(c => c.email).filter(v => !!v);
+                    if (!values.length) { alert('कोई ईमेल नहीं मिला।'); return; }
+                    navigator.clipboard.writeText(values.join(copyFormat === 'comma' ? ', ' : '\\n')).then(() => {
+                      toast('success', `${values.length} ईमेल क्लिपबोर्ड में कॉपी हो गए।`);
+                      setExportModalOpen(false);
+                    });
+                  }}
+                  className="w-full py-2.5 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-500/10 dark:hover:bg-indigo-500/20 text-indigo-700 dark:text-indigo-400 text-sm font-semibold rounded-xl transition-colors text-left px-4 flex items-center justify-between"
+                >
+                  <span>सिर्फ ईमेल कॉपी करें</span>
+                  <Copy className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => {
+                    const selected = filteredContacts.filter(c => selectedContactIds.has(c.id));
+                    const csvData = selected.map(c => ({
+                      'Name': c.name || '',
+                      'Phone': c.phone || '',
+                      'Email': c.email || '',
+                      'Gender': c.gender || '',
+                      'Instagram': c.instagram_username || '',
+                      'Facebook': c.facebook_username || '',
+                      'WhatsApp': c.whatsapp_username || '',
+                      'Notes': c.notes || ''
+                    }));
+                    const csv = Papa.unparse(csvData);
+                    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement("a");
+                    link.href = url;
+                    link.setAttribute("download", "contacts_export.csv");
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    setExportModalOpen(false);
+                  }}
+                  className="w-full py-2.5 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-sm font-semibold rounded-xl transition-colors text-left px-4 flex items-center justify-between"
+                >
+                  <span>CSV में एक्सपोर्ट करें</span>
+                  <Download className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50">
+              <button
+                onClick={() => setExportModalOpen(false)}
+                className="w-full py-2.5 bg-white dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 text-sm font-semibold rounded-xl transition-colors shadow-sm"
+              >
+                बंद करें
+              </button>
+            </div>
           </div>
         </div>
       )}

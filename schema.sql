@@ -227,6 +227,18 @@ CREATE TABLE IF NOT EXISTS domains (
   workspace_id TEXT NOT NULL,
   domain_name TEXT UNIQUE NOT NULL, -- e.g., 'client-domain.com'
   status TEXT DEFAULT 'pending', -- 'pending', 'active', 'failed'
+  setup_mode TEXT DEFAULT 'full', -- 'full' (nameservers) | 'cname' (partial / DNS-only)
+  zone_id TEXT, -- Cloudflare zone id
+  nameservers TEXT, -- JSON array (full setup)
+  verification_records TEXT, -- JSON array (cname setup: TXT cloudflare-verify)
+  mx_records TEXT, -- JSON array of {name, content, priority}
+  spf_record TEXT, -- JSON array of {name, content}
+  dkim_records TEXT, -- JSON array of {name, content}
+  dmarc_record TEXT, -- JSON array of {name, content}
+  routing_rule_id TEXT, -- Cloudflare Email Routing catch-all rule id
+  sending_onboarded INTEGER DEFAULT 0, -- 1 once a send succeeded via send_email binding
+  error_message TEXT,
+  last_checked_at DATETIME,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
 );
@@ -242,16 +254,46 @@ CREATE TABLE IF NOT EXISTS api_domains (
   FOREIGN KEY(workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
 );
 
--- Domain Emails (Email Routing Addresses)
+-- Domain Emails (Email Routing Addresses / Mailboxes)
 CREATE TABLE IF NOT EXISTS domain_emails (
   id TEXT PRIMARY KEY,
   domain_id TEXT NOT NULL,
+  local_part TEXT, -- e.g., 'contact'
   email_address TEXT UNIQUE NOT NULL, -- e.g., 'contact@client-domain.com'
   forward_to TEXT, -- e.g., 'info@our-crm.com'
   status TEXT DEFAULT 'active',
+  is_default INTEGER DEFAULT 0,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (domain_id) REFERENCES domains(id) ON DELETE CASCADE
 );
+
+-- Outbound email send log (one row per email sent through EMAIL_SENDER)
+CREATE TABLE IF NOT EXISTS email_send_logs (
+  id TEXT PRIMARY KEY,
+  workspace_id TEXT NOT NULL,
+  domain_id TEXT,
+  from_email TEXT NOT NULL,
+  to_email TEXT NOT NULL,
+  subject TEXT,
+  status TEXT DEFAULT 'sent', -- 'sent', 'failed'
+  error_code TEXT,
+  error_message TEXT,
+  message_id TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_email_send_logs_workspace ON email_send_logs(workspace_id, created_at);
+
+-- Email sending rate limiter (atomic counter via INSERT ... ON CONFLICT ... RETURNING)
+CREATE TABLE IF NOT EXISTS email_rate_limits (
+  window_key TEXT PRIMARY KEY, -- 'workspaceId:minuteBucket'
+  workspace_id TEXT NOT NULL,
+  count INTEGER NOT NULL DEFAULT 0,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_email_rate_limits_workspace ON email_rate_limits(workspace_id);
 
 -- Customizable Email Templates
 CREATE TABLE IF NOT EXISTS email_templates (

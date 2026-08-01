@@ -218,6 +218,7 @@ app.use('/api/domains', authMiddleware);
 app.use('/api/domains/*', authMiddleware);
 app.use('/api/email-templates', authMiddleware);
 app.use('/api/email-templates/*', authMiddleware);
+app.use('/api/email/*', authMiddleware);
 app.use('/api/domain-emails/*', authMiddleware);
 app.use('/api/whatsapp/upload', authMiddleware);
 app.use('/api/whatsapp/media', authMiddleware);
@@ -1449,36 +1450,348 @@ app.post('/api/campaigns/schedule', async (c) => {
 });
 
 // ==========================================
-// 6. B2B EMAIL & CUSTOM DOMAINS
+// 6. B2B EMAIL SERVICE & CUSTOM DOMAINS
 // ==========================================
 
-// Add Custom Domain
+const DOMAIN_REGEX = /^(?=.{4,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function parseDomain(d: any) {
+  return {
+    ...d,
+    nameservers: d.nameservers ? JSON.parse(d.nameservers) : [],
+    verification_records: d.verification_records ? JSON.parse(d.verification_records) : [],
+    mx_records: d.mx_records ? JSON.parse(d.mx_records) : [],
+    spf_records: d.spf_record ? JSON.parse(d.spf_record) : [],
+    dkim_records: d.dkim_records ? JSON.parse(d.dkim_records) : [],
+    dmarc_records: d.dmarc_record ? JSON.parse(d.dmarc_record) : [],
+  };
+}
+
+// Add Custom Domain (creates Cloudflare zone + Email Routing onboarding)
 app.post('/api/domains', async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
-  const { domainName, defaultEmailPrefix = 'info', forwardTo } = await c.req.json();
-  const domainId = crypto.randomUUID();
-  const emailId = crypto.randomUUID();
-  const emailAddress = `${defaultEmailPrefix}@${domainName}`;
+  const { domainName, setupMode = 'full', defaultEmailPrefix = 'info', forwardTo } = await c.req.json();
+  if (!domainName) return c.json({ error: 'Domain is required' }, 400);
 
-  // In production, we would call Cloudflare API to add domain to zone and setup Email Routing
-  await c.env.DB.batch([
-    c.env.DB.prepare(
-      'INSERT INTO domains (id, workspace_id, domain_name) VALUES (?, ?, ?)'
-    ).bind(domainId, workspaceId, domainName),
-    c.env.DB.prepare(
-      'INSERT INTO domain_emails (id, domain_id, email_address, forward_to) VALUES (?, ?, ?, ?)'
-    ).bind(emailId, domainId, emailAddress, forwardTo || null)
-  ]);
+  let clean = String(domainName).toLowerCase().trim();
+  try {
+    if (clean.startsWith('http')) clean = new URL(clean).hostname;
+  } catch (e) { /* keep raw string */ }
+  clean = clean.replace(/\/+$/, '').replace(/^www\./, '');
 
-  return c.json({
-    success: true,
-    domain_id: domainId,
-    domain_name: domainName,
-    email_address: emailAddress,
-    status: 'pending_verification'
-  });
+  if (!DOMAIN_REGEX.test(clean)) {
+    return c.json({ error: 'Invalid domain name. Use a root domain like example.com' }, 400);
+  }
+
+  const mode = setupMode === 'cname' ? 'cname' : 'full';
+  const cleanPrefix = String(defaultEmailPrefix || 'info').toLowerCase().trim();
+  if (!/^[a-z0-9._+-]+$/.test(cleanPrefix) || cleanPrefix.length > 64) {
+    return c.json({ error: 'Invalid default mailbox name. Use letters, numbers, dots, dashes, underscores or plus.' }, 400);
+  }
+
+  try {
+    const existing: any = await c.env.DB.prepare('SELECT * FROM domains WHERE workspace_id = ? AND domain_name = ?')
+      .bind(workspaceId, clean).first();
+    if (existing) return c.json({ error: 'Domain is already registered for this workspace' }, 400);
+
+    const id = crypto.randomUUID();
+    await c.env.DB.prepare('INSERT INTO domains (id, workspace_id, domain_name, setup_mode, status) VALUES (?, ?, ?, ?, ?)')
+      .bind(id, workspaceId, clean, mode, 'pending').run();
+
+    const emailId = crypto.randomUUID();
+    const emailAddress = `${cleanPrefix}@${clean}`;
+    await c.env.DB.prepare(
+      'INSERT INTO domain_emails (id, domain_id, local_part, email_address, forward_to, is_default) VALUES (?, ?, ?, ?, ?, 1)'
+    ).bind(emailId, id, cleanPrefix, emailAddress, forwardTo || null).run();
+
+    // Kick off Cloudflare onboarding (zone creation, email routing, DNS records) asynchronously
+    c.executionCtx.waitUntil((async () => {
+      try {
+        const { onboardDomain } = await import('./services/emailService');
+        const row: any = await c.env.DB.prepare('SELECT * FROM domains WHERE id = ?').bind(id).first();
+        if (row) await onboardDomain(c.env, row);
+      } catch (e) {
+        console.error('[Email] Async domain onboarding failed:', e);
+      }
+    })());
+
+    const row: any = await c.env.DB.prepare('SELECT * FROM domains WHERE id = ?').bind(id).first();
+    return c.json({ success: true, domain: parseDomain(row), email_address: emailAddress, status: 'pending_verification' });
+  } catch (e: any) {
+    if (String(e.message).includes('UNIQUE constraint')) return c.json({ error: 'Domain is already registered' }, 400);
+    console.error('[Email] Add domain error:', e);
+    return c.json({ error: e.message }, 500);
+  }
+});
+
+// List Custom Domains
+app.get('/api/domains', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  const { results } = await c.env.DB.prepare(
+    'SELECT * FROM domains WHERE workspace_id = ? ORDER BY created_at DESC'
+  ).bind(workspaceId).all();
+
+  return c.json({ domains: (results || []).map(parseDomain) });
+});
+
+// Re-check domain verification status + complete onboarding
+app.post('/api/domains/:id/verify', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  const id = c.req.param('id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  const row: any = await c.env.DB.prepare('SELECT * FROM domains WHERE id = ? AND workspace_id = ?')
+    .bind(id, workspaceId).first();
+  if (!row) return c.json({ error: 'Domain not found' }, 404);
+
+  const { checkDomain } = await import('./services/emailService');
+  const updated = await checkDomain(c.env, row);
+  return c.json({ success: true, domain: parseDomain(updated) });
+});
+
+// Remove Domain (deletes Cloudflare zone + row)
+app.delete('/api/domains/:id', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  const id = c.req.param('id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  const row: any = await c.env.DB.prepare('SELECT * FROM domains WHERE id = ? AND workspace_id = ?')
+    .bind(id, workspaceId).first();
+  if (!row) return c.json({ error: 'Domain not found' }, 404);
+
+  const { removeDomain } = await import('./services/emailService');
+  const errors = await removeDomain(c.env, row);
+  return c.json({ success: true, errors });
+});
+
+// ==========================================
+// DOMAIN MAILBOXES (email addresses)
+// ==========================================
+
+// Fetch Domain Emails / Mailboxes
+app.get('/api/domain-emails/:domainId', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  const domainId = c.req.param('domainId');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  const domain: any = await c.env.DB.prepare('SELECT id FROM domains WHERE id = ? AND workspace_id = ?')
+    .bind(domainId, workspaceId).first();
+  if (!domain) return c.json({ error: 'Domain not found' }, 404);
+
+  const { results } = await c.env.DB.prepare('SELECT * FROM domain_emails WHERE domain_id = ? ORDER BY is_default DESC, created_at ASC')
+    .bind(domainId).all();
+  return c.json({ emails: results });
+});
+
+// Create Mailbox
+app.post('/api/domain-emails', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  const { domainId, localPart, forwardTo, isDefault } = await c.req.json();
+  if (!domainId || !localPart) return c.json({ error: 'domainId and localPart are required' }, 400);
+
+  const domain: any = await c.env.DB.prepare('SELECT * FROM domains WHERE id = ? AND workspace_id = ?')
+    .bind(domainId, workspaceId).first();
+  if (!domain) return c.json({ error: 'Domain not found' }, 404);
+
+  const cleanLocal = String(localPart).toLowerCase().trim();
+  if (!/^[a-z0-9._+-]+$/.test(cleanLocal)) {
+    return c.json({ error: 'Invalid local part. Use letters, numbers, dots, dashes, underscores or plus.' }, 400);
+  }
+  const emailAddress = `${cleanLocal}@${domain.domain_name}`;
+
+  try {
+    const id = crypto.randomUUID();
+    await c.env.DB.prepare(
+      'INSERT INTO domain_emails (id, domain_id, local_part, email_address, forward_to, is_default) VALUES (?, ?, ?, ?, ?, ?)'
+    ).bind(id, domainId, cleanLocal, emailAddress, forwardTo || null, isDefault ? 1 : 0).run();
+    return c.json({ success: true, email: { id, email_address: emailAddress, forward_to: forwardTo || null } });
+  } catch (e: any) {
+    if (String(e.message).includes('UNIQUE constraint')) {
+      return c.json({ error: 'This email address already exists for this domain' }, 400);
+    }
+    console.error('[Email] Create mailbox error:', e);
+    return c.json({ error: e.message }, 500);
+  }
+});
+
+// Delete Mailbox
+app.delete('/api/domain-emails/:id', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  const id = c.req.param('id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  const mailbox: any = await c.env.DB.prepare(
+    'SELECT de.id FROM domain_emails de JOIN domains d ON de.domain_id = d.id WHERE de.id = ? AND d.workspace_id = ?'
+  ).bind(id, workspaceId).first();
+  if (!mailbox) return c.json({ error: 'Mailbox not found' }, 404);
+
+  await c.env.DB.prepare('DELETE FROM domain_emails WHERE id = ?').bind(id).run();
+  return c.json({ success: true });
+});
+
+// ==========================================
+// EMAIL SENDING (send_email binding)
+// ==========================================
+
+// Atomic per-workspace email rate limit (60 emails / minute) backed by D1.
+// INSERT ... ON CONFLICT ... RETURNING is a single atomic statement in SQLite,
+// so concurrent sends cannot all pass the cap like a KV read-modify-write can.
+async function checkEmailRateLimit(env: any, workspaceId: string): Promise<{ ok: boolean; error?: string }> {
+  const bucket = Math.floor(Date.now() / 60000);
+  const windowKey = `${workspaceId}:${bucket}`;
+  try {
+    // Best-effort cleanup of expired windows (table stays tiny)
+    await env.DB.prepare("DELETE FROM email_rate_limits WHERE created_at < datetime('now', '-5 minutes')").run();
+    const row: any = await env.DB.prepare(
+      `INSERT INTO email_rate_limits (window_key, workspace_id, count) VALUES (?, ?, 1)
+       ON CONFLICT(window_key) DO UPDATE SET count = count + 1
+       RETURNING count`
+    ).bind(windowKey, workspaceId).first();
+    if (row && row.count > 60) {
+      return { ok: false, error: 'Rate limit exceeded. Try again later.' };
+    }
+    return { ok: true };
+  } catch (e) {
+    // Fail open if the limiter itself is unavailable so sends are not blocked
+    console.error('[Email] Rate limiter error:', e);
+    return { ok: true };
+  }
+}
+
+// Send an email from a verified domain of the workspace
+app.post('/api/email/send', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  const { to, subject, html, text, fromAddress, templateType, variables } = await c.req.json();
+  if (!to || !subject) return c.json({ error: 'to and subject are required' }, 400);
+  if (!EMAIL_REGEX.test(to)) return c.json({ error: 'Invalid recipient email' }, 400);
+  // Headers must never contain line breaks (CRLF header injection)
+  if (/\r|\n/.test(String(subject))) return c.json({ error: 'Invalid subject' }, 400);
+
+  const rate = await checkEmailRateLimit(c.env, workspaceId);
+  if (!rate.ok) return c.json({ error: rate.error }, 429);
+
+  const { resolveFromAddress, sendEmail, logEmailSend, renderTemplate, stripHtml } = await import('./services/emailService');
+
+  let resolved: any;
+  try {
+    resolved = await resolveFromAddress(c.env, workspaceId, fromAddress);
+  } catch (e: any) {
+    return c.json({ error: e.message, code: e.code || 'E_FROM_INVALID' }, e.status || 400);
+  }
+
+  let bodyHtml = html || '';
+  let bodyText = text || '';
+  if (templateType) {
+    const template: any = await c.env.DB.prepare('SELECT * FROM email_templates WHERE workspace_id = ? AND template_type = ?')
+      .bind(workspaceId, templateType).first();
+    if (template) {
+      bodyHtml = renderTemplate(template.body_html, variables || {});
+      if (!bodyText) bodyText = stripHtml(bodyHtml);
+    }
+  }
+  if (!bodyHtml && !bodyText) return c.json({ error: 'Email body is required' }, 400);
+
+  try {
+    const result = await sendEmail(c.env, { to, from: resolved.fromEmail, subject, html: bodyHtml, text: bodyText });
+    await logEmailSend(c.env, {
+      workspaceId, domainId: resolved.domain.id, fromEmail: resolved.fromEmail, toEmail: to,
+      subject, status: 'sent', messageId: result.messageId,
+    });
+    await c.env.DB.prepare('UPDATE domains SET sending_onboarded = 1 WHERE id = ?').bind(resolved.domain.id).run();
+    return c.json({ success: true, messageId: result.messageId });
+  } catch (e: any) {
+    await logEmailSend(c.env, {
+      workspaceId, domainId: resolved.domain.id, fromEmail: resolved.fromEmail, toEmail: to,
+      subject, status: 'failed', errorCode: e.code, errorMessage: e.message,
+    });
+    return c.json({ success: false, error: e.message, code: e.code || 'E_SEND_FAILED' }, e.status || 500);
+  }
+});
+
+// Test email for a domain (also detects Email Sending onboarding readiness)
+app.post('/api/email/test', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  const { domainId, to } = await c.req.json();
+  if (!domainId || !to) return c.json({ error: 'domainId and to are required' }, 400);
+  if (!EMAIL_REGEX.test(to)) return c.json({ error: 'Invalid recipient email' }, 400);
+
+  const rate = await checkEmailRateLimit(c.env, workspaceId);
+  if (!rate.ok) return c.json({ error: rate.error }, 429);
+
+  const row: any = await c.env.DB.prepare('SELECT * FROM domains WHERE id = ? AND workspace_id = ?')
+    .bind(domainId, workspaceId).first();
+  if (!row) return c.json({ error: 'Domain not found' }, 404);
+  if (row.status !== 'active') {
+    return c.json({ error: 'Domain is not active yet. Complete the DNS verification first.', code: 'E_DOMAIN_NOT_ACTIVE' }, 400);
+  }
+
+  // From must be a registered mailbox: prefer test@domain, else the default mailbox
+  const mailbox: any = await c.env.DB.prepare('SELECT * FROM domain_emails WHERE domain_id = ? AND email_address = ? COLLATE NOCASE')
+    .bind(row.id, `test@${row.domain_name}`).first()
+    || await c.env.DB.prepare('SELECT * FROM domain_emails WHERE domain_id = ? ORDER BY is_default DESC, created_at ASC LIMIT 1').bind(row.id).first();
+  if (!mailbox) {
+    return c.json({ error: 'No mailbox configured for this domain. Create a mailbox first.', code: 'E_NO_MAILBOX' }, 400);
+  }
+  const fromEmail = mailbox.email_address;
+
+  const { sendEmail, logEmailSend } = await import('./services/emailService');
+
+  try {
+    const result = await sendEmail(c.env, {
+      to, from: fromEmail, subject: 'DheeTantra test email',
+      text: `This is a test email from ${row.domain_name}. If you can read this, sending is working!`,
+    });
+    await logEmailSend(c.env, {
+      workspaceId, domainId: row.id, fromEmail, toEmail: to,
+      subject: 'DheeTantra test email', status: 'sent', messageId: result.messageId,
+    });
+    await c.env.DB.prepare('UPDATE domains SET sending_onboarded = 1 WHERE id = ?').bind(row.id).run();
+    return c.json({ success: true, messageId: result.messageId });
+  } catch (e: any) {
+    await logEmailSend(c.env, {
+      workspaceId, domainId: row.id, fromEmail, toEmail: to,
+      subject: 'DheeTantra test email', status: 'failed', errorCode: e.code, errorMessage: e.message,
+    });
+    return c.json({ success: false, error: e.message, code: e.code || 'E_SEND_FAILED' }, 400);
+  }
+});
+
+// Send logs
+app.get('/api/email/send-logs', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  const limit = Math.min(parseInt(c.req.query('limit') || '50', 10) || 50, 200);
+  const { results } = await c.env.DB.prepare(
+    'SELECT * FROM email_send_logs WHERE workspace_id = ? ORDER BY created_at DESC LIMIT ?'
+  ).bind(workspaceId, limit).all();
+  return c.json({ logs: results });
+});
+
+// All mailboxes of the workspace (single query for the compose From picker)
+app.get('/api/email/mailboxes', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  const { results } = await c.env.DB.prepare(
+    `SELECT de.id, de.email_address, de.forward_to, de.is_default, de.domain_id, d.domain_name, d.status AS domain_status
+     FROM domain_emails de JOIN domains d ON de.domain_id = d.id
+     WHERE d.workspace_id = ?
+     ORDER BY d.created_at ASC, de.is_default DESC`
+  ).bind(workspaceId).all();
+
+  return c.json({ mailboxes: results });
 });
 
 // Create/Update Email Template
@@ -1509,15 +1822,6 @@ app.get('/api/email-templates', async (c) => {
   ).bind(workspaceId).all();
 
   return c.json({ templates: results });
-});
-
-// Fetch Domain Emails
-app.get('/api/domain-emails/:domainId', async (c) => {
-  const domainId = c.req.param('domainId');
-  const { results } = await c.env.DB.prepare(
-    'SELECT * FROM domain_emails WHERE domain_id = ?'
-  ).bind(domainId).all();
-  return c.json({ emails: results });
 });
 
 // ==========================================
@@ -3544,10 +3848,10 @@ const worker = {
     }
   },
 
-  // Email receiver (Cloudflare Email Routing)
+  // Email receiver (Cloudflare Email Routing -> DheeTantra inbox)
   async email(message: any, env: any, ctx: any) {
-    console.log(`Received email from ${message.from} to ${message.to}`);
-    // Process incoming email, save to DB, forward, etc.
+    const { handleIncomingEmail } = await import('./services/emailService');
+    await handleIncomingEmail(message, env, ctx);
   }
 };
 
