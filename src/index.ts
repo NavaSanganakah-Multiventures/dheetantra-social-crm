@@ -1587,12 +1587,16 @@ app.delete('/api/domains/:id', async (c) => {
   if (!row) return c.json({ error: 'Domain not found' }, 404);
 
   const { removeDomain } = await import('./services/emailService');
-  const errors = await removeDomain(c.env, row);
-  if (errors.length) {
-    // Cloudflare deletion failed (row kept so the delete can be retried);
-    // surface the real outcome instead of claiming success
-    return c.json({ success: false, error: 'Cloudflare cleanup failed', errors }, 502);
+  const { deleted, errors } = await removeDomain(c.env, row);
+  if (!deleted) {
+    // Cloudflare zone deletion failed or could not be confirmed (network,
+    // rate-limit, 5xx, permission, missing credentials). The row is kept —
+    // a live zone must never be orphaned — so the user can fix the cause
+    // (e.g. remove the zone in Cloudflare) and retry.
+    return c.json({ success: false, error: 'Cloudflare cleanup failed — domain kept for retry', errors }, 502);
   }
+  // Deleted. errors may still contain warnings (rule already gone, missing
+  // credentials) — surface them but the domain is removed.
   return c.json({ success: true, errors });
 });
 

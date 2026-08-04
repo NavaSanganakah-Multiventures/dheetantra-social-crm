@@ -142,7 +142,8 @@ export default function EmailServiceView() {
         toast('success', 'डोमेन हटा दिया गया (Domain removed)');
         refreshDomains();
       } else {
-        toast('error', data.error || 'Failed to remove domain');
+        const detail = (data.errors && data.errors.length) ? ` — ${data.errors.join('; ')}` : '';
+        toast('error', `${data.error || 'Failed to remove domain'}${detail}`);
         refreshDomains();
       }
     } catch (e: any) {
