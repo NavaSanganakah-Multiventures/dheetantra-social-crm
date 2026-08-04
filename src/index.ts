@@ -1492,6 +1492,16 @@ app.post('/api/domains', async (c) => {
     return c.json({ error: 'Invalid default mailbox name. Use letters, numbers, dots, dashes, underscores or plus.' }, 400);
   }
 
+  // Daily rate limit + plan-based max domains check
+  const addRate = await checkDomainAddRateLimit(c.env, workspaceId);
+  if (!addRate.ok) return c.json({ error: addRate.error, code: 'E_DOMAIN_RATE_LIMIT' }, 429);
+
+  const limits = await getWorkspacePlanLimits(c.env, workspaceId);
+  const domainCount: any = await c.env.DB.prepare('SELECT COUNT(*) as count FROM domains WHERE workspace_id = ?').bind(workspaceId).first();
+  if (domainCount && domainCount.count >= limits.max_domains) {
+    return c.json({ error: `Domain limit reached for your plan (max ${limits.max_domains}). Upgrade to add more domains.`, code: 'E_DOMAIN_LIMIT' }, 400);
+  }
+
   try {
     const existing: any = await c.env.DB.prepare('SELECT * FROM domains WHERE workspace_id = ? AND domain_name = ?')
       .bind(workspaceId, clean).first();
@@ -1616,6 +1626,13 @@ app.post('/api/domain-emails', async (c) => {
   }
   const emailAddress = `${cleanLocal}@${domain.domain_name}`;
 
+  // Plan-based max mailboxes per domain
+  const limits = await getWorkspacePlanLimits(c.env, workspaceId);
+  const mailboxCount: any = await c.env.DB.prepare('SELECT COUNT(*) as count FROM domain_emails WHERE domain_id = ?').bind(domainId).first();
+  if (mailboxCount && mailboxCount.count >= limits.max_mailboxes_per_domain) {
+    return c.json({ error: `Mailbox limit reached for this domain (max ${limits.max_mailboxes_per_domain}). Upgrade your plan.`, code: 'E_MAILBOX_LIMIT' }, 400);
+  }
+
   try {
     const id = crypto.randomUUID();
     await c.env.DB.prepare(
@@ -1675,6 +1692,105 @@ async function checkEmailRateLimit(env: any, workspaceId: string): Promise<{ ok:
   }
 }
 
+// ==========================================
+// PLAN-BASED EMAIL QUOTAS & DOMAIN LIMITS
+// ==========================================
+
+interface PlanLimits {
+  email_monthly_limit: number;
+  max_domains: number;
+  max_mailboxes_per_domain: number;
+  allow_email_send: boolean;
+  pay_as_you_go_rate: number;
+}
+
+const DEFAULT_PLAN_LIMITS: PlanLimits = {
+  email_monthly_limit: 100,
+  max_domains: 1,
+  max_mailboxes_per_domain: 3,
+  allow_email_send: true,
+  pay_as_you_go_rate: 0,
+};
+
+const YEAR_MONTH = () => new Date().toISOString().slice(0, 7);
+
+async function getWorkspacePlanLimits(env: any, workspaceId: string): Promise<PlanLimits> {
+  try {
+    const row: any = await env.DB.prepare(
+      `SELECT COALESCE(p.limits_json, '{}') AS limits_json, COALESCE(p.pay_as_you_go_rate, 0) AS pay_as_you_go_rate
+       FROM workspaces w LEFT JOIN plans p ON w.plan_id = p.id WHERE w.id = ?`
+    ).bind(workspaceId).first();
+    const parsed: Partial<PlanLimits> = row?.limits_json ? JSON.parse(row.limits_json) : {};
+    return { ...DEFAULT_PLAN_LIMITS, ...parsed, pay_as_you_go_rate: row?.pay_as_you_go_rate ?? 0 };
+  } catch (e) {
+    console.error('[Billing] Failed to load plan limits:', e);
+    return DEFAULT_PLAN_LIMITS;
+  }
+}
+
+async function checkEmailPlanQuota(env: any, workspaceId: string): Promise<{ ok: boolean; isOverage: boolean; monthlyLimit: number; remaining: number; overageRate: number; error?: string }> {
+  const limits = await getWorkspacePlanLimits(env, workspaceId);
+  if (!limits.allow_email_send) {
+    return { ok: false, isOverage: false, monthlyLimit: 0, remaining: 0, overageRate: 0, error: 'Email sending is not enabled on your current plan.' };
+  }
+  if (limits.email_monthly_limit <= 0) {
+    return { ok: false, isOverage: false, monthlyLimit: 0, remaining: 0, overageRate: 0, error: 'Email quota is not available. Upgrade your plan.' };
+  }
+
+  try {
+    const usage: any = await env.DB.prepare(
+      'SELECT emails_sent, overage_emails FROM workspace_email_usage WHERE workspace_id = ? AND year_month = ?'
+    ).bind(workspaceId, YEAR_MONTH()).first();
+    const sent = usage?.emails_sent || 0;
+    const remaining = Math.max(0, limits.email_monthly_limit - sent);
+    if (remaining > 0) {
+      return { ok: true, isOverage: false, monthlyLimit: limits.email_monthly_limit, remaining, overageRate: limits.pay_as_you_go_rate };
+    }
+    if (limits.pay_as_you_go_rate > 0) {
+      return { ok: true, isOverage: true, monthlyLimit: limits.email_monthly_limit, remaining: 0, overageRate: limits.pay_as_you_go_rate };
+    }
+    return { ok: false, isOverage: false, monthlyLimit: limits.email_monthly_limit, remaining: 0, overageRate: 0, error: `Monthly email limit (${limits.email_monthly_limit}) reached. Upgrade to send more.` };
+  } catch (e) {
+    console.error('[Billing] Quota check failed:', e);
+    // Fail open so emails are not hard-blocked by billing schema issues
+    return { ok: true, isOverage: false, monthlyLimit: 0, remaining: 0, overageRate: 0 };
+  }
+}
+
+async function incrementEmailUsage(env: any, workspaceId: string, isOverage: boolean) {
+  try {
+    const col = isOverage ? 'overage_emails' : 'emails_sent';
+    await env.DB.prepare(
+      `INSERT INTO workspace_email_usage (workspace_id, year_month, emails_sent, overage_emails, updated_at)
+       VALUES (?, ?, 0, 0, CURRENT_TIMESTAMP)
+       ON CONFLICT(workspace_id, year_month) DO UPDATE SET ${col} = ${col} + 1, updated_at = CURRENT_TIMESTAMP`
+    ).bind(workspaceId, YEAR_MONTH()).run();
+  } catch (e) {
+    console.error('[Billing] Failed to increment usage:', e);
+  }
+}
+
+async function checkDomainAddRateLimit(env: any, workspaceId: string): Promise<{ ok: boolean; error?: string }> {
+  const today = new Date().toISOString().slice(0, 10);
+  const windowKey = `${workspaceId}:${today}`;
+  try {
+    // Keep table small
+    await env.DB.prepare("DELETE FROM domain_add_rate_limits WHERE created_at < date('now', '-2 days')").run();
+    const row: any = await env.DB.prepare(
+      `INSERT INTO domain_add_rate_limits (window_key, workspace_id, count) VALUES (?, ?, 1)
+       ON CONFLICT(window_key) DO UPDATE SET count = count + 1
+       RETURNING count`
+    ).bind(windowKey, workspaceId).first();
+    if (row && row.count > 5) {
+      return { ok: false, error: 'Daily domain add limit reached (max 5 per workspace). Try again tomorrow.' };
+    }
+    return { ok: true };
+  } catch (e) {
+    console.error('[Domain] Add rate limit error:', e);
+    return { ok: true };
+  }
+}
+
 // Send an email from a verified domain of the workspace
 app.post('/api/email/send', async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
@@ -1688,6 +1804,9 @@ app.post('/api/email/send', async (c) => {
 
   const rate = await checkEmailRateLimit(c.env, workspaceId);
   if (!rate.ok) return c.json({ error: rate.error }, 429);
+
+  const quota = await checkEmailPlanQuota(c.env, workspaceId);
+  if (!quota.ok) return c.json({ error: quota.error, code: 'E_QUOTA_EXCEEDED' }, 429);
 
   const { resolveFromAddress, sendEmail, logEmailSend, renderTemplate, stripHtml } = await import('./services/emailService');
 
@@ -1720,10 +1839,17 @@ app.post('/api/email/send', async (c) => {
         subject, status: 'sent', messageId: result.messageId,
       });
       await c.env.DB.prepare('UPDATE domains SET sending_onboarded = 1 WHERE id = ?').bind(resolved.domain.id).run();
+      await incrementEmailUsage(c.env, workspaceId, quota.isOverage);
     } catch (bookkeepingErr) {
       console.error('[Email] Send bookkeeping failed (email was delivered):', bookkeepingErr);
     }
-    return c.json({ success: true, messageId: result.messageId });
+    return c.json({
+      success: true,
+      messageId: result.messageId,
+      monthlyLimit: quota.monthlyLimit,
+      remaining: Math.max(0, quota.remaining - 1),
+      overage: quota.isOverage,
+    });
   } catch (e: any) {
     try {
       await logEmailSend(c.env, {
@@ -1748,6 +1874,9 @@ app.post('/api/email/test', async (c) => {
 
   const rate = await checkEmailRateLimit(c.env, workspaceId);
   if (!rate.ok) return c.json({ error: rate.error }, 429);
+
+  const quota = await checkEmailPlanQuota(c.env, workspaceId);
+  if (!quota.ok) return c.json({ error: quota.error, code: 'E_QUOTA_EXCEEDED' }, 429);
 
   const row: any = await c.env.DB.prepare('SELECT * FROM domains WHERE id = ? AND workspace_id = ?')
     .bind(domainId, workspaceId).first();
@@ -1778,10 +1907,11 @@ app.post('/api/email/test', async (c) => {
         subject: 'DheeTantra test email', status: 'sent', messageId: result.messageId,
       });
       await c.env.DB.prepare('UPDATE domains SET sending_onboarded = 1 WHERE id = ?').bind(row.id).run();
+      await incrementEmailUsage(c.env, workspaceId, quota.isOverage);
     } catch (bookkeepingErr) {
       console.error('[Email] Test-send bookkeeping failed (email was delivered):', bookkeepingErr);
     }
-    return c.json({ success: true, messageId: result.messageId });
+    return c.json({ success: true, messageId: result.messageId, monthlyLimit: quota.monthlyLimit, remaining: Math.max(0, quota.remaining - 1), overage: quota.isOverage });
   } catch (e: any) {
     try {
       await logEmailSend(c.env, {
@@ -1967,6 +2097,9 @@ app.post('/api/email/inbox/conversations/:id/reply', async (c) => {
     const rate = await checkEmailRateLimit(c.env, workspaceId);
     if (!rate.ok) return c.json({ error: rate.error }, 429);
 
+    const quota = await checkEmailPlanQuota(c.env, workspaceId);
+    if (!quota.ok) return c.json({ error: quota.error, code: 'E_QUOTA_EXCEEDED' }, 429);
+
     const subject = originalSubject.startsWith('Re:') ? originalSubject : `Re: ${originalSubject || 'Your email'}`;
 
     const { sendEmail } = await import('./services/emailService');
@@ -1977,6 +2110,8 @@ app.post('/api/email/inbox/conversations/:id/reply', async (c) => {
       html: html || '',
       text: text || '',
     });
+
+    await incrementEmailUsage(c.env, workspaceId, quota.isOverage);
 
     // 3. Store the reply in messages for a complete thread view
     await c.env.DB.prepare(
@@ -1993,7 +2128,12 @@ app.post('/api/email/inbox/conversations/:id/reply', async (c) => {
       `UPDATE conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = ?`
     ).bind(conversationId).run();
 
-    return c.json({ success: true });
+    return c.json({
+      success: true,
+      monthlyLimit: quota.monthlyLimit,
+      remaining: Math.max(0, quota.remaining - 1),
+      overage: quota.isOverage,
+    });
   } catch (e: any) {
     console.error('[Email Inbox] Reply failed:', e);
     return c.json({ success: false, error: e.message || 'Reply failed', code: e.code || 'E_REPLY_FAILED' }, e.status || 500);
@@ -3811,6 +3951,10 @@ app.get('/api/plans', async (c) => {
 
     // If no plans exist yet, seed some defaults
     if (results.length === 0) {
+      const starterLimits = { email_monthly_limit: 100, max_domains: 1, max_mailboxes_per_domain: 3, allow_email_send: true };
+      const proLimits = { email_monthly_limit: 1000, max_domains: 5, max_mailboxes_per_domain: 10, allow_email_send: true };
+      const enterpriseLimits = { email_monthly_limit: 10000, max_domains: 100, max_mailboxes_per_domain: 100, allow_email_send: true };
+
       const defaultPlans = [
         {
           id: crypto.randomUUID(),
@@ -3819,6 +3963,7 @@ app.get('/api/plans', async (c) => {
           upfront_price: 0,
           pay_as_you_go_rate: 0.05, // 5 cents per message
           features_json: JSON.stringify(['WhatsApp Integration', 'Basic Inbox', 'Pay per message']),
+          limits_json: JSON.stringify(starterLimits),
         },
         {
           id: crypto.randomUUID(),
@@ -3827,6 +3972,7 @@ app.get('/api/plans', async (c) => {
           upfront_price: 99, // Upfront price for premium features
           pay_as_you_go_rate: 0.02, // Discounted rate
           features_json: JSON.stringify(['All Starter Features', 'Premium Broadcasts', 'Discounted message rates', 'Priority Support']),
+          limits_json: JSON.stringify(proLimits),
         },
         {
           id: crypto.randomUUID(),
@@ -3835,13 +3981,14 @@ app.get('/api/plans', async (c) => {
           upfront_price: 499,
           pay_as_you_go_rate: 0.01,
           features_json: JSON.stringify(['All Pro Features', 'Dedicated Account Manager', 'Custom SLAs', 'Whitelabeling']),
+          limits_json: JSON.stringify(enterpriseLimits),
         }
       ];
 
       for (const p of defaultPlans) {
         await c.env.DB.prepare(
-          'INSERT INTO plans (id, name, description, upfront_price, pay_as_you_go_rate, features_json) VALUES (?, ?, ?, ?, ?, ?)'
-        ).bind(p.id, p.name, p.description, p.upfront_price, p.pay_as_you_go_rate, p.features_json).run();
+          'INSERT INTO plans (id, name, description, upfront_price, pay_as_you_go_rate, features_json, limits_json) VALUES (?, ?, ?, ?, ?, ?, ?)'
+        ).bind(p.id, p.name, p.description, p.upfront_price, p.pay_as_you_go_rate, p.features_json, p.limits_json).run();
       }
       return c.json({ plans: defaultPlans });
     }
