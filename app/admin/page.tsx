@@ -176,7 +176,7 @@ export default function AdminDashboard() {
       });
   };
 
-  const reviewDomain = async (id: string, action: 'approve' | 'reject', reason?: string) => {
+  const reviewDomain = async (id: string, action: 'approve' | 'reject' | 'unsuspend', reason?: string) => {
     try {
       const res = await fetch(`/api/admin/domains/${id}/${action}`, {
         method: 'POST',
@@ -185,7 +185,11 @@ export default function AdminDashboard() {
       });
       const data: any = await res.json();
       if (res.ok) {
-        addNotification(action === 'approve' ? 'डोमेन approve हो गया' : 'डोमेन reject हो गया');
+        addNotification(
+          action === 'approve' ? 'डोमेन approve हो गया'
+          : action === 'unsuspend' ? 'डोमेन unsuspend हो गया'
+          : 'डोमेन reject हो गया'
+        );
         loadAdminDomains();
       } else {
         addNotification(data.error || 'Review action failed', 'error');
@@ -1151,7 +1155,13 @@ export default function AdminDashboard() {
                                 <div className="text-[10px] text-zinc-500">{d.owner_emails || ''}</div>
                               </td>
                               <td className="px-6 py-4 uppercase">{d.setup_mode}</td>
-                              <td className="px-6 py-4 capitalize">{d.status}</td>
+                              <td className="px-6 py-4">
+                                {d.status === 'suspended' ? (
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-rose-500/10 text-rose-400 uppercase">Suspended</span>
+                                ) : (
+                                  <span className="capitalize">{d.status}</span>
+                                )}
+                              </td>
                               <td className="px-6 py-4">
                                 <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
                                   d.review_status === 'approved'
@@ -1183,6 +1193,13 @@ export default function AdminDashboard() {
                                       <X className="w-3 h-3" /> Reject
                                     </button>
                                   </div>
+                                ) : d.status === 'suspended' ? (
+                                  <button
+                                    onClick={() => reviewDomain(d.id, 'unsuspend')}
+                                    className="inline-flex items-center gap-1 px-3 py-1.5 bg-amber-600 hover:bg-amber-500 rounded-lg text-white text-[10px] font-semibold transition-colors"
+                                  >
+                                    <RefreshCw className="w-3 h-3" /> Unsuspend
+                                  </button>
                                 ) : (
                                   <span className="text-[10px] text-zinc-500">
                                     {d.review_status === 'approved' ? 'Onboarding started' : d.error_message || 'Rejected'}

@@ -242,9 +242,12 @@ export async function resolveFromAddress(env: any, workspaceId: string, fromAddr
     const domainPart = normalized.split('@')[1];
     if (!domainPart) throw new EmailServiceError('Invalid from address', 400, 'E_VALIDATION');
     const domainRow: any = await env.DB.prepare(
-      "SELECT * FROM domains WHERE workspace_id = ? AND domain_name = ? AND status = 'active' AND review_status = 'approved'"
+      'SELECT * FROM domains WHERE workspace_id = ? AND domain_name = ?'
     ).bind(workspaceId, domainPart).first();
-    if (!domainRow) {
+    if (!domainRow || domainRow.status !== 'active' || domainRow.review_status !== 'approved') {
+      if (domainRow?.status === 'suspended') {
+        throw new EmailServiceError('This domain has been suspended due to high send failures. Contact support to restore it.', 403, 'E_DOMAIN_SUSPENDED');
+      }
       throw new EmailServiceError('From domain is not an active domain of this workspace', 400, 'E_FROM_DOMAIN_INVALID');
     }
     const mailbox: any = await env.DB.prepare('SELECT * FROM domain_emails WHERE domain_id = ? AND email_address = ? COLLATE NOCASE')
@@ -369,6 +372,11 @@ export async function onboardDomain(env: any, row: any) {
 }
 
 export async function checkDomain(env: any, row: any) {
+  // Abuse-suspended domains must be restored by an admin; a plain DNS re-check
+  // must never silently lift the suspension.
+  if (row.status === 'suspended') {
+    return { ...row, status: 'suspended' };
+  }
   if (!row.zone_id) {
     return onboardDomain(env, row);
   }

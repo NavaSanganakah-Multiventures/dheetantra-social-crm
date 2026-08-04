@@ -240,6 +240,7 @@ CREATE TABLE IF NOT EXISTS domains (
   sending_onboarded INTEGER DEFAULT 0, -- 1 once a send succeeded via send_email binding
   error_message TEXT,
   last_checked_at DATETIME,
+  abuse_reset_at DATETIME, -- set on admin unsuspend: fresh 24h abuse window starts here
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
 );
@@ -285,6 +286,11 @@ CREATE TABLE IF NOT EXISTS email_send_logs (
 );
 
 CREATE INDEX IF NOT EXISTS idx_email_send_logs_workspace ON email_send_logs(workspace_id, created_at);
+
+-- Abuse monitoring scan (24h failure counts per domain)
+-- Column order (domain_id, created_at, status) lets SQLite range-seek the
+-- 24h window instead of walking the domain's full send history.
+CREATE INDEX IF NOT EXISTS idx_email_send_logs_domain_status_time ON email_send_logs(domain_id, created_at, status);
 
 -- Email sending rate limiter (atomic counter via INSERT ... ON CONFLICT ... RETURNING)
 CREATE TABLE IF NOT EXISTS email_rate_limits (

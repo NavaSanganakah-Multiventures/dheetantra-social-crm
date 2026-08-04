@@ -1793,6 +1793,141 @@ async function checkDomainAddRateLimit(env: any, workspaceId: string): Promise<{
   }
 }
 
+// ==========================================
+// EMAIL ABUSE MONITORING (auto-suspend)
+// ==========================================
+
+// A domain is auto-suspended when it accumulates at least this many failed
+// sends in a rolling 24h window AND failures make up at least this share of
+// its sends (so a few bad addresses in otherwise healthy traffic do not trip it).
+const ABUSE_SUSPEND_FAILURES = 10;
+const ABUSE_SUSPEND_FAILURE_RATIO = 0.5;
+// Per-domain verdict cache TTL (seconds). Keeps the 24h scan query off the
+// hot send path; detection may lag by at most this window.
+const ABUSE_CACHE_TTL = 60;
+
+function abuseCacheKey(domainId: string): string {
+  return `email_abuse:${domainId}`;
+}
+
+// Notify every workspace member (FCM push + email) when a domain is first
+// auto-suspended so the owner is not surprised by suddenly failing sends.
+async function notifyDomainSuspended(env: any, domainId: string, reason: string) {
+  try {
+    const domain: any = await env.DB.prepare('SELECT workspace_id, domain_name FROM domains WHERE id = ?').bind(domainId).first();
+    if (!domain) return;
+    const members: any = await env.DB.prepare('SELECT user_id FROM workspace_members WHERE workspace_id = ?').bind(domain.workspace_id).all();
+    const userIds = (members.results || []).map((m: any) => m.user_id);
+    if (userIds.length === 0) return;
+
+    const placeholders = userIds.map(() => '?').join(',');
+    const title = `Email domain ${domain.domain_name} suspended`;
+    const body = `DheeTantra auto-suspended "${domain.domain_name}" due to high send failures. Contact support to restore it.`;
+
+    const tokens: any = await env.DB.prepare(`SELECT token FROM fcm_tokens WHERE user_id IN (${placeholders})`).bind(...userIds).all();
+    if (tokens.results && tokens.results.length > 0) {
+      const { sendPushNotification } = await import('../lib/fcm');
+      for (const row of tokens.results) {
+        await sendPushNotification(env, row.token, title, body, { workspaceId: domain.workspace_id, domain: domain.domain_name });
+      }
+    }
+
+    if (env.EMAIL_SENDER && typeof env.EMAIL_SENDER.send === 'function') {
+      const emails: any = await env.DB.prepare(`SELECT email FROM users WHERE id IN (${placeholders})`).bind(...userIds).all();
+      if (emails.results && emails.results.length > 0) {
+        const { EmailMessage } = await import('cloudflare:email');
+        // users.email is attacker-controlled (send-otp stores it with no format
+        // validation), so every header-interpolated value must go through
+        // sanitizeHeaderValue to block CRLF header injection into the raw email.
+        const { sanitizeHeaderValue } = await import('./services/emailService');
+        const senderEmail = sanitizeHeaderValue(env.EMAIL_SENDER_ADDRESS || 'dheetantra@navasanganakah.com');
+        const safeTitle = sanitizeHeaderValue(title);
+        const safeBody = sanitizeHeaderValue(body);
+        const safeReason = sanitizeHeaderValue(reason);
+        for (const row of emails.results) {
+          const safeTo = sanitizeHeaderValue(row.email || '');
+          const rawEmail = `From: DheeTantra <${senderEmail}>\r\nTo: ${safeTo}\r\nSubject: [DheeTantra] ${safeTitle}\r\n\r\n${safeBody}\r\n\r\nReason: ${safeReason}\r\n\r\nOpen the admin panel to review unsuspended domains.`;
+          await env.EMAIL_SENDER.send(new EmailMessage(senderEmail, safeTo, rawEmail));
+        }
+      }
+    }
+  } catch (e) {
+    // Notifications are best-effort; never let them fail the abuse gate itself
+    console.error('[Email] Failed to notify domain suspension:', e);
+  }
+}
+
+// Single-flight: concurrent requests that miss the cache share one scan instead
+// of each re-running the aggregate query on the hot path.
+const abuseScanInFlight = new Map<string, Promise<{ ok: boolean; message?: string }>>();
+
+// The 24h scan. Window start is max(last 24h, abuse_reset_at) so an admin
+// unsuspend gives the domain a fresh baseline — otherwise the still-hot old
+// failures would deterministically re-suspend it on the very next send.
+async function scanDomainAbuse(env: any, domainId: string, ctx?: any): Promise<{ ok: boolean; message?: string }> {
+  const stats: any = await env.DB.prepare(
+    `SELECT COUNT(*) AS total,
+            COALESCE(SUM(CASE WHEN L.status = 'failed' THEN 1 ELSE 0 END), 0) AS failed
+     FROM email_send_logs L
+     JOIN domains D ON D.id = L.domain_id
+     WHERE L.domain_id = ? AND L.created_at >= COALESCE(D.abuse_reset_at, datetime('now', '-1 day'))`
+  ).bind(domainId).first();
+  const total = stats?.total || 0;
+  const failed = stats?.failed || 0;
+
+  if (total > 0 && failed >= ABUSE_SUSPEND_FAILURES && failed / total >= ABUSE_SUSPEND_FAILURE_RATIO) {
+    // Idempotent: only flip the row the first time it crosses the threshold
+    const upd: any = await env.DB.prepare(
+      `UPDATE domains SET status = 'suspended', error_message = ?, last_checked_at = CURRENT_TIMESTAMP
+       WHERE id = ? AND status != 'suspended'`
+    ).bind(`Auto-suspended: ${failed} of ${total} recent sends failed in 24h`, domainId).run();
+    const reason = `Auto-suspended: ${failed} of ${total} recent sends failed in 24h`;
+    if ((upd?.meta?.changes ?? 0) > 0 && ctx) {
+      ctx.waitUntil(notifyDomainSuspended(env, domainId, reason));
+    }
+    if (env.SECRETS_KV) {
+      // Fire-and-forget: the domains.status flip above is the authoritative
+      // gate; a slow cache write must not add latency to the send path.
+      env.SECRETS_KV.put(abuseCacheKey(domainId), 'blocked', { expirationTtl: ABUSE_CACHE_TTL })
+        .catch((e: any) => console.error('[Email] Abuse cache put failed:', e));
+    }
+    return { ok: false, message: `Domain auto-suspended: ${failed} of ${total} recent sends failed. Contact support to restore it.` };
+  }
+
+  if (env.SECRETS_KV) {
+    env.SECRETS_KV.put(abuseCacheKey(domainId), 'ok', { expirationTtl: ABUSE_CACHE_TTL })
+      .catch((e: any) => console.error('[Email] Abuse cache put failed:', e));
+  }
+  return { ok: true };
+}
+
+async function checkDomainAbuse(env: any, domainId: string, ctx?: any): Promise<{ ok: boolean; message?: string }> {
+  try {
+    // KV cache: healthy domains skip the DB scan entirely between verdicts
+    if (env.SECRETS_KV) {
+      const cached = await env.SECRETS_KV.get(abuseCacheKey(domainId));
+      if (cached === 'blocked') {
+        return { ok: false, message: 'Domain auto-suspended: high recent send failures. Contact support to restore it.' };
+      }
+      if (cached === 'ok') return { ok: true };
+    }
+
+    // Single-flight the miss path: concurrent requests share one scan
+    let pending = abuseScanInFlight.get(domainId);
+    if (!pending) {
+      pending = scanDomainAbuse(env, domainId, ctx).finally(() => {
+        abuseScanInFlight.delete(domainId);
+      });
+      abuseScanInFlight.set(domainId, pending);
+    }
+    return pending;
+  } catch (e) {
+    // Fail open: the abuse check must never block sends because of a DB hiccup
+    console.error('[Email] Abuse check error:', e);
+    return { ok: true };
+  }
+}
+
 // Send an email from a verified domain of the workspace
 app.post('/api/email/send', async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
@@ -1818,6 +1953,10 @@ app.post('/api/email/send', async (c) => {
   } catch (e: any) {
     return c.json({ error: e.message, code: e.code || 'E_FROM_INVALID' }, e.status || 400);
   }
+
+  // Abuse monitoring: auto-suspended domains cannot send until an admin restores them
+  const abuse = await checkDomainAbuse(c.env, resolved.domain.id, c.executionCtx);
+  if (!abuse.ok) return c.json({ error: abuse.message, code: 'E_DOMAIN_SUSPENDED' }, 403);
 
   let bodyHtml = html || '';
   let bodyText = text || '';
@@ -1883,9 +2022,16 @@ app.post('/api/email/test', async (c) => {
   const row: any = await c.env.DB.prepare('SELECT * FROM domains WHERE id = ? AND workspace_id = ?')
     .bind(domainId, workspaceId).first();
   if (!row) return c.json({ error: 'Domain not found' }, 404);
+  // Suspended must be checked BEFORE the generic not-active check, otherwise
+  // suspended domains get the misleading "Domain is not active yet" error.
+  if (row.status === 'suspended') {
+    return c.json({ error: 'Domain suspended due to high send failures. Contact support to restore it.', code: 'E_DOMAIN_SUSPENDED' }, 403);
+  }
   if (row.status !== 'active') {
     return c.json({ error: 'Domain is not active yet. Complete the DNS verification first.', code: 'E_DOMAIN_NOT_ACTIVE' }, 400);
   }
+  const abuse = await checkDomainAbuse(c.env, row.id, c.executionCtx);
+  if (!abuse.ok) return c.json({ error: abuse.message, code: 'E_DOMAIN_SUSPENDED' }, 403);
 
   // From must be a registered mailbox: prefer test@domain, else the default mailbox
   const mailbox: any = await c.env.DB.prepare('SELECT * FROM domain_emails WHERE domain_id = ? AND email_address = ? COLLATE NOCASE')
@@ -2101,6 +2247,23 @@ app.post('/api/email/inbox/conversations/:id/reply', async (c) => {
 
     const quota = await checkEmailPlanQuota(c.env, workspaceId);
     if (!quota.ok) return c.json({ error: quota.error, code: 'E_QUOTA_EXCEEDED' }, 429);
+
+    // Block replies when the from-domain is auto-suspended for abuse.
+    // Checked after the rate/quota gates so bursts that will 429 anyway do
+    // not pay the extra DB + KV round trips.
+    const fromDomainPart = fromEmail.split('@')[1] || '';
+    if (fromDomainPart) {
+      const fromDomainRow: any = await c.env.DB.prepare(
+        'SELECT id, status FROM domains WHERE workspace_id = ? AND domain_name = ?'
+      ).bind(workspaceId, fromDomainPart).first();
+      if (fromDomainRow) {
+        if (fromDomainRow.status === 'suspended') {
+          return c.json({ error: 'Domain suspended due to high send failures. Contact support to restore it.', code: 'E_DOMAIN_SUSPENDED' }, 403);
+        }
+        const abuse = await checkDomainAbuse(c.env, fromDomainRow.id, c.executionCtx);
+        if (!abuse.ok) return c.json({ error: abuse.message, code: 'E_DOMAIN_SUSPENDED' }, 403);
+      }
+    }
 
     const subject = originalSubject.startsWith('Re:') ? originalSubject : `Re: ${originalSubject || 'Your email'}`;
 

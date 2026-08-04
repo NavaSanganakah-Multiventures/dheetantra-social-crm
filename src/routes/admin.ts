@@ -607,4 +607,52 @@ admin.post('/domains/:id/reject', async (c) => {
   }
 });
 
+// Restore an abuse-auto-suspended email domain
+admin.post('/domains/:id/unsuspend', async (c) => {
+  const isAdmin = await verifyAdmin(c);
+  if (!isAdmin) return c.json({ error: 'Unauthorized' }, 403);
+  if (!c.env.DB) return c.json({ error: 'Database not connected' }, 500);
+
+  try {
+    const id = c.req.param('id');
+    const row: any = await c.env.DB.prepare('SELECT * FROM domains WHERE id = ?').bind(id).first();
+    if (!row) return c.json({ error: 'Domain not found' }, 404);
+    if (row.status !== 'suspended') {
+      return c.json({ error: 'Domain is not suspended' }, 400);
+    }
+
+    // Back to 'pending': a background re-check (checkDomain) flips the domain
+    // to 'active' only when Cloudflare routing is healthy again.
+    // abuse_reset_at restarts the 24h failure baseline so the still-hot old
+    // failures cannot deterministically re-suspend the domain on its next send.
+    await c.env.DB.prepare(
+      "UPDATE domains SET status = 'pending', error_message = NULL, last_checked_at = CURRENT_TIMESTAMP, abuse_reset_at = CURRENT_TIMESTAMP WHERE id = ?"
+    ).bind(id).run();
+
+    // Clear the abuse verdict cache so the lifted domain is not blocked by a
+    // stale 'blocked' entry from the last auto-suspend.
+    if (c.env.SECRETS_KV) {
+      try {
+        await c.env.SECRETS_KV.delete(`email_abuse:${id}`);
+      } catch (cacheErr) {
+        console.error('[Admin] Failed to clear abuse cache:', cacheErr);
+      }
+    }
+
+    c.executionCtx.waitUntil((async () => {
+      try {
+        const { checkDomain } = await import('../services/emailService');
+        const updated: any = await c.env.DB.prepare('SELECT * FROM domains WHERE id = ?').bind(id).first();
+        if (updated) await checkDomain(c.env, updated);
+      } catch (e) {
+        console.error('[Admin] Domain re-check failed after unsuspend:', e);
+      }
+    })());
+
+    return c.json({ success: true, message: 'Domain unsuspended. DNS verification re-check started.' });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
 export default admin;
