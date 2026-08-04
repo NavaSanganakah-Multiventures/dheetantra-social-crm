@@ -1465,6 +1465,7 @@ function parseDomain(d: any) {
     spf_records: d.spf_record ? JSON.parse(d.spf_record) : [],
     dkim_records: d.dkim_records ? JSON.parse(d.dkim_records) : [],
     dmarc_records: d.dmarc_record ? JSON.parse(d.dmarc_record) : [],
+    pending_records: d.pending_records ? JSON.parse(d.pending_records) : [],
   };
 }
 
@@ -2104,6 +2105,124 @@ app.get('/api/email/mailboxes', async (c) => {
   ).bind(workspaceId).all();
 
   return c.json({ mailboxes: results });
+});
+
+// ==========================================
+// EMAIL RECEIVE DIAGNOSTICS (one-click pipeline check)
+// ==========================================
+
+app.get('/api/email/diagnostics', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  const out: any = { checkedAt: new Date().toISOString(), workspaceId };
+
+  // 1. Domains in this workspace + onboarding state
+  try {
+    const { results } = await c.env.DB.prepare(
+      `SELECT id, domain_name, setup_mode, status, review_status, zone_id, routing_rule_id, sending_onboarded, error_message
+       FROM domains WHERE workspace_id = ? ORDER BY created_at DESC`
+    ).bind(workspaceId).all();
+    out.domains = (results || []).map((d: any) => ({
+      domain: d.domain_name,
+      setup_mode: d.setup_mode,
+      status: d.status,
+      review_status: d.review_status,
+      has_zone_id: !!d.zone_id,
+      has_routing_rule_id: !!d.routing_rule_id,
+      sending_onboarded: !!d.sending_onboarded,
+      error_message: d.error_message || null,
+    }));
+  } catch (e: any) {
+    out.domains = [];
+    out.domains_error = e.message;
+  }
+
+  // 2. KV credentials needed for Cloudflare onboarding
+  try {
+    const token = await c.env.SECRETS_KV.get('CLOUDFLARE_API_TOKEN');
+    const accountId = await c.env.SECRETS_KV.get('CLOUDFLARE_ACCOUNT_ID');
+    out.credentials = {
+      CLOUDFLARE_API_TOKEN: token ? `SET (${token.slice(0, 6)}...${token.slice(-4)})` : 'MISSING',
+      CLOUDFLARE_ACCOUNT_ID: accountId ? `SET (${accountId.slice(0, 6)}...)` : 'MISSING',
+      hasBoth: !!(token && accountId),
+    };
+  } catch (e: any) {
+    out.credentials = { error: e.message };
+  }
+
+  // 3. Live Cloudflare state for every domain that has a zone. Bounded
+  //    concurrency + a per-request domain cap keep this well under the Worker's
+  //    wall-time limit (3 CF calls per domain, parallelized).
+  const { cfFetch } = await import('./services/cloudflareApi');
+  const zoneDomains = (out.domains || []).filter((d: any) => d.has_zone_id);
+  const CHECK_LIMIT = 20;
+  const CONCURRENCY = 5;
+  out.cloudflare = [];
+  out.cloudflare_truncated = zoneDomains.length > CHECK_LIMIT;
+  let cursor = 0;
+  const checkOne = async (d: any) => {
+    const entry: any = { domain: d.domain, zone_id: d.zone_id };
+    const [zone, routing, rules]: any[] = await Promise.all([
+      cfFetch(c.env, `/zones/${d.zone_id}`).catch((e: any) => ({ __error: e.message })),
+      cfFetch(c.env, `/zones/${d.zone_id}/email/routing`).catch((e: any) => ({ __error: e.message })),
+      cfFetch(c.env, `/zones/${d.zone_id}/email/routing/rules`).catch((e: any) => ({ __error: e.message })),
+    ]);
+    if (zone?.__error) entry.zone_error = zone.__error;
+    else entry.zone_status = zone?.status || 'unknown';
+    if (routing?.__error) entry.routing_error = routing.__error;
+    else entry.routing_enabled = !!routing?.enabled;
+    if (rules?.__error) {
+      entry.rules_error = rules.__error;
+    } else {
+      const list: any[] = rules || [];
+      entry.rules = list.map((r: any) => ({
+        id: r.id,
+        enabled: r.enabled !== false,
+        matchers: r.matchers,
+        actions: r.actions,
+      }));
+      const catchAll = list.find((r: any) => (r.matchers || []).some((m: any) => m.type === 'all'));
+      entry.catch_all_rule = catchAll
+        ? { id: catchAll.id, enabled: catchAll.enabled !== false, actions: catchAll.actions }
+        : null;
+    }
+    out.cloudflare.push(entry);
+  };
+  const worker = async () => {
+    while (cursor < zoneDomains.length && cursor < CHECK_LIMIT) {
+      const d = zoneDomains[cursor++];
+      await checkOne(d);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(CONCURRENCY, CHECK_LIMIT) }, worker));
+  out.cloudflare.sort((a: any, b: any) => (a.domain || '').localeCompare(b.domain || ''));
+
+  // 4. Which worker scripts exist in the account (does dheetantra-social-crm exist?)
+  try {
+    const accountId = await c.env.SECRETS_KV.get('CLOUDFLARE_ACCOUNT_ID');
+    if (accountId) {
+      const scripts: any[] = await cfFetch(c.env, `/accounts/${accountId}/workers/scripts?per_page=50`) || [];
+      out.workers = scripts.map((s: any) => ({ name: s.id, modified_on: s.modified_on }));
+    } else {
+      out.workers = [];
+    }
+  } catch (e: any) {
+    out.workers = [];
+    out.workers_error = e.message;
+  }
+
+  // 5. Have any emails actually landed in this workspace inbox?
+  try {
+    const counts: any = await c.env.DB.prepare(
+      "SELECT COUNT(*) AS convs FROM conversations WHERE workspace_id = ? AND platform = 'email'"
+    ).bind(workspaceId).first();
+    out.inbox_email_conversations = counts?.convs || 0;
+  } catch {
+    out.inbox_email_conversations = 0;
+  }
+
+  return c.json(out);
 });
 
 // ==========================================
@@ -4419,6 +4538,13 @@ const worker = {
     // e.g., Call Firebase Cloud Messaging (FCM) API here
   },
 
+  // Scheduled maintenance: auto-retry Cloudflare onboarding for approved
+  // domains stuck in pending/failed so they start receiving email.
+  async scheduled(controller: any, env: any, ctx: any) {
+    const { runDomainMaintenance } = await import('./services/emailService');
+    await runDomainMaintenance(env, ctx);
+  },
+
   // Queue consumer (Notifications)
   async queue(batch: any, env: any, ctx: any) {
     for (const message of batch.messages) {
@@ -4428,6 +4554,7 @@ const worker = {
 
   // Email receiver (Cloudflare Email Routing -> DheeTantra inbox)
   async email(message: any, env: any, ctx: any) {
+    console.log(`[Email] email() handler invoked: from=${message.from} to=${message.to} rawSize=${message.rawSize}`);
     const { handleIncomingEmail } = await import('./services/emailService');
     await handleIncomingEmail(message, env, ctx);
   }

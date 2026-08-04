@@ -92,6 +92,12 @@ database_id = "ca83f3ea-5c28-4aaa-b79a-e7022609f038"
 binding = "MEDIA_BUCKET"
 bucket_name = "dhitantra-media-preview"
 
+# Never run the production onboarding/maintenance cron from the preview env:
+# it shares the same D1 database and Cloudflare account, and two concurrent
+# runners would race on the same domain rows.
+[env.preview.triggers]
+crons = []
+
 # ==========================================
 # 8. OBSERVABILITY — Logs & Tail
 # ==========================================
@@ -126,3 +132,9 @@ fallthrough = false
 # ==========================================
 [ai]
 binding = "AI"
+
+# ==========================================
+# 11. SCHEDULED MAINTENANCE (email onboarding auto-retry)
+# ==========================================
+[triggers]
+crons = ["*/10 * * * *"]

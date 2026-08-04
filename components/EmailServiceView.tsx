@@ -607,6 +607,7 @@ function DomainsSection({
           ...(domain.dkim_records || []),
           ...(domain.dmarc_records || []),
         ];
+        const pendingRecords = domain.pending_records || [];
         return (
           <div key={domain.id} className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden">
             {/* Card header */}
@@ -711,6 +712,19 @@ function DomainsSection({
                     <div className="bg-zinc-50 dark:bg-zinc-950/50 rounded-xl px-4 border border-zinc-100 dark:border-zinc-800">
                       {records.map((r: any, i: number) => <DnsRecordRow key={i} record={r} />)}
                     </div>
+                  </div>
+                )}
+
+                {/* Fallback records that are NOT in the zone yet — must be added at the provider */}
+                {pendingRecords.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-semibold text-amber-700 dark:text-amber-400 mb-2">DNS Records (अभी active नहीं — अपने provider पर जोड़ें)</h4>
+                    <div className="bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 rounded-xl px-4 py-1">
+                      {pendingRecords.map((r: any, i: number) => <DnsRecordRow key={i} record={r} />)}
+                    </div>
+                    <p className="text-xs text-amber-700 dark:text-amber-400 mt-2">
+                      ये record Cloudflare में list नहीं हो सके, इसलिए इन्हें अपने DNS provider पर manually जोड़ें। MX records के बिना इस डोमेन पर email receive नहीं होगा।
+                    </p>
                   </div>
                 )}
 

@@ -329,6 +329,7 @@ export async function onboardDomain(env: any, row: any) {
           } else {
             const rule = await createCatchAllRule(env, zoneId, env.WORKER_NAME || DEFAULT_WORKER_NAME, creds);
             ruleId = rule.id;
+            console.log(`[Email] Catch-all rule created for ${row.domain_name} -> worker "${env.WORKER_NAME || DEFAULT_WORKER_NAME}" rule=${ruleId}`);
           }
         }
         updates.routing_rule_id = ruleId;
@@ -353,6 +354,25 @@ export async function onboardDomain(env: any, row: any) {
         } catch (e: any) {
           console.error('[Email] Failed to fetch DNS records for display:', e.message);
         }
+
+        // Fallback: if Cloudflare could not list the zone records (partial/CNAME
+        // zones, listing permission missing, etc.), still surface the standard
+        // Email Routing records so the user can add them manually at their
+        // provider. Without MX, receiving can never work in partial mode.
+        // These go into pending_records (NOT the mx/spf columns, which represent
+        // records actually present in the zone) so the UI can label them as
+        // "add at your provider — not yet active".
+        const pendingRecords: any[] = [];
+        if (!updates.mx_records) {
+          ['route1.mx.cloudflare.net', 'route2.mx.cloudflare.net', 'route3.mx.cloudflare.net']
+            .forEach((host, i) => pendingRecords.push({ name: row.domain_name, content: host, priority: i + 10, type: 'MX' }));
+        }
+        if (!updates.spf_record) {
+          pendingRecords.push({ name: row.domain_name, content: 'v=spf1 include:_spf.mx.cloudflare.net ~all', type: 'TXT' });
+        }
+        updates.pending_records = pendingRecords.length ? JSON.stringify(pendingRecords) : null;
+        if (!updates.dkim_records) updates.dkim_records = JSON.stringify([]);
+        if (!updates.dmarc_record) updates.dmarc_record = JSON.stringify([]);
       }
 
       updates.status = routingReady ? 'active' : 'failed';
@@ -441,12 +461,59 @@ export async function removeDomain(env: any, row: any) {
 }
 
 async function persistDomainUpdates(env: any, domainId: string, updates: Record<string, any>) {
-  const allowed = ['zone_id', 'nameservers', 'verification_records', 'mx_records', 'spf_record', 'dkim_records', 'dmarc_record', 'routing_rule_id', 'status', 'error_message', 'last_checked_at'];
+  const allowed = ['zone_id', 'nameservers', 'verification_records', 'mx_records', 'spf_record', 'dkim_records', 'dmarc_record', 'pending_records', 'routing_rule_id', 'status', 'error_message', 'last_checked_at', 'consecutive_failures', 'next_retry_at'];
   const keys = Object.keys(updates).filter(k => allowed.includes(k));
   if (!keys.length) return;
   const setClause = keys.map(k => `${k} = ?`).join(', ');
   const values = keys.map(k => updates[k] === undefined ? null : updates[k]);
   await env.DB.prepare(`UPDATE domains SET ${setClause} WHERE id = ?`).bind(...values, domainId).run();
+}
+
+// ==========================================
+// SCHEDULED MAINTENANCE (cron trigger)
+// ==========================================
+
+// Called by the worker's scheduled() handler. Re-checks domains that are
+// approved but not fully receiving-ready (nameserver activation pending or a
+// transient Cloudflare failure left them stuck in pending/failed) and repairs
+// them. Bounded per run (row count AND retry backoff) so the scheduled handler
+// stays well within its wall budget: a row blocked by next_retry_at is skipped,
+// and consecutive failures back off 1m -> 2m -> 4m ... capped at 60m so
+// permanently broken domains stop hammering the Cloudflare API.
+export async function runDomainMaintenance(env: any, ctx: any) {
+  try {
+    const { results } = await env.DB.prepare(
+      `SELECT * FROM domains
+       WHERE review_status = 'approved' AND (status IN ('pending', 'failed') OR routing_rule_id IS NULL)
+         AND (next_retry_at IS NULL OR next_retry_at <= CURRENT_TIMESTAMP)
+       ORDER BY last_checked_at ASC
+       LIMIT 3`
+    ).all();
+    for (const row of results || []) {
+      try {
+        const updated: any = await checkDomain(env, row);
+        if (updated?.status === 'active') {
+          await env.DB.prepare(
+            'UPDATE domains SET consecutive_failures = 0, next_retry_at = NULL WHERE id = ?'
+          ).bind(row.id).run();
+        } else {
+          const failures = (Number(row.consecutive_failures) || 0) + 1;
+          const backoffMin = Math.min(Math.pow(2, failures - 1), 60);
+          await env.DB.prepare(
+            `UPDATE domains SET consecutive_failures = ?, next_retry_at = datetime('now', ?) WHERE id = ?`
+          ).bind(failures, `+${backoffMin} minutes`, row.id).run();
+          console.log(`[Email] Maintenance: ${row.domain_name} not ready (failure #${failures}, next retry in ${backoffMin}m)`);
+        }
+      } catch (e: any) {
+        console.error(`[Email] Maintenance check failed for ${row.domain_name}:`, e.message);
+      }
+    }
+    if (results && results.length) {
+      console.log(`[Email] Maintenance checked ${results.length} domain(s)`);
+    }
+  } catch (e: any) {
+    console.error('[Email] Maintenance run error:', e);
+  }
 }
 
 // ==========================================
@@ -460,11 +527,35 @@ export async function handleIncomingEmail(message: any, env: any, ctx: any) {
     if (!recipient) return;
 
     const domainRow: any = await env.DB.prepare(
-      "SELECT * FROM domains WHERE domain_name = ? AND status = 'active' AND review_status = 'approved'"
+      'SELECT * FROM domains WHERE domain_name = ?'
     ).bind(recipient.domain).first();
     if (!domainRow) {
-      console.log(`[Email] No active domain match for ${recipient.domain}; dropping`);
+      console.log(`[Email] No domain registered for ${recipient.domain}; dropping`);
       return;
+    }
+    // Abuse-suspended and admin-rejected domains must stay that way: a delivered
+    // email must never silently lift the suspension or override admin review.
+    // NOTE: admin rejection is stored as review_status='rejected' with
+    // status='failed' (never status='rejected'), so both fields are checked.
+    if (domainRow.status === 'suspended' || domainRow.status === 'rejected' || domainRow.review_status === 'rejected') {
+      console.log(`[Email] Domain ${recipient.domain} is suspended/rejected (status=${domainRow.status}, review=${domainRow.review_status}); dropping`);
+      return;
+    }
+    // Domains still in admin review are never auto-approved by receiving mail.
+    if (domainRow.review_status !== 'approved') {
+      console.log(`[Email] Domain ${recipient.domain} not yet approved (review=${domainRow.review_status}); dropping`);
+      return;
+    }
+    // If mail physically reached this Worker, Cloudflare Email Routing is live
+    // for the domain. Some domains were onboarded outside the DB flow (manual
+    // dashboard setup) or predate the zone columns, so an already-approved row
+    // may not be marked active yet. Self-heal it and process instead of dropping.
+    if (domainRow.status !== 'active' || !domainRow.zone_id) {
+      console.log(`[Email] Self-healing domain ${recipient.domain}: status=${domainRow.status} zone=${domainRow.zone_id ? 'set' : 'null'} -> active`);
+      await env.DB.prepare(
+        "UPDATE domains SET status = 'active', error_message = NULL, last_checked_at = CURRENT_TIMESTAMP WHERE id = ?"
+      ).bind(domainRow.id).run();
+      domainRow.status = 'active';
     }
 
     const mailbox: any = await env.DB.prepare('SELECT * FROM domain_emails WHERE email_address = ? COLLATE NOCASE')
