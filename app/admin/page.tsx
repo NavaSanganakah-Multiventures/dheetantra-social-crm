@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
-  ShieldCheck, ShieldAlert, Users, Building2, CreditCard, Key, 
+  ShieldCheck, ShieldAlert, Users, Building2, CreditCard, Key, Globe,
   Activity, Plus, Trash2, Edit, RefreshCw, Search, Check, X, 
   Database, Save, Eye, EyeOff, LayoutDashboard, Sliders, ArrowLeft, Mail, ChevronRight, AlertCircle
 } from 'lucide-react';
@@ -25,7 +25,7 @@ const formatAdminDate = (dateStr: string | Date | number) => {
   } catch { return 'N/A'; }
 };
 
-type AdminTab = 'overview' | 'users' | 'workspaces' | 'plans' | 'kv' | 'database';
+type AdminTab = 'overview' | 'users' | 'workspaces' | 'plans' | 'domains' | 'kv' | 'database';
 
 export default function AdminDashboard() {
   const router = useRouter();
@@ -52,6 +52,11 @@ export default function AdminDashboard() {
   const [plans, setPlans] = useState<any[]>([]);
   const [loadingPlans, setLoadingPlans] = useState(false);
 
+  // Email Domains Review State
+  const [adminDomains, setAdminDomains] = useState<any[]>([]);
+  const [loadingAdminDomains, setLoadingAdminDomains] = useState(false);
+  const [domainFilter, setDomainFilter] = useState<'pending' | 'all'>('pending');
+
   // KV Secrets State
   const [kvKeys, setKvKeys] = useState<any[]>([]);
   const [loadingKv, setLoadingKv] = useState(false);
@@ -71,7 +76,7 @@ export default function AdminDashboard() {
   // Form Field States
   const [userForm, setUserForm] = useState({ email: '', name: '', is_registered: true });
   const [workspaceForm, setWorkspaceForm] = useState({ name: '', plan_id: '', owner_id: '' });
-  const [planForm, setPlanForm] = useState({ id: '', name: '', description: '', upfront_price: '0', pay_as_you_go_rate: '0', features: '' });
+  const [planForm, setPlanForm] = useState({ id: '', name: '', description: '', upfront_price: '0', pay_as_you_go_rate: '0', features: '', limits: '{}' });
   const [kvForm, setKvForm] = useState({ name: '', value: '' });
 
   // Notifications State
@@ -153,6 +158,43 @@ export default function AdminDashboard() {
       });
   };
 
+  // Fetch Email Domains for review
+  const loadAdminDomains = () => {
+    setTimeout(() => setLoadingAdminDomains(true), 0);
+    const endpoint = domainFilter === 'pending' ? '/api/admin/domains/pending' : '/api/admin/domains';
+    fetch(endpoint)
+      .then(res => res.json())
+      .then((data: any) => {
+        if (data.domains) {
+          setAdminDomains(data.domains);
+        }
+        setLoadingAdminDomains(false);
+      })
+      .catch(() => {
+        addNotification('डोमेन लोड करने में विफल', 'error');
+        setLoadingAdminDomains(false);
+      });
+  };
+
+  const reviewDomain = async (id: string, action: 'approve' | 'reject', reason?: string) => {
+    try {
+      const res = await fetch(`/api/admin/domains/${id}/${action}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason })
+      });
+      const data: any = await res.json();
+      if (res.ok) {
+        addNotification(action === 'approve' ? 'डोमेन approve हो गया' : 'डोमेन reject हो गया');
+        loadAdminDomains();
+      } else {
+        addNotification(data.error || 'Review action failed', 'error');
+      }
+    } catch {
+      addNotification('सर्वर एरर', 'error');
+    }
+  };
+
   // Fetch KV Secrets
   const loadKvSecrets = () => {
     setTimeout(() => setLoadingKv(true), 0);
@@ -225,9 +267,10 @@ export default function AdminDashboard() {
       loadPlans(); // Needed for plan selector dropdown
     }
     if (activeTab === 'plans') loadPlans();
+    if (activeTab === 'domains') loadAdminDomains();
     if (activeTab === 'kv') loadKvSecrets();
     if (activeTab === 'database') loadSchemaDiff();
-  }, [activeTab, authorized]);
+  }, [activeTab, authorized, domainFilter]);
 
   // Handle User Action (Create/Update/Delete)
   const saveUser = async (e: React.FormEvent) => {
@@ -328,12 +371,23 @@ export default function AdminDashboard() {
         featuresJson = JSON.stringify(list);
       }
 
+      // Validate limits json object
+      let limitsJson = '{}';
+      try {
+        const parsed = JSON.parse(planForm.limits);
+        if (typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error();
+        limitsJson = JSON.stringify(parsed);
+      } catch {
+        limitsJson = '{}';
+      }
+
       const res = await fetch(endpoint, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...planForm,
-          features_json: featuresJson
+          features_json: featuresJson,
+          limits_json: limitsJson
         })
       });
       const data: any = await res.json();
@@ -539,6 +593,12 @@ export default function AdminDashboard() {
             onClick={() => setActiveTab('plans')} 
           />
           <SidebarButton 
+            icon={<Globe className="w-4 h-4" />} 
+            label="डोमेन रिव्यू (Email)" 
+            active={activeTab === 'domains'} 
+            onClick={() => setActiveTab('domains')} 
+          />
+          <SidebarButton 
             icon={<Key className="w-4 h-4" />} 
             label="KV सिस्टम सीक्रेट्स" 
             active={activeTab === 'kv'} 
@@ -582,6 +642,7 @@ export default function AdminDashboard() {
               {activeTab === 'users' && 'उपयोगकर्ता प्रबंधन'}
               {activeTab === 'workspaces' && 'वर्कस्पेस प्रबंधन'}
               {activeTab === 'plans' && 'प्लान कैटलॉग'}
+              {activeTab === 'domains' && 'डोमेन रिव्यू (Email Domains)'}
               {activeTab === 'kv' && 'KV क्लाउड सीक्रेट्स'}
               {activeTab === 'database' && 'डेटाबेस (Database)'}
             </h2>
@@ -597,7 +658,9 @@ export default function AdminDashboard() {
                 if (activeTab === 'users') loadUsers();
                 if (activeTab === 'workspaces') loadWorkspaces();
                 if (activeTab === 'plans') loadPlans();
+                if (activeTab === 'domains') loadAdminDomains();
                 if (activeTab === 'kv') loadKvSecrets();
+                if (activeTab === 'database') loadSchemaDiff();
                 addNotification('डाटा रिफ्रेश किया गया');
               }}
               className="p-2 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
@@ -688,7 +751,7 @@ export default function AdminDashboard() {
                     <div className="space-y-3">
                       <QuickActionButton label="नया उपयोगकर्ता पंजीकृत करें" onClick={() => { setUserModal({ open: true, mode: 'create' }); setUserForm({ name: '', email: '', is_registered: true }); setActiveTab('users'); }} />
                       <QuickActionButton label="नया वर्कस्पेस बनाएं" onClick={() => { setWorkspaceModal({ open: true, mode: 'create' }); setWorkspaceForm({ name: '', plan_id: '', owner_id: '' }); setActiveTab('workspaces'); }} />
-                      <QuickActionButton label="सब्सक्रिप्शन प्लान जोड़ें" onClick={() => { setPlanModal({ open: true, mode: 'create' }); setPlanForm({ id: '', name: '', description: '', upfront_price: '0', pay_as_you_go_rate: '0', features: '' }); setActiveTab('plans'); }} />
+                      <QuickActionButton label="सब्सक्रिप्शन प्लान जोड़ें" onClick={() => { setPlanModal({ open: true, mode: 'create' }); setPlanForm({ id: '', name: '', description: '', upfront_price: '0', pay_as_you_go_rate: '0', features: '', limits: '{}' }); setActiveTab('plans'); }} />
                       <QuickActionButton label="KV सीक्रेट कुंजी जोड़ें" onClick={() => { setKvModal({ open: true }); setKvForm({ name: '', value: '' }); setActiveTab('kv'); }} />
                     </div>
                   </div>
@@ -903,7 +966,7 @@ export default function AdminDashboard() {
                   <p className="text-xs text-zinc-400">प्लेटफ़ॉर्म पर उपलब्ध विभिन्न सदस्यता योजनाओं को प्रबंधित करें।</p>
                   <button 
                     onClick={() => {
-                      setPlanForm({ id: '', name: '', description: '', upfront_price: '0', pay_as_you_go_rate: '0', features: '' });
+                      setPlanForm({ id: '', name: '', description: '', upfront_price: '0', pay_as_you_go_rate: '0', features: '', limits: '{}' });
                       setPlanModal({ open: true, mode: 'create' });
                     }}
                     className="py-2.5 px-4 bg-indigo-600 hover:bg-indigo-500 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition-colors shadow-lg shadow-indigo-600/20"
@@ -932,6 +995,10 @@ export default function AdminDashboard() {
                       } catch {
                         parsedFeatures = p.features_json ? [p.features_json] : [];
                       }
+                      let parsedLimits: Record<string, any> = {};
+                      try {
+                        parsedLimits = p.limits_json ? JSON.parse(p.limits_json) : {};
+                      } catch { /* ignore */ }
 
                       return (
                         <div key={p.id} className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 flex flex-col justify-between hover:border-indigo-500/30 transition-all relative overflow-hidden group">
@@ -952,7 +1019,8 @@ export default function AdminDashboard() {
                                       description: p.description || '',
                                       upfront_price: String(p.upfront_price || '0'),
                                       pay_as_you_go_rate: String(p.pay_as_you_go_rate || '0'),
-                                      features: p.features_json || '[]'
+                                      features: p.features_json || '[]',
+                                      limits: p.limits_json || '{}'
                                     });
                                     setPlanModal({ open: true, mode: 'edit', data: p });
                                   }}
@@ -991,10 +1059,141 @@ export default function AdminDashboard() {
                                 ))}
                               </div>
                             </div>
+
+                            {Object.keys(parsedLimits).length > 0 && (
+                              <div className="mt-4 pt-4 border-t border-zinc-800/60 space-y-2">
+                                <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Limits:</p>
+                                <div className="grid grid-cols-2 gap-2 text-[10px]">
+                                  {parsedLimits.email_monthly_limit !== undefined && (
+                                    <div className="bg-zinc-950/40 p-2 rounded-lg border border-zinc-800/40">
+                                      <span className="text-zinc-500">Email/month:</span> <span className="text-white font-mono">{parsedLimits.email_monthly_limit}</span>
+                                    </div>
+                                  )}
+                                  {parsedLimits.max_domains !== undefined && (
+                                    <div className="bg-zinc-950/40 p-2 rounded-lg border border-zinc-800/40">
+                                      <span className="text-zinc-500">Max domains:</span> <span className="text-white font-mono">{parsedLimits.max_domains}</span>
+                                    </div>
+                                  )}
+                                  {parsedLimits.max_mailboxes_per_domain !== undefined && (
+                                    <div className="bg-zinc-950/40 p-2 rounded-lg border border-zinc-800/40">
+                                      <span className="text-zinc-500">Mailboxes/domain:</span> <span className="text-white font-mono">{parsedLimits.max_mailboxes_per_domain}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         </div>
                       );
                     })}
+                  </div>
+                )}
+              </motion.div>
+            )}
+
+            {activeTab === 'domains' && (
+              <motion.div
+                key="domains"
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -15 }}
+                className="space-y-6"
+              >
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <p className="text-xs text-zinc-400">
+                    Customer के द्वारा जोड़े गए custom domains admin approve करने के बाद ही Cloudflare पर onboard होंगे।
+                  </p>
+                  <div className="flex rounded-xl border border-zinc-800 overflow-hidden">
+                    {(['pending', 'all'] as const).map(f => (
+                      <button
+                        key={f}
+                        onClick={() => setDomainFilter(f)}
+                        className={`px-3 py-2 text-xs font-semibold transition-colors ${
+                          domainFilter === f
+                            ? 'bg-indigo-600 text-white'
+                            : 'bg-zinc-900 text-zinc-400 hover:bg-zinc-800'
+                        }`}
+                      >
+                        {f === 'pending' ? 'Pending Review' : 'All Domains'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {loadingAdminDomains ? (
+                  <div className="p-8 text-center text-zinc-500 text-xs">लोड हो रहा है...</div>
+                ) : adminDomains.length === 0 ? (
+                  <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-12 text-center text-zinc-500">
+                    <Globe className="w-10 h-10 mx-auto mb-3 text-zinc-700" />
+                    <p className="text-xs">कोई domain नहीं मिला</p>
+                  </div>
+                ) : (
+                  <div className="bg-zinc-900 border border-zinc-800 rounded-3xl overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead>
+                          <tr className="border-b border-zinc-800 bg-zinc-950/30 text-[10px] font-bold tracking-wider text-zinc-400 uppercase">
+                            <th className="px-6 py-4">Domain</th>
+                            <th className="px-6 py-4">Workspace</th>
+                            <th className="px-6 py-4">Setup</th>
+                            <th className="px-6 py-4">Status</th>
+                            <th className="px-6 py-4">Review</th>
+                            <th className="px-6 py-4">Created</th>
+                            <th className="px-6 py-4 text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-zinc-800/60 text-zinc-300">
+                          {adminDomains.map((d: any) => (
+                            <tr key={d.id} className="hover:bg-zinc-800/20 transition-colors">
+                              <td className="px-6 py-4 font-semibold text-white">{d.domain_name}</td>
+                              <td className="px-6 py-4">
+                                <div>{d.workspace_name || d.workspace_id}</div>
+                                <div className="text-[10px] text-zinc-500">{d.owner_emails || ''}</div>
+                              </td>
+                              <td className="px-6 py-4 uppercase">{d.setup_mode}</td>
+                              <td className="px-6 py-4 capitalize">{d.status}</td>
+                              <td className="px-6 py-4">
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                                  d.review_status === 'approved'
+                                    ? 'bg-emerald-500/10 text-emerald-400'
+                                    : d.review_status === 'rejected'
+                                    ? 'bg-rose-500/10 text-rose-400'
+                                    : 'bg-amber-500/10 text-amber-400'
+                                }`}>
+                                  {d.review_status}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 text-zinc-500">{formatAdminDate(d.created_at)}</td>
+                              <td className="px-6 py-4 text-right">
+                                {d.review_status === 'pending_review' ? (
+                                  <div className="flex items-center justify-end gap-2">
+                                    <button
+                                      onClick={() => reviewDomain(d.id, 'approve')}
+                                      className="inline-flex items-center gap-1 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-white text-[10px] font-semibold transition-colors"
+                                    >
+                                      <Check className="w-3 h-3" /> Approve
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        const reason = window.prompt('Rejection reason (optional):');
+                                        reviewDomain(d.id, 'reject', reason || undefined);
+                                      }}
+                                      className="inline-flex items-center gap-1 px-3 py-1.5 bg-rose-600 hover:bg-rose-500 rounded-lg text-white text-[10px] font-semibold transition-colors"
+                                    >
+                                      <X className="w-3 h-3" /> Reject
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <span className="text-[10px] text-zinc-500">
+                                    {d.review_status === 'approved' ? 'Onboarding started' : d.error_message || 'Rejected'}
+                                  </span>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 )}
               </motion.div>
@@ -1465,6 +1664,16 @@ export default function AdminDashboard() {
                   value={planForm.features}
                   onChange={e => setPlanForm(prev => ({ ...prev, features: e.target.value }))}
                   className="w-full px-4 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500 font-mono text-[10px] h-20"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-2">Limits (JSON object)</label>
+                <textarea 
+                  placeholder='उदा. {"email_monthly_limit": 1000, "max_domains": 5, "max_mailboxes_per_domain": 10, "allow_email_send": true}'
+                  value={planForm.limits}
+                  onChange={e => setPlanForm(prev => ({ ...prev, limits: e.target.value }))}
+                  className="w-full px-4 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500 font-mono text-[10px] h-24"
                 />
               </div>
 
