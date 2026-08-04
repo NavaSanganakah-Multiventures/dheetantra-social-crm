@@ -3,7 +3,6 @@ import {
   addEmailRoutingDns,
   createCatchAllRule,
   createZone,
-  deleteRoutingRule,
   deleteZone,
   enableEmailRouting,
   findZone,
@@ -11,6 +10,7 @@ import {
   getZone,
   listRoutingRules,
   listZoneDnsRecords,
+  resetCatchAllRule,
 } from './cloudflareApi';
 
 export class EmailServiceError extends Error {
@@ -607,10 +607,13 @@ export async function removeDomain(env: any, row: any) {
     }
     if (row.routing_rule_id && row.zone_id && !zoneFailures.length) {
       try {
-        await deleteRoutingRule(env, row.zone_id, row.routing_rule_id, creds);
+        // Rules created by this app are always catch-alls. Catch-all is a
+        // zone singleton that cannot be removed via DELETE /rules/{id}; the
+        // supported teardown is resetting it to a disabled drop rule.
+        await resetCatchAllRule(env, row.zone_id, creds);
       } catch (e: any) {
         if (isGoneError(e)) {
-          console.log(`[Email] Routing rule ${row.routing_rule_id} already gone for ${row.domain_name}; ignoring`);
+          console.log(`[Email] Catch-all already gone for ${row.domain_name}; ignoring`);
         } else {
           warnings.push(`rule: ${e.message}`);
         }

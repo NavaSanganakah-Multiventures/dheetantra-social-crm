@@ -43,7 +43,9 @@ async function cfFetchCreds(creds: CFCreds, path: string, options: RequestInit =
 
   if (!res.ok || (data && data.success === false)) {
     const errors = data?.errors || [];
-    const message = errors.map((e: any) => e.message).join('; ') || `Cloudflare API error (${res.status})`;
+    // Include Cloudflare error codes (e.g. "[81009] Invalid rule operation")
+    // so failures are diagnosable from the domain error_message in the admin UI.
+    const message = errors.map((e: any) => `${e?.code ? `[${e.code}] ` : ''}${e.message}`).join('; ') || `Cloudflare API error (${res.status})`;
     throw new CloudflareApiError(res.status, message, errors);
   }
 
@@ -109,13 +111,32 @@ export async function deleteRoutingRule(env: any, zoneId: string, ruleId: string
 }
 
 export async function createCatchAllRule(env: any, zoneId: string, workerName: string, creds?: CFCreds) {
-  return cfFetchCreds(creds ?? await getCloudflareCredentials(env), `/zones/${zoneId}/email/routing/rules`, {
-    method: 'POST',
+  // Catch-all is a zone singleton and is ONLY manageable through the dedicated
+  // /email/routing/rules/catch_all endpoint (PUT = upsert). POSTing a rule
+  // with matchers [{type:'all'}] to /email/routing/rules is rejected by
+  // Cloudflare with "Invalid rule operation", which blocked every domain's
+  // onboarding. This mirrors what wrangler does for `addresses = ["*@domain"]`.
+  return cfFetchCreds(creds ?? await getCloudflareCredentials(env), `/zones/${zoneId}/email/routing/rules/catch_all`, {
+    method: 'PUT',
     body: JSON.stringify({
       matchers: [{ type: 'all' }],
       actions: [{ type: 'worker', value: [workerName] }],
       enabled: true,
       name: 'DheeTantra inbox catch-all',
+    }),
+  });
+}
+
+// Catch-all rules cannot be removed via DELETE /rules/{id}; the supported
+// teardown is resetting the singleton to a disabled drop rule (idempotent).
+export async function resetCatchAllRule(env: any, zoneId: string, creds?: CFCreds) {
+  return cfFetchCreds(creds ?? await getCloudflareCredentials(env), `/zones/${zoneId}/email/routing/rules/catch_all`, {
+    method: 'PUT',
+    body: JSON.stringify({
+      matchers: [{ type: 'all' }],
+      actions: [{ type: 'drop' }],
+      enabled: false,
+      name: '',
     }),
   });
 }
