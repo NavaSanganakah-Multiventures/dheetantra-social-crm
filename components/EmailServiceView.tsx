@@ -35,6 +35,24 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+function ReviewBadge({ status }: { status: string }) {
+  const map: Record<string, string> = {
+    pending_review: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400',
+    approved: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400',
+    rejected: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400',
+  };
+  const label: Record<string, string> = {
+    pending_review: 'Pending Review',
+    approved: 'Approved',
+    rejected: 'Rejected',
+  };
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${map[status] || map.pending_review}`}>
+      {label[status] || status}
+    </span>
+  );
+}
+
 function CopyButton({ text, label }: { text: string; label?: string }) {
   const [copied, setCopied] = useState(false);
   return (
@@ -146,7 +164,7 @@ export default function EmailServiceView() {
     }
   };
 
-  const activeDomains = domains.filter(d => d.status === 'active');
+  const activeDomains = domains.filter(d => d.status === 'active' && d.review_status === 'approved');
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -603,12 +621,20 @@ function DomainsSection({
                   </p>
                 </div>
               </div>
-              <StatusBadge status={domain.status} />
+              <div className="flex items-center gap-2 flex-wrap">
+                <StatusBadge status={domain.status} />
+                <ReviewBadge status={domain.review_status} />
+              </div>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => onVerify(domain.id)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-zinc-700 dark:text-zinc-200 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-lg transition-colors"
-                  title="फिर से जांचें"
+                  disabled={domain.review_status !== 'approved'}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
+                    domain.review_status === 'approved'
+                      ? 'text-zinc-700 dark:text-zinc-200 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                      : 'text-zinc-400 bg-zinc-100 dark:bg-zinc-800 cursor-not-allowed'
+                  }`}
+                  title={domain.review_status === 'approved' ? 'फिर से जांचें' : 'Admin approval pending'}
                 >
                   <RefreshCw className="w-3.5 h-3.5" /> जांचें
                 </button>
@@ -637,8 +663,15 @@ function DomainsSection({
 
             {isOpen && (
               <div className="px-5 pb-5 space-y-5">
+                {domain.review_status !== 'approved' && (
+                  <div className="bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 rounded-xl p-4 text-sm text-amber-800 dark:text-amber-300">
+                    <AlertCircle className="w-4 h-4 inline mr-1" />
+                    यह डोमेन Admin review में है। Admin approve करने के बाद ही Cloudflare onboarding, DNS records और mailbox setup शुरू होगा।
+                  </div>
+                )}
+
                 {/* DNS instructions */}
-                {domain.status !== 'active' && (
+                {domain.status !== 'active' && domain.review_status === 'approved' && (
                   <div className="bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 rounded-xl p-4">
                     <h4 className="text-sm font-semibold text-amber-800 dark:text-amber-300 mb-2 flex items-center gap-2">
                       <KeyRound className="w-4 h-4" /> Setup Instructions (DNS जोड़ें)
@@ -730,18 +763,21 @@ function DomainsSection({
                     <input
                       value={newMailbox[domain.id]?.localPart || ''}
                       onChange={e => setNewMailbox(prev => ({ ...prev, [domain.id]: { ...(prev[domain.id] || {}), localPart: e.target.value } }))}
-                      placeholder={`mailbox name (जैसे: hello → hello@${domain.domain_name})`}
-                      className="flex-1 px-3 py-2 text-sm rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      placeholder={domain.review_status === 'approved' ? `mailbox name (जैसे: hello → hello@${domain.domain_name})` : 'Admin approval pending'}
+                      disabled={domain.review_status !== 'approved'}
+                      className="flex-1 px-3 py-2 text-sm rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
                     />
                     <input
                       value={newMailbox[domain.id]?.forwardTo || ''}
                       onChange={e => setNewMailbox(prev => ({ ...prev, [domain.id]: { ...(prev[domain.id] || {}), forwardTo: e.target.value } }))}
                       placeholder="forward to (optional, e.g. you@gmail.com)"
-                      className="flex-1 px-3 py-2 text-sm rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      disabled={domain.review_status !== 'approved'}
+                      className="flex-1 px-3 py-2 text-sm rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
                     />
                     <button
                       onClick={() => addMailbox(domain)}
-                      className="inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-semibold text-zinc-700 dark:text-zinc-200 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-xl transition-colors"
+                      disabled={domain.review_status !== 'approved'}
+                      className="inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-zinc-700 dark:text-zinc-200 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700"
                     >
                       <Plus className="w-4 h-4" /> जोड़ें
                     </button>
@@ -782,7 +818,7 @@ function AddDomainModal({ onClose, onAdded }: { onClose: () => void; onAdded: ()
       });
       const data: any = await res.json();
       if (data.success) {
-        toast('success', `डोमेन ${data.domain?.domain_name} जोड़ दिया गया!`);
+        toast('success', `${data.domain?.domain_name} admin review के लिए submit हो गया।`);
         onAdded();
         onClose();
       } else {

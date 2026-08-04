@@ -242,7 +242,7 @@ export async function resolveFromAddress(env: any, workspaceId: string, fromAddr
     const domainPart = normalized.split('@')[1];
     if (!domainPart) throw new EmailServiceError('Invalid from address', 400, 'E_VALIDATION');
     const domainRow: any = await env.DB.prepare(
-      "SELECT * FROM domains WHERE workspace_id = ? AND domain_name = ? AND status = 'active'"
+      "SELECT * FROM domains WHERE workspace_id = ? AND domain_name = ? AND status = 'active' AND review_status = 'approved'"
     ).bind(workspaceId, domainPart).first();
     if (!domainRow) {
       throw new EmailServiceError('From domain is not an active domain of this workspace', 400, 'E_FROM_DOMAIN_INVALID');
@@ -257,7 +257,7 @@ export async function resolveFromAddress(env: any, workspaceId: string, fromAddr
 
   // No from given: use the default mailbox of the first active domain
   const domainRow: any = await env.DB.prepare(
-    "SELECT * FROM domains WHERE workspace_id = ? AND status = 'active' ORDER BY created_at ASC LIMIT 1"
+    "SELECT * FROM domains WHERE workspace_id = ? AND status = 'active' AND review_status = 'approved' ORDER BY created_at ASC LIMIT 1"
   ).bind(workspaceId).first();
   if (!domainRow) throw new EmailServiceError('No active domain configured. Add and verify a domain first.', 400, 'E_NO_ACTIVE_DOMAIN');
 
@@ -452,7 +452,7 @@ export async function handleIncomingEmail(message: any, env: any, ctx: any) {
     if (!recipient) return;
 
     const domainRow: any = await env.DB.prepare(
-      "SELECT * FROM domains WHERE domain_name = ? AND status = 'active'"
+      "SELECT * FROM domains WHERE domain_name = ? AND status = 'active' AND review_status = 'approved'"
     ).bind(recipient.domain).first();
     if (!domainRow) {
       console.log(`[Email] No active domain match for ${recipient.domain}; dropping`);

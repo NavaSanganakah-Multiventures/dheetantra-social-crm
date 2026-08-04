@@ -329,11 +329,11 @@ admin.post('/plans', async (c) => {
   if (!c.env.DB) return c.json({ error: 'Database not connected' }, 500);
 
   try {
-    const { id, name, description, upfront_price, pay_as_you_go_rate, features_json } = await c.req.json();
+    const { id, name, description, upfront_price, pay_as_you_go_rate, features_json, limits_json } = await c.req.json();
     if (!id || !name) return c.json({ error: 'ID and Name are required' }, 400);
 
-    await c.env.DB.prepare('INSERT INTO plans (id, name, description, upfront_price, pay_as_you_go_rate, features_json) VALUES (?, ?, ?, ?, ?, ?)')
-      .bind(id, name, description || '', parseFloat(upfront_price) || 0, parseFloat(pay_as_you_go_rate) || 0, features_json || '[]')
+    await c.env.DB.prepare('INSERT INTO plans (id, name, description, upfront_price, pay_as_you_go_rate, features_json, limits_json) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .bind(id, name, description || '', parseFloat(upfront_price) || 0, parseFloat(pay_as_you_go_rate) || 0, features_json || '[]', limits_json || '{}')
       .run();
 
     return c.json({ success: true });
@@ -350,11 +350,11 @@ admin.put('/plans/:id', async (c) => {
 
   try {
     const id = c.req.param('id');
-    const { name, description, upfront_price, pay_as_you_go_rate, features_json } = await c.req.json();
+    const { name, description, upfront_price, pay_as_you_go_rate, features_json, limits_json } = await c.req.json();
     if (!name) return c.json({ error: 'Name is required' }, 400);
 
-    await c.env.DB.prepare('UPDATE plans SET name = ?, description = ?, upfront_price = ?, pay_as_you_go_rate = ?, features_json = ? WHERE id = ?')
-      .bind(name, description || '', parseFloat(upfront_price) || 0, parseFloat(pay_as_you_go_rate) || 0, features_json || '[]', id)
+    await c.env.DB.prepare('UPDATE plans SET name = ?, description = ?, upfront_price = ?, pay_as_you_go_rate = ?, features_json = ?, limits_json = ? WHERE id = ?')
+      .bind(name, description || '', parseFloat(upfront_price) || 0, parseFloat(pay_as_you_go_rate) || 0, features_json || '[]', limits_json || '{}', id)
       .run();
 
     return c.json({ success: true });
@@ -507,6 +507,101 @@ admin.post('/api-domains/:id/block', async (c) => {
       await c.env.SECRETS_KV.put(`DOMAIN:${domainRow.domain}`, 'blocked');
     }
     return c.json({ success: true });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+// ==========================================
+// EMAIL DOMAIN REVIEW (protects Cloudflare account)
+// ==========================================
+
+admin.get('/domains', async (c) => {
+  const isAdmin = await verifyAdmin(c);
+  if (!isAdmin) return c.json({ error: 'Unauthorized' }, 403);
+  if (!c.env.DB) return c.json({ error: 'Database not connected' }, 500);
+
+  try {
+    const { results } = await c.env.DB.prepare(`
+      SELECT d.*, w.name as workspace_name,
+        (SELECT group_concat(u.email) FROM workspace_members wm JOIN users u ON wm.user_id = u.id WHERE wm.workspace_id = d.workspace_id) as owner_emails
+      FROM domains d
+      JOIN workspaces w ON d.workspace_id = w.id
+      ORDER BY d.created_at DESC
+    `).all();
+    return c.json({ domains: results || [] });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+admin.get('/domains/pending', async (c) => {
+  const isAdmin = await verifyAdmin(c);
+  if (!isAdmin) return c.json({ error: 'Unauthorized' }, 403);
+  if (!c.env.DB) return c.json({ error: 'Database not connected' }, 500);
+
+  try {
+    const { results } = await c.env.DB.prepare(`
+      SELECT d.*, w.name as workspace_name,
+        (SELECT group_concat(u.email) FROM workspace_members wm JOIN users u ON wm.user_id = u.id WHERE wm.workspace_id = d.workspace_id) as owner_emails
+      FROM domains d
+      JOIN workspaces w ON d.workspace_id = w.id
+      WHERE d.review_status = 'pending_review'
+      ORDER BY d.created_at ASC
+    `).all();
+    return c.json({ domains: results || [] });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+admin.post('/domains/:id/approve', async (c) => {
+  const isAdmin = await verifyAdmin(c);
+  if (!isAdmin) return c.json({ error: 'Unauthorized' }, 403);
+  if (!c.env.DB) return c.json({ error: 'Database not connected' }, 500);
+
+  try {
+    const id = c.req.param('id');
+    const row: any = await c.env.DB.prepare('SELECT * FROM domains WHERE id = ?').bind(id).first();
+    if (!row) return c.json({ error: 'Domain not found' }, 404);
+    if (row.review_status !== 'pending_review') {
+      return c.json({ error: `Domain is already ${row.review_status}` }, 400);
+    }
+
+    await c.env.DB.prepare("UPDATE domains SET review_status = 'approved' WHERE id = ?").bind(id).run();
+
+    // Start Cloudflare onboarding (zone + email routing) asynchronously after approval
+    c.executionCtx.waitUntil((async () => {
+      try {
+        const { onboardDomain } = await import('../services/emailService');
+        const updated: any = await c.env.DB.prepare('SELECT * FROM domains WHERE id = ?').bind(id).first();
+        if (updated) await onboardDomain(c.env, updated);
+      } catch (e) {
+        console.error('[Admin] Domain onboarding failed after approval:', e);
+      }
+    })());
+
+    return c.json({ success: true, message: 'Domain approved. Cloudflare onboarding started.' });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+admin.post('/domains/:id/reject', async (c) => {
+  const isAdmin = await verifyAdmin(c);
+  if (!isAdmin) return c.json({ error: 'Unauthorized' }, 403);
+  if (!c.env.DB) return c.json({ error: 'Database not connected' }, 500);
+
+  try {
+    const id = c.req.param('id');
+    const { reason } = await c.req.json();
+    const row: any = await c.env.DB.prepare('SELECT * FROM domains WHERE id = ?').bind(id).first();
+    if (!row) return c.json({ error: 'Domain not found' }, 404);
+
+    await c.env.DB.prepare("UPDATE domains SET review_status = 'rejected', status = 'failed', error_message = ? WHERE id = ?")
+      .bind(reason || 'Rejected by admin', id).run();
+
+    return c.json({ success: true, message: 'Domain rejected.' });
   } catch (err: any) {
     return c.json({ error: err.message }, 500);
   }

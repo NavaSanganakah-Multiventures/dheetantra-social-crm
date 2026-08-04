@@ -227,6 +227,7 @@ CREATE TABLE IF NOT EXISTS domains (
   workspace_id TEXT NOT NULL,
   domain_name TEXT UNIQUE NOT NULL, -- e.g., 'client-domain.com'
   status TEXT DEFAULT 'pending', -- 'pending', 'active', 'failed'
+  review_status TEXT DEFAULT 'pending_review', -- 'pending_review', 'approved', 'rejected'
   setup_mode TEXT DEFAULT 'full', -- 'full' (nameservers) | 'cname' (partial / DNS-only)
   zone_id TEXT, -- Cloudflare zone id
   nameservers TEXT, -- JSON array (full setup)

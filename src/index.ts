@@ -1508,8 +1508,9 @@ app.post('/api/domains', async (c) => {
     if (existing) return c.json({ error: 'Domain is already registered for this workspace' }, 400);
 
     const id = crypto.randomUUID();
-    await c.env.DB.prepare('INSERT INTO domains (id, workspace_id, domain_name, setup_mode, status) VALUES (?, ?, ?, ?, ?)')
-      .bind(id, workspaceId, clean, mode, 'pending').run();
+    // Domain is submitted for admin review before any Cloudflare zone is created
+    await c.env.DB.prepare('INSERT INTO domains (id, workspace_id, domain_name, setup_mode, status, review_status) VALUES (?, ?, ?, ?, ?, ?)')
+      .bind(id, workspaceId, clean, mode, 'pending', 'pending_review').run();
 
     const emailId = crypto.randomUUID();
     const emailAddress = `${cleanPrefix}@${clean}`;
@@ -1517,19 +1518,14 @@ app.post('/api/domains', async (c) => {
       'INSERT INTO domain_emails (id, domain_id, local_part, email_address, forward_to, is_default) VALUES (?, ?, ?, ?, ?, 1)'
     ).bind(emailId, id, cleanPrefix, emailAddress, forwardTo || null).run();
 
-    // Kick off Cloudflare onboarding (zone creation, email routing, DNS records) asynchronously
-    c.executionCtx.waitUntil((async () => {
-      try {
-        const { onboardDomain } = await import('./services/emailService');
-        const row: any = await c.env.DB.prepare('SELECT * FROM domains WHERE id = ?').bind(id).first();
-        if (row) await onboardDomain(c.env, row);
-      } catch (e) {
-        console.error('[Email] Async domain onboarding failed:', e);
-      }
-    })());
-
     const row: any = await c.env.DB.prepare('SELECT * FROM domains WHERE id = ?').bind(id).first();
-    return c.json({ success: true, domain: parseDomain(row), email_address: emailAddress, status: 'pending_verification' });
+    return c.json({
+      success: true,
+      domain: parseDomain(row),
+      email_address: emailAddress,
+      status: 'pending_admin_review',
+      message: 'Domain submitted for admin review. Cloudflare onboarding will start after approval.'
+    });
   } catch (e: any) {
     if (String(e.message).includes('UNIQUE constraint')) return c.json({ error: 'Domain is already registered' }, 400);
     console.error('[Email] Add domain error:', e);
@@ -1558,6 +1554,9 @@ app.post('/api/domains/:id/verify', async (c) => {
   const row: any = await c.env.DB.prepare('SELECT * FROM domains WHERE id = ? AND workspace_id = ?')
     .bind(id, workspaceId).first();
   if (!row) return c.json({ error: 'Domain not found' }, 404);
+  if (row.review_status !== 'approved') {
+    return c.json({ error: 'Domain is pending admin approval. Onboarding not started yet.', code: 'E_DOMAIN_NOT_APPROVED' }, 400);
+  }
 
   const { checkDomain } = await import('./services/emailService');
   // Full verification runs several Cloudflare calls and can take 5-15s.
@@ -1619,6 +1618,9 @@ app.post('/api/domain-emails', async (c) => {
   const domain: any = await c.env.DB.prepare('SELECT * FROM domains WHERE id = ? AND workspace_id = ?')
     .bind(domainId, workspaceId).first();
   if (!domain) return c.json({ error: 'Domain not found' }, 404);
+  if (domain.review_status !== 'approved') {
+    return c.json({ error: 'Domain is pending admin approval. Add mailbox after approval.', code: 'E_DOMAIN_NOT_APPROVED' }, 400);
+  }
 
   const cleanLocal = String(localPart).toLowerCase().trim();
   if (!/^[a-z0-9._+-]+$/.test(cleanLocal)) {
