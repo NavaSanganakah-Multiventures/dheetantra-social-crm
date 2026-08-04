@@ -575,7 +575,10 @@ admin.post('/domains/:id/approve', async (c) => {
       try {
         const { onboardDomain } = await import('../services/emailService');
         const updated: any = await c.env.DB.prepare('SELECT * FROM domains WHERE id = ?').bind(id).first();
-        if (updated) await onboardDomain(c.env, updated);
+        if (updated) {
+          const result: any = await onboardDomain(c.env, updated);
+          console.log(`[Admin] Domain ${updated.domain_name} onboarding done -> status=${result?.status} zone=${result?.zone_id ? 'set' : 'null'} error=${result?.error_message || 'none'}`);
+        }
       } catch (e) {
         console.error('[Admin] Domain onboarding failed after approval:', e);
       }

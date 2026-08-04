@@ -116,14 +116,20 @@ export default function EmailServiceView() {
       const res = await fetch(`/api/domains/${id}/verify`, { method: 'POST', headers: getHeaders() });
       const data: any = await res.json();
       if (data.success) {
-        toast('success', 'जांच शुरू हो गई — स्थिति कुछ सेकंड में अपडेट होगी');
+        // The endpoint now runs the check synchronously and returns the FRESH
+        // status, so apply it immediately (no more stale "pending" display).
+        if (data.domain) {
+          setDomains(prev => prev.map(d => d.id === id ? { ...d, ...data.domain } : d));
+        }
+        toast('success', 'जांच पूरी — status अपडेट हो गया');
         refreshDomains();
-        setTimeout(refreshDomains, 7000);
       } else {
         toast('error', data.error || 'Verification failed');
+        refreshDomains();
       }
     } catch (e: any) {
       toast('error', e.message || 'Verification failed');
+      refreshDomains();
     }
   };
 
@@ -509,7 +515,7 @@ function DomainsSection({
 }: {
   domains: any[];
   loading: boolean;
-  onVerify: (id: string) => void;
+  onVerify: (id: string) => Promise<void> | void;
   onRemove: (id: string, name: string) => void;
   onTestSend: (domain: any, to: string) => void;
 }) {
@@ -518,6 +524,16 @@ function DomainsSection({
   const [mailboxes, setMailboxes] = useState<Record<string, any[]>>({});
   const [newMailbox, setNewMailbox] = useState<Record<string, { localPart: string; forwardTo: string }>>({});
   const [testTo, setTestTo] = useState<Record<string, string>>({});
+  const [verifyingId, setVerifyingId] = useState<string | null>(null);
+
+  const handleVerify = async (id: string) => {
+    setVerifyingId(id);
+    try {
+      await onVerify(id);
+    } finally {
+      setVerifyingId(null);
+    }
+  };
 
   const loadMailboxes = useCallback(async (domainId: string) => {
     try {
@@ -630,16 +646,19 @@ function DomainsSection({
               </div>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => onVerify(domain.id)}
-                  disabled={domain.review_status !== 'approved'}
+                  onClick={() => handleVerify(domain.id)}
+                  disabled={domain.review_status !== 'approved' || verifyingId === domain.id}
                   className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
-                    domain.review_status === 'approved'
+                    domain.review_status === 'approved' && verifyingId !== domain.id
                       ? 'text-zinc-700 dark:text-zinc-200 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700'
                       : 'text-zinc-400 bg-zinc-100 dark:bg-zinc-800 cursor-not-allowed'
                   }`}
                   title={domain.review_status === 'approved' ? 'फिर से जांचें' : 'Admin approval pending'}
                 >
-                  <RefreshCw className="w-3.5 h-3.5" /> जांचें
+                  {verifyingId === domain.id
+                    ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    : <RefreshCw className="w-3.5 h-3.5" />}
+                  {verifyingId === domain.id ? 'जांच हो रही है...' : 'जांचें'}
                 </button>
                 <button
                   onClick={() => onRemove(domain.id, domain.domain_name)}

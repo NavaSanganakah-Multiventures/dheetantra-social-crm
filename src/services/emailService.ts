@@ -278,6 +278,28 @@ export async function resolveFromAddress(env: any, workspaceId: string, fromAddr
 
 const DEFAULT_WORKER_NAME = 'dheetantra-social-crm';
 
+// Cloudflare returns these errors when the target state already exists
+// (Email Routing already enabled, DNS record already present, catch-all rule
+// already created). Onboarding re-runs frequently (approve + verify + cron),
+// so these must be treated as success, not failure.
+const ALREADY_CF_CODES = new Set(['81044', '81051', '81057', '81058', '1004', '1042', '1040', '10300']);
+function isAlreadyConfiguredError(e: any): boolean {
+  if (!e) return false;
+  if ((e.errors || []).some((er: any) => ALREADY_CF_CODES.has(String(er?.code ?? '')))) return true;
+  return /already (enabled|exists|created|set up)|already configured|already in use/i.test(String(e?.message || ''));
+}
+
+// A catch-all rule only counts as "ours" when it is enabled AND routes to the
+// configured worker. Adopting a disabled rule or one targeting another worker
+// (different env/tenant) would mark the domain active while email silently
+// drops — so those are NOT adoptable.
+function isUsableCatchAll(rule: any, workerName: string): boolean {
+  if (!rule || rule.enabled === false) return false;
+  return (rule.actions || []).some(
+    (a: any) => a.type === 'worker' && Array.isArray(a.value) && a.value.includes(workerName)
+  );
+}
+
 export async function onboardDomain(env: any, row: any) {
   const updates: Record<string, any> = { last_checked_at: new Date().toISOString() };
 
@@ -290,7 +312,28 @@ export async function onboardDomain(env: any, row: any) {
     // 1. Create (or adopt an existing) Cloudflare zone if missing — idempotent
     if (!zoneId) {
       const existing = await findZone(env, row.domain_name, creds);
-      const created = existing || await createZone(env, row.domain_name, row.setup_mode === 'cname' ? 'partial' : 'full', creds);
+      let created = existing;
+      if (!created) {
+        // Concurrent onboarding (approve + verify + cron) can both miss the
+        // findZone check and POST /zones. The loser gets "zone already exists"
+        // — treat that as a race and adopt the winning zone instead of
+        // marking the domain failed.
+        try {
+          created = await createZone(env, row.domain_name, row.setup_mode === 'cname' ? 'partial' : 'full', creds);
+        } catch (zoneErr: any) {
+          if (isAlreadyConfiguredError(zoneErr)) {
+            const adopted = await findZone(env, row.domain_name, creds);
+            if (adopted) {
+              created = adopted;
+              console.log(`[Email] Adopted concurrently-created zone for ${row.domain_name} zone=${adopted.id}`);
+            } else {
+              throw zoneErr;
+            }
+          } else {
+            throw zoneErr;
+          }
+        }
+      }
       zoneId = created.id;
       await env.DB.prepare('UPDATE domains SET zone_id = ? WHERE id = ?').bind(zoneId, row.id).run();
       row.zone_id = zoneId;
@@ -317,19 +360,54 @@ export async function onboardDomain(env: any, row: any) {
       // keep it 'failed' so checkDomain retries the routing steps.
       let routingReady = true;
       try {
-        await enableEmailRouting(env, zoneId, creds);
-        await addEmailRoutingDns(env, zoneId, creds).catch((e: any) => console.error('[Email] routing dns step failed (may already exist):', e.message));
+        // Idempotent: onboarding runs repeatedly (admin approve + "जांचें" +
+        // maintenance cron). Cloudflare returns "already enabled/exists"
+        // errors when the state is already correct — those are NOT failures.
+        await enableEmailRouting(env, zoneId, creds).catch((e: any) => {
+          if (isAlreadyConfiguredError(e)) {
+            console.log(`[Email] Email Routing already enabled for ${row.domain_name}; continuing`);
+            return;
+          }
+          throw e;
+        });
+        await addEmailRoutingDns(env, zoneId, creds).catch((e: any) => {
+          if (isAlreadyConfiguredError(e)) {
+            console.log(`[Email] Routing DNS already present for ${row.domain_name}; continuing`);
+            return;
+          }
+          console.error('[Email] routing dns step failed (may already exist):', e.message);
+        });
 
         let ruleId = row.routing_rule_id;
         if (!ruleId) {
+          const workerName = env.WORKER_NAME || DEFAULT_WORKER_NAME;
           const rules = await listRoutingRules(env, zoneId, creds);
-          const existing = (rules || []).find((r: any) => (r.matchers || []).some((m: any) => m.type === 'all'));
+          const existing = (rules || []).find((r: any) => (r.matchers || []).some((m: any) => m.type === 'all') && isUsableCatchAll(r, workerName));
           if (existing) {
             ruleId = existing.id;
           } else {
-            const rule = await createCatchAllRule(env, zoneId, env.WORKER_NAME || DEFAULT_WORKER_NAME, creds);
-            ruleId = rule.id;
-            console.log(`[Email] Catch-all rule created for ${row.domain_name} -> worker "${env.WORKER_NAME || DEFAULT_WORKER_NAME}" rule=${ruleId}`);
+            try {
+              const rule = await createCatchAllRule(env, zoneId, workerName, creds);
+              ruleId = rule.id;
+              console.log(`[Email] Catch-all rule created for ${row.domain_name} -> worker "${workerName}" rule=${ruleId}`);
+            } catch (ruleErr: any) {
+              // Concurrent runner created the rule between list and create:
+              // re-list and adopt instead of failing the whole onboarding.
+              if (isAlreadyConfiguredError(ruleErr)) {
+                const rulesAfter = await listRoutingRules(env, zoneId, creds);
+                const adopted = (rulesAfter || []).find(
+                  (r: any) => (r.matchers || []).some((m: any) => m.type === 'all') && isUsableCatchAll(r, workerName)
+                );
+                if (adopted) {
+                  ruleId = adopted.id;
+                  console.log(`[Email] Adopted concurrent catch-all rule for ${row.domain_name} rule=${ruleId}`);
+                } else {
+                  throw ruleErr;
+                }
+              } else {
+                throw ruleErr;
+              }
+            }
           }
         }
         updates.routing_rule_id = ruleId;
@@ -434,10 +512,30 @@ export async function checkDomain(env: any, row: any) {
     await persistDomainUpdates(env, row.id, updates);
     return { ...row, ...updates };
   } catch (e: any) {
-    // Zone inaccessible (deleted or API error): clear stale references so the
-    // domain can re-onboard instead of being stuck on a dead zone_id forever
-    await env.DB.prepare('UPDATE domains SET zone_id = NULL, routing_rule_id = NULL WHERE id = ?').bind(row.id).run();
-    return onboardDomain(env, { ...row, zone_id: null, routing_rule_id: null });
+    // Only clear the zone references when the zone is REALLY gone (404 /
+    // "not found"). Transient failures (429 rate-limit, 5xx, token errors)
+    // must keep zone_id: wiping it forces findZone+createZone on every retry,
+    // which races/duplicates zones and keeps the domain stuck in pending.
+    const status = e?.status || 0;
+    const msg = e?.message || String(e);
+    // Operator-precedence safe: only 404 (or a genuine 400 not-found) wipes
+    // zone references. A bare message regex on ANY status would let transient
+    // 429/5xx errors (whose text happens to contain "not found") wipe zone_id
+    // and force destructive findZone/createZone re-runs.
+    const gone = status === 404 || (status === 400 && /not found|does not exist|deleted/i.test(msg));
+    if (gone) {
+      await env.DB.prepare('UPDATE domains SET zone_id = NULL, routing_rule_id = NULL WHERE id = ?').bind(row.id).run();
+      return onboardDomain(env, { ...row, zone_id: null, routing_rule_id: null });
+    }
+    // Zone still exists but the API call failed (transient): keep the zone,
+    // surface the error, and let the next maintenance/verify retry it.
+    const transientUpdates: Record<string, any> = {
+      last_checked_at: new Date().toISOString(),
+      error_message: `Cloudflare check failed (${status || 'network'}): ${msg}`,
+    };
+    await persistDomainUpdates(env, row.id, transientUpdates);
+    console.error('[Email] Transient zone check failure for', row.domain_name, status, msg);
+    return { ...row, ...transientUpdates };
   }
 }
 
@@ -481,6 +579,14 @@ async function persistDomainUpdates(env: any, domainId: string, updates: Record<
 // and consecutive failures back off 1m -> 2m -> 4m ... capped at 60m so
 // permanently broken domains stop hammering the Cloudflare API.
 export async function runDomainMaintenance(env: any, ctx: any) {
+  const startedAt = new Date().toISOString();
+  // Timestamp marker: lets the diagnostics endpoint prove whether the cron
+  // trigger actually fires (a common reason domains stay stuck in pending).
+  try {
+    await env.SECRETS_KV?.put('EMAIL_MAINTENANCE_LAST_RUN', startedAt);
+  } catch (e) {
+    console.error('[Email] Failed to write maintenance marker:', e);
+  }
   try {
     const { results } = await env.DB.prepare(
       `SELECT * FROM domains
@@ -497,12 +603,24 @@ export async function runDomainMaintenance(env: any, ctx: any) {
             'UPDATE domains SET consecutive_failures = 0, next_retry_at = NULL WHERE id = ?'
           ).bind(row.id).run();
         } else {
+          // A 'pending' result with no error means the Cloudflare zone is
+          // still initializing / awaiting nameserver activation — a normal
+          // state that depends on the user's DNS action, NOT a hard failure.
+          // Start fast (2 min) so a zone flips to active quickly once
+          // Cloudflare verifies it, but ESCALATE (2->5->10->20->40->60) so a
+          // zone that never activates stops monopolizing the per-run quota
+          // instead of being polled on every cron tick forever. Real errors
+          // keep the exponential backoff (1m -> 2m -> 4m ... capped at 60m).
+          const isPendingZone = updated?.status === 'pending' && !updated?.error_message;
           const failures = (Number(row.consecutive_failures) || 0) + 1;
-          const backoffMin = Math.min(Math.pow(2, failures - 1), 60);
+          const pendingWindows = [2, 5, 10, 20, 40, 60];
+          const backoffMin = isPendingZone
+            ? pendingWindows[Math.min(failures - 1, pendingWindows.length - 1)]
+            : Math.min(Math.pow(2, failures - 1), 60);
           await env.DB.prepare(
             `UPDATE domains SET consecutive_failures = ?, next_retry_at = datetime('now', ?) WHERE id = ?`
           ).bind(failures, `+${backoffMin} minutes`, row.id).run();
-          console.log(`[Email] Maintenance: ${row.domain_name} not ready (failure #${failures}, next retry in ${backoffMin}m)`);
+          console.log(`[Email] Maintenance: ${row.domain_name} not ready (${updated?.status}${isPendingZone ? ', zone activating' : ''}, retry in ${backoffMin}m)`);
         }
       } catch (e: any) {
         console.error(`[Email] Maintenance check failed for ${row.domain_name}:`, e.message);

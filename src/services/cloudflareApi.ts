@@ -31,6 +31,12 @@ async function cfFetchCreds(creds: CFCreds, path: string, options: RequestInit =
       'Content-Type': 'application/json',
       ...(options.headers || {}),
     },
+    // 8s per-call cap: onboarding/verify chains run several sequential CF
+    // calls inside user requests (30s Worker budget). Without a timeout a
+    // hung/rate-limited Cloudflare response can kill the request mid-onboarding
+    // with CF state mutated but DB not updated. Callers may override via
+    // options.signal (which takes precedence over the default timeout).
+    signal: options.signal || AbortSignal.timeout(8000),
   });
 
   const data: any = await res.json().catch(() => null);

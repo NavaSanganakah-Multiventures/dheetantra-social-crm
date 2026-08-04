@@ -1561,12 +1561,19 @@ app.post('/api/domains/:id/verify', async (c) => {
 
   const { checkDomain } = await import('./services/emailService');
   // Full verification runs several Cloudflare calls and can take 5-15s.
-  // Run it in the background and return the current stored status immediately
-  // so the request does not block the worker.
-  c.executionCtx.waitUntil(
-    checkDomain(c.env, row).catch((e: any) => console.error('[Email] Background verification failed for', row.domain_name, e))
-  );
-  return c.json({ success: true, domain: parseDomain(row) });
+  // Run it SYNCHRONOUSLY and return the FRESH status so the UI never shows a
+  // stale (pending) row after the user presses "जांचें". Previously the check
+  // ran in the background (waitUntil) while the response returned the OLD row,
+  // so a verified/active domain kept displaying "Pending Verification".
+  const fresh: any = await checkDomain(c.env, row).catch((e: any) => {
+    console.error('[Email] Verification failed for', row.domain_name, e);
+    return null;
+  });
+  if (!fresh) {
+    // Real check failure: surface it instead of faking success with old data.
+    return c.json({ success: false, error: 'Verification failed. Please try again shortly.', code: 'E_VERIFY_FAILED' }, 502);
+  }
+  return c.json({ success: true, domain: parseDomain({ ...row, ...fresh }) });
 });
 
 // Remove Domain (deletes Cloudflare zone + row)
@@ -2120,7 +2127,7 @@ app.get('/api/email/diagnostics', async (c) => {
   // 1. Domains in this workspace + onboarding state
   try {
     const { results } = await c.env.DB.prepare(
-      `SELECT id, domain_name, setup_mode, status, review_status, zone_id, routing_rule_id, sending_onboarded, error_message
+      `SELECT id, domain_name, setup_mode, status, review_status, zone_id, routing_rule_id, sending_onboarded, error_message, last_checked_at
        FROM domains WHERE workspace_id = ? ORDER BY created_at DESC`
     ).bind(workspaceId).all();
     out.domains = (results || []).map((d: any) => ({
@@ -2132,10 +2139,20 @@ app.get('/api/email/diagnostics', async (c) => {
       has_routing_rule_id: !!d.routing_rule_id,
       sending_onboarded: !!d.sending_onboarded,
       error_message: d.error_message || null,
+      last_checked_at: d.last_checked_at || null,
     }));
   } catch (e: any) {
     out.domains = [];
     out.domains_error = e.message;
+  }
+
+  // 1b. Was the maintenance cron actually running? (proves the scheduled
+  // trigger fires; a missing marker means the cron never executed)
+  try {
+    const lastRun = await c.env.SECRETS_KV.get('EMAIL_MAINTENANCE_LAST_RUN');
+    out.maintenance_cron = { last_run: lastRun || null };
+  } catch (e: any) {
+    out.maintenance_cron = { error: e.message };
   }
 
   // 2. KV credentials needed for Cloudflare onboarding
