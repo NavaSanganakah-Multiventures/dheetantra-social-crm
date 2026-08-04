@@ -3,7 +3,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Mail, Plus, Trash2, RefreshCw, Copy, Check, Globe, Send, FileText, X,
-  ShieldCheck, Clock, AlertCircle, Loader2, KeyRound, ChevronDown, ChevronUp, Inbox
+  ShieldCheck, Clock, AlertCircle, Loader2, KeyRound, ChevronDown, ChevronUp, Inbox,
+  CornerUpLeft, ArrowLeft, Paperclip, ExternalLink, User
 } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 
@@ -67,7 +68,7 @@ function DnsRecordRow({ record }: { record: any }) {
 
 export default function EmailServiceView() {
   const { toast } = useToast();
-  const [tab, setTab] = useState<'domains' | 'compose' | 'templates' | 'logs'>('domains');
+  const [tab, setTab] = useState<'inbox' | 'domains' | 'compose' | 'templates' | 'logs'>('inbox');
   const [domains, setDomains] = useState<any[]>([]);
   const [loadingDomains, setLoadingDomains] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -168,10 +169,11 @@ export default function EmailServiceView() {
       {/* Sub tabs */}
       <div className="flex gap-2 border-b border-zinc-200 dark:border-zinc-800">
         {([
+          ['inbox', 'इनबॉक्स', Inbox],
           ['domains', 'डोमेन', Globe],
           ['compose', 'ईमेल भेजें', Send],
           ['templates', 'टेम्पलेट्स', FileText],
-          ['logs', 'सेंड लॉग्स', Inbox],
+          ['logs', 'सेंड लॉग्स', Mail],
         ] as const).map(([key, label, Icon]) => (
           <button
             key={key}
@@ -187,6 +189,7 @@ export default function EmailServiceView() {
         ))}
       </div>
 
+      {tab === 'inbox' && <InboxSection domains={domains} />}
       {tab === 'domains' && (
         <DomainsSection
           domains={domains}
@@ -201,6 +204,278 @@ export default function EmailServiceView() {
       {tab === 'logs' && <LogsSection />}
 
       {showAddModal && <AddDomainModal onClose={() => setShowAddModal(false)} onAdded={refreshDomains} />}
+    </div>
+  );
+}
+
+// ==========================================
+// INBOX
+// ==========================================
+
+function InboxSection({ domains }: { domains: any[] }) {
+  const { toast } = useToast();
+  const [conversations, setConversations] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [detail, setDetail] = useState<any>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [replyBody, setReplyBody] = useState('');
+  const [replySending, setReplySending] = useState(false);
+
+  const loadConversations = useCallback(async () => {
+    try {
+      const res = await fetch('/api/email/inbox/conversations?limit=200', { headers: getHeaders() });
+      const data: any = await res.json();
+      if (data.conversations) setConversations(data.conversations);
+    } catch (e) {
+      console.error('Failed to load email inbox', e);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const loadDetail = useCallback(async (id: string) => {
+    setDetailLoading(true);
+    try {
+      const res = await fetch(`/api/email/inbox/conversations/${id}`, { headers: getHeaders() });
+      const data: any = await res.json();
+      if (data.messages && data.conversation) setDetail(data);
+    } catch (e) {
+      console.error('Failed to load conversation', e);
+    } finally {
+      setDetailLoading(false);
+    }
+  }, []);
+
+  const sendReply = async () => {
+    if (!selectedId || !replyBody.trim()) {
+      toast('warning', 'Reply खाली है');
+      return;
+    }
+    if (!detail?.replyMailbox) {
+      toast('error', 'भेजने वाला mailbox set नहीं है। पहले Domain / Mailbox बनाएं और verify करें।');
+      return;
+    }
+    setReplySending(true);
+    try {
+      const res = await fetch(`/api/email/inbox/conversations/${selectedId}/reply`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ html: replyBody }),
+      });
+      const data: any = await res.json();
+      if (data.success) {
+        toast('success', 'Reply भेज दिया गया');
+        setReplyBody('');
+        loadDetail(selectedId);
+        loadConversations();
+      } else {
+        toast('error', data.error || 'Reply भेजने में समस्या');
+      }
+    } catch (e: any) {
+      toast('error', e.message || 'Reply भेजने में समस्या');
+    } finally {
+      setReplySending(false);
+    }
+  };
+
+  useEffect(() => {
+    loadConversations();
+    const t = setInterval(() => {
+      loadConversations();
+      if (selectedId) loadDetail(selectedId);
+    }, 10000);
+    return () => clearInterval(t);
+  }, [loadConversations, selectedId, loadDetail]);
+
+  const openConversation = async (id: string) => {
+    setSelectedId(id);
+    await loadDetail(id);
+  };
+
+  const formatDate = (value: string) => {
+    if (!value) return '';
+    try { return new Date((value).replace(' ', 'T') + 'Z').toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' }); } catch { return value; }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="w-8 h-8 border-2 border-indigo-600 dark:border-indigo-400 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  if (!domains.length) {
+    return (
+      <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-dashed border-zinc-300 dark:border-zinc-700 p-10 text-center">
+        <Inbox className="w-10 h-10 text-amber-500 mx-auto mb-4" />
+        <h3 className="font-semibold text-zinc-900 dark:text-white">पहले अपना डोमेन जोड़ें</h3>
+        <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-2 max-w-md mx-auto">
+          ईमेल inbox का उपयोग करने के लिए सबसे पहले &quot;डोमेन&quot; टैब पर जाकर अपना domain जोड़ें और verify करें।
+          उसके बाद आए हुए emails यहाँ दिखेंगे।
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-[calc(100vh-13rem)] min-h-[500px] grid grid-cols-1 md:grid-cols-3 gap-0 bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden">
+      {/* Conversation list */}
+      <div className={`${selectedId ? 'hidden md:flex' : 'flex'} md:flex flex-col border-r border-zinc-200 dark:border-zinc-800`}>
+        <div className="p-4 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
+          <h3 className="font-semibold text-zinc-900 dark:text-white">ईमेल बातचीत</h3>
+          <button onClick={loadConversations} className="p-1.5 text-zinc-500 hover:text-indigo-600 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800" title="Refresh">
+            <RefreshCw className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto">
+          {conversations.map((conv) => (
+            <button
+              key={conv.id}
+              onClick={() => openConversation(conv.id)}
+              className={`w-full text-left px-4 py-3 border-b border-zinc-100 dark:border-zinc-800 transition-colors ${
+                selectedId === conv.id ? 'bg-indigo-50 dark:bg-indigo-900/20' : 'hover:bg-zinc-50 dark:hover:bg-zinc-900/60'
+              }`}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-zinc-900 dark:text-white truncate">
+                    {conv.contact_name || conv.sender_email}
+                  </p>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">{conv.sender_email}</p>
+                  <p className="text-xs text-zinc-700 dark:text-zinc-300 mt-1 truncate">
+                    {conv.subject ? <span className="font-medium">{conv.subject}</span> : <span className="text-zinc-400">(no subject)</span>}
+                  </p>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 truncate">{conv.preview || ''}</p>
+                </div>
+                <div className="flex flex-col items-end gap-1 shrink-0">
+                  <span className="text-[10px] text-zinc-400 whitespace-nowrap">{formatDate(conv.last_message_at)}</span>
+                  {conv.has_attachments && <Paperclip className="w-3.5 h-3.5 text-zinc-400" />}
+                  {conv.unverified && <span className="text-[9px] text-amber-600 bg-amber-100 dark:bg-amber-900/30 px-1.5 rounded-full">?</span>}
+                </div>
+              </div>
+            </button>
+          ))}
+          {conversations.length === 0 && (
+            <div className="p-8 text-center text-zinc-500 dark:text-zinc-400 text-sm">
+              अभी तक कोई ईमेल नहीं आया।<br />
+              <span className="text-xs">Active domain के mailbox पर email भेजकर test करें।</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Reading pane */}
+      <div className={`${selectedId ? 'flex' : 'hidden md:flex'} md:col-span-2 flex-col`}>
+        {!selectedId ? (
+          <div className="flex-1 flex flex-col items-center justify-center text-zinc-400 dark:text-zinc-500 p-8">
+            <Mail className="w-12 h-12 mb-3 opacity-40" />
+            <p className="text-sm">बाईं ओर से कोई conversation चुनें</p>
+          </div>
+        ) : detailLoading ? (
+          <div className="flex-1 flex items-center justify-center">
+            <Loader2 className="w-6 h-6 animate-spin text-indigo-600" />
+          </div>
+        ) : detail ? (
+          <>
+            <div className="p-4 border-b border-zinc-200 dark:border-zinc-800 flex items-start gap-3">
+              <button
+                onClick={() => setSelectedId(null)}
+                className="md:hidden p-1.5 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg"
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </button>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-base font-bold text-zinc-900 dark:text-white truncate">
+                  {detail.conversation.contact_name || detail.conversation.sender_email}
+                </h3>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">{detail.conversation.sender_email}</p>
+                <p className="text-xs text-zinc-400 mt-1 truncate">Reply from: {detail.replyMailbox || '—'}</p>
+              </div>
+              <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${detail.conversation.status === 'open' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300'}`}>
+                {detail.conversation.status === 'open' ? 'Open' : 'Closed'}
+              </span>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {(detail.messages || []).map((m: any) => {
+                const isContact = m.sender_type === 'contact';
+                const html = m.media?.html || '';
+                const body = html || m.content || '';
+                const srcDoc = `<html><head><style>body{font-family:system-ui,-apple-system,sans-serif;line-height:1.55;color:#111827;max-width:100%;word-wrap:break-word;}</style></head><body>${body}</body></html>`;
+                return (
+                  <div key={m.id} className={`flex ${isContact ? 'justify-start' : 'justify-end'}`}>
+                    <div className={`max-w-full md:max-w-[80%] rounded-2xl p-4 ${isContact ? 'bg-zinc-100 dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100' : 'bg-indigo-600 text-white'}`}>
+                      <div className="flex items-center gap-2 mb-2">
+                        {isContact ? <User className="w-3.5 h-3.5" /> : <CornerUpLeft className="w-3.5 h-3.5" />}
+                        <span className="text-xs font-medium">{isContact ? (detail.conversation.contact_name || 'Customer') : 'You'}</span>
+                        <span className="text-[10px] opacity-70">{formatDate(m.created_at)}</span>
+                      </div>
+                      {m.media?.subject && (
+                        <p className={`text-xs font-semibold mb-2 ${isContact ? 'text-zinc-800 dark:text-zinc-200' : 'text-indigo-100'}`}>Subject: {m.media.subject}</p>
+                      )}
+                      <div className={`text-sm overflow-auto ${isContact ? 'text-zinc-800 dark:text-zinc-200' : 'text-white'}`}>
+                        {html ? (
+                          <iframe
+                            title={`email-${m.id}`}
+                            srcDoc={srcDoc}
+                            sandbox=""
+                            className="w-full min-h-[120px] bg-transparent"
+                          />
+                        ) : (
+                          <p className="whitespace-pre-wrap">{m.content || '(no content)'}</p>
+                        )}
+                      </div>
+                      {(m.media?.attachments || []).length > 0 && (
+                        <div className="mt-3 space-y-1.5">
+                          {(m.media.attachments as any[]).map((att, i) => (
+                            <a
+                              key={i}
+                              href={att.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className={`flex items-center gap-2 text-xs px-2.5 py-1.5 rounded-lg transition-colors ${
+                                isContact
+                                  ? 'bg-white dark:bg-zinc-800 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50'
+                                  : 'bg-indigo-700 text-white hover:bg-indigo-800'
+                              }`}
+                            >
+                              <ExternalLink className="w-3 h-3" />
+                              <span className="truncate">{att.name}</span>
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="p-4 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/50">
+              <label className="block text-xs font-semibold text-zinc-500 dark:text-zinc-400 mb-2">Reply भेजें (HTML support)</label>
+              <textarea
+                value={replyBody}
+                onChange={e => setReplyBody(e.target.value)}
+                rows={4}
+                placeholder="<p>नमस्ते...</p>"
+                className="w-full px-3 py-2.5 text-sm rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
+              />
+              <div className="flex justify-end mt-2">
+                <button
+                  onClick={sendReply}
+                  disabled={replySending || !replyBody.trim()}
+                  className="inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 rounded-xl transition-colors disabled:opacity-60"
+                >
+                  {replySending ? <Loader2 className="w-4 h-4 animate-spin" /> : <CornerUpLeft className="w-4 h-4" />}
+                  {replySending ? 'भेज रहे हैं...' : 'Reply भेजें'}
+                </button>
+              </div>
+            </div>
+          </>
+        ) : null}
+      </div>
     </div>
   );
 }

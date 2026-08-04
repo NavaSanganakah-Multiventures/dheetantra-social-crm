@@ -1828,6 +1828,182 @@ app.get('/api/email/mailboxes', async (c) => {
   return c.json({ mailboxes: results });
 });
 
+// ==========================================
+// EMAIL INBOX (received emails)
+// ==========================================
+
+function parseEmailMediaJson(value: string | null): { subject?: string; html?: string; to?: string; attachments?: any[]; unverified?: boolean } {
+  if (!value) return {};
+  try {
+    const parsed = JSON.parse(value);
+    if (parsed && typeof parsed === 'object') return parsed;
+  } catch { /* ignore */ }
+  return {};
+}
+
+// List email conversations with latest message preview
+app.get('/api/email/inbox/conversations', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  const limit = Math.min(parseInt(c.req.query('limit') || '50', 10) || 50, 200);
+  const offset = Math.max(parseInt(c.req.query('offset') || '0', 10) || 0, 0);
+
+  try {
+    const { results } = await c.env.DB.prepare(
+      `SELECT
+         c.id, c.status, c.updated_at, c.customer_last_message_at,
+         ct.id AS contact_id, ct.name AS contact_name, ct.platform_contact_id AS sender_email,
+         m.id AS last_message_id, m.content AS preview, m.created_at AS last_message_at, m.media_url
+       FROM conversations c
+       JOIN contacts ct ON c.contact_id = ct.id
+       LEFT JOIN messages m ON m.id = (
+         SELECT id FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1
+       )
+       WHERE c.workspace_id = ? AND c.platform = 'email'
+       ORDER BY COALESCE(m.created_at, c.updated_at) DESC
+       LIMIT ? OFFSET ?`
+    ).bind(workspaceId, limit, offset).all();
+
+    const conversations = (results || []).map((row: any) => {
+      const media = parseEmailMediaJson(row.media_url);
+      return {
+        ...row,
+        subject: media.subject || '',
+        has_attachments: (media.attachments?.length || 0) > 0,
+        unverified: !!media.unverified,
+      };
+    });
+
+    return c.json({ conversations });
+  } catch (e: any) {
+    console.error('[Email Inbox] Failed to list conversations:', e);
+    return c.json({ error: e.message || 'Failed to load inbox' }, 500);
+  }
+});
+
+// Get one email conversation thread (messages + contact info)
+app.get('/api/email/inbox/conversations/:id', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  const conversationId = c.req.param('id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  try {
+    const conversation: any = await c.env.DB.prepare(
+      `SELECT c.*, ct.id AS contact_id, ct.name AS contact_name, ct.platform_contact_id AS sender_email, ct.email AS contact_email
+       FROM conversations c
+       JOIN contacts ct ON c.contact_id = ct.id
+       WHERE c.id = ? AND c.workspace_id = ? AND c.platform = 'email'`
+    ).bind(conversationId, workspaceId).first();
+
+    if (!conversation) return c.json({ error: 'Conversation not found' }, 404);
+
+    const { results } = await c.env.DB.prepare(
+      `SELECT m.* FROM messages m
+       WHERE m.conversation_id = ?
+       ORDER BY m.created_at ASC`
+    ).bind(conversationId).all();
+
+    const messages = (results || []).map((m: any) => {
+      const media = parseEmailMediaJson(m.media_url);
+      return { ...m, media, subject: media.subject || '' };
+    });
+
+    // Best mailbox to reply from = the original recipient "to" address stored in first incoming email
+    const firstIncoming = messages.find((m: any) => m.sender_type === 'contact' && m.media?.to);
+    let replyMailbox = firstIncoming?.media?.to || '';
+    if (!replyMailbox) {
+      try {
+        const { resolveFromAddress } = await import('./services/emailService');
+        const resolved = await resolveFromAddress(c.env, workspaceId, null);
+        replyMailbox = resolved.fromEmail;
+      } catch { /* fallback */ }
+    }
+
+    return c.json({ conversation, messages, replyMailbox });
+  } catch (e: any) {
+    console.error('[Email Inbox] Failed to load conversation:', e);
+    return c.json({ error: e.message || 'Failed to load conversation' }, 500);
+  }
+});
+
+// Reply to an email conversation (sends via EMAIL_SENDER and stores the reply)
+app.post('/api/email/inbox/conversations/:id/reply', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  const conversationId = c.req.param('id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  const { html, text } = await c.req.json();
+  if (!html && !text) return c.json({ error: 'Reply body is required' }, 400);
+
+  try {
+    // 1. Load conversation + contact + verify ownership
+    const row: any = await c.env.DB.prepare(
+      `SELECT c.id, ct.platform_contact_id AS sender_email
+       FROM conversations c
+       JOIN contacts ct ON c.contact_id = ct.id
+       WHERE c.id = ? AND c.workspace_id = ? AND c.platform = 'email'`
+    ).bind(conversationId, workspaceId).first();
+
+    if (!row) return c.json({ error: 'Conversation not found' }, 404);
+    const toEmail = row.sender_email;
+
+    // 2. Determine mailbox to send from (original recipient)
+    const firstIncoming: any = await c.env.DB.prepare(
+      `SELECT m.media_url FROM messages m
+       WHERE m.conversation_id = ? AND m.sender_type = 'contact'
+       ORDER BY m.created_at ASC LIMIT 1`
+    ).bind(conversationId).first();
+    const firstMedia = parseEmailMediaJson(firstIncoming?.media_url);
+    let fromEmail = firstMedia.to || '';
+    let originalSubject = firstMedia.subject || '';
+
+    if (!fromEmail) {
+      const { resolveFromAddress } = await import('./services/emailService');
+      const resolved = await resolveFromAddress(c.env, workspaceId, null);
+      fromEmail = resolved.fromEmail;
+    }
+
+    const rate = await checkEmailRateLimit(c.env, workspaceId);
+    if (!rate.ok) return c.json({ error: rate.error }, 429);
+
+    const subject = originalSubject.startsWith('Re:') ? originalSubject : `Re: ${originalSubject || 'Your email'}`;
+
+    const { sendEmail } = await import('./services/emailService');
+    await sendEmail(c.env, {
+      to: toEmail,
+      from: fromEmail,
+      subject,
+      html: html || '',
+      text: text || '',
+    });
+
+    // 3. Store the reply in messages for a complete thread view
+    await c.env.DB.prepare(
+      `INSERT INTO messages (id, conversation_id, sender_type, content, media_url, status, message_type, created_at)
+       VALUES (?, ?, 'agent', ?, ?, 'sent', 'email', CURRENT_TIMESTAMP)`
+    ).bind(
+      crypto.randomUUID(),
+      conversationId,
+      text || stripHtmlTags(html || ''),
+      JSON.stringify({ html: html || '', subject, to: toEmail, attachments: [] })
+    ).run();
+
+    await c.env.DB.prepare(
+      `UPDATE conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = ?`
+    ).bind(conversationId).run();
+
+    return c.json({ success: true });
+  } catch (e: any) {
+    console.error('[Email Inbox] Reply failed:', e);
+    return c.json({ success: false, error: e.message || 'Reply failed', code: e.code || 'E_REPLY_FAILED' }, e.status || 500);
+  }
+});
+
+function stripHtmlTags(value: string): string {
+  return value.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
 // Create/Update Email Template
 app.post('/api/email-templates', async (c) => {
   const workspaceId = c.req.header('x-workspace-id');

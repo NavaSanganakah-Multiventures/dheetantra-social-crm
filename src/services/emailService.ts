@@ -89,6 +89,8 @@ export interface SendEmailInput {
   html?: string;
   text?: string;
   replyTo?: string;
+  inReplyTo?: string;   // original Message-Id for threading
+  references?: string;  // thread references for threading
 }
 
 export async function sendEmail(env: any, input: SendEmailInput): Promise<{ messageId: string }> {
@@ -141,11 +143,15 @@ export function buildRawMime(input: SendEmailInput): string {
   const to = sanitizeHeaderValue(input.to);
   const subject = sanitizeHeaderValue(input.subject);
   const replyTo = input.replyTo ? sanitizeHeaderValue(input.replyTo) : '';
+  const inReplyTo = input.inReplyTo ? sanitizeHeaderValue(input.inReplyTo) : '';
+  const references = input.references ? sanitizeHeaderValue(input.references) : '';
   const parts: string[] = [];
   parts.push(`From: ${from}`);
   parts.push(`To: ${to}`);
   parts.push(`Subject: ${subject}`);
   if (replyTo) parts.push(`Reply-To: ${replyTo}`);
+  if (inReplyTo) parts.push(`In-Reply-To: ${inReplyTo}`);
+  if (references) parts.push(`References: ${references}`);
   parts.push('MIME-Version: 1.0');
   parts.push(`Content-Type: multipart/alternative; boundary="${boundary}"`);
   parts.push('');
