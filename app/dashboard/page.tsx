@@ -11,6 +11,7 @@ import 'react-phone-number-input/style.css';
 import GeminiVoiceBridge from "@/app/components/GeminiVoiceBridge";
 import ActiveConversationsView from '@/components/ActiveConversationsView';
 import EmailServiceView from '@/components/EmailServiceView';
+import UnifiedInbox from '@/components/UnifiedInbox';
 import { useToast } from '@/components/ui/Toast';
 type activeTab = 'dashboard' | 'inbox' | 'active-conversations' | 'broadcast' | 'templates' | 'schedule' | 'settings' | 'contacts' | 'calls' | 'integrations' | 'accounts-whatsapp' | 'email';
 
@@ -515,12 +516,10 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
             >
               {activeTab === 'dashboard' && <DashboardOverview />}
               {activeTab === 'inbox' && (
-                <InboxView 
-                  preselectedChat={preselectedChat} 
-                  setPreselectedChat={setPreselectedChat} 
-                  onInitiateCall={(contact: any) => {
-                    alert('WhatsApp Outbound calls abhi supported nahi hain. Sirf incoming calls receive ho sakti hain.');
-                  }}
+                <UnifiedInbox
+                  preselectedChat={preselectedChat}
+                  setPreselectedChat={setPreselectedChat}
+                  onGoIntegrations={() => setActiveTab('integrations')}
                 />
               )}
               {activeTab === 'active-conversations' && (

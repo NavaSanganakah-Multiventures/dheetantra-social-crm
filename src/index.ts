@@ -3355,14 +3355,22 @@ app.post('/api/whatsapp/send', async (c) => {
   }
 });
 
-// Get Inbox Conversations
+// Get Inbox Conversations (unified: whatsapp, email, and future IG/FB DMs)
 app.get('/api/inbox/conversations', async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
   const phoneNumberId = c.req.query('phoneNumberId');
+  const platform = c.req.query('platform') || 'all';
+  const aiFilter = c.req.query('aiFilter') || 'all';
+  const statusFilter = c.req.query('status') || 'all';
+
   let query = `
-    SELECT c.id, c.status, c.updated_at, c.customer_last_message_at, c.phone_number_id, ct.name as contact_name, ct.platform_contact_id as phone, ct.id as contact_id
+    SELECT c.id, c.platform, c.status, c.updated_at, c.customer_last_message_at,
+           c.phone_number_id, c.ai_label, c.ai_summary,
+           ct.name as contact_name, ct.platform_contact_id as phone, ct.id as contact_id,
+           (SELECT content FROM messages m WHERE m.conversation_id = c.id
+            ORDER BY m.created_at DESC LIMIT 1) AS last_message
     FROM conversations c
     JOIN contacts ct ON c.contact_id = ct.id
     WHERE c.workspace_id = ?
@@ -3371,6 +3379,18 @@ app.get('/api/inbox/conversations', async (c) => {
   if (phoneNumberId && phoneNumberId !== 'all') {
     query += ` AND (c.phone_number_id = ? OR c.phone_number_id IS NULL)`;
     binds.push(phoneNumberId);
+  }
+  if (platform && platform !== 'all') {
+    query += ` AND c.platform = ?`;
+    binds.push(platform);
+  }
+  if (aiFilter && aiFilter !== 'all') {
+    query += ` AND c.ai_label = ?`;
+    binds.push(aiFilter);
+  }
+  if (statusFilter && statusFilter !== 'all') {
+    query += ` AND c.status = ?`;
+    binds.push(statusFilter);
   }
   query += ` ORDER BY c.updated_at DESC`;
 
@@ -3386,14 +3406,47 @@ app.get('/api/inbox/messages/:conversationId', async (c) => {
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
   // Validate conversation belongs to workspace
-  const conv = await c.env.DB.prepare('SELECT id FROM conversations WHERE id = ? AND workspace_id = ?').bind(conversationId, workspaceId).first();
+  const conv: any = await c.env.DB.prepare(
+    `SELECT c.*, ct.name AS contact_name, ct.platform_contact_id AS phone, ct.email AS contact_email
+     FROM conversations c JOIN contacts ct ON c.contact_id = ct.id
+     WHERE c.id = ? AND c.workspace_id = ?`
+  ).bind(conversationId, workspaceId).first();
   if (!conv) return c.json({ error: 'Forbidden' }, 403);
 
   const { results } = await c.env.DB.prepare(
     'SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at ASC'
   ).bind(conversationId).all();
 
-  return c.json({ messages: results });
+  return c.json({ messages: results, conversation: conv });
+});
+
+// AI: classify inbox conversations (Gemini) and persist ai_label/ai_summary
+app.post('/api/inbox/ai/classify', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  const { classifyConversations } = await import('./services/inboxAI');
+  const result = await classifyConversations(c.env, workspaceId);
+  if (result.failed) {
+    return c.json({ error: 'AI classification failed. Check GEMINI_API_KEY in KV.' }, 502);
+  }
+  return c.json({ success: true, classified: result.classified });
+});
+
+// AI: suggest a reply draft for a conversation (Gemini)
+app.post('/api/inbox/ai/suggest', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  const { conversationId } = await c.req.json();
+  if (!conversationId) return c.json({ error: 'conversationId is required' }, 400);
+
+  const { suggestReply } = await import('./services/inboxAI');
+  const result = await suggestReply(c.env, workspaceId, conversationId);
+  if (result.failed) {
+    return c.json({ error: 'AI suggestion failed. Check GEMINI_API_KEY in KV.' }, 502);
+  }
+  return c.json({ success: true, suggestion: result.suggestion });
 });
 
 // Update conversation status (open/closed)

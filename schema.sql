@@ -99,6 +99,8 @@ CREATE TABLE IF NOT EXISTS conversations (
   status TEXT NOT NULL DEFAULT 'open', -- 'open', 'closed', 'snoozed'
   phone_number_id TEXT,
   customer_last_message_at DATETIME,
+  ai_label TEXT, -- Gemini classification: 'lead','urgent','complaint','inquiry','support','follow_up','spam','other'
+  ai_summary TEXT, -- Short Gemini summary of the conversation
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
@@ -121,6 +123,7 @@ CREATE TABLE IF NOT EXISTS messages (
 
 -- Indexes for fast inbox querying
 CREATE INDEX IF NOT EXISTS idx_conversations_workspace ON conversations(workspace_id, status);
+CREATE INDEX IF NOT EXISTS idx_conversations_ai ON conversations(workspace_id, ai_label);
 CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id, created_at);
 
 -- WhatsApp API Configurations
