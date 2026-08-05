@@ -8,7 +8,7 @@ import Papa from 'papaparse';
 import { useWhatsAppWebRTC } from '@/lib/hooks/useWhatsAppWebRTC';
 import PhoneInput, { isValidPhoneNumber } from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
-import GeminiVoiceBridge from "@/app/components/GeminiVoiceBridge";
+
 import ActiveConversationsView from '@/components/ActiveConversationsView';
 import EmailServiceView from '@/components/EmailServiceView';
 import UnifiedInbox from '@/components/UnifiedInbox';
@@ -546,10 +546,6 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
           </AnimatePresence>
         </main>
 
-        {/* Gemini Voice Agent Bridge (Client-side connection via Secure Proxy) */}
-        {typeof window !== 'undefined' && localStorage.getItem('workspaceId') && (
-          <GeminiVoiceBridge workspaceId={localStorage.getItem('workspaceId') as string} />
-        )}
 
       </div>
 
