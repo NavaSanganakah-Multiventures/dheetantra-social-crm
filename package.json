@@ -51,5 +51,16 @@
     "typescript": "5.9.3",
     "vitest": "^4.1.10",
     "wrangler": "^4.118.0"
+  },
+  "overrides": {
+    "miniflare": {
+      "undici": "^7.29.0"
+    },
+    "gaxios": {
+      "uuid": "^11.1.1"
+    },
+    "@google-cloud/pubsub": {
+      "@opentelemetry/core": "^2.8.0"
+    }
   }
 }
