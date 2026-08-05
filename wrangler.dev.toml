@@ -1,0 +1,136 @@
+name = 'dheetantra-social-crm'
+main = "src/index.ts"
+compatibility_date = "2025-07-14"
+compatibility_flags = ["nodejs_compat"]
+
+# No [build] command here: `next build` is run by the `dev` npm script before
+# wrangler starts. An in-wrangler build re-runs on every src change and crashes
+# on Windows with "EBUSY: resource busy or locked, rmdir 'out'" because the
+# assets directory is already locked by the local server.
+
+# ==========================================
+# 1. WORKERS WITH ASSETS (NO PAGES)
+# ==========================================
+# Frontend build files (HTML, Tailwind CSS, JS) are served natively from here.
+# Cloudflare will automatically serve static assets from this folder.
+# Any dynamic requests (e.g., /api/*) will fall through to the Worker script (src/index.ts).
+[assets]
+directory = "out"
+binding = "ASSETS"
+
+# ==========================================
+# 2. KV NAMESPACES (SECRETS & SESSIONS)
+# ==========================================
+[[kv_namespaces]]
+binding = "SECRETS_KV"
+id = "8c53f4c4cefd4672a1be44a763650307"
+preview_id = "8c53f4c4cefd4672a1be44a763650307"
+
+# ==========================================
+# 3. D1 DATABASE (CRM & RELATIONAL DATA)
+# ==========================================
+[[d1_databases]]
+binding = "DB"
+database_name = "dhitantra_db_prod"
+database_id = "ca83f3ea-5c28-4aaa-b79a-e7022609f038"
+preview_database_id = "ca83f3ea-5c28-4aaa-b79a-e7022609f038"
+migrations_dir = "db_migrations"
+
+# ==========================================
+# 4. R2 BUCKETS (MEDIA & FILE STORAGE)
+# ==========================================
+[[r2_buckets]]
+binding = "MEDIA_BUCKET"
+bucket_name = "dhitantra-media-prod"
+preview_bucket_name = "dhitantra-media-preview"
+
+# ==========================================
+# 5. DURABLE OBJECTS (REAL-TIME & SQLITE)
+# ==========================================
+[[durable_objects.bindings]]
+name = "CHAT_DO"
+class_name = "ChatDurableObject"
+
+# Using SQLite storage backend natively in Durable Objects
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["ChatDurableObject"]
+
+# ==========================================
+# 6. WORKFLOWS & QUEUES (BACKGROUND TASKS)
+# ==========================================
+[[workflows]]
+name = "automation-workflow"
+binding = "AUTOMATION_WORKFLOW"
+class_name = "AutomationWorkflow"
+
+[[queues.producers]]
+binding = "NOTIFICATION_QUEUE"
+queue = "notification-queue-prod"
+
+[[queues.producers]]
+binding = "BROADCAST_QUEUE"
+queue = "broadcast-queue-prod"
+
+[[queues.consumers]]
+queue = "broadcast-queue-prod"
+max_batch_size = 10
+max_batch_timeout = 30
+max_retries = 3
+dead_letter_queue = "broadcast-queue-dlq"
+
+# ==========================================
+# 7. DEVELOPMENT / PREVIEW ENVIRONMENT
+# ==========================================
+[env.preview]
+name = "dhitantra-crm-preview"
+# Override with separate resources for safe development
+[[env.preview.d1_databases]]
+binding = "DB"
+database_name = "dhitantra_db_preview"
+database_id = "ca83f3ea-5c28-4aaa-b79a-e7022609f038"
+
+[[env.preview.r2_buckets]]
+binding = "MEDIA_BUCKET"
+bucket_name = "dhitantra-media-preview"
+
+# Never run the production onboarding/maintenance cron from the preview env:
+# it shares the same D1 database and Cloudflare account, and two concurrent
+# runners would race on the same domain rows.
+[env.preview.triggers]
+crons = []
+
+# ==========================================
+# 8. OBSERVABILITY — Logs & Tail
+# ==========================================
+[observability]
+enabled = false
+head_sampling_rate = 1
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+persist = true
+invocation_logs = true
+
+[observability.traces]
+enabled = false
+persist = true
+head_sampling_rate = 1
+
+# ==========================================
+# 9. EMAIL SENDING BINDING
+# ==========================================
+[[send_email]]
+name = "EMAIL_SENDER"
+
+[[rules]]
+type = "Text"
+globs = ["**/*.sql", "**/*.txt", "**/*.html"]
+fallthrough = false
+
+# ==========================================
+# 10. SCHEDULED MAINTENANCE (email onboarding auto-retry)
+# ==========================================
+[triggers]
+crons = ["*/10 * * * *"]

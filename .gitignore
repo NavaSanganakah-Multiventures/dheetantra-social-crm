@@ -10,3 +10,7 @@ fix_*.js
 update_*.js
 replace_*.js
 *.sqlite*
+
+.wrangler/
+tsconfig.tsbuildinfo
+

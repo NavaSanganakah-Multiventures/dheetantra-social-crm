@@ -3,7 +3,9 @@
 -- ==========================================
 
 -- Structured limits per plan (keep features_json as marketing string array)
-ALTER TABLE plans ADD COLUMN IF NOT EXISTS limits_json TEXT DEFAULT '{}';
+-- NOTE: SQLite does not support "IF NOT EXISTS" on ADD COLUMN; this migration
+-- runs once (tracked in d1_migrations), so a plain ADD COLUMN is safe.
+ALTER TABLE plans ADD COLUMN limits_json TEXT DEFAULT '{}';
 
 -- Monthly email usage per workspace (resets per year-month)
 CREATE TABLE IF NOT EXISTS workspace_email_usage (

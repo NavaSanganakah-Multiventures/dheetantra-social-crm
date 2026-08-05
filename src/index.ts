@@ -1565,15 +1565,36 @@ app.post('/api/domains/:id/verify', async (c) => {
   // stale (pending) row after the user presses "जांचें". Previously the check
   // ran in the background (waitUntil) while the response returned the OLD row,
   // so a verified/active domain kept displaying "Pending Verification".
+  let verifyError: any = null;
   const fresh: any = await checkDomain(c.env, row).catch((e: any) => {
+    verifyError = e;
     console.error('[Email] Verification failed for', row.domain_name, e);
     return null;
   });
   if (!fresh) {
-    // Real check failure: surface it instead of faking success with old data.
-    return c.json({ success: false, error: 'Verification failed. Please try again shortly.', code: 'E_VERIFY_FAILED' }, 502);
+    // Real check failure: surface the ACTUAL error instead of a generic string
+    // so the failure is diagnosable from the UI (timeout, Cloudflare error,
+    // D1 error, ...).
+    return c.json({
+      success: false,
+      error: `Verification failed: ${verifyError?.message || 'unknown error'}`,
+      code: 'E_VERIFY_FAILED',
+    }, 502);
   }
-  return c.json({ success: true, domain: parseDomain({ ...row, ...fresh }) });
+  const parsed = parseDomain({ ...row, ...fresh });
+  if (fresh.status !== 'active') {
+    // Zone exists but Cloudflare has not flipped it to active yet. This is
+    // normal right after a nameserver change (propagation + CF polling can
+    // take minutes to hours) — return a clear message so the UI does not look
+    // like a failure.
+    return c.json({
+      success: true,
+      domain: parsed,
+      pending: true,
+      message: 'Cloudflare अभी nameserver verify कर रहा है। बदलाव के बाद active होने में कुछ मिनट से कुछ घंटे लग सकते हैं — 10-15 मिनट बाद फिर जांचें।',
+    });
+  }
+  return c.json({ success: true, domain: parsed });
 });
 
 // Remove Domain (deletes Cloudflare zone + row)

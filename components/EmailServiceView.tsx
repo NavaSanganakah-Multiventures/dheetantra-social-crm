@@ -121,7 +121,7 @@ export default function EmailServiceView() {
         if (data.domain) {
           setDomains(prev => prev.map(d => d.id === id ? { ...d, ...data.domain } : d));
         }
-        toast('success', 'जांच पूरी — status अपडेट हो गया');
+        toast('success', data.message || 'जांच पूरी — status अपडेट हो गया');
         refreshDomains();
       } else {
         toast('error', data.error || 'Verification failed');

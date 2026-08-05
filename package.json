@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "cross-env NODE_ENV=production next build && wrangler dev --port 3000",
+    "dev": "cross-env NODE_ENV=production next build && wrangler dev --config wrangler.dev.toml --port 3000",
     "dev:fast": "next dev",
     "build": "next build",
     "deploy": "next build && wrangler d1 migrations apply dhitantra_db_prod --remote && wrangler deploy",
