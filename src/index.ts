@@ -15,6 +15,7 @@ import whatsappRoutes from './routes/whatsappRoutes';
 import inboxRoutes from './routes/inboxRoutes';
 import callRoutes from './routes/callRoutes';
 import miscRoutes from './routes/miscRoutes';
+import billingRoutes from './routes/billingRoutes';
 import {
   authMiddleware,
   pagination,
@@ -215,6 +216,12 @@ app.use('/api/domain-emails/*', authMiddleware);
 app.use('/api/whatsapp/upload', authMiddleware);
 app.use('/api/whatsapp/media', authMiddleware);
 
+// Billing endpoints are authenticated except the Razorpay webhook
+app.use('/api/billing/*', async (c, next) => {
+  if (c.req.path === '/api/billing/webhook') return next();
+  return authMiddleware(c, next);
+});
+
 app.route('/api/meta', metaOauth);
 app.route('/api/admin', adminRouter);
 app.route('/', authRoutes);
@@ -224,6 +231,7 @@ app.route('/', whatsappRoutes);
 app.route('/', inboxRoutes);
 app.route('/', callRoutes);
 app.route('/', miscRoutes);
+app.route('/', billingRoutes);
 
 // Health Check
 app.get('/api/health', (c) => {
@@ -677,10 +685,16 @@ const worker = {
   },
 
   // Scheduled maintenance: auto-retry Cloudflare onboarding for approved
-  // domains stuck in pending/failed so they start receiving email.
+  // domains stuck in pending/failed so they start receiving email, and
+  // expire subscriptions whose access window has passed (downgrade to free).
   async scheduled(controller: any, env: any, ctx: any) {
     const { runDomainMaintenance } = await import('./services/emailService');
     await runDomainMaintenance(env, ctx);
+    const { expireSubscriptions } = await import('./services/subscriptionService');
+    const expired = await expireSubscriptions(env);
+    if (expired > 0) {
+      console.log(`[Billing] Expired ${expired} subscription(s) and downgraded workspaces to free plan`);
+    }
   },
 
   // Queue consumer (Broadcast deliveries: sends WhatsApp template messages

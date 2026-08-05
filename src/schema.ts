@@ -20,7 +20,10 @@ export const allTableNames = [
   'workspace_members',
   'workspaces',
   'users',
-  'plans'
+  'plans',
+  'subscriptions',
+  'payments',
+  'webhook_events'
 ];
 
 export interface ParsedTable {

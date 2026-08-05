@@ -1,5 +1,5 @@
 ﻿import { useState, useEffect } from 'react';
-import { Bot, MessageSquare, Megaphone, Settings, User, Phone, PhoneCall, Trash2, Edit, Instagram, Facebook } from 'lucide-react';
+import { Bot, MessageSquare, Megaphone, Settings, User, Phone, PhoneCall, Trash2, Edit, Instagram, Facebook, CreditCard, CalendarClock, RefreshCw, ExternalLink } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { formatUserDateOnly } from '../lib/dates';
 
@@ -46,6 +46,54 @@ export function SettingsView() {
 
     const [configs, setConfigs] = useState<any[]>([]);
     const [editingId, setEditingId] = useState<string | null>(null);
+
+    // Plan & Billing
+    const [billing, setBilling] = useState<{ subscription: any; plan: any } | null>(null);
+    const [payments, setPayments] = useState<any[]>([]);
+    const [billingLoading, setBillingLoading] = useState(true);
+    const [cancelling, setCancelling] = useState(false);
+
+    const loadBilling = () => {
+      const wId = localStorage.getItem('workspaceId');
+      if (!wId) return;
+      const headers = { 'x-workspace-id': wId };
+      Promise.all([
+        fetch('/api/billing/subscription', { headers }).then(r => r.json()),
+        fetch('/api/billing/payments', { headers }).then(r => r.json()),
+      ]).then(([subData, payData]: any[]) => {
+        setBilling(subData);
+        setPayments(payData.payments || []);
+      }).catch(err => console.error("Failed to load billing:", err))
+        .finally(() => setBillingLoading(false));
+    };
+
+    useEffect(() => {
+      loadBilling();
+    }, []);
+
+    const cancelSubscription = async () => {
+      if (!billing?.subscription) return;
+      if (!confirm("क्या आप subscription cancel करना चाहते हैं? यह current billing period के अंत में बंद हो जाएगा।")) return;
+      setCancelling(true);
+      try {
+        const res = await fetch('/api/billing/cancel', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-workspace-id': localStorage.getItem('workspaceId') || '' },
+          body: JSON.stringify({ subscription_id: billing.subscription.id }),
+        });
+        const data: any = await res.json();
+        if (res.ok) {
+          loadBilling();
+          alert("Subscription cancel हो गई। यह billing period के अंत में प्रभावी होगी।");
+        } else {
+          alert(data.error || "Cancel करने में विफल।");
+        }
+      } catch {
+        alert("Server error। फिर से try करें।");
+      } finally {
+        setCancelling(false);
+      }
+    };
 
     const loadAllConfigs = () => {
       const wId = localStorage.getItem('workspaceId');
@@ -283,6 +331,120 @@ export function SettingsView() {
     return (
         <div className="p-6 md:p-8 w-full max-w-4xl mx-auto space-y-6">
              <h2 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white font-display">à¤µà¤°à¥à¤•à¤¸à¥à¤ªà¥‡à¤¸ à¤¸à¥‡à¤Ÿà¤¿à¤‚à¤—à¥à¤¸</h2>
+
+             {/* Plan & Billing Section */}
+             <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl overflow-hidden shadow-sm">
+                 <div className="p-8">
+                     <h3 className="font-bold text-lg mb-2 text-zinc-900 dark:text-white font-display flex items-center gap-2">
+                       <CreditCard className="w-5 h-5 text-indigo-500" /> Plan & Billing
+                     </h3>
+                     <p className="text-sm text-zinc-500 mb-6">आपका current plan, subscription status और payment history।</p>
+
+                     {billingLoading ? (
+                       <div className="flex items-center gap-3 text-sm text-zinc-500 py-6">
+                         <RefreshCw className="w-4 h-4 animate-spin" /> बिलिंग जानकारी लोड हो रही है...
+                       </div>
+                     ) : (
+                       <div className="space-y-6">
+                         {/* Current plan card */}
+                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5">
+                           <div className="flex items-center gap-4">
+                             <div className="w-12 h-12 rounded-2xl bg-indigo-600/10 border border-indigo-500/20 flex items-center justify-center">
+                               <CreditCard className="w-5 h-5 text-indigo-500" />
+                             </div>
+                             <div>
+                               <div className="flex items-center gap-2 flex-wrap">
+                                 <span className="font-bold text-zinc-900 dark:text-white">{billing?.plan?.name || 'Free'}</span>
+                                 {billing?.subscription && (
+                                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide ${
+                                     billing.subscription.status === 'active' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400' :
+                                     billing.subscription.status === 'past_due' ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400' :
+                                     billing.subscription.status === 'paused' ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400' :
+                                     'bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400'
+                                   }`}>
+                                     {billing.subscription.status}
+                                   </span>
+                                 )}
+                               </div>
+                               {billing?.subscription && billing.subscription.current_period_end ? (
+                                 <p className="text-xs text-zinc-500 mt-1 flex items-center gap-1.5">
+                                   <CalendarClock className="w-3.5 h-3.5" />
+                                   अगली बिलिंग: {new Date(billing.subscription.current_period_end * 1000).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                   {billing.subscription.cancel_at_period_end === 1 && (
+                                     <span className="text-amber-600 dark:text-amber-400 font-medium">(period end पर cancel होगी)</span>
+                                   )}
+                                 </p>
+                               ) : (
+                                 <p className="text-xs text-zinc-500 mt-1">{billing?.plan?.description || 'No subscription'}</p>
+                               )}
+                             </div>
+                           </div>
+                           <div className="flex gap-2">
+                             <a
+                               href="/pricing"
+                               className="inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold transition-colors"
+                             >
+                               <ExternalLink className="w-3.5 h-3.5" /> Upgrade
+                             </a>
+                             {billing?.subscription && ['active', 'past_due', 'paused'].includes(billing.subscription.status) && billing.subscription.cancel_at_period_end !== 1 && (
+                               <button
+                                 onClick={cancelSubscription}
+                                 disabled={cancelling}
+                                 className="inline-flex items-center gap-1.5 px-4 py-2 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-xl text-xs font-semibold transition-colors disabled:opacity-50"
+                               >
+                                 {cancelling ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : null}
+                                 Cancel Subscription
+                               </button>
+                             )}
+                           </div>
+                         </div>
+
+                         {/* Payment history */}
+                         <div>
+                           <h4 className="text-sm font-bold text-zinc-900 dark:text-white mb-3">Payment History</h4>
+                           {payments.length === 0 ? (
+                             <div className="text-center text-xs text-zinc-500 border border-dashed border-zinc-200 dark:border-zinc-800 rounded-2xl py-8">
+                               अभी तक कोई payment नहीं।
+                             </div>
+                           ) : (
+                             <div className="overflow-x-auto border border-zinc-200 dark:border-zinc-800 rounded-2xl">
+                               <table className="w-full text-left text-sm border-collapse">
+                                 <thead>
+                                   <tr className="bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 text-zinc-400 font-semibold text-xs">
+                                     <th className="p-4">तिथि</th>
+                                     <th className="p-4">Payment ID</th>
+                                     <th className="p-4">राशि</th>
+                                     <th className="p-4">विधि</th>
+                                     <th className="p-4">स्थिति</th>
+                                   </tr>
+                                 </thead>
+                                 <tbody>
+                                   {payments.map((p: any) => (
+                                     <tr key={p.id} className="border-b border-zinc-100 dark:border-zinc-900 hover:bg-zinc-50/50 dark:hover:bg-zinc-900/50">
+                                       <td className="p-4 text-xs text-zinc-500">{p.created_at ? formatUserDateOnly(p.created_at) : 'N/A'}</td>
+                                       <td className="p-4 font-mono text-xs text-zinc-600 dark:text-zinc-400">{p.razorpay_payment_id || p.id}</td>
+                                       <td className="p-4 font-semibold text-zinc-900 dark:text-white">{p.currency === 'USD' ? '$' : '₹'}{p.amount}</td>
+                                       <td className="p-4 text-xs text-zinc-500">{p.method || '—'}</td>
+                                       <td className="p-4">
+                                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase ${
+                                           p.status === 'captured' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400' :
+                                           p.status === 'refunded' ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400' :
+                                           'bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-400'
+                                         }`}>
+                                           {p.status}
+                                         </span>
+                                       </td>
+                                     </tr>
+                                   ))}
+                                 </tbody>
+                               </table>
+                             </div>
+                           )}
+                         </div>
+                       </div>
+                     )}
+                 </div>
+             </div>
              
              {/* User Profile Section */}
              <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl overflow-hidden shadow-sm">

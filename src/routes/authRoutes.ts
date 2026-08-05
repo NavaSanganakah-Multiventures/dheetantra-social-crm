@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { getCookie, setCookie, deleteCookie } from 'hono/cookie';
 import { EmailMessage } from 'cloudflare:email';
 import { Env } from '../types';
+import { getFreePlanId } from '../services/subscriptionService';
 
 const router = new Hono<{ Bindings: Env }>();
 
@@ -228,11 +229,12 @@ router.post('/api/auth/verify-otp', async (c) => {
 
         // Check or create workspace
         const workspace: any = await c.env.DB.prepare('SELECT workspace_id FROM workspace_members WHERE user_id = ?').bind(user.id).first();
+        const freePlanId = await getFreePlanId(c.env);
         if (workspace) {
           defaultWorkspaceId = workspace.workspace_id;
         } else {
-          await c.env.DB.prepare('INSERT INTO workspaces (id, name) VALUES (?, ?)')
-            .bind(defaultWorkspaceId, `${user.name || 'My'} Workspace`).run();
+          await c.env.DB.prepare('INSERT INTO workspaces (id, name, plan_id) VALUES (?, ?, ?)')
+            .bind(defaultWorkspaceId, `${user.name || 'My'} Workspace`, freePlanId).run();
           await c.env.DB.prepare('INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (?, ?, ?)')
             .bind(defaultWorkspaceId, user.id, 'owner').run();
         }
@@ -244,8 +246,8 @@ router.post('/api/auth/verify-otp', async (c) => {
         user.id = userId;
         user.name = 'User';
 
-        await c.env.DB.prepare('INSERT INTO workspaces (id, name) VALUES (?, ?)')
-          .bind(defaultWorkspaceId, `My Workspace`).run();
+        await c.env.DB.prepare('INSERT INTO workspaces (id, name, plan_id) VALUES (?, ?, ?)')
+          .bind(defaultWorkspaceId, `My Workspace`, freePlanId).run();
         await c.env.DB.prepare('INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (?, ?, ?)')
           .bind(defaultWorkspaceId, userId, 'owner').run();
       }

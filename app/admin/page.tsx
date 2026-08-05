@@ -76,7 +76,7 @@ export default function AdminDashboard() {
   // Form Field States
   const [userForm, setUserForm] = useState({ email: '', name: '', is_registered: true });
   const [workspaceForm, setWorkspaceForm] = useState({ name: '', plan_id: '', owner_id: '' });
-  const [planForm, setPlanForm] = useState({ id: '', name: '', description: '', upfront_price: '0', pay_as_you_go_rate: '0', features: '', limits: '{}' });
+  const [planForm, setPlanForm] = useState({ id: '', name: '', description: '', upfront_price: '0', pay_as_you_go_rate: '0', features: '', limits: '{}', billing_type: 'recurring', billing_period: 'monthly', billing_interval: '1', currency: 'INR', is_active: '1', is_free: '0', sort_order: '0' });
   const [kvForm, setKvForm] = useState({ name: '', value: '' });
 
   // Notifications State
@@ -389,9 +389,20 @@ export default function AdminDashboard() {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...planForm,
+          id: planForm.id,
+          name: planForm.name,
+          description: planForm.description,
+          upfront_price: planForm.upfront_price,
+          pay_as_you_go_rate: planForm.pay_as_you_go_rate,
           features_json: featuresJson,
-          limits_json: limitsJson
+          limits_json: limitsJson,
+          billing_type: planForm.billing_type,
+          billing_period: planForm.billing_period,
+          billing_interval: planForm.billing_interval,
+          currency: planForm.currency,
+          is_active: planForm.is_active === '1',
+          is_free: planForm.is_free === '1',
+          sort_order: planForm.sort_order
         })
       });
       const data: any = await res.json();
@@ -755,7 +766,7 @@ export default function AdminDashboard() {
                     <div className="space-y-3">
                       <QuickActionButton label="नया उपयोगकर्ता पंजीकृत करें" onClick={() => { setUserModal({ open: true, mode: 'create' }); setUserForm({ name: '', email: '', is_registered: true }); setActiveTab('users'); }} />
                       <QuickActionButton label="नया वर्कस्पेस बनाएं" onClick={() => { setWorkspaceModal({ open: true, mode: 'create' }); setWorkspaceForm({ name: '', plan_id: '', owner_id: '' }); setActiveTab('workspaces'); }} />
-                      <QuickActionButton label="सब्सक्रिप्शन प्लान जोड़ें" onClick={() => { setPlanModal({ open: true, mode: 'create' }); setPlanForm({ id: '', name: '', description: '', upfront_price: '0', pay_as_you_go_rate: '0', features: '', limits: '{}' }); setActiveTab('plans'); }} />
+                      <QuickActionButton label="सब्सक्रिप्शन प्लान जोड़ें" onClick={() => { setPlanModal({ open: true, mode: 'create' }); setPlanForm({ id: '', name: '', description: '', upfront_price: '0', pay_as_you_go_rate: '0', features: '', limits: '{}', billing_type: 'recurring', billing_period: 'monthly', billing_interval: '1', currency: 'INR', is_active: '1', is_free: '0', sort_order: '0' }); setActiveTab('plans'); }} />
                       <QuickActionButton label="KV सीक्रेट कुंजी जोड़ें" onClick={() => { setKvModal({ open: true }); setKvForm({ name: '', value: '' }); setActiveTab('kv'); }} />
                     </div>
                   </div>
@@ -970,7 +981,7 @@ export default function AdminDashboard() {
                   <p className="text-xs text-zinc-400">प्लेटफ़ॉर्म पर उपलब्ध विभिन्न सदस्यता योजनाओं को प्रबंधित करें।</p>
                   <button 
                     onClick={() => {
-                      setPlanForm({ id: '', name: '', description: '', upfront_price: '0', pay_as_you_go_rate: '0', features: '', limits: '{}' });
+                      setPlanForm({ id: '', name: '', description: '', upfront_price: '0', pay_as_you_go_rate: '0', features: '', limits: '{}', billing_type: 'recurring', billing_period: 'monthly', billing_interval: '1', currency: 'INR', is_active: '1', is_free: '0', sort_order: '0' });
                       setPlanModal({ open: true, mode: 'create' });
                     }}
                     className="py-2.5 px-4 bg-indigo-600 hover:bg-indigo-500 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition-colors shadow-lg shadow-indigo-600/20"
@@ -1024,7 +1035,14 @@ export default function AdminDashboard() {
                                       upfront_price: String(p.upfront_price || '0'),
                                       pay_as_you_go_rate: String(p.pay_as_you_go_rate || '0'),
                                       features: p.features_json || '[]',
-                                      limits: p.limits_json || '{}'
+                                      limits: p.limits_json || '{}',
+                                      billing_type: p.billing_type || 'recurring',
+                                      billing_period: p.billing_period || 'monthly',
+                                      billing_interval: String(p.billing_interval || '1'),
+                                      currency: p.currency || 'INR',
+                                      is_active: String(p.is_active ?? '1'),
+                                      is_free: String(p.is_free ?? '0'),
+                                      sort_order: String(p.sort_order || '0')
                                     });
                                     setPlanModal({ open: true, mode: 'edit', data: p });
                                   }}
@@ -1041,12 +1059,26 @@ export default function AdminDashboard() {
                               </div>
                             </div>
 
-                            <p className="text-xs text-zinc-400 mb-6">{p.description || 'कोई विवरण नहीं उपलब्ध है।'}</p>
+                            <p className="text-xs text-zinc-400 mb-6">{p.description || 'कोई विवरण उपलब्ध नहीं है।'}</p>
+
+                            <div className="flex flex-wrap gap-1.5 mb-4">
+                              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-lg border ${p.is_free === 1 ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : p.billing_type === 'recurring' ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' : 'bg-zinc-800 text-zinc-300 border-zinc-700/30'}`}>
+                                {p.is_free === 1 ? 'FREE' : p.billing_type === 'recurring' ? 'RECURRING' : 'ONE-TIME'}
+                              </span>
+                              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-lg bg-zinc-800 text-zinc-300 border border-zinc-700/30 font-mono">
+                                {p.currency || 'INR'} · {p.billing_period || 'monthly'} ({p.billing_interval || 1})
+                              </span>
+                              {p.is_active !== 1 && (
+                                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20">
+                                  INACTIVE
+                                </span>
+                              )}
+                            </div>
 
                             <div className="space-y-4 mb-6">
                               <div className="flex items-baseline gap-1 bg-zinc-950/40 p-3 rounded-2xl border border-zinc-800/40">
                                 <span className="text-2xl font-bold text-white font-display">₹{p.upfront_price}</span>
-                                <span className="text-[10px] text-zinc-500">/ महीना</span>
+                                <span className="text-[10px] text-zinc-500">{p.billing_type === 'recurring' ? '/ महीना' : 'one-time'}</span>
                               </div>
                               <div className="text-xs text-indigo-400 bg-indigo-500/5 py-1.5 px-3 rounded-xl inline-block border border-indigo-500/10 font-mono text-[10px]">
                                 PAYG दर: ₹{p.pay_as_you_go_rate} / संदेश
@@ -1672,6 +1704,86 @@ export default function AdminDashboard() {
                     className="w-full px-4 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500"
                   />
                 </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-2">बिलिंग प्रकार (Billing Type)</label>
+                  <select
+                    value={planForm.billing_type}
+                    onChange={e => setPlanForm(prev => ({ ...prev, billing_type: e.target.value }))}
+                    className="w-full px-4 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500"
+                  >
+                    <option value="recurring">Recurring (Subscriptions)</option>
+                    <option value="one_time">One-time (Orders)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-2">अवधि (Period)</label>
+                  <select
+                    value={planForm.billing_period}
+                    onChange={e => setPlanForm(prev => ({ ...prev, billing_period: e.target.value }))}
+                    className="w-full px-4 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500"
+                  >
+                    <option value="monthly">Monthly</option>
+                    <option value="yearly">Yearly</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="daily">Daily</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-2">Interval (हर N अवधि)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={planForm.billing_interval}
+                    onChange={e => setPlanForm(prev => ({ ...prev, billing_interval: e.target.value }))}
+                    className="w-full px-4 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-2">मुद्रा (Currency)</label>
+                  <select
+                    value={planForm.currency}
+                    onChange={e => setPlanForm(prev => ({ ...prev, currency: e.target.value }))}
+                    className="w-full px-4 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500"
+                  >
+                    <option value="INR">INR (₹)</option>
+                    <option value="USD">USD ($)</option>
+                    <option value="EUR">EUR (€)</option>
+                    <option value="GBP">GBP (£)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-2">क्रम (Sort Order)</label>
+                  <input
+                    type="number"
+                    value={planForm.sort_order}
+                    onChange={e => setPlanForm(prev => ({ ...prev, sort_order: e.target.value }))}
+                    className="w-full px-4 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-5 py-1">
+                <label className="flex items-center gap-2 text-xs text-zinc-300 font-medium cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={planForm.is_active === '1'}
+                    onChange={e => setPlanForm(prev => ({ ...prev, is_active: e.target.checked ? '1' : '0' }))}
+                    className="rounded bg-zinc-950 border-zinc-800 text-indigo-600 focus:ring-0 w-4 h-4"
+                  />
+                  Active (खरीदने योग्य)
+                </label>
+                <label className="flex items-center gap-2 text-xs text-zinc-300 font-medium cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={planForm.is_free === '1'}
+                    onChange={e => setPlanForm(prev => ({ ...prev, is_free: e.target.checked ? '1' : '0' }))}
+                    className="rounded bg-zinc-950 border-zinc-800 text-emerald-600 focus:ring-0 w-4 h-4"
+                  />
+                  Free Plan (डिफ़ॉल्ट / downgrade)
+                </label>
               </div>
 
               <div>

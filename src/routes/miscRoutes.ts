@@ -313,13 +313,36 @@ router.get('/api/plans', async (c) => {
 
       const defaultPlans = [
         {
+          id: 'free',
+          name: 'Free',
+          description: 'Perfect for small businesses getting started.',
+          upfront_price: 0,
+          pay_as_you_go_rate: 0,
+          features_json: JSON.stringify(['WhatsApp Integration', 'Basic Inbox', 'Email Service']),
+          limits_json: JSON.stringify(starterLimits),
+          billing_type: 'one_time',
+          billing_period: 'monthly',
+          billing_interval: 1,
+          currency: 'INR',
+          is_active: 1,
+          is_free: 1,
+          sort_order: 0,
+        },
+        {
           id: crypto.randomUUID(),
           name: 'Starter Pay-As-You-Go',
-          description: 'Perfect for small businesses getting started.',
+          description: 'Pay per message, no upfront cost.',
           upfront_price: 0,
           pay_as_you_go_rate: 0.05, // 5 cents per message
           features_json: JSON.stringify(['WhatsApp Integration', 'Basic Inbox', 'Pay per message']),
           limits_json: JSON.stringify(starterLimits),
+          billing_type: 'one_time',
+          billing_period: 'monthly',
+          billing_interval: 1,
+          currency: 'INR',
+          is_active: 1,
+          is_free: 0,
+          sort_order: 1,
         },
         {
           id: crypto.randomUUID(),
@@ -329,6 +352,13 @@ router.get('/api/plans', async (c) => {
           pay_as_you_go_rate: 0.02, // Discounted rate
           features_json: JSON.stringify(['All Starter Features', 'Premium Broadcasts', 'Discounted message rates', 'Priority Support']),
           limits_json: JSON.stringify(proLimits),
+          billing_type: 'recurring',
+          billing_period: 'monthly',
+          billing_interval: 1,
+          currency: 'INR',
+          is_active: 1,
+          is_free: 0,
+          sort_order: 2,
         },
         {
           id: crypto.randomUUID(),
@@ -338,13 +368,23 @@ router.get('/api/plans', async (c) => {
           pay_as_you_go_rate: 0.01,
           features_json: JSON.stringify(['All Pro Features', 'Dedicated Account Manager', 'Custom SLAs', 'Whitelabeling']),
           limits_json: JSON.stringify(enterpriseLimits),
+          billing_type: 'recurring',
+          billing_period: 'monthly',
+          billing_interval: 1,
+          currency: 'INR',
+          is_active: 1,
+          is_free: 0,
+          sort_order: 3,
         }
       ];
 
       for (const p of defaultPlans) {
         await c.env.DB.prepare(
-          'INSERT INTO plans (id, name, description, upfront_price, pay_as_you_go_rate, features_json, limits_json) VALUES (?, ?, ?, ?, ?, ?, ?)'
-        ).bind(p.id, p.name, p.description, p.upfront_price, p.pay_as_you_go_rate, p.features_json, p.limits_json).run();
+          `INSERT INTO plans (id, name, description, upfront_price, pay_as_you_go_rate, features_json, limits_json,
+            billing_type, billing_period, billing_interval, currency, is_active, is_free, sort_order)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        ).bind(p.id, p.name, p.description, p.upfront_price, p.pay_as_you_go_rate, p.features_json, p.limits_json,
+          p.billing_type, p.billing_period, p.billing_interval, p.currency, p.is_active, p.is_free, p.sort_order).run();
       }
       return c.json({ plans: defaultPlans });
     }

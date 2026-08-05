@@ -257,8 +257,10 @@ admin.post('/workspaces', async (c) => {
     if (!name) return c.json({ error: 'Workspace name is required' }, 400);
 
     const id = crypto.randomUUID();
+    const { getFreePlanId } = await import('../services/subscriptionService');
+    const freePlanId = await getFreePlanId(c.env);
     await c.env.DB.prepare('INSERT INTO workspaces (id, name, plan_id) VALUES (?, ?, ?)')
-      .bind(id, name, plan_id || null)
+      .bind(id, name, plan_id || freePlanId)
       .run();
 
     if (owner_id) {
@@ -267,7 +269,7 @@ admin.post('/workspaces', async (c) => {
          .run();
     }
 
-    return c.json({ success: true, workspace: { id, name, plan_id } });
+    return c.json({ success: true, workspace: { id, name, plan_id: plan_id || freePlanId } });
   } catch (err: any) {
     return c.json({ error: err.message }, 500);
   }
@@ -316,7 +318,7 @@ admin.get('/plans', async (c) => {
   if (!c.env.DB) return c.json({ error: 'Database not connected' }, 500);
 
   try {
-    const { results } = await c.env.DB.prepare('SELECT * FROM plans ORDER BY upfront_price ASC').all();
+    const { results } = await c.env.DB.prepare('SELECT * FROM plans ORDER BY sort_order ASC, upfront_price ASC').all();
     return c.json({ plans: results });
   } catch (err: any) {
     return c.json({ error: err.message }, 500);
@@ -330,14 +332,50 @@ admin.post('/plans', async (c) => {
   if (!c.env.DB) return c.json({ error: 'Database not connected' }, 500);
 
   try {
-    const { id, name, description, upfront_price, pay_as_you_go_rate, features_json, limits_json } = await c.req.json();
+    const {
+      id, name, description, upfront_price, pay_as_you_go_rate, features_json, limits_json,
+      billing_type, billing_period, billing_interval, currency, is_active, is_free, sort_order,
+    } = await c.req.json();
     if (!id || !name) return c.json({ error: 'ID and Name are required' }, 400);
 
-    await c.env.DB.prepare('INSERT INTO plans (id, name, description, upfront_price, pay_as_you_go_rate, features_json, limits_json) VALUES (?, ?, ?, ?, ?, ?, ?)')
-      .bind(id, name, description || '', parseFloat(upfront_price) || 0, parseFloat(pay_as_you_go_rate) || 0, features_json || '[]', limits_json || '{}')
-      .run();
+    const plan = {
+      id,
+      name,
+      description: description || '',
+      upfront_price: parseFloat(upfront_price) || 0,
+      pay_as_you_go_rate: parseFloat(pay_as_you_go_rate) || 0,
+      billing_type: billing_type === 'one_time' ? 'one_time' : 'recurring',
+      billing_period: billing_period || 'monthly',
+      billing_interval: parseInt(billing_interval, 10) || 1,
+      currency: currency || 'INR',
+      is_active: is_free === 1 || is_active === 1 || is_active === true ? 1 : 0,
+      is_free: is_free === 1 || is_free === true ? 1 : 0,
+      sort_order: parseInt(sort_order, 10) || 0,
+    };
 
-    return c.json({ success: true });
+    // Sync a Razorpay plan entity for paid recurring plans
+    let razorpay_plan_id: string | null = null;
+    if (plan.billing_type === 'recurring' && !plan.is_free && plan.upfront_price > 0) {
+      try {
+        const { syncRazorpayPlan } = await import('../services/razorpay');
+        razorpay_plan_id = await syncRazorpayPlan(c.env, plan);
+      } catch (err: any) {
+        console.error('[Admin] Razorpay plan sync failed:', err);
+      }
+    }
+
+    await c.env.DB.prepare(
+      `INSERT INTO plans (id, name, description, upfront_price, pay_as_you_go_rate, features_json, limits_json,
+        billing_type, billing_period, billing_interval, currency, is_active, is_free, razorpay_plan_id, sort_order)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).bind(
+      plan.id, plan.name, plan.description, plan.upfront_price, plan.pay_as_you_go_rate,
+      features_json || '[]', limits_json || '{}',
+      plan.billing_type, plan.billing_period, plan.billing_interval, plan.currency,
+      plan.is_active, plan.is_free, razorpay_plan_id, plan.sort_order
+    ).run();
+
+    return c.json({ success: true, razorpay_plan_id });
   } catch (err: any) {
     return c.json({ error: err.message }, 500);
   }
@@ -351,14 +389,55 @@ admin.put('/plans/:id', async (c) => {
 
   try {
     const id = c.req.param('id');
-    const { name, description, upfront_price, pay_as_you_go_rate, features_json, limits_json } = await c.req.json();
+    const {
+      name, description, upfront_price, pay_as_you_go_rate, features_json, limits_json,
+      billing_type, billing_period, billing_interval, currency, is_active, is_free, sort_order,
+    } = await c.req.json();
     if (!name) return c.json({ error: 'Name is required' }, 400);
 
-    await c.env.DB.prepare('UPDATE plans SET name = ?, description = ?, upfront_price = ?, pay_as_you_go_rate = ?, features_json = ?, limits_json = ? WHERE id = ?')
-      .bind(name, description || '', parseFloat(upfront_price) || 0, parseFloat(pay_as_you_go_rate) || 0, features_json || '[]', limits_json || '{}', id)
-      .run();
+    const existing: any = await c.env.DB.prepare('SELECT * FROM plans WHERE id = ?').bind(id).first();
+    if (!existing) return c.json({ error: 'Plan not found' }, 404);
 
-    return c.json({ success: true });
+    const plan = {
+      id,
+      name,
+      description: description || '',
+      upfront_price: parseFloat(upfront_price) || 0,
+      pay_as_you_go_rate: parseFloat(pay_as_you_go_rate) || 0,
+      billing_type: billing_type === 'one_time' ? 'one_time' : 'recurring',
+      billing_period: billing_period || 'monthly',
+      billing_interval: parseInt(billing_interval, 10) || 1,
+      currency: currency || 'INR',
+      is_active: is_free === 1 || is_active === 1 || is_active === true ? 1 : 0,
+      is_free: is_free === 1 || is_free === true ? 1 : 0,
+      sort_order: parseInt(sort_order, 10) || 0,
+      razorpay_plan_id: existing.razorpay_plan_id || null,
+    };
+
+    // Keep the Razorpay plan entity in sync: created on first save, and
+    // re-created with a fresh id when the pricing details change (Razorpay
+    // plans are immutable). Cosmetic edits PATCH in place.
+    if (plan.billing_type === 'recurring' && !plan.is_free && plan.upfront_price > 0) {
+      try {
+        const { syncRazorpayPlan } = await import('../services/razorpay');
+        plan.razorpay_plan_id = await syncRazorpayPlan(c.env, plan);
+      } catch (err: any) {
+        console.error('[Admin] Razorpay plan sync failed:', err);
+      }
+    }
+
+    await c.env.DB.prepare(
+      `UPDATE plans SET name = ?, description = ?, upfront_price = ?, pay_as_you_go_rate = ?,
+        features_json = ?, limits_json = ?, billing_type = ?, billing_period = ?, billing_interval = ?,
+        currency = ?, is_active = ?, is_free = ?, razorpay_plan_id = ?, sort_order = ? WHERE id = ?`
+    ).bind(
+      plan.name, plan.description, plan.upfront_price, plan.pay_as_you_go_rate,
+      features_json || '[]', limits_json || '{}',
+      plan.billing_type, plan.billing_period, plan.billing_interval, plan.currency,
+      plan.is_active, plan.is_free, plan.razorpay_plan_id, plan.sort_order, id
+    ).run();
+
+    return c.json({ success: true, razorpay_plan_id: plan.razorpay_plan_id });
   } catch (err: any) {
     return c.json({ error: err.message }, 500);
   }
@@ -374,6 +453,27 @@ admin.delete('/plans/:id', async (c) => {
     const id = c.req.param('id');
     await c.env.DB.prepare('DELETE FROM plans WHERE id = ?').bind(id).run();
     return c.json({ success: true });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+// GET subscriptions list (admin billing overview)
+admin.get('/subscriptions', async (c) => {
+  const isAdmin = await verifyAdmin(c);
+  if (!isAdmin) return c.json({ error: 'Unauthorized' }, 403);
+  if (!c.env.DB) return c.json({ error: 'Database not connected' }, 500);
+
+  try {
+    const { results } = await c.env.DB.prepare(
+      `SELECT s.*, w.name AS workspace_name, p.name AS plan_name, u.email AS user_email
+       FROM subscriptions s
+       LEFT JOIN workspaces w ON w.id = s.workspace_id
+       LEFT JOIN plans p ON p.id = s.plan_id
+       LEFT JOIN users u ON u.id = s.user_id
+       ORDER BY s.created_at DESC LIMIT 100`
+    ).all();
+    return c.json({ subscriptions: results });
   } catch (err: any) {
     return c.json({ error: err.message }, 500);
   }
