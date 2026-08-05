@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS plans (
   upfront_price REAL DEFAULT 0, -- For premium features
   pay_as_you_go_rate REAL DEFAULT 0, -- Variable rate
   features_json TEXT, -- JSON array of feature flags/limits
+  limits_json TEXT, -- JSON object of plan limits (email_monthly_limit etc.)
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -244,6 +245,9 @@ CREATE TABLE IF NOT EXISTS domains (
   error_message TEXT,
   last_checked_at DATETIME,
   abuse_reset_at DATETIME, -- set on admin unsuspend: fresh 24h abuse window starts here
+  consecutive_failures INTEGER DEFAULT 0, -- maintenance retry backoff counter
+  next_retry_at DATETIME, -- maintenance rows skipped until this time passes
+  pending_records TEXT, -- records the user must add at their provider (partial/CNAME mode)
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
 );
@@ -294,6 +298,35 @@ CREATE INDEX IF NOT EXISTS idx_email_send_logs_workspace ON email_send_logs(work
 -- Column order (domain_id, created_at, status) lets SQLite range-seek the
 -- 24h window instead of walking the domain's full send history.
 CREATE INDEX IF NOT EXISTS idx_email_send_logs_domain_status_time ON email_send_logs(domain_id, created_at, status);
+
+-- Monthly email usage per workspace (plan quota + overage billing)
+CREATE TABLE IF NOT EXISTS workspace_email_usage (
+  workspace_id TEXT NOT NULL,
+  year_month TEXT NOT NULL, -- 'YYYY-MM'
+  emails_sent INTEGER NOT NULL DEFAULT 0,
+  overage_emails INTEGER NOT NULL DEFAULT 0,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (workspace_id, year_month)
+);
+
+-- Daily per-workspace domain add rate limiting (atomic counter)
+CREATE TABLE IF NOT EXISTS domain_add_rate_limits (
+  window_key TEXT PRIMARY KEY, -- 'workspaceId:YYYY-MM-DD'
+  workspace_id TEXT NOT NULL,
+  count INTEGER NOT NULL DEFAULT 0,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_domain_add_rate_limits_created ON domain_add_rate_limits(created_at);
+
+-- Public contact form submissions (admin review)
+CREATE TABLE IF NOT EXISTS contact_submissions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT,
+  email TEXT,
+  message TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
 
 -- Email sending rate limiter (atomic counter via INSERT ... ON CONFLICT ... RETURNING)
 CREATE TABLE IF NOT EXISTS email_rate_limits (

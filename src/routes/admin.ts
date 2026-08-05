@@ -1,3 +1,4 @@
+/// <reference path="../worker-env.d.ts" />
 import { Hono } from 'hono';
 import { getCookie } from 'hono/cookie';
 import { Env } from '../types';

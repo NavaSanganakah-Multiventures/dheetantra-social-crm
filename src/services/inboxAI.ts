@@ -45,7 +45,7 @@ export async function classifyConversations(env: Env, workspaceId: string): Prom
        LIMIT 60`
     ).bind(workspaceId).all();
 
-    const rows = (results || []) as ClassifyInput[];
+    const rows = (results || []) as unknown as ClassifyInput[];
     if (rows.length === 0) return { classified: 0, failed: false };
 
     const gemini = await getGemini(env);
