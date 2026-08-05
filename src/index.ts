@@ -1565,14 +1565,24 @@ app.post('/api/domains/:id/verify', async (c) => {
   // stale (pending) row after the user presses "जांचें". Previously the check
   // ran in the background (waitUntil) while the response returned the OLD row,
   // so a verified/active domain kept displaying "Pending Verification".
-  const fresh: any = await checkDomain(c.env, row).catch((e: any) => {
+  let fresh: any;
+  try {
+    fresh = await checkDomain(c.env, row);
+  } catch (e: any) {
     console.error('[Email] Verification failed for', row.domain_name, e);
-    return null;
-  });
-  if (!fresh) {
-    // Real check failure: surface it instead of faking success with old data.
-    return c.json({ success: false, error: 'Verification failed. Please try again shortly.', code: 'E_VERIFY_FAILED' }, 502);
+    // If the check strictly failed, we still want to return the old row state (maybe with an error message)
+    // so the UI can update/reflect the failure but keep the domain around.
+    return c.json({
+      success: true,
+      domain: parseDomain({
+        ...row,
+        error_message: e.message || 'Verification failed. Please try again shortly.'
+      })
+    });
   }
+
+  // If checkDomain caught the error itself and returned an object with an error_message
+  // (e.g. transient Cloudflare error), we also consider it a "successful check" but the domain status might be pending/failed.
   return c.json({ success: true, domain: parseDomain({ ...row, ...fresh }) });
 });
 

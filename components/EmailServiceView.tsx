@@ -120,8 +120,14 @@ export default function EmailServiceView() {
         // status, so apply it immediately (no more stale "pending" display).
         if (data.domain) {
           setDomains(prev => prev.map(d => d.id === id ? { ...d, ...data.domain } : d));
+          if (data.domain.status === 'active') {
+            toast('success', 'जांच सफल — डोमेन Active हो गया');
+          } else {
+            toast('info', 'जांच पूरी — लेकिन डोमेन अभी भी Pending/Failed है');
+          }
+        } else {
+          toast('success', 'जांच पूरी — status अपडेट हो गया');
         }
-        toast('success', 'जांच पूरी — status अपडेट हो गया');
         refreshDomains();
       } else {
         toast('error', data.error || 'Verification failed');
