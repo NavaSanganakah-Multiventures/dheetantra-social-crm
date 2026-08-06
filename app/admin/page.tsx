@@ -27,6 +27,31 @@ const formatAdminDate = (dateStr: string | Date | number) => {
 
 type AdminTab = 'overview' | 'users' | 'workspaces' | 'plans' | 'domains' | 'kv' | 'database';
 
+
+interface PlanFormState {
+  id: string;
+  name: string;
+  description: string;
+  upfront_price: string;
+  pay_as_you_go_rate: string;
+  features: { id: string; value: string }[];
+  limits: {
+    email_monthly_limit: string;
+    max_domains: string;
+    max_mailboxes_per_domain: string;
+  };
+  billing_type: string;
+  billing_period: string;
+  billing_interval: string;
+  currency: string;
+  is_active: string;
+  is_free: string;
+  sort_order: string;
+}
+
+const defaultPlanForm: PlanFormState = { id: '', name: '', description: '', upfront_price: '0', pay_as_you_go_rate: '0', features: [], limits: { email_monthly_limit: '', max_domains: '', max_mailboxes_per_domain: '' }, billing_type: 'recurring', billing_period: 'monthly', billing_interval: '1', currency: 'INR', is_active: '1', is_free: '0', sort_order: '0' };
+
+
 export default function AdminDashboard() {
   const router = useRouter();
   const [authorized, setAuthorized] = useState<boolean | null>(null);
@@ -76,7 +101,7 @@ export default function AdminDashboard() {
   // Form Field States
   const [userForm, setUserForm] = useState({ email: '', name: '', is_registered: true });
   const [workspaceForm, setWorkspaceForm] = useState({ name: '', plan_id: '', owner_id: '' });
-  const [planForm, setPlanForm] = useState({ id: '', name: '', description: '', upfront_price: '0', pay_as_you_go_rate: '0', features: '', limits: '{}', billing_type: 'recurring', billing_period: 'monthly', billing_interval: '1', currency: 'INR', is_active: '1', is_free: '0', sort_order: '0' });
+  const [planForm, setPlanForm] = useState<PlanFormState>(defaultPlanForm);
   const [kvForm, setKvForm] = useState({ name: '', value: '' });
 
   // Notifications State
@@ -363,27 +388,36 @@ export default function AdminDashboard() {
     const method = planModal.mode === 'create' ? 'POST' : 'PUT';
 
     try {
-      // Validate features json structure
-      let featuresJson = '[]';
-      try {
-        const parsed = JSON.parse(planForm.features);
-        if (!Array.isArray(parsed)) throw new Error();
-        featuresJson = JSON.stringify(parsed);
-      } catch {
-        // Fallback to array split if not valid json array
-        const list = planForm.features.split(',').map(f => f.trim()).filter(Boolean);
-        featuresJson = JSON.stringify(list);
+
+
+      // Filter out empty features
+      const featuresList = planForm.features.map(f => f.value).filter((val) => val.trim() !== '');
+      const featuresJson = JSON.stringify(featuresList);
+
+      // Clean limits object and preserve existing ones
+      let existingLimits: Record<string, any> = {};
+      if (planModal.data?.limits_json) {
+        try {
+          existingLimits = JSON.parse(planModal.data.limits_json);
+        } catch { /* ignore */ }
       }
 
-      // Validate limits json object
-      let limitsJson = '{}';
-      try {
-        const parsed = JSON.parse(planForm.limits);
-        if (typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error();
-        limitsJson = JSON.stringify(parsed);
-      } catch {
-        limitsJson = '{}';
+      const limitsObj: Record<string, any> = { ...existingLimits };
+      if (planForm.limits.email_monthly_limit !== '') {
+        const val = Number(planForm.limits.email_monthly_limit);
+        if (!isNaN(val)) limitsObj.email_monthly_limit = val;
       }
+      if (planForm.limits.max_domains !== '') {
+        const val = Number(planForm.limits.max_domains);
+        if (!isNaN(val)) limitsObj.max_domains = val;
+      }
+      if (planForm.limits.max_mailboxes_per_domain !== '') {
+        const val = Number(planForm.limits.max_mailboxes_per_domain);
+        if (!isNaN(val)) limitsObj.max_mailboxes_per_domain = val;
+      }
+      const limitsJson = JSON.stringify(limitsObj);
+
+
 
       const res = await fetch(endpoint, {
         method,
@@ -766,7 +800,7 @@ export default function AdminDashboard() {
                     <div className="space-y-3">
                       <QuickActionButton label="नया उपयोगकर्ता पंजीकृत करें" onClick={() => { setUserModal({ open: true, mode: 'create' }); setUserForm({ name: '', email: '', is_registered: true }); setActiveTab('users'); }} />
                       <QuickActionButton label="नया वर्कस्पेस बनाएं" onClick={() => { setWorkspaceModal({ open: true, mode: 'create' }); setWorkspaceForm({ name: '', plan_id: '', owner_id: '' }); setActiveTab('workspaces'); }} />
-                      <QuickActionButton label="सब्सक्रिप्शन प्लान जोड़ें" onClick={() => { setPlanModal({ open: true, mode: 'create' }); setPlanForm({ id: '', name: '', description: '', upfront_price: '0', pay_as_you_go_rate: '0', features: '', limits: '{}', billing_type: 'recurring', billing_period: 'monthly', billing_interval: '1', currency: 'INR', is_active: '1', is_free: '0', sort_order: '0' }); setActiveTab('plans'); }} />
+                      <QuickActionButton label="सब्सक्रिप्शन प्लान जोड़ें" onClick={() => { setPlanModal({ open: true, mode: 'create' }); setPlanForm(defaultPlanForm); setActiveTab('plans'); }} />
                       <QuickActionButton label="KV सीक्रेट कुंजी जोड़ें" onClick={() => { setKvModal({ open: true }); setKvForm({ name: '', value: '' }); setActiveTab('kv'); }} />
                     </div>
                   </div>
@@ -981,7 +1015,7 @@ export default function AdminDashboard() {
                   <p className="text-xs text-zinc-400">प्लेटफ़ॉर्म पर उपलब्ध विभिन्न सदस्यता योजनाओं को प्रबंधित करें।</p>
                   <button 
                     onClick={() => {
-                      setPlanForm({ id: '', name: '', description: '', upfront_price: '0', pay_as_you_go_rate: '0', features: '', limits: '{}', billing_type: 'recurring', billing_period: 'monthly', billing_interval: '1', currency: 'INR', is_active: '1', is_free: '0', sort_order: '0' });
+                      setPlanForm(defaultPlanForm);
                       setPlanModal({ open: true, mode: 'create' });
                     }}
                     className="py-2.5 px-4 bg-indigo-600 hover:bg-indigo-500 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition-colors shadow-lg shadow-indigo-600/20"
@@ -1028,14 +1062,25 @@ export default function AdminDashboard() {
                               <div className="flex gap-1">
                                 <button 
                                   onClick={() => {
+                                    let parsedFeaturesList = [];
+                                    try { parsedFeaturesList = JSON.parse(p.features_json || '[]'); } catch { parsedFeaturesList = []; }
+                                    if (!Array.isArray(parsedFeaturesList)) parsedFeaturesList = [];
+
+                                    let parsedLimitsObj: any = {};
+                                    try { parsedLimitsObj = JSON.parse(p.limits_json || '{}'); } catch { parsedLimitsObj = {}; }
+
                                     setPlanForm({
                                       id: p.id || '',
                                       name: p.name || '',
                                       description: p.description || '',
                                       upfront_price: String(p.upfront_price || '0'),
                                       pay_as_you_go_rate: String(p.pay_as_you_go_rate || '0'),
-                                      features: p.features_json || '[]',
-                                      limits: p.limits_json || '{}',
+                                      features: parsedFeaturesList.map((f: string) => ({ id: Math.random().toString(36).substr(2, 9), value: f })),
+                                      limits: {
+                                        email_monthly_limit: parsedLimitsObj.email_monthly_limit !== undefined ? String(parsedLimitsObj.email_monthly_limit) : '',
+                                        max_domains: parsedLimitsObj.max_domains !== undefined ? String(parsedLimitsObj.max_domains) : '',
+                                        max_mailboxes_per_domain: parsedLimitsObj.max_mailboxes_per_domain !== undefined ? String(parsedLimitsObj.max_mailboxes_per_domain) : ''
+                                      },
                                       billing_type: p.billing_type || 'recurring',
                                       billing_period: p.billing_period || 'monthly',
                                       billing_interval: String(p.billing_interval || '1'),
@@ -1786,24 +1831,83 @@ export default function AdminDashboard() {
                 </label>
               </div>
 
-              <div>
-                <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-2">सुविधाएँ (Features) JSON / कोमा से अलग</label>
-                <textarea 
-                  placeholder='उदा. ["Feature A", "Feature B"]'
-                  value={planForm.features}
-                  onChange={e => setPlanForm(prev => ({ ...prev, features: e.target.value }))}
-                  className="w-full px-4 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500 font-mono text-[10px] h-20"
-                />
+              <div className="space-y-2">
+                <div className="flex justify-between items-center mb-1">
+                  <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider">सुविधाएँ (Features)</label>
+                  <button
+                    type="button"
+                    onClick={() => setPlanForm(prev => ({ ...prev, features: [...prev.features, { id: Math.random().toString(36).substr(2, 9), value: '' }] }))}
+                    className="text-[10px] bg-indigo-500/10 text-indigo-400 px-2 py-0.5 rounded border border-indigo-500/20 hover:bg-indigo-500/20 transition-colors"
+                  >
+                    + Add Feature
+                  </button>
+                </div>
+                {planForm.features.map((f, i) => (
+                  <div key={f.id} className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="उदा. Unlimited Messages"
+                      value={f.value}
+                      onChange={e => {
+                        const newFeatures = [...planForm.features];
+                        newFeatures[i] = { ...newFeatures[i], value: e.target.value };
+                        setPlanForm(prev => ({ ...prev, features: newFeatures }));
+                      }}
+                      className="flex-1 px-4 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newFeatures = planForm.features.filter(item => item.id !== f.id);
+                        setPlanForm(prev => ({ ...prev, features: newFeatures }));
+                      }}
+                      className="px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-rose-400 hover:bg-rose-500/10 hover:border-rose-500/30 transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+                {planForm.features.length === 0 && (
+                  <div className="text-xs text-zinc-500 bg-zinc-950/50 p-3 rounded-xl border border-zinc-800/50 text-center border-dashed">
+                    कोई सुविधा नहीं जोड़ी गई
+                  </div>
+                )}
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-2">Limits (JSON object)</label>
-                <textarea 
-                  placeholder='उदा. {"email_monthly_limit": 1000, "max_domains": 5, "max_mailboxes_per_domain": 10, "allow_email_send": true}'
-                  value={planForm.limits}
-                  onChange={e => setPlanForm(prev => ({ ...prev, limits: e.target.value }))}
-                  className="w-full px-4 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500 font-mono text-[10px] h-24"
-                />
+                <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-3">Limits (सीमाएँ)</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] text-zinc-500 mb-1">Email Monthly Limit</label>
+                    <input
+                      type="number"
+                      placeholder="उदा. 1000"
+                      value={planForm.limits?.email_monthly_limit || ''}
+                      onChange={e => setPlanForm(prev => ({ ...prev, limits: { ...prev.limits, email_monthly_limit: e.target.value } }))}
+                      className="w-full px-4 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-zinc-500 mb-1">Max Domains</label>
+                    <input
+                      type="number"
+                      placeholder="उदा. 5"
+                      value={planForm.limits?.max_domains || ''}
+                      onChange={e => setPlanForm(prev => ({ ...prev, limits: { ...prev.limits, max_domains: e.target.value } }))}
+                      className="w-full px-4 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-zinc-500 mb-1">Max Mailboxes / Domain</label>
+                    <input
+                      type="number"
+                      placeholder="उदा. 10"
+                      value={planForm.limits?.max_mailboxes_per_domain || ''}
+                      onChange={e => setPlanForm(prev => ({ ...prev, limits: { ...prev.limits, max_mailboxes_per_domain: e.target.value } }))}
+                      className="w-full px-4 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                </div>
               </div>
 
               <div className="flex gap-3 justify-end pt-4">
