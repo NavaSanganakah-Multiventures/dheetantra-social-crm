@@ -25,7 +25,7 @@ export function ActiveCallManager({ activeCall, setActiveCall, onHangup, remoteS
   }, [isMuted, localStream]);
 
   // Track call start and current time for elapsed display
-  // Synchronizes React state with an external clock â€” a legitimate use of setState in an effect
+  // Synchronizes React state with an external clock — a legitimate use of setState in an effect
   useEffect(() => {
     if (activeCall.status === 'connected') {
       const startMs = Date.now();
@@ -70,11 +70,11 @@ export function ActiveCallManager({ activeCall, setActiveCall, onHangup, remoteS
           {activeCall.contact_name?.[0] || '?'}
         </div>
         <div className="flex-1 min-w-0">
-          <h4 className="text-xs font-bold text-white truncate">{activeCall.contact_name || 'à¤…à¤œà¥à¤žà¤¾à¤¤'}</h4>
+          <h4 className="text-xs font-bold text-white truncate">{activeCall.contact_name || 'अज्ञात'}</h4>
           <p className="text-[10px] text-zinc-400 truncate mt-0.5">
             {activeCall.status === 'ringing' 
-              ? (activeCall.direction === 'incoming' ? 'à¤•à¥‰à¤² à¤† à¤°à¤¹à¥€ à¤¹à¥ˆ...' : 'à¤¡à¤¾à¤¯à¤² à¤¹à¥‹ à¤°à¤¹à¤¾ à¤¹à¥ˆ...') 
-              : 'à¤•à¥‰à¤² à¤•à¤¨à¥‡à¤•à¥à¤Ÿà¥‡à¤¡'}
+              ? (activeCall.direction === 'incoming' ? 'कॉल आ रही है...' : 'डायल हो रहा है...') 
+              : 'कॉल कनेक्टेड'}
           </p>
         </div>
         <div className="text-right">
@@ -90,18 +90,18 @@ export function ActiveCallManager({ activeCall, setActiveCall, onHangup, remoteS
           <button 
             onClick={() => setIsMuted(!isMuted)}
             className="p-1.5 px-2.5 rounded-lg text-[10px] font-bold transition-all bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white"
-            title={isMuted ? 'Unmute' : 'Mute'}
+            title={isMuted ? 'अनम्यूट' : 'म्यूट'}
           >
-            {isMuted ? 'Unmute' : 'Mute'}
+            {isMuted ? 'अनम्यूट' : 'म्यूट'}
           </button>
 
           {/* Speaker toggle button */}
           <button 
             onClick={() => setIsSpeaker(!isSpeaker)}
             className="p-1.5 px-2.5 rounded-lg text-[10px] font-bold transition-all bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white"
-            title="Speaker"
+            title="स्पीकर"
           >
-            Speaker
+            स्पीकर
           </button>
           {/* Recording handled by useWhatsAppWebRTC hook */}
         </div>
@@ -112,7 +112,7 @@ export function ActiveCallManager({ activeCall, setActiveCall, onHangup, remoteS
           className="bg-rose-500 hover:bg-rose-600 text-white px-3 py-1.5 rounded-xl text-[11px] font-bold transition-colors shadow-lg shadow-rose-500/20 flex items-center gap-1.5"
         >
           <X className="w-3 h-3" />
-          à¤•à¤¾à¤Ÿà¥‡à¤‚ (End)
+          काटें
         </button>
       </div>
       <audio ref={audioRef} autoPlay style={{ display: 'none' }} />

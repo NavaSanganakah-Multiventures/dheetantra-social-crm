@@ -8,6 +8,7 @@ import { motion } from 'motion/react';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { Skeleton } from '../../components/ui/Skeleton';
+import { useLang, LangSwitcher } from '../../lib/i18n';
 
 const CURRENCY_SYMBOLS: Record<string, string> = {
   INR: '₹',
@@ -70,6 +71,7 @@ function PricingSkeleton() {
 }
 
 export default function PricingPage() {
+  const { t } = useLang();
   const router = useRouter();
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
@@ -107,10 +109,10 @@ export default function PricingPage() {
         setLoading(false);
       })
       .catch(() => {
-        setError('Unable to load pricing plans. Please try again later.');
+        setError(t('pricing.errorLoad'));
         setLoading(false);
       });
-  }, []);
+  }, [t]);
 
   useEffect(() => { loadPlans(); }, [loadPlans]);
 
@@ -146,11 +148,11 @@ export default function PricingPage() {
 
       if (!res.ok) {
         if (data.cancelExisting) {
-          setError('आपके workspace पर पहले से एक active subscription है। आप इसे Dashboard → Settings → Plan & Billing से cancel कर सकते हैं।');
+          setError(t('pricing.errorExisting'));
           setBuyingPlanId(null);
           return;
         }
-        setError(data.error || 'Payment setup failed. Please try again.');
+        setError(data.error || t('pricing.errorPayment'));
         setBuyingPlanId(null);
         return;
       }
@@ -163,7 +165,7 @@ export default function PricingPage() {
 
       const loaded = await loadRazorpayScript();
       if (!loaded) {
-        setError('Payment gateway failed to load. Please try again.');
+        setError(t('pricing.errorGateway'));
         setBuyingPlanId(null);
         return;
       }
@@ -216,7 +218,7 @@ export default function PricingPage() {
       rzp.on('payment.failed', () => { window.location.assign('/pricing?status=failed'); });
       rzp.open();
     } catch {
-      setError('Something went wrong while starting the payment. Please try again.');
+      setError(t('pricing.errorStart'));
       setBuyingPlanId(null);
     }
   };
@@ -230,12 +232,15 @@ export default function PricingPage() {
       <div className="absolute top-[-10%] right-[-10%] w-[400px] h-[400px] bg-primary-500/5 rounded-full blur-[100px] pointer-events-none" />
 
       <div className="max-w-7xl mx-auto relative">
-        <Link
-          href="/"
-          className="inline-flex items-center gap-2 text-surface-500 hover:text-surface-900 dark:hover:text-white mb-12 transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" /> Home
-        </Link>
+        <div className="flex items-center justify-between mb-12">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 text-surface-500 hover:text-surface-900 dark:hover:text-white transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" /> {t('back.home')}
+          </Link>
+          <LangSwitcher />
+        </div>
 
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -243,15 +248,14 @@ export default function PricingPage() {
           className="text-center mb-10"
         >
           <Badge variant="primary" className="mb-4">
-            Pricing
+            {t('pricing.badge')}
           </Badge>
           <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-surface-900 dark:text-white mb-4 font-['Inter']">
-            Simple, transparent{' '}
-            <span className="gradient-text">pricing</span>
+            {t('pricing.title1')}{' '}
+            <span className="gradient-text">{t('pricing.title2')}</span>
           </h1>
           <p className="text-lg text-surface-500 dark:text-surface-400 max-w-xl mx-auto">
-            Choose the plan that fits your business. Recurring subscriptions and
-            one-time options with pay-as-you-go rates.
+            {t('pricing.subtitle')}
           </p>
         </motion.div>
 
@@ -271,16 +275,16 @@ export default function PricingPage() {
             <div>
               {status === 'success' && (
                 <p className="text-sm font-medium">
-                  भुगतान सफल! आपका plan active हो गया है। अगर payment successful हुआ है लेकिन plan reflect नहीं हुआ, तो कुछ seconds में refresh करें।
+                  {t('pricing.statusSuccess')}
                 </p>
               )}
               {status === 'failed' && (
                 <p className="text-sm font-medium">
-                  भुगतान असफल रहा या verify नहीं हो पाया। अगर पैसे कट गए हैं तो support से संपर्क करें।
+                  {t('pricing.statusFailed')}
                 </p>
               )}
               {status === 'cancelled' && (
-                <p className="text-sm font-medium">आपने भुगतान रद्द कर दिया। कोई शुल्क नहीं लिया गया।</p>
+                <p className="text-sm font-medium">{t('pricing.statusCancelled')}</p>
               )}
             </div>
           </motion.div>
@@ -301,7 +305,7 @@ export default function PricingPage() {
               const isPopular = plan.id === popularPlanId;
               const isFree = plan.is_free === 1;
               const periodLabel = plan.billing_type === 'recurring'
-                ? ` / ${plan.billing_period === 'yearly' ? 'year' : plan.billing_period === 'weekly' ? 'week' : 'month'}`
+                ? ` / ${plan.billing_period === 'yearly' ? t('pricing.year') : plan.billing_period === 'weekly' ? t('pricing.week') : t('pricing.month')}`
                 : '';
               return (
                 <motion.div
@@ -318,7 +322,7 @@ export default function PricingPage() {
                   {isPopular && (
                     <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                       <Badge variant="primary" size="md">
-                        Most Popular
+                        {t('pricing.mostPopular')}
                       </Badge>
                     </div>
                   )}
@@ -344,7 +348,7 @@ export default function PricingPage() {
                         <span
                           className={`text-sm font-medium ${isPopular ? 'text-surface-400' : 'text-surface-500'}`}
                         >
-                          {plan.billing_type === 'one_time' ? 'one-time' : periodLabel}
+                          {plan.billing_type === 'one_time' ? t('pricing.oneTime') : periodLabel}
                         </span>
                       )}
                     </div>
@@ -352,7 +356,7 @@ export default function PricingPage() {
                       <div
                         className={`text-sm font-medium ${isPopular ? 'text-primary-300' : 'text-primary-600 dark:text-primary-400'}`}
                       >
-                        + {currencySymbol(plan.currency)}{plan.pay_as_you_go_rate} / message
+                        + {currencySymbol(plan.currency)}{plan.pay_as_you_go_rate} {t('pricing.perMessage')}
                       </div>
                     )}
                   </div>
@@ -381,12 +385,12 @@ export default function PricingPage() {
                   >
                     {buyingPlanId === plan.id ? (
                       <>
-                        <Loader2 className="w-4 h-4 animate-spin" /> Processing...
+                        <Loader2 className="w-4 h-4 animate-spin" /> {t('pricing.processing')}
                       </>
                     ) : isFree ? (
-                      'Start Free'
+                      t('pricing.startFree')
                     ) : (
-                      <>{user ? 'Subscribe' : 'Get Started'}</>
+                      <>{user ? t('pricing.subscribe') : t('pricing.getStarted')}</>
                     )}
                   </Button>
                 </motion.div>
@@ -398,9 +402,9 @@ export default function PricingPage() {
         {!user && !loading && (
           <p className="text-center text-sm text-surface-500 dark:text-surface-400 mt-10">
             <Link href="/login?next=/pricing" className="text-primary-600 dark:text-primary-400 hover:underline font-medium">
-              पहले से account है? Login करें
+              {t('pricing.loginPrompt')}
             </Link>{' '}
-            और subscription लें।
+            {t('pricing.loginPrompt2')}
           </p>
         )}
       </div>

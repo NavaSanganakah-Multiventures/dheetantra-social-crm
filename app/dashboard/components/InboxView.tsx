@@ -144,7 +144,7 @@ export function InboxView({
   const toggleAI = async () => {
     const targetPhoneId = activeWabaPhoneId;
     if (!targetPhoneId) {
-      alert("AI à¤Ÿà¥‰à¤—à¤² à¤•à¤°à¤¨à¥‡ à¤•à¥‡ à¤²à¤¿à¤ à¤•à¥ƒà¤ªà¤¯à¤¾ à¤à¤• à¤µà¤¿à¤¶à¤¿à¤·à¥à¤Ÿ WhatsApp à¤²à¤¾à¤‡à¤¨ à¤¯à¤¾ à¤¬à¤¾à¤¤à¤šà¥€à¤¤ à¤šà¥à¤¨à¥‡à¤‚à¥¤");
+      alert("AI टॉगल करने के लिए कृपया एक विशिष्ट WhatsApp लाइन या बातचीत चुनें।");
       return;
     }
 
@@ -207,19 +207,19 @@ export function InboxView({
                finalMediaUrl = uploadData.mediaUrl;
                finalR2Url = uploadData.r2Url;
             } else {
-               alert('File upload failed: ' + uploadData.error);
+               alert('फ़ाइल अपलोड विफल: ' + uploadData.error);
                setSending(false);
                return;
             }
          } catch(e) {
-            alert('File upload error');
+            alert('फ़ाइल अपलोड त्रुटि');
             setSending(false);
             return;
          }
       }
       
       if (!finalMediaUrl) {
-        alert("à¤•à¥ƒà¤ªà¤¯à¤¾ à¤®à¥€à¤¡à¤¿à¤¯à¤¾ à¤šà¥à¤¨à¥‡à¤‚ à¤¯à¤¾ à¤¯à¥‚à¤†à¤°à¤à¤² à¤ªà¥à¤°à¤¦à¤¾à¤¨ à¤•à¤°à¥‡à¤‚");
+        alert("कृपया मीडिया चुनें या यूआरएल प्रदान करें");
         setSending(false);
         return;
       }
@@ -233,13 +233,13 @@ export function InboxView({
       }
     } else if (attachmentType === 'location') {
       if (!latInput.trim() || !lngInput.trim() || !locNameInput.trim()) {
-        alert("à¤•à¥ƒà¤ªà¤¯à¤¾ à¤…à¤•à¥à¤·à¤¾à¤‚à¤¶, à¤¦à¥‡à¤¶à¤¾à¤‚à¤¤à¤° à¤”à¤° à¤²à¥‹à¤•à¥‡à¤¶à¤¨ à¤•à¤¾ à¤¨à¤¾à¤® à¤ªà¥à¤°à¤¦à¤¾à¤¨ à¤•à¤°à¥‡à¤‚");
+        alert("कृपया अक्षांश, देशांतर और लोकेशन का नाम प्रदान करें");
         return;
       }
       const latNum = parseFloat(latInput);
       const lngNum = parseFloat(lngInput);
       if (isNaN(latNum) || isNaN(lngNum) || latNum < -90 || latNum > 90 || lngNum < -180 || lngNum > 180) {
-        alert("à¤•à¥ƒà¤ªà¤¯à¤¾ à¤µà¥ˆà¤§ à¤…à¤•à¥à¤·à¤¾à¤‚à¤¶ (-90 à¤¸à¥‡ 90) à¤”à¤° à¤¦à¥‡à¤¶à¤¾à¤‚à¤¤à¤° (-180 à¤¸à¥‡ 180) à¤¦à¤°à¥à¤œ à¤•à¤°à¥‡à¤‚");
+        alert("कृपया वैध अक्षांश (-90 से 90) और देशांतर (-180 से 180) दर्ज करें");
         return;
       }
       payload.location = {
@@ -250,11 +250,11 @@ export function InboxView({
       };
     } else if (attachmentType === 'contacts') {
       if (!contactNameInput.trim() || !contactPhoneInput) {
-        alert("à¤•à¥ƒà¤ªà¤¯à¤¾ à¤¸à¤‚à¤ªà¤°à¥à¤• à¤•à¤¾ à¤¨à¤¾à¤® à¤”à¤° à¤«à¤¼à¥‹à¤¨ à¤¨à¤‚à¤¬à¤° à¤ªà¥à¤°à¤¦à¤¾à¤¨ à¤•à¤°à¥‡à¤‚");
+        alert("कृपया संपर्क का नाम और फ़ोन नंबर प्रदान करें");
         return;
       }
       if (!isValidPhoneNumber(contactPhoneInput)) {
-        alert("à¤•à¥ƒà¤ªà¤¯à¤¾ à¤¸à¤¹à¥€ à¤«à¤¼à¥‹à¤¨ à¤¨à¤‚à¤¬à¤° à¤¦à¤°à¥à¤œ à¤•à¤°à¥‡à¤‚à¥¤ (Invalid phone number)");
+        alert("कृपया सही फ़ोन नंबर दर्ज करें।");
         return;
       }
       const sanitizedPhone = contactPhoneInput.startsWith('+') ? contactPhoneInput.slice(1) : contactPhoneInput;
@@ -292,10 +292,10 @@ export function InboxView({
         setContactPhoneInput('');
         loadMessages(activeChat.id);
       } else {
-        alert(data.error || "à¤¸à¤‚à¤¦à¥‡à¤¶ à¤­à¥‡à¤œà¤¨à¥‡ à¤®à¥‡à¤‚ à¤µà¤¿à¤«à¤²");
+        alert(data.error || "संदेश भेजने में विफल");
       }
     } catch (e) {
-      alert("à¤¤à¥à¤°à¥à¤Ÿà¤¿ à¤¹à¥à¤ˆ");
+      alert("त्रुटि हुई");
     } finally {
       setSending(false);
     }
@@ -492,14 +492,14 @@ export function InboxView({
         setMessages(prev => prev.map(m => m.id === tempId ? { ...m, id: data.data.id, status: 'sent' } : m));
         fetchConversations();
       } else {
-        // Keep optimistic but mark as failed instead of removing â€” user can see what failed
+        // Keep optimistic but mark as failed instead of removing — user can see what failed
         setMessages(prev => prev.map(m => m.id === tempId ? { ...m, status: 'failed' } : m));
-        toast('error', data.error || "à¤¸à¤‚à¤¦à¥‡à¤¶ à¤­à¥‡à¤œà¤¨à¥‡ à¤®à¥‡à¤‚ à¤µà¤¿à¤«à¤²");
+        toast('error', data.error || "संदेश भेजने में विफल");
         setMessageInput(textToSend);
       }
     } catch (e) {
       setMessages(prev => prev.map(m => m.id === tempId ? { ...m, status: 'failed' } : m));
-      toast('error', "à¤¤à¥à¤°à¥à¤Ÿà¤¿ à¤¹à¥à¤ˆ");
+      toast('error', "त्रुटि हुई");
       setMessageInput(textToSend);
     }
   };
@@ -534,10 +534,10 @@ export function InboxView({
         // Use captured convId, not activeChat.id from stale closure
         loadMessages(currentConvId);
       } else {
-        toast('error', data.error || "à¤Ÿà¥‡à¤®à¥à¤ªà¤²à¥‡à¤Ÿ à¤­à¥‡à¤œà¤¨à¥‡ à¤®à¥‡à¤‚ à¤µà¤¿à¤«à¤²");
+        toast('error', data.error || "टेम्पलेट भेजने में विफल");
       }
     } catch {
-      toast('error', "à¤¸à¤°à¥à¤µà¤° à¤à¤°à¤°");
+      toast('error', "सर्वर एरर");
     } finally {
       setInboxTemplateSending(false);
     }
@@ -566,15 +566,15 @@ export function InboxView({
         setActiveChat((prev: any) => prev && prev.id === convId ? { ...prev, status: newStatus } : prev);
         setConversations((prev: any[]) => prev.map((c: any) => c.id === convId ? { ...c, status: newStatus } : c));
       } else {
-        alert(data.error || "à¤…à¤ªà¤¡à¥‡à¤Ÿ à¤•à¤°à¤¨à¥‡ à¤®à¥‡à¤‚ à¤µà¤¿à¤«à¤²");
+        alert(data.error || "अपडेट करने में विफल");
       }
     } catch (e) {
-      alert("à¤¤à¥à¤°à¥à¤Ÿà¤¿ à¤¹à¥à¤ˆ");
+      alert("त्रुटि हुई");
     }
   };
 
   const deleteConversation = async (convId: string) => {
-    if (!confirm("à¤•à¥à¤¯à¤¾ à¤†à¤ª à¤µà¤¾à¤•à¤ˆ à¤‡à¤¸ à¤¬à¤¾à¤¤à¤šà¥€à¤¤ à¤”à¤° à¤‡à¤¸à¤•à¥‡ à¤¸à¤­à¥€ à¤¸à¤‚à¤¦à¥‡à¤¶à¥‹à¤‚ à¤•à¥‹ à¤¹à¤Ÿà¤¾à¤¨à¤¾ à¤šà¤¾à¤¹à¤¤à¥‡ à¤¹à¥ˆà¤‚?")) return;
+    if (!confirm("क्या आप वाकई इस बातचीत और इसके सभी संदेशों को हटाना चाहते हैं?")) return;
     try {
       const wId = localStorage.getItem('workspaceId');
       const res = await fetch(`/api/inbox/conversations/${convId}`, {
@@ -588,10 +588,10 @@ export function InboxView({
         setActiveChat(null);
         setConversations(prev => prev.filter(c => c.id !== convId));
       } else {
-        alert(data.error || "à¤¹à¤Ÿà¤¾à¤¨à¥‡ à¤®à¥‡à¤‚ à¤µà¤¿à¤«à¤²");
+        alert(data.error || "हटाने में विफल");
       }
     } catch (e) {
-      alert("à¤¤à¥à¤°à¥à¤Ÿà¤¿ à¤¹à¥à¤ˆ");
+      alert("त्रुटि हुई");
     }
   };
 
@@ -601,7 +601,7 @@ export function InboxView({
       <div className={`w-full md:w-80 border-r border-zinc-200 dark:border-zinc-800 flex flex-col bg-zinc-50/50 dark:bg-zinc-900 z-10 ${activeChat ? 'hidden md:flex' : 'flex'}`}>
         <div className="p-4 border-b border-zinc-200 dark:border-zinc-800 flex-shrink-0 bg-zinc-50 dark:bg-zinc-900">
             <div className="flex items-center justify-between mb-3">
-              <h2 className="font-medium">à¤¸à¤•à¥à¤°à¤¿à¤¯ à¤¬à¤¾à¤¤à¤šà¥€à¤¤</h2>
+              <h2 className="font-medium">सक्रिय बातचीत</h2>
               {configs.length > 0 && (
                 <span className="text-[10px] bg-indigo-50 text-indigo-700 dark:bg-indigo-950/30 dark:text-indigo-400 font-bold px-1.5 py-0.5 rounded">
                   {configs.length} WABAs
@@ -610,7 +610,7 @@ export function InboxView({
             </div>
 
             <div className="mb-3">
-              <label className="block text-[9px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-1">WhatsApp Line</label>
+              <label className="block text-[9px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-1">WhatsApp लाइन</label>
               <div className="relative">
                 <select 
                   value={selectedWaba ? (configs.some(c => c.id === selectedWaba.id) ? selectedWaba.id : 'all') : ''} 
@@ -628,10 +628,10 @@ export function InboxView({
                   }}
                   className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 appearance-none cursor-pointer"
                 >
-                  <option value="all">ðŸŒ à¤¸à¤­à¥€ (All Lines)</option>
+                  <option value="all">🌐 सभी लाइनें</option>
                   {configs.map((cfg) => (
                     <option key={cfg.id} value={cfg.id}>
-                      ðŸ“± WABA ({cfg.phone_number_id.slice(-6)})
+                      📱 WABA ({cfg.phone_number_id.slice(-6)})
                     </option>
                   ))}
                 </select>
@@ -652,7 +652,7 @@ export function InboxView({
                       : 'bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300'
                   }`}
                 >
-                  à¤¸à¤­à¥€ (Show All)
+                  सभी दिखाएं
                 </button>
 
                 <div className="flex bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-lg border border-zinc-200/50 dark:border-zinc-700/50">
@@ -664,7 +664,7 @@ export function InboxView({
                         : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'
                     }`}
                   >
-                    à¤¸à¤•à¥à¤°à¤¿à¤¯ (Open)
+                    सक्रिय
                   </button>
                   <button
                     onClick={() => { setFilterStatus('closed'); setActiveChat(null); }}
@@ -674,18 +674,18 @@ export function InboxView({
                         : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'
                     }`}
                   >
-                    à¤¬à¤‚à¤¦ (Closed)
+                    बंद
                   </button>
                 </div>
             </div>
         </div>
         <div className="flex-1 overflow-y-auto">
             {loading ? (
-                <div className="p-4 text-sm text-zinc-500">à¤‡à¤¨à¤¬à¥‰à¤•à¥à¤¸ à¤²à¥‹à¤¡ à¤¹à¥‹ à¤°à¤¹à¤¾ à¤¹à¥ˆ...</div>
+                <div className="p-4 text-sm text-zinc-500">इनबॉक्स लोड हो रहा है...</div>
             ) : conversations.length === 0 ? (
-                 <div className="p-4 text-sm text-zinc-500 border-b border-zinc-100 dark:border-zinc-800/50">à¤•à¥‹à¤ˆ à¤¬à¤¾à¤¤à¤šà¥€à¤¤ à¤¨à¤¹à¥€à¤‚ à¤¹à¥ˆà¥¤ WhatsApp API à¤¸à¥‡ à¤•à¤¨à¥‡à¤•à¥à¤Ÿ à¤•à¤°à¥‡à¤‚à¥¤</div>
+                 <div className="p-4 text-sm text-zinc-500 border-b border-zinc-100 dark:border-zinc-800/50">कोई बातचीत नहीं है। WhatsApp API से कनेक्ट करें।</div>
             ) : conversations.filter(chat => (chat.status || 'open') === filterStatus).length === 0 ? (
-                 <div className="p-4 text-xs text-zinc-400 text-center mt-6">à¤‡à¤¸ à¤¶à¥à¤°à¥‡à¤£à¥€ à¤®à¥‡à¤‚ à¤•à¥‹à¤ˆ à¤¬à¤¾à¤¤à¤šà¥€à¤¤ à¤¨à¤¹à¥€à¤‚ à¤¹à¥ˆà¥¤</div>
+                 <div className="p-4 text-xs text-zinc-400 text-center mt-6">इस श्रेणी में कोई बातचीत नहीं है।</div>
             ) : (
                 conversations
                   .filter(chat => (chat.status || 'open') === filterStatus)
@@ -696,13 +696,13 @@ export function InboxView({
                       className={`w-full text-left p-4 border-b border-zinc-100 dark:border-zinc-800/50 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors ${activeChat?.id === chat.id ? 'bg-zinc-100 dark:bg-zinc-800' : ''}`}
                     >
                         <div className="flex justify-between items-start mb-1">
-                          <span className="font-medium text-sm text-zinc-900 dark:text-zinc-100">{chat.contact_name || chat.phone || "à¤…à¤®à¤¾à¤°à¥à¤— à¤¨à¤¿à¤°à¥à¤¦à¥‡à¤¶à¤¿à¤¤"}</span>
+                          <span className="font-medium text-sm text-zinc-900 dark:text-zinc-100">{chat.contact_name || chat.phone || "अमार्ग निर्देशित"}</span>
                           <span className="text-[10px] text-zinc-500">{formatUserTimeOnly(chat.updated_at, { hour: '2-digit', minute: '2-digit' })}</span>
                         </div>
                         <div className="flex justify-between items-center">
                           <span className="text-xs text-zinc-500 truncate pr-4">{chat.phone}</span>
                           <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase ${chat.status === 'closed' ? 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400' : 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400'}`}>
-                            {chat.status === 'closed' ? 'Closed' : 'Open'}
+                            {chat.status === 'closed' ? 'बंद' : 'सक्रिय'}
                           </span>
                         </div>
                     </button>
@@ -716,8 +716,8 @@ export function InboxView({
           {!activeChat ? (
             <div className="flex-1 flex items-center justify-center text-zinc-500 flex-col">
               <MessageSquare className="w-12 h-12 mb-4 text-zinc-300 dark:text-zinc-700" />
-              <p>à¤†à¤ªà¤•à¤¾ à¤‡à¤¨à¤¬à¥‰à¤•à¥à¤¸ à¤–à¤¾à¤²à¥€ à¤¹à¥ˆ</p>
-              <p className="text-xs mt-2 text-zinc-400">à¤¸à¤‚à¤¦à¥‡à¤¶ à¤­à¥‡à¤œà¤¨à¥‡ à¤•à¥‡ à¤²à¤¿à¤ à¤¬à¤¾à¤ˆà¤‚ à¤“à¤° à¤¸à¥‡ à¤à¤• à¤¬à¤¾à¤¤à¤šà¥€à¤¤ à¤šà¥à¤¨à¥‡à¤‚</p>
+              <p>आपका इनबॉक्स खाली है</p>
+              <p className="text-xs mt-2 text-zinc-400">संदेश भेजने के लिए बाईं ओर से एक बातचीत चुनें</p>
             </div>
           ) : (
             <>
@@ -734,7 +734,7 @@ export function InboxView({
                     {activeChat.contact_name ? activeChat.contact_name[0] : <User className="w-4 h-4" />}
                   </div>
                   <div>
-                    <h3 className="font-medium text-sm">{activeChat.contact_name || "à¤…à¤œà¥à¤žà¤¾à¤¤"}</h3>
+                    <h3 className="font-medium text-sm">{activeChat.contact_name || "अज्ञात"}</h3>
                     <p className="text-xs text-zinc-500">{activeChat.phone}</p>
                   </div>
                 </div>
@@ -742,7 +742,7 @@ export function InboxView({
                 <div className="flex-1 flex justify-center hidden lg:flex">
                   <div className={`text-[11px] px-3 py-1 rounded-full font-medium flex items-center gap-1.5 ${isTemplateRequired ? 'bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400' : 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400'}`}>
                     <Activity className="w-3.5 h-3.5" />
-                    {!lastCustomerMessageAt ? "à¤—à¥à¤°à¤¾à¤¹à¤• à¤•à¥‡ à¤°à¤¿à¤ªà¥à¤²à¤¾à¤ˆ à¤•à¤¾ à¤‡à¤‚à¤¤à¤œà¤¼à¤¾à¤° à¤¹à¥ˆ" : isExpired ? "à¤µà¤¿à¤‚à¤¡à¥‹ à¤¸à¤®à¤¾à¤ªà¥à¤¤ (Template Required)" : `à¤µà¤¿à¤‚à¤¡à¥‹ à¤¸à¤®à¤¾à¤ªà¥à¤¤ à¤¹à¥‹à¤¨à¥‡ à¤®à¥‡à¤‚: ${hoursRemaining}h ${minutesRemaining}m`}
+                    {!lastCustomerMessageAt ? "ग्राहक के रिप्लाई का इंतज़ार है" : isExpired ? "विंडो समाप्त (टेम्पलेट आवश्यक)" : `विंडो समाप्त होने में: ${hoursRemaining}h ${minutesRemaining}m`}
                   </div>
                 </div>
                 
@@ -758,45 +758,45 @@ export function InboxView({
                       }
                     }}
                     className="p-2 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400 dark:hover:bg-indigo-500/20 transition-colors flex items-center gap-1.5"
-                    title="à¤•à¥‰à¤² à¤•à¤°à¥‡à¤‚ (Voice Call)"
+                    title="कॉल करें"
                   >
                     <Phone className="w-4 h-4" />
-                    <span className="text-[10px] font-bold uppercase tracking-wider hidden md:inline-block">à¤•à¥‰à¤²</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider hidden md:inline-block">कॉल</span>
                   </button>
 
                   <button 
                     onClick={toggleAI}
                     className={`p-2 rounded-lg transition-colors flex items-center gap-1.5 ${currentReplyMode === 'ai' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400' : 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'}`}
-                    title="Toggle AI Chatbot"
+                    title="AI चैटबॉट टॉगल करें"
                   >
                     <Bot className="w-4 h-4" />
-                    <span className="text-[10px] font-bold uppercase tracking-wider hidden md:inline-block">{currentReplyMode === 'ai' ? 'AI ON' : 'AI OFF'}</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider hidden md:inline-block">{currentReplyMode === 'ai' ? 'AI चालू' : 'AI बंद'}</span>
                   </button>
 
                   <button 
                     onClick={() => updateConversationStatus(activeChat.id, activeChat.status === 'closed' ? 'open' : 'closed')}
                     className={`p-2 rounded-lg transition-colors flex items-center gap-1.5 ${activeChat.status === 'closed' ? 'bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400 hover:bg-amber-100' : 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'}`}
-                    title={activeChat.status === 'closed' ? 'Reopen Conversation' : 'Close Conversation'}
+                    title={activeChat.status === 'closed' ? 'बातचीत फिर से खोलें' : 'बातचीत बंद करें'}
                   >
                     <Archive className="w-4 h-4" />
                     <span className="text-[10px] font-bold uppercase tracking-wider hidden md:inline-block">
-                      {activeChat.status === 'closed' ? 'à¤–à¥‹à¤²à¥‡ (Reopen)' : 'à¤¬à¤‚à¤¦ à¤•à¤°à¥‡à¤‚ (Close)'}
+                      {activeChat.status === 'closed' ? 'फिर से खोलें' : 'बंद करें'}
                     </span>
                   </button>
 
                   <button 
                     onClick={() => deleteConversation(activeChat.id)}
                     className="p-2 rounded-lg bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-500/20 transition-colors flex items-center gap-1.5"
-                    title="Delete Conversation"
+                    title="बातचीत हटाएं"
                   >
                     <Trash2 className="w-4 h-4" />
-                    <span className="text-[10px] font-bold uppercase tracking-wider hidden md:inline-block">à¤¹à¤Ÿà¤¾à¤à¤‚ (Delete)</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider hidden md:inline-block">हटाएं</span>
                   </button>
 
                   <button 
                     onClick={() => setIsContactPanelOpen(!isContactPanelOpen)}
                     className={`p-2 rounded-lg transition-colors ${isContactPanelOpen ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400' : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}
-                    title="Contact Details"
+                    title="संपर्क विवरण"
                   >
                     <User className="w-5 h-5" />
                   </button>
@@ -817,7 +817,7 @@ export function InboxView({
                 }}
                 className="flex-1 overflow-y-auto p-6 space-y-6 flex flex-col">
                  {messages.length === 0 ? (
-                    <p className="text-center text-zinc-500 text-sm mt-10">à¤•à¥‹à¤ˆ à¤¸à¤‚à¤¦à¥‡à¤¶ à¤¨à¤¹à¥€à¤‚</p>
+                    <p className="text-center text-zinc-500 text-sm mt-10">कोई संदेश नहीं</p>
                   ) : (
                     messages.map(msg => {
                       let displayMediaUrl = msg.media_url;
@@ -838,7 +838,7 @@ export function InboxView({
                                    <div className="group relative rounded-lg overflow-hidden border border-zinc-100/10 max-w-sm max-h-60 bg-zinc-950/20">
                                      <img 
                                        src={displayMediaUrl} 
-                                       alt="WhatsApp Attachment"
+                                       alt="WhatsApp अटैचमेंट"
                                        className="w-full object-cover max-h-60 hover:scale-105 transition-transform duration-200 cursor-pointer" 
                                        onError={(e) => {
                                          e.currentTarget.style.display = 'none';
@@ -887,7 +887,7 @@ export function InboxView({
                                        rel="noopener noreferrer" 
                                        className="text-[10px] text-indigo-400 dark:text-indigo-300 hover:underline mt-1 block font-medium"
                                      >
-                                       à¤¡à¤¾à¤‰à¤¨à¤²à¥‹à¤¡ à¤•à¤°à¥‡à¤‚ (Download)
+                                       डाउनलोड करें
                                      </a>
                                    )}
                                  </div>
@@ -907,8 +907,8 @@ export function InboxView({
                                          <MapPin className="w-5 h-5" />
                                        </div>
                                        <div className="min-w-0 flex-1 text-xs">
-                                         <p className="font-semibold truncate">{loc?.name || 'à¤²à¥‹à¤•à¥‡à¤¶à¤¨'}</p>
-                                         <p className="text-[10px] text-zinc-500 truncate">{loc?.address || 'à¤¨à¤•à¥à¤¶à¤¾ à¤¦à¥‡à¤–à¥‡à¤‚'}</p>
+                                         <p className="font-semibold truncate">{loc?.name || 'लोकेशन'}</p>
+                                         <p className="text-[10px] text-zinc-500 truncate">{loc?.address || 'नक्शा देखें'}</p>
                                        </div>
                                      </div>
                                      {loc?.latitude && loc?.longitude && (
@@ -918,13 +918,13 @@ export function InboxView({
                                          rel="noopener noreferrer" 
                                          className="text-center text-xs font-semibold py-1.5 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition-colors block mt-1"
                                        >
-                                         Google Maps à¤ªà¤° à¤–à¥‹à¤²à¥‡à¤‚ ðŸ—ºï¸
+                                         Google Maps पर खोलें 🗺️
                                        </a>
                                      )}
                                    </div>
                                  );
                                } catch (e) {
-                                 return <p className="italic text-xs text-zinc-400">Location: {msg.content}</p>;
+                                 return <p className="italic text-xs text-zinc-400">लोकेशन: {msg.content}</p>;
                                }
                              })()}
 
@@ -951,14 +951,14 @@ export function InboxView({
                                            rel="noopener noreferrer" 
                                            className="text-[10px] text-indigo-400 dark:text-indigo-300 hover:underline mt-1 block font-medium"
                                          >
-                                           WhatsApp à¤ªà¤° à¤šà¥ˆà¤Ÿ à¤•à¤°à¥‡à¤‚ â†—
+                                           WhatsApp पर चैट करें ↗
                                          </a>
                                        )}
                                      </div>
                                    </div>
                                  );
                                } catch (e) {
-                                 return <p className="italic text-xs text-zinc-400">Contact: {msg.content}</p>;
+                                 return <p className="italic text-xs text-zinc-400">संपर्क: {msg.content}</p>;
                                }
                              })()}
 
@@ -971,11 +971,11 @@ export function InboxView({
                                return (
                                  <div className="flex flex-col gap-2">
                                    {emailMeta?.subject && (
-                                     <p className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-300 uppercase tracking-wide">ðŸ“§ {emailMeta.subject}</p>
+                                     <p className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-300 uppercase tracking-wide">📧 {emailMeta.subject}</p>
                                    )}
                                    {emailMeta?.unverified && (
                                      <p className="text-[10px] font-medium text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                                       <AlertTriangle className="w-3 h-3" /> à¤ªà¥à¤°à¥‡à¤·à¤• à¤¸à¤¤à¥à¤¯à¤¾à¤ªà¤¿à¤¤ à¤¨à¤¹à¥€à¤‚ (SPF/DKIM fail)
+                                       <AlertTriangle className="w-3 h-3" /> प्रेषक सत्यापित नहीं (SPF/DKIM fail)
                                      </p>
                                    )}
                                    {msg.content && <p className="leading-relaxed whitespace-pre-wrap">{msg.content}</p>}
@@ -1004,7 +1004,7 @@ export function InboxView({
                              {mType === 'reaction' && (
                                <div className="flex items-center gap-2 text-zinc-900 dark:text-zinc-100">
                                  <span className="text-2xl">{msg.content}</span>
-                                 <span className="text-xs text-zinc-400 italic">(à¤°à¤¿à¤à¤•à¥à¤¶à¤¨ / Reaction)</span>
+                                  <span className="text-xs text-zinc-400 italic">(रिएक्शन)</span>
                                </div>
                              )}
                              {mType === 'system' && (
@@ -1040,11 +1040,11 @@ export function InboxView({
                 <div className="p-4 bg-zinc-50 dark:bg-zinc-950 border-t border-zinc-200 dark:border-zinc-800 flex flex-col gap-3">
                   <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-2">
                     <span className="text-sm font-semibold capitalize text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
-                      {attachmentType === 'image' && 'ðŸ“¸ à¤‡à¤®à¥‡à¤œ à¤¸à¤‚à¤¦à¥‡à¤¶ à¤­à¥‡à¤œà¥‡à¤‚'}
-                      {attachmentType === 'video' && 'ðŸŽ¥ à¤µà¥€à¤¡à¤¿à¤¯à¥‹ à¤¸à¤‚à¤¦à¥‡à¤¶ à¤­à¥‡à¤œà¥‡à¤‚'}
-                      {attachmentType === 'document' && 'ðŸ“„ à¤¦à¤¸à¥à¤¤à¤¾à¤µà¥‡à¤œà¤¼ (Doc) à¤­à¥‡à¤œà¥‡à¤‚'}
-                      {attachmentType === 'location' && 'ðŸ“ à¤²à¥‹à¤•à¥‡à¤¶à¤¨ (Maps) à¤­à¥‡à¤œà¥‡à¤‚'}
-                      {attachmentType === 'contacts' && 'ðŸ‘¤ à¤¸à¤‚à¤ªà¤°à¥à¤• (Contact) à¤­à¥‡à¤œà¥‡à¤‚'}
+                      {attachmentType === 'image' && '📸 इमेज संदेश भेजें'}
+                      {attachmentType === 'video' && '🎥 वीडियो संदेश भेजें'}
+                      {attachmentType === 'document' && '📄 दस्तावेज़ भेजें'}
+                      {attachmentType === 'location' && '📍 लोकेशन भेजें'}
+                      {attachmentType === 'contacts' && '👤 संपर्क भेजें'}
                     </span>
                     <button 
                       onClick={() => { 
@@ -1071,7 +1071,7 @@ export function InboxView({
                   {(attachmentType === 'image' || attachmentType === 'video' || attachmentType === 'document') && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       <div>
-                        <label className="text-xs text-zinc-500 font-medium block mb-1">à¤«à¤¼à¤¾à¤‡à¤² à¤šà¥à¤¨à¥‡à¤‚ (File)*</label>
+                        <label className="text-xs text-zinc-500 font-medium block mb-1">फ़ाइल चुनें*</label>
                         <input 
                           type="file" 
                           accept={
@@ -1090,7 +1090,7 @@ export function InboxView({
                       </div>
                       {attachmentType === 'document' ? (
                         <div>
-                          <label className="text-xs text-zinc-500 font-medium block mb-1">à¤«à¤¼à¤¾à¤‡à¤² à¤¨à¤¾à¤® (Filename.pdf)*</label>
+                          <label className="text-xs text-zinc-500 font-medium block mb-1">फ़ाइल नाम*</label>
                           <input 
                             type="text" 
                             placeholder="Invoice.pdf" 
@@ -1101,10 +1101,10 @@ export function InboxView({
                         </div>
                       ) : (
                         <div>
-                          <label className="text-xs text-zinc-500 font-medium block mb-1">à¤•à¥ˆà¤ªà¥à¤¶à¤¨ (Caption - Optional)</label>
+                          <label className="text-xs text-zinc-500 font-medium block mb-1">कैप्शन (वैकल्पिक)</label>
                           <input 
                             type="text" 
-                            placeholder="à¤•à¥ˆà¤ªà¥à¤¶à¤¨ à¤²à¤¿à¤–à¥‡à¤‚..." 
+                            placeholder="कैप्शन लिखें..." 
                             className="w-full text-xs p-2 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 outline-none focus:border-indigo-500 text-zinc-800 dark:text-zinc-100"
                             value={captionInput}
                             onChange={(e) => setCaptionInput(e.target.value)}
@@ -1117,7 +1117,7 @@ export function InboxView({
                   {attachmentType === 'location' && (
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                       <div>
-                        <label className="text-xs text-zinc-500 font-medium block mb-1">à¤…à¤•à¥à¤·à¤¾à¤‚à¤¶ (Latitude)*</label>
+                        <label className="text-xs text-zinc-500 font-medium block mb-1">अक्षांश*</label>
                         <input 
                           type="text" 
                           className="w-full text-xs p-2 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 outline-none focus:border-indigo-500 text-zinc-800 dark:text-zinc-100"
@@ -1126,7 +1126,7 @@ export function InboxView({
                         />
                       </div>
                       <div>
-                        <label className="text-xs text-zinc-500 font-medium block mb-1">à¤¦à¥‡à¤¶à¤¾à¤‚à¤¤à¤° (Longitude)*</label>
+                        <label className="text-xs text-zinc-500 font-medium block mb-1">देशांतर*</label>
                         <input 
                           type="text" 
                           className="w-full text-xs p-2 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 outline-none focus:border-indigo-500 text-zinc-800 dark:text-zinc-100"
@@ -1135,7 +1135,7 @@ export function InboxView({
                         />
                       </div>
                       <div>
-                        <label className="text-xs text-zinc-500 font-medium block mb-1">à¤²à¥‹à¤•à¥‡à¤¶à¤¨ à¤•à¤¾ à¤¨à¤¾à¤®*</label>
+                        <label className="text-xs text-zinc-500 font-medium block mb-1">लोकेशन का नाम*</label>
                         <input 
                           type="text" 
                           className="w-full text-xs p-2 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 outline-none focus:border-indigo-500 text-zinc-800 dark:text-zinc-100"
@@ -1144,7 +1144,7 @@ export function InboxView({
                         />
                       </div>
                       <div>
-                        <label className="text-xs text-zinc-500 font-medium block mb-1">à¤²à¥‹à¤•à¥‡à¤¶à¤¨ à¤•à¤¾ à¤ªà¤¤à¤¾</label>
+                        <label className="text-xs text-zinc-500 font-medium block mb-1">लोकेशन का पता</label>
                         <input 
                           type="text" 
                           className="w-full text-xs p-2 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 outline-none focus:border-indigo-500 text-zinc-800 dark:text-zinc-100"
@@ -1158,21 +1158,21 @@ export function InboxView({
                   {attachmentType === 'contacts' && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       <div>
-                        <label className="text-xs text-zinc-500 font-medium block mb-1">à¤¸à¤‚à¤ªà¤°à¥à¤• à¤¨à¤¾à¤® (Contact Name)*</label>
+                        <label className="text-xs text-zinc-500 font-medium block mb-1">संपर्क नाम*</label>
                         <input 
                           type="text" 
-                          placeholder="à¤°à¤¾à¤® à¤¶à¤°à¥à¤®à¤¾" 
+                          placeholder="राम शर्मा" 
                           className="w-full text-xs p-2 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 outline-none focus:border-indigo-500 text-zinc-800 dark:text-zinc-100"
                           value={contactNameInput}
                           onChange={(e) => setContactNameInput(e.target.value)}
                         />
                       </div>
                       <div>
-                        <label className="text-xs text-zinc-500 font-medium block mb-1">à¤«à¤¼à¥‹à¤¨ à¤¨à¤‚à¤¬à¤° (Country Code à¤•à¥‡ à¤¸à¤¾à¤¥)*</label>
+                        <label className="text-xs text-zinc-500 font-medium block mb-1">फ़ोन नंबर (कंट्री कोड के साथ)*</label>
                         <PhoneInput 
                           international
                           defaultCountry="IN"
-                          placeholder="à¤«à¤¼à¥‹à¤¨ à¤¨à¤‚à¤¬à¤° à¤¦à¤°à¥à¤œ à¤•à¤°à¥‡à¤‚" 
+                          placeholder="फ़ोन नंबर दर्ज करें" 
                           className="w-full text-xs p-2 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 outline-none focus:border-indigo-500 text-zinc-800 dark:text-zinc-100"
                           value={contactPhoneInput}
                           onChange={(val) => setContactPhoneInput(val || '')}
@@ -1200,14 +1200,14 @@ export function InboxView({
                       }}
                       className="px-3 py-1.5 text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300 transition-colors"
                     >
-                      à¤°à¤¦à¥à¤¦ à¤•à¤°à¥‡à¤‚
+                      रद्द करें
                     </button>
                     <button 
                       onClick={sendRichMessage}
                       disabled={sending}
                       className="px-4 py-1.5 text-xs rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium transition-colors"
                     >
-                      {sending ? 'à¤­à¥‡à¤œ à¤°à¤¹à¥‡ à¤¹à¥ˆà¤‚...' : 'à¤¸à¤‚à¤¦à¥‡à¤¶ à¤­à¥‡à¤œà¥‡à¤‚'}
+                      {sending ? 'भेज रहे हैं...' : 'संदेश भेजें'}
                     </button>
                   </div>
                 </div>
@@ -1216,7 +1216,7 @@ export function InboxView({
              <div className="p-4 bg-white dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-800 relative flex flex-col gap-2">
                {isTemplateRequired && !selectedInboxTemplate && (
                  <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg text-amber-800 dark:text-amber-200 text-xs font-medium space-y-2">
-                   <p className="text-center">{!lastCustomerMessageAt ? "à¤—à¥à¤°à¤¾à¤¹à¤• à¤•à¥‡ à¤°à¤¿à¤ªà¥à¤²à¤¾à¤ˆ à¤•à¤¾ à¤‡à¤‚à¤¤à¤œà¤¼à¤¾à¤° à¤¹à¥ˆà¥¤" : "24-à¤˜à¤‚à¤Ÿà¥‡ à¤•à¥€ à¤¸à¤°à¥à¤µà¤¿à¤¸ à¤µà¤¿à¤‚à¤¡à¥‹ à¤¸à¤®à¤¾à¤ªà¥à¤¤ à¤¹à¥‹ à¤šà¥à¤•à¥€ à¤¹à¥ˆà¥¤"} à¤Ÿà¥‡à¤®à¥à¤ªà¤²à¥‡à¤Ÿ à¤­à¥‡à¤œà¤•à¤° à¤¬à¤¾à¤¤à¤šà¥€à¤¤ à¤¶à¥à¤°à¥‚ à¤•à¤°à¥‡à¤‚à¥¤</p>
+                   <p className="text-center">{!lastCustomerMessageAt ? "ग्राहक के रिप्लाई का इंतज़ार है।" : "24-घंटे की सर्विस विंडो समाप्त हो चुकी है।"} टेम्पलेट भेजकर बातचीत शुरू करें।</p>
                    <div className="flex gap-2">
                       <select onChange={e => {
                         const tmpl = inboxTemplates.find(t => t.name === e.target.value);
@@ -1229,7 +1229,7 @@ export function InboxView({
                           setInboxTemplateParams([]);
                         }
                       }} value={selectedInboxTemplate?.name || ''} className="flex-1 bg-white dark:bg-zinc-950 border border-amber-300 dark:border-amber-700 rounded-lg px-3 py-2 text-xs outline-none font-mono">
-                       <option value="" disabled>à¤Ÿà¥‡à¤®à¥à¤ªà¤²à¥‡à¤Ÿ à¤šà¥à¤¨à¥‡à¤‚...</option>
+                       <option value="" disabled>टेम्पलेट चुनें...</option>
                        {inboxTemplates.map(t => <option key={t.name} value={t.name}>{t.name}</option>)}
                      </select>
                    </div>
@@ -1246,14 +1246,14 @@ export function InboxView({
                        {inboxTemplateParams.map((val, idx) => (
                          <div key={idx} className="flex items-center gap-1">
                            <span className="font-mono text-indigo-500 text-[10px]">{'{{' + (idx + 1) + '}}'}</span>
-                           <input type="text" value={val} onChange={e => { const c = [...inboxTemplateParams]; c[idx] = e.target.value; setInboxTemplateParams(c); }} placeholder={`à¤®à¤¾à¤¨ ${idx + 1}`} className="w-24 bg-white dark:bg-zinc-950 border border-indigo-200 dark:border-indigo-700 rounded px-2 py-1 text-xs outline-none" />
+                           <input type="text" value={val} onChange={e => { const c = [...inboxTemplateParams]; c[idx] = e.target.value; setInboxTemplateParams(c); }} placeholder={`मान ${idx + 1}`} className="w-24 bg-white dark:bg-zinc-950 border border-indigo-200 dark:border-indigo-700 rounded px-2 py-1 text-xs outline-none" />
                          </div>
                        ))}
                      </div>
                    )}
                    <button onClick={sendInboxTemplate} disabled={inboxTemplateSending} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-lg text-xs font-semibold transition-all disabled:opacity-50 flex items-center justify-center gap-1.5">
                      {inboxTemplateSending ? <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : <Send className="w-3 h-3" />}
-                     à¤Ÿà¥‡à¤®à¥à¤ªà¤²à¥‡à¤Ÿ à¤­à¥‡à¤œà¥‡à¤‚
+                     टेम्पलेट भेजें
                    </button>
                  </div>
                )}
@@ -1268,31 +1268,31 @@ export function InboxView({
                      onClick={() => { setAttachmentType('image'); setAttachmentMenuOpen(false); }}
                      className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-900 text-zinc-700 dark:text-zinc-200 w-full text-left"
                    >
-                     ðŸ“¸ à¤‡à¤®à¥‡à¤œ (Image)
+                      📸 इमेज
                    </button>
                    <button 
                      onClick={() => { setAttachmentType('video'); setAttachmentMenuOpen(false); }}
                      className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-900 text-zinc-700 dark:text-zinc-200 w-full text-left"
                    >
-                     ðŸŽ¥ à¤µà¥€à¤¡à¤¿à¤¯à¥‹ (Video)
+                      🎥 वीडियो
                    </button>
                    <button 
                      onClick={() => { setAttachmentType('document'); setAttachmentMenuOpen(false); }}
                      className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-900 text-zinc-700 dark:text-zinc-200 w-full text-left"
                    >
-                     ðŸ“„ à¤¦à¤¸à¥à¤¤à¤¾à¤µà¥‡à¤œà¤¼ (Doc)
+                      📄 दस्तावेज़
                    </button>
                    <button 
                      onClick={() => { setAttachmentType('location'); setAttachmentMenuOpen(false); }}
                      className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-900 text-zinc-700 dark:text-zinc-200 w-full text-left"
                    >
-                     ðŸ“ à¤²à¥‹à¤•à¥‡à¤¶à¤¨ (Maps)
+                      📍 लोकेशन
                    </button>
                    <button 
                      onClick={() => { setAttachmentType('contacts'); setAttachmentMenuOpen(false); }}
                      className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-900 text-zinc-700 dark:text-zinc-200 w-full text-left"
                    >
-                     ðŸ‘¤ à¤¸à¤‚à¤ªà¤°à¥à¤• (Contact)
+                      👤 संपर्क
                    </button>
                  </motion.div>
                )}
@@ -1301,14 +1301,14 @@ export function InboxView({
                  <button 
                    onClick={() => setAttachmentMenuOpen(!attachmentMenuOpen)}
                    className={`p-2 rounded-full transition-colors ${attachmentMenuOpen ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400' : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}
-                   title="Add attachment"
+                    title="अटैचमेंट जोड़ें"
                    disabled={isTemplateRequired}
                  >
                    <Paperclip className="w-4 h-4" />
                  </button>
                  <input 
                    type="text" 
-                   placeholder="à¤¸à¤‚à¤¦à¥‡à¤¶ à¤Ÿà¤¾à¤‡à¤ª à¤•à¤°à¥‡à¤‚..." 
+                   placeholder="संदेश टाइप करें..." 
                    className="flex-1 bg-transparent border-none outline-none text-sm px-2 py-2 disabled:opacity-50"
                    value={messageInput}
                    onChange={(e) => setMessageInput(e.target.value)}
@@ -1331,7 +1331,7 @@ export function InboxView({
                  {/* Preview Header */}
                  <div className="h-14 border-b border-zinc-800 px-6 flex items-center justify-between text-white flex-shrink-0">
                    <div className="flex items-center gap-3">
-                     <span className="font-semibold text-sm">WhatsApp Media Preview</span>
+                      <span className="font-semibold text-sm">WhatsApp मीडिया प्रीव्यू</span>
                      <span className="text-xs text-zinc-400 capitalize bg-zinc-800 px-2 py-0.5 rounded-full">{attachmentType}</span>
                    </div>
                    <button 
@@ -1342,7 +1342,7 @@ export function InboxView({
                        setAttachmentType(null);
                      }}
                      className="p-1.5 rounded-full hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors"
-                     title="à¤°à¤¦à¥à¤¦ à¤•à¤°à¥‡à¤‚ (Cancel)"
+                      title="रद्द करें"
                    >
                      <X className="w-5 h-5" />
                    </button>
@@ -1353,7 +1353,7 @@ export function InboxView({
                    {attachmentType === 'image' && (
                      <img 
                        src={mediaPreviewUrl} 
-                       alt="Preview" 
+                        alt="प्रीव्यू" 
                        className="max-h-full max-w-full object-contain rounded-lg shadow-2xl border border-zinc-800 animate-in zoom-in-95 duration-200"
                        onError={(e) => {
                          (e.target as HTMLElement).style.display = 'none';
@@ -1373,7 +1373,7 @@ export function InboxView({
                        <span className="text-sm font-semibold text-zinc-200 truncate max-w-xs block">
                          {docFilenameInput || (mediaFileState ? mediaFileState.name : "Document.pdf")}
                        </span>
-                       <span className="text-xs text-zinc-500 mt-1">Ready to send via secure R2 storage</span>
+                        <span className="text-xs text-zinc-500 mt-1">सुरक्षित R2 स्टोरेज से भेजने के लिए तैयार</span>
                      </div>
                    )}
                  </div>
@@ -1383,22 +1383,22 @@ export function InboxView({
                    <div className="w-full max-w-2xl flex items-center gap-3">
                      {attachmentType === 'document' ? (
                        <div className="flex-1 bg-zinc-800/50 border border-zinc-700/50 rounded-xl px-4 py-3 text-sm text-white flex items-center gap-2">
-                         <span className="text-zinc-400 font-medium text-xs">FileName:</span>
+                          <span className="text-zinc-400 font-medium text-xs">फ़ाइल का नाम:</span>
                          <input 
                            type="text" 
                            className="bg-transparent border-none outline-none flex-1 text-white placeholder-zinc-500"
-                           placeholder="à¤¦à¤¸à¥à¤¤à¤¾à¤µà¥‡à¤œà¤¼ à¤•à¤¾ à¤¨à¤¾à¤® à¤¦à¤°à¥à¤œ à¤•à¤°à¥‡à¤‚ (à¤œà¥ˆà¤¸à¥‡ Invoice.pdf)..."
+                           placeholder="दस्तावेज़ का नाम दर्ज करें (जैसे Invoice.pdf)..."
                            value={docFilenameInput}
                            onChange={(e) => setDocFilenameInput(e.target.value)}
                          />
                        </div>
                      ) : (
                        <div className="flex-1 bg-zinc-800/50 border border-zinc-700/50 rounded-xl px-4 py-3 text-sm text-white flex items-center gap-2">
-                         <span className="text-zinc-400 font-medium text-xs">Caption:</span>
+                          <span className="text-zinc-400 font-medium text-xs">कैप्शन:</span>
                          <input 
                            type="text" 
                            className="bg-transparent border-none outline-none flex-1 text-white placeholder-zinc-500"
-                           placeholder="à¤•à¥ˆà¤ªà¥à¤¶à¤¨ à¤œà¥‹à¤¡à¤¼à¥‡à¤‚ (Add a caption)..."
+                            placeholder="कैप्शन जोड़ें..."
                            value={captionInput}
                            onChange={(e) => setCaptionInput(e.target.value)}
                          />
@@ -1409,7 +1409,7 @@ export function InboxView({
                        onClick={sendRichMessage}
                        disabled={sending}
                        className="w-12 h-12 rounded-full bg-emerald-500 hover:bg-emerald-600 disabled:bg-zinc-800 text-white flex items-center justify-center transition-all shadow-lg active:scale-95"
-                       title="à¤­à¥‡à¤œà¥‡à¤‚ (Send)"
+                        title="भेजें"
                      >
                        {sending ? (
                          <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -1434,7 +1434,7 @@ export function InboxView({
             className="w-full md:w-80 border-l border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex flex-col absolute right-0 top-0 bottom-0 z-30 shadow-2xl"
           >
             <div className="h-16 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between px-4 flex-shrink-0">
-              <h2 className="font-medium">Contact Details</h2>
+              <h2 className="font-medium">संपर्क विवरण</h2>
               <button 
                 onClick={() => setIsContactPanelOpen(false)}
                 className="p-1.5 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
@@ -1448,7 +1448,7 @@ export function InboxView({
                 <div className="w-20 h-20 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-semibold text-2xl mb-4">
                    {activeChat.contact_name ? activeChat.contact_name[0] : <User className="w-8 h-8" />}
                 </div>
-                <h3 className="font-medium text-lg text-zinc-900 dark:text-zinc-100">{activeChat.contact_name || "Unknown"}</h3>
+                <h3 className="font-medium text-lg text-zinc-900 dark:text-zinc-100">{activeChat.contact_name || "अज्ञात"}</h3>
                 <span className="inline-flex items-center px-2 py-1 mt-2 rounded-md text-xs font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300">
                   {activeChat.status}
                 </span>
@@ -1456,7 +1456,7 @@ export function InboxView({
 
               <div className="space-y-6">
                 <div>
-                  <h4 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 uppercase tracking-wider mb-3">About</h4>
+                  <h4 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 uppercase tracking-wider mb-3">जानकारी</h4>
                   <div className="space-y-3">
                     <div className="flex items-center gap-3 text-sm text-zinc-600 dark:text-zinc-400">
                       <Phone className="w-4 h-4 text-zinc-400" />
@@ -1481,7 +1481,7 @@ export function InboxView({
                   <div>
                     <h4 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 uppercase tracking-wider mb-3 flex items-center gap-2">
                       <History className="w-4 h-4 text-zinc-400" />
-                      Recent Activity
+                      हाल की गतिविधि
                     </h4>
                     <div className="relative border-l border-zinc-200 dark:border-zinc-800 ml-2 space-y-4 pb-2">
                       {activeChat.history.map((item: any, i: number) => (
@@ -1496,7 +1496,7 @@ export function InboxView({
                 )}
                 
                 <div>
-                  <h4 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 uppercase tracking-wider mb-3">Tags</h4>
+                  <h4 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 uppercase tracking-wider mb-3">टैग</h4>
                   <div className="flex flex-wrap gap-2">
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20">
                       <Tag className="w-3 h-3" /> WhatsApp

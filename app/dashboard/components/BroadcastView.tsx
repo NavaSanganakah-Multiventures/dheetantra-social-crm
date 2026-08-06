@@ -125,10 +125,10 @@ export function BroadcastView() {
         setCampaignId(data.campaignId);
         setProgress({ total: data.total, sent: 0, failed: 0, pending: data.total });
       } else {
-        alert(data.error || 'à¤¬à¥à¤°à¥‰à¤¡à¤•à¤¾à¤¸à¥à¤Ÿ à¤¬à¤¨à¤¾à¤¨à¥‡ à¤®à¥‡à¤‚ à¤µà¤¿à¤«à¤²');
+        alert(data.error || 'ब्रॉडकास्ट बनाने में विफल');
       }
     } catch {
-      alert('à¤¸à¤°à¥à¤µà¤° à¤à¤°à¤°');
+      alert('सर्वर एरर');
     } finally {
       setSending(false);
     }
@@ -145,8 +145,8 @@ export function BroadcastView() {
           <Megaphone className="w-6 h-6" />
         </div>
         <div>
-          <h2 className="text-2xl font-semibold tracking-tight">WhatsApp Broadcast</h2>
-          <p className="text-sm text-zinc-500">Template messages à¤­à¥‡à¤œà¥‡à¤‚ à¤…à¤ªà¤¨à¥‡ à¤¸à¤­à¥€ contacts à¤•à¥‹</p>
+          <h2 className="text-2xl font-semibold tracking-tight">WhatsApp ब्रॉडकास्ट</h2>
+          <p className="text-sm text-zinc-500">टेम्पलेट संदेश भेजें अपने सभी संपर्कों को</p>
         </div>
       </div>
 
@@ -155,7 +155,7 @@ export function BroadcastView() {
           <div className="flex items-center justify-between">
             <h3 className="font-semibold text-lg">{campaignName}</h3>
             <span className={`text-xs font-semibold px-3 py-1 rounded-full ${progress.sent + progress.failed >= progress.total ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400'}`}>
-              {progress.sent + progress.failed >= progress.total ? 'à¤ªà¥‚à¤°à¥à¤£' : 'à¤ªà¥à¤°à¤—à¤¤à¤¿ à¤®à¥‡à¤‚...'}
+              {progress.sent + progress.failed >= progress.total ? 'पूर्ण' : 'प्रगति में...'}
             </span>
           </div>
           <div className="w-full bg-zinc-100 dark:bg-zinc-800 rounded-full h-4 overflow-hidden">
@@ -164,20 +164,20 @@ export function BroadcastView() {
           <div className="grid grid-cols-3 gap-4 text-center">
             <div className="bg-emerald-50 dark:bg-emerald-900/20 p-4 rounded-xl">
               <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{progress.sent}</p>
-              <p className="text-xs text-emerald-600/70 dark:text-emerald-400/70 mt-1">à¤­à¥‡à¤œà¥‡ à¤—à¤</p>
+              <p className="text-xs text-emerald-600/70 dark:text-emerald-400/70 mt-1">भेजे गए</p>
             </div>
             <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-xl">
               <p className="text-2xl font-bold text-red-600 dark:text-red-400">{progress.failed}</p>
-              <p className="text-xs text-red-600/70 dark:text-red-400/70 mt-1">à¤µà¤¿à¤«à¤²</p>
+              <p className="text-xs text-red-600/70 dark:text-red-400/70 mt-1">विफल</p>
             </div>
             <div className="bg-zinc-50 dark:bg-zinc-800 p-4 rounded-xl">
               <p className="text-2xl font-bold text-zinc-600 dark:text-zinc-400">{progress.pending}</p>
-              <p className="text-xs text-zinc-500 mt-1">à¤¬à¤¾à¤•à¥€</p>
+              <p className="text-xs text-zinc-500 mt-1">बाकी</p>
             </div>
           </div>
           {progress.sent + progress.failed >= progress.total && (
             <button onClick={() => { setCampaignId(null); setProgress(null); setCampaignName(''); setSelectedContactIds(new Set()); setSelectedTemplate(null); }} className="w-full bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 font-medium rounded-lg px-4 py-3 hover:scale-[0.99] transition-transform">
-              à¤¨à¤¯à¤¾ à¤¬à¥à¤°à¥‰à¤¡à¤•à¤¾à¤¸à¥à¤Ÿ à¤¬à¤¨à¤¾à¤à¤‚
+              नया ब्रॉडकास्ट बनाएं
             </button>
           )}
         </div>
@@ -186,14 +186,14 @@ export function BroadcastView() {
           {/* Left: Config */}
           <div className="lg:col-span-1 space-y-4">
             <div className="bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-4">
-              <h3 className="font-semibold text-sm">à¤¬à¥à¤°à¥‰à¤¡à¤•à¤¾à¤¸à¥à¤Ÿ à¤¸à¥‡à¤Ÿà¤¿à¤‚à¤—à¥à¤¸</h3>
+              <h3 className="font-semibold text-sm">ब्रॉडकास्ट सेटिंग्स</h3>
               <div>
-                <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-1.5">à¤…à¤­à¤¿à¤¯à¤¾à¤¨ à¤•à¤¾ à¤¨à¤¾à¤®</label>
-                <input type="text" value={campaignName} onChange={e => setCampaignName(e.target.value)} placeholder="à¤œà¥ˆà¤¸à¥‡: Summer Promo Blast" className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500" />
+                <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-1.5">अभियान का नाम</label>
+                <input type="text" value={campaignName} onChange={e => setCampaignName(e.target.value)} placeholder="जैसे: Summer Promo Blast" className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500" />
               </div>
               {configs.length > 1 && (
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-1.5">à¤ªà¥à¤°à¥‡à¤·à¤• WABA</label>
+                  <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-1.5">प्रेषक WABA</label>
                   <select value={chosenWaba?.id || ''} onChange={e => setChosenWaba(configs.find(c => c.id === e.target.value))} className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-indigo-500 font-mono">
                     {configs.map(cfg => <option key={cfg.id} value={cfg.id}>{cfg.phone_number_id}</option>)}
                   </select>
@@ -202,9 +202,9 @@ export function BroadcastView() {
             </div>
 
             <div className="bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-3">
-              <h3 className="font-semibold text-sm">à¤Ÿà¥‡à¤®à¥à¤ªà¤²à¥‡à¤Ÿ à¤šà¥à¤¨à¥‡à¤‚</h3>
+              <h3 className="font-semibold text-sm">टेम्पलेट चुनें</h3>
               {templates.length === 0 ? (
-                <p className="text-xs text-zinc-400">à¤•à¥‹à¤ˆ approved à¤Ÿà¥‡à¤®à¥à¤ªà¤²à¥‡à¤Ÿ à¤¨à¤¹à¥€à¤‚ à¤®à¤¿à¤²à¤¾</p>
+                <p className="text-xs text-zinc-400">कोई स्वीकृत टेम्पलेट नहीं मिला</p>
               ) : (
                 <div className="space-y-2 max-h-60 overflow-y-auto">
                   {templates.map(t => (
@@ -219,11 +219,11 @@ export function BroadcastView() {
 
             {selectedTemplate && templateParams.length > 0 && (
               <div className="bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-3">
-                <h3 className="font-semibold text-sm">à¤ªà¥ˆà¤°à¤¾à¤®à¥€à¤Ÿà¤° à¤®à¤¾à¤¨</h3>
+                <h3 className="font-semibold text-sm">पैरामीटर मान</h3>
                 {templateParams.map((val, idx) => (
                   <div key={idx} className="flex items-center gap-2">
                     <span className="text-xs font-bold font-mono text-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 px-2 py-1 rounded">{'{{' + (idx + 1) + '}}'}</span>
-                    <input type="text" value={val} onChange={e => { const c = [...templateParams]; c[idx] = e.target.value; setTemplateParams(c); }} placeholder={`à¤®à¤¾à¤¨ ${idx + 1}`} className="flex-1 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500" />
+                    <input type="text" value={val} onChange={e => { const c = [...templateParams]; c[idx] = e.target.value; setTemplateParams(c); }} placeholder={`मान ${idx + 1}`} className="flex-1 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500" />
                   </div>
                 ))}
               </div>
@@ -235,19 +235,19 @@ export function BroadcastView() {
             <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm flex flex-col h-[calc(100vh-12rem)]">
               <div className="p-4 border-b border-zinc-200 dark:border-zinc-800 space-y-3">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-sm">à¤ªà¥à¤°à¤¾à¤ªà¥à¤¤à¤•à¤°à¥à¤¤à¤¾ à¤šà¥à¤¨à¥‡à¤‚ <span className="text-zinc-400 font-normal">({selectedContactIds.size} à¤šà¥à¤¨à¥‡ à¤—à¤)</span></h3>
+                  <h3 className="font-semibold text-sm">प्राप्तकर्ता चुनें <span className="text-zinc-400 font-normal">({selectedContactIds.size} चुने गए)</span></h3>
                   <div className="flex items-center gap-3">
                     <span className={`text-xs ${activeOnly ? 'text-indigo-600 dark:text-indigo-400' : 'text-zinc-400'}`}>
-                      {activeContactIds.size} à¤¸à¤•à¥à¤°à¤¿à¤¯
+                      {activeContactIds.size} सक्रिय
                     </span>
                     <button onClick={toggleAll} className="text-xs text-indigo-600 dark:text-indigo-400 font-medium hover:underline">
-                      {selectedContactIds.size === filteredContacts.length ? 'à¤¸à¤­à¥€ à¤¹à¤Ÿà¤¾à¤à¤‚' : 'à¤¸à¤­à¥€ à¤šà¥à¤¨à¥‡à¤‚'}
+                      {selectedContactIds.size === filteredContacts.length ? 'सभी हटाएं' : 'सभी चुनें'}
                     </button>
                   </div>
                 </div>
                 <div className="relative">
                   <Search className="w-4 h-4 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input type="text" value={contactSearch} onChange={e => setContactSearch(e.target.value)} placeholder="à¤¨à¤¾à¤® à¤¯à¤¾ à¤¨à¤‚à¤¬à¤° à¤¸à¥‡ à¤–à¥‹à¤œà¥‡à¤‚..." className="w-full pl-9 pr-4 py-2.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-sm outline-none focus:border-indigo-500" />
+                  <input type="text" value={contactSearch} onChange={e => setContactSearch(e.target.value)} placeholder="नाम या नंबर से खोजें..." className="w-full pl-9 pr-4 py-2.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-sm outline-none focus:border-indigo-500" />
                 </div>
                 {/* Active conversations filter toggle */}
                 <div className="flex items-center gap-2 pt-1">
@@ -260,23 +260,23 @@ export function BroadcastView() {
                     }`}
                   >
                     <MessageCircle className="w-3.5 h-3.5" />
-                    à¤•à¥‡à¤µà¤² à¤¸à¤•à¥à¤°à¤¿à¤¯ à¤¬à¤¾à¤¤à¤šà¥€à¤¤ à¤µà¤¾à¤²à¥‡
+                    केवल सक्रिय बातचीत वाले
                   </button>
                 </div>
               </div>
               <div className="flex-1 overflow-y-auto">
                 {filteredContacts.length === 0 ? (
-                  <div className="p-8 text-center text-sm text-zinc-400">à¤•à¥‹à¤ˆ à¤¸à¤‚à¤ªà¤°à¥à¤• à¤¨à¤¹à¥€à¤‚ à¤®à¤¿à¤²à¤¾</div>
+                  <div className="p-8 text-center text-sm text-zinc-400">कोई संपर्क नहीं मिला</div>
                 ) : (
                   filteredContacts.map(c => (
                     <label key={c.id} className={`flex items-center gap-3 px-4 py-3 border-b border-zinc-100 dark:border-zinc-800/50 cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors ${selectedContactIds.has(c.id) ? 'bg-indigo-50/50 dark:bg-indigo-900/10' : ''}`}>
                       <input type="checkbox" checked={selectedContactIds.has(c.id)} onChange={() => toggleContact(c.id)} className="w-4 h-4 rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500" />
                       <div className="flex-1 min-w-0 flex items-center gap-2">
                         {activeContactIds.has(c.id) && (
-                          <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 shrink-0" title="Active conversation" />
+                          <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 shrink-0" title="सक्रिय बातचीत" />
                         )}
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">{c.name || 'à¤…à¤œà¥à¤žà¤¾à¤¤'}</p>
+                          <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">{c.name || 'अज्ञात'}</p>
                           <p className="text-xs text-zinc-500">{c.phone || c.platform_contact_id}</p>
                         </div>
                       </div>
@@ -287,7 +287,7 @@ export function BroadcastView() {
               </div>
               <div className="p-4 border-t border-zinc-200 dark:border-zinc-800">
                 <button onClick={handleSend} disabled={!campaignName || !selectedTemplate || selectedContactIds.size === 0 || sending} className="w-full disabled:opacity-40 bg-indigo-600 hover:bg-indigo-700 disabled:hover:bg-indigo-600 text-white font-medium rounded-lg px-4 py-3 transition-all flex items-center justify-center gap-2">
-                  {sending ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> à¤­à¥‡à¤œ à¤°à¤¹à¥‡ à¤¹à¥ˆà¤‚...</> : <><Send className="w-4 h-4" /> {selectedContactIds.size} à¤•à¥‹ à¤¬à¥à¤°à¥‰à¤¡à¤•à¤¾à¤¸à¥à¤Ÿ à¤­à¥‡à¤œà¥‡à¤‚</>}
+                  {sending ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> भेज रहे हैं...</> : <><Send className="w-4 h-4" /> {selectedContactIds.size} को ब्रॉडकास्ट भेजें</>}
                 </button>
               </div>
             </div>

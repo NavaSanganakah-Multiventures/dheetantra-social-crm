@@ -397,7 +397,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
               <NavItem icon={<Users />} label="संपर्क और लीड्स" isActive={activeTab === 'contacts'} onClick={() => { setActiveTab('contacts'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
               <NavItem icon={<Phone />} label="कॉल लॉग्स" isActive={activeTab === 'calls'} onClick={() => { setActiveTab('calls'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
               
-              <div className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-4 mt-8 px-3">अकाउंट्स (Accounts)</div>
+              <div className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-4 mt-8 px-3">अकाउंट्स</div>
               <NavItem icon={<Phone />} label="WhatsApp" isActive={activeTab === 'accounts-whatsapp'} onClick={() => { setActiveTab('accounts-whatsapp'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
 
               <div className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-4 mt-8 px-3">मार्केटिंग</div>
@@ -407,7 +407,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
             </nav>
 
             <div className="p-4 bg-zinc-900/50 dark:bg-zinc-950/50 mt-auto border-t border-zinc-800">
-              <NavItem icon={<Blocks />} label="इंटीग्रेशन्स (Integrations)" isActive={activeTab === 'integrations'} onClick={() => { setActiveTab('integrations'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
+              <NavItem icon={<Blocks />} label="इंटीग्रेशन्स" isActive={activeTab === 'integrations'} onClick={() => { setActiveTab('integrations'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
               <NavItem icon={<Settings />} label="सेटिंग्स" isActive={activeTab === 'settings'} onClick={() => { setActiveTab('settings'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
               
               <div className="mt-4 pt-4 border-t border-zinc-800 flex items-center gap-3 px-3">
@@ -453,7 +453,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
             <div className="flex items-center gap-1.5 text-[10px] font-medium" title={wsStatus === 'connecting' ? 'WebSocket कनेक्ट हो रहा है...' : wsStatus === 'connected' ? 'WebSocket कनेक्टेड' : 'WebSocket डिस्कनेक्टेड - कॉल नहीं आएंगी'}>
               <span className={`w-2 h-2 rounded-full ${wsStatus === 'connected' ? 'bg-emerald-400' : wsStatus === 'connecting' ? 'bg-amber-400 animate-pulse' : 'bg-rose-400'}`}></span>
               <span className="text-zinc-400 hidden sm:inline">
-                {wsStatus === 'connecting' ? 'Connecting...' : wsStatus === 'connected' ? 'Live' : 'Offline'}
+                {wsStatus === 'connecting' ? 'कनेक्ट हो रहा है...' : wsStatus === 'connected' ? 'लाइव' : 'ऑफलाइन'}
               </span>
             </div>
             <button className="p-2 relative rounded-full text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
@@ -531,7 +531,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
 
               <div className="flex flex-col items-center mb-3 gap-2">
                 <span className="inline-block px-3 py-1 bg-emerald-500/15 text-emerald-400 text-[10px] font-bold uppercase tracking-widest rounded-full">
-                  इनकमिंग कॉल (Incoming Call)
+                  इनकमिंग कॉल
                 </span>
                 <span className="inline-block px-2 py-1 bg-amber-500/10 text-amber-500 text-[10px] font-semibold rounded-md border border-amber-500/20">
                   ⚠️ कृपया 30 सेकंड के अंदर जवाब दें
@@ -572,14 +572,14 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                   className="flex-1 bg-rose-500 hover:bg-rose-600 text-white py-3.5 rounded-2xl text-xs font-bold transition-all shadow-lg shadow-rose-500/20 active:scale-95 flex items-center justify-center gap-2"
                 >
                   <X className="w-4 h-4" />
-                  काटें (Decline)
+                  काटें
                 </button>
 
                 <button
                   onClick={async () => {
                     try {
                       if (!incomingCall.sdp) {
-                        alert('SDP डेटा उपलब्ध नहीं है। कृपया WhatsApp Cloud API की Calling Webhook सेटिंग जांचें और सुनिश्चित करें कि "calls" field subscribed है।');
+                        alert('SDP डेटा उपलब्ध नहीं है। कृपया WhatsApp Cloud API की Calling Webhook सेटिंग जांचें और सुनिश्चित करें कि "calls" फ़ील्ड सब्सक्राइब है।');
                         setIncomingCall(null);
                         return;
                       }
@@ -614,7 +614,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                   className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white py-3.5 rounded-2xl text-xs font-bold transition-all shadow-lg shadow-emerald-500/20 active:scale-95 flex items-center justify-center gap-2"
                 >
                   <Phone className="w-4 h-4" />
-                  उठाएं (Accept)
+                  उठाएं
                 </button>
               </div>
             </motion.div>
@@ -663,15 +663,15 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                 <Phone className="w-5 h-5 text-rose-400" />
               </div>
               <div className="flex-1 min-w-0">
-                <h4 className="text-sm font-bold text-white">मिस्ड कॉल (Missed Call)</h4>
+                <h4 className="text-sm font-bold text-white">मिस्ड कॉल</h4>
                 <p className="text-xs text-zinc-400 mt-0.5 truncate">
-                  {incomingCallNoSdp.contact_name || 'अज्ञात'} ({incomingCallNoSdp.phone || 'unknown'})
+                  {incomingCallNoSdp.contact_name || 'अज्ञात'} ({incomingCallNoSdp.phone || 'अज्ञात'})
                 </p>
                 <div className="flex gap-2 mt-2">
                   <span className="text-[10px] text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-full">
                     {callsFieldStatus === 'not_subscribed'
-                      ? '⚠️ WhatsApp Cloud API में "calls" field subscribe नहीं है — कॉल कनेक्ट नहीं हो सकती'
-                      : '⚡ WebRTC SDP उपलब्ध नहीं — केवल Missed Call ही दिखाया जा सकता है'}
+                      ? '⚠️ WhatsApp Cloud API में "calls" फ़ील्ड सब्सक्राइब नहीं है — कॉल कनेक्ट नहीं हो सकती'
+                      : '⚡ WebRTC SDP उपलब्ध नहीं — केवल मिस्ड कॉल ही दिखाया जा सकता है'}
                   </span>
                 </div>
               </div>

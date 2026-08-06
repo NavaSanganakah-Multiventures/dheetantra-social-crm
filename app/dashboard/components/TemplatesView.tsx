@@ -47,10 +47,10 @@ export function TemplatesView({ selectedWaba }: { selectedWaba?: any }) {
         setMetaTemplates(data.meta || []);
         setMetaError(data.metaError || null);
       } else {
-        setMetaError(data.error || "à¤Ÿà¥‡à¤‚à¤ªà¤²à¥‡à¤Ÿà¥à¤¸ à¤²à¥‹à¤¡ à¤•à¤°à¤¨à¥‡ à¤®à¥‡à¤‚ à¤µà¤¿à¤«à¤²");
+        setMetaError(data.error || "टेंपलेट्स लोड करने में विफल");
       }
     } catch (e) {
-      setMetaError("à¤¸à¤°à¥à¤µà¤° à¤¸à¥‡ à¤¸à¤‚à¤ªà¤°à¥à¤• à¤•à¤°à¤¨à¥‡ à¤®à¥‡à¤‚ à¤…à¤¸à¤®à¤°à¥à¤¥à¥¤");
+      setMetaError("सर्वर से संपर्क करने में असमर्थ।");
     } finally {
       setSyncing(false);
     }
@@ -86,11 +86,11 @@ export function TemplatesView({ selectedWaba }: { selectedWaba?: any }) {
             setMetaTemplates(data.meta || []);
             setMetaError(data.metaError || null);
           } else {
-            setMetaError(data.error || "à¤Ÿà¥‡à¤‚à¤ªà¤²à¥‡à¤Ÿà¥à¤¸ à¤²à¥‹à¤¡ à¤•à¤°à¤¨à¥‡ à¤®à¥‡à¤‚ à¤µà¤¿à¤«à¤²");
+            setMetaError(data.error || "टेंपलेट्स लोड करने में विफल");
           }
         }
       } catch (e) {
-        if (active) setMetaError("à¤¸à¤°à¥à¤µà¤° à¤¸à¥‡ à¤¸à¤‚à¤ªà¤°à¥à¤• à¤•à¤°à¤¨à¥‡ à¤®à¥‡à¤‚ à¤…à¤¸à¤®à¤°à¥à¤¥à¥¤");
+        if (active) setMetaError("सर्वर से संपर्क करने में असमर्थ।");
       } finally {
         if (active) setLoading(false);
       }
@@ -102,7 +102,7 @@ export function TemplatesView({ selectedWaba }: { selectedWaba?: any }) {
   const handleCreateTemplate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!templateName || !bodyText) {
-      setCreateMessage("à¤•à¥ƒà¤ªà¤¯à¤¾ à¤¸à¤­à¥€ à¤†à¤µà¤¶à¥à¤¯à¤• à¤«à¤¼à¥€à¤²à¥à¤¡ à¤­à¤°à¥‡à¤‚à¥¤");
+      setCreateMessage("कृपया सभी आवश्यक फ़ील्ड भरें।");
       return;
     }
     setCreateLoading(true);
@@ -125,7 +125,7 @@ export function TemplatesView({ selectedWaba }: { selectedWaba?: any }) {
       });
       const data: any = await res.json();
       if (data.success) {
-        setCreateMessage("à¤¸à¤«à¤²à¤¤à¤¾: " + data.message);
+        setCreateMessage("सफलता: " + data.message);
         setTemplateName("");
         setBodyText("");
         setTimeout(() => {
@@ -134,17 +134,17 @@ export function TemplatesView({ selectedWaba }: { selectedWaba?: any }) {
           fetchTemplates();
         }, 1500);
       } else {
-        setCreateMessage("à¤¤à¥à¤°à¥à¤Ÿà¤¿: " + (data.metaError || data.error || "à¤¸à¤¹à¥‡à¤œà¤¨à¥‡ à¤®à¥‡à¤‚ à¤…à¤¸à¤®à¤°à¥à¤¥"));
+        setCreateMessage("त्रुटि: " + (data.metaError || data.error || "सहेजने में असमर्थ"));
       }
     } catch (e) {
-      setCreateMessage("à¤¸à¤°à¥à¤µà¤° à¤à¤°à¤°à¥¤");
+      setCreateMessage("सर्वर एरर।");
     } finally {
       setCreateLoading(false);
     }
   };
 
   const handleDeleteLocalTemplate = async (id: string) => {
-    if (!confirm("à¤•à¥à¤¯à¤¾ à¤†à¤ª à¤µà¤¾à¤•à¤ˆ à¤‡à¤¸ à¤²à¥‹à¤•à¤² à¤Ÿà¥‡à¤®à¥à¤ªà¤²à¥‡à¤Ÿ à¤•à¥‹ à¤¹à¤Ÿà¤¾à¤¨à¤¾ à¤šà¤¾à¤¹à¤¤à¥‡ à¤¹à¥ˆà¤‚?")) return;
+    if (!confirm("क्या आप वाकई इस लोकल टेम्पलेट को हटाना चाहते हैं?")) return;
     const wId = localStorage.getItem('workspaceId');
     try {
       const res = await fetch(`/api/whatsapp/templates/${id}`, {
@@ -155,10 +155,10 @@ export function TemplatesView({ selectedWaba }: { selectedWaba?: any }) {
       if (data.success) {
         fetchTemplates();
       } else {
-        alert(data.error || "à¤¹à¤Ÿà¤¾à¤¨à¥‡ à¤®à¥‡à¤‚ à¤µà¤¿à¤«à¤²à¤¤à¤¾");
+        alert(data.error || "हटाने में विफलता");
       }
     } catch (e) {
-      alert("à¤¸à¤°à¥à¤µà¤° à¤à¤°à¤°");
+      alert("सर्वर एरर");
     }
   };
 
@@ -176,7 +176,7 @@ export function TemplatesView({ selectedWaba }: { selectedWaba?: any }) {
   const handleSendTemplate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!recipient) {
-      setSendMessage("à¤•à¥ƒà¤ªà¤¯à¤¾ à¤ªà¥à¤°à¤¾à¤ªà¥à¤¤à¤•à¤°à¥à¤¤à¤¾ à¤•à¤¾ à¤«à¤¼à¥‹à¤¨ à¤¨à¤‚à¤¬à¤° à¤¦à¤°à¥à¤œ à¤•à¤°à¥‡à¤‚à¥¤");
+      setSendMessage("कृपया प्राप्तकर्ता का फ़ोन नंबर दर्ज करें।");
       return;
     }
     setSendLoading(true);
@@ -200,23 +200,23 @@ export function TemplatesView({ selectedWaba }: { selectedWaba?: any }) {
       });
       const data: any = await res.json();
       if (data.success) {
-        setSendMessage("à¤¸à¤«à¤²à¤¤à¤¾à¤ªà¥‚à¤°à¥à¤µà¤• à¤­à¥‡à¤œà¤¾ à¤—à¤¯à¤¾! à¤¸à¤‚à¤¦à¥‡à¤¶ à¤†à¤ªà¤•à¥‡ à¤²à¤¾à¤‡à¤µ à¤‡à¤¨à¤¬à¥‰à¤•à¥à¤¸ à¤®à¥‡à¤‚ à¤¦à¤¿à¤–à¤¾à¤ˆ à¤¦à¥‡à¤—à¤¾à¥¤");
+        setSendMessage("सफलतापूर्वक भेजा गया! संदेश आपके लाइव इनबॉक्स में दिखाई देगा।");
         setTimeout(() => {
           setShowSendModal(false);
           setSendMessage("");
         }, 2000);
       } else {
-        setSendMessage("à¤¤à¥à¤°à¥à¤Ÿà¤¿: " + (data.error || "à¤­à¥‡à¤œà¤¨à¥‡ à¤®à¥‡à¤‚ à¤…à¤¸à¤®à¤°à¥à¤¥"));
+        setSendMessage("त्रुटि: " + (data.error || "भेजने में असमर्थ"));
       }
     } catch (e) {
-      setSendMessage("à¤¸à¤°à¥à¤µà¤° à¤à¤°à¤°");
+      setSendMessage("सर्वर एरर");
     } finally {
       setSendLoading(false);
     }
   };
 
   const formatBodyText = (text: string) => {
-    if (!text) return "No body content";
+    if (!text) return "कोई बॉडी कंटेंट नहीं";
     const parts = text.split(/(\{\{\d+\}\})/g);
     return parts.map((part, index) => {
       if (part.match(/\{\{\d+\}\}/)) {
@@ -244,41 +244,41 @@ export function TemplatesView({ selectedWaba }: { selectedWaba?: any }) {
     <div className="p-6 md:p-8 w-full max-w-6xl mx-auto space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white font-display">WhatsApp à¤Ÿà¥‡à¤®à¥à¤ªà¤²à¥‡à¤Ÿà¥à¤¸ (Templates)</h2>
-          <p className="text-sm text-zinc-500">à¤…à¤ªà¤¨à¥‡ WhatsApp Business Account à¤•à¥‡ à¤¸à¥à¤µà¥€à¤•à¥ƒà¤¤ à¤Ÿà¥‡à¤®à¥à¤ªà¤²à¥‡à¤Ÿà¥à¤¸ à¤ªà¥à¤°à¤¬à¤‚à¤§à¤¿à¤¤ à¤•à¤°à¥‡à¤‚ à¤”à¤° à¤…à¤­à¤¿à¤¯à¤¾à¤¨ à¤¶à¥à¤°à¥‚ à¤•à¤°à¥‡à¤‚à¥¤</p>
+          <h2 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white font-display">WhatsApp टेम्पलेट्स</h2>
+          <p className="text-sm text-zinc-500">अपने WhatsApp Business Account के स्वीकृत टेम्पलेट्स प्रबंधित करें और अभियान शुरू करें।</p>
         </div>
         <div className="flex gap-3">
           <button onClick={fetchTemplates} disabled={syncing} className="border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900 text-zinc-700 dark:text-zinc-300 px-4 py-2.5 rounded-xl text-sm font-medium transition-all flex items-center gap-2">
-            <Activity className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} /> Meta à¤¸à¥‡ à¤¸à¤¿à¤‚à¤• à¤•à¤°à¥‡à¤‚
+            <Activity className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} /> Meta से सिंक करें
           </button>
           <button onClick={() => setShowCreateModal(true)} className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl text-sm font-medium transition-all shadow-md shadow-indigo-600/10 flex items-center gap-2">
-            <Plus className="w-4 h-4" /> à¤¨à¤¯à¤¾ à¤Ÿà¥‡à¤®à¥à¤ªà¤²à¥‡à¤Ÿ à¤¬à¤¨à¤¾à¤à¤‚
+            <Plus className="w-4 h-4" /> नया टेम्पलेट बनाएं
           </button>
         </div>
       </div>
 
       <div className="border-b border-zinc-200 dark:border-zinc-800 flex gap-4">
         <button onClick={() => setActiveSubTab('meta')} className={`py-3 text-sm font-semibold border-b-2 transition-all flex items-center gap-2 px-1 ${activeSubTab === 'meta' ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-zinc-400 hover:text-zinc-600'}`}>
-          <Megaphone className="w-4 h-4" /> Meta API à¤¸à¥à¤µà¥€à¤•à¥ƒà¤¤ ({metaTemplates.length})
+          <Megaphone className="w-4 h-4" /> Meta API स्वीकृत ({metaTemplates.length})
         </button>
         <button onClick={() => setActiveSubTab('local')} className={`py-3 text-sm font-semibold border-b-2 transition-all flex items-center gap-2 px-1 ${activeSubTab === 'local' ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-zinc-400 hover:text-zinc-600'}`}>
-          <FileText className="w-4 h-4" /> à¤²à¥‹à¤•à¤² à¤¡à¥à¤°à¤¾à¤«à¥à¤Ÿà¥à¤¸ ({localTemplates.length})
+          <FileText className="w-4 h-4" /> लोकल ड्राफ्ट्स ({localTemplates.length})
         </button>
       </div>
 
       {metaError && (
         <div className="p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30 rounded-2xl text-xs text-amber-800 dark:text-amber-400 flex flex-col gap-1">
-          <span className="font-bold text-sm">Meta API à¤¸à¤¿à¤‚à¤• à¤šà¥‡à¤¤à¤¾à¤µà¤¨à¥€ (Sync Warning):</span>
+          <span className="font-bold text-sm">Meta API सिंक चेतावनी:</span>
           <span>{metaError}</span>
-          <span className="mt-2 text-zinc-500">à¤¸à¥à¤à¤¾à¤µ: à¤¸à¥à¤¨à¤¿à¤¶à¥à¤šà¤¿à¤¤ à¤•à¤°à¥‡à¤‚ à¤•à¤¿ à¤¸à¥‡à¤Ÿà¤¿à¤‚à¤—à¥à¤¸ à¤®à¥‡à¤‚ à¤®à¤¾à¤¨à¥à¤¯ WABA ID à¤”à¤° Permanent Access Token à¤¸à¥‡à¤Ÿ à¤•à¤¿à¤¯à¤¾ à¤—à¤¯à¤¾ à¤¹à¥ˆà¥¤ à¤¤à¤¬ à¤¤à¤• à¤†à¤ª à¤²à¥‹à¤•à¤² à¤¡à¥à¤°à¤¾à¤«à¥à¤Ÿà¥à¤¸ à¤•à¤¾ à¤‰à¤ªà¤¯à¥‹à¤— à¤•à¤° à¤¸à¤•à¤¤à¥‡ à¤¹à¥ˆà¤‚à¥¤</span>
+          <span className="mt-2 text-zinc-500">सुझाव: सुनिश्चित करें कि सेटिंग्स में मान्य WABA ID और Permanent Access Token सेट किया गया है। तब तक आप लोकल ड्राफ्ट्स का उपयोग कर सकते हैं।</span>
         </div>
       )}
 
       {templatesToShow.length === 0 ? (
         <div className="p-16 text-center border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-3xl bg-white dark:bg-zinc-950/30 flex flex-col items-center justify-center">
           <FileText className="w-12 h-12 text-zinc-300 dark:text-zinc-700 mb-4 animate-pulse" />
-          <h3 className="font-bold text-lg text-zinc-800 dark:text-zinc-200 mb-1">à¤•à¥‹à¤ˆ à¤Ÿà¥‡à¤®à¥à¤ªà¤²à¥‡à¤Ÿ à¤¨à¤¹à¥€à¤‚ à¤®à¤¿à¤²à¤¾</h3>
-          <p className="text-sm text-zinc-500 max-w-md">à¤‡à¤¸ à¤¶à¥à¤°à¥‡à¤£à¥€ à¤®à¥‡à¤‚ à¤•à¥‹à¤ˆ à¤¸à¤•à¥à¤°à¤¿à¤¯ à¤Ÿà¥‡à¤®à¥à¤ªà¤²à¥‡à¤Ÿ à¤‰à¤ªà¤²à¤¬à¥à¤§ à¤¨à¤¹à¥€à¤‚ à¤¹à¥ˆà¥¤ à¤†à¤ª à¤¸à¥€à¤§à¥‡ à¤¨à¤¯à¤¾ à¤Ÿà¥‡à¤®à¥à¤ªà¤²à¥‡à¤Ÿ à¤¬à¤¨à¤¾ à¤¸à¤•à¤¤à¥‡ à¤¹à¥ˆà¤‚à¥¤</p>
+          <h3 className="font-bold text-lg text-zinc-800 dark:text-zinc-200 mb-1">कोई टेम्पलेट नहीं मिला</h3>
+          <p className="text-sm text-zinc-500 max-w-md">इस श्रेणी में कोई सक्रिय टेम्पलेट उपलब्ध नहीं है। आप सीधे नया टेम्पलेट बना सकते हैं।</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -304,17 +304,17 @@ export function TemplatesView({ selectedWaba }: { selectedWaba?: any }) {
                 </div>
 
                 <div className="flex justify-between items-center text-xs text-zinc-400 font-medium">
-                  <span>à¤­à¤¾à¤·à¤¾: <span className="font-mono text-zinc-600 dark:text-zinc-400">{tmpl.language}</span></span>
-                  {tmpl.is_meta && <span className="text-indigo-500 font-semibold flex items-center gap-1">â— Meta API</span>}
+                  <span>भाषा: <span className="font-mono text-zinc-600 dark:text-zinc-400">{tmpl.language}</span></span>
+                  {tmpl.is_meta && <span className="text-indigo-500 font-semibold flex items-center gap-1">● Meta API</span>}
                 </div>
               </div>
 
               <div className="bg-zinc-50 dark:bg-zinc-950/50 border-t border-zinc-100 dark:border-zinc-900/50 p-4 flex gap-3">
                 <button onClick={() => openSendModal(tmpl)} className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5 shadow-sm">
-                  <Send className="w-3.5 h-3.5" /> à¤Ÿà¥‡à¤®à¥à¤ªà¤²à¥‡à¤Ÿ à¤­à¥‡à¤œà¥‡à¤‚
+                  <Send className="w-3.5 h-3.5" /> टेम्पलेट भेजें
                 </button>
                 {!tmpl.is_meta && (
-                  <button onClick={() => handleDeleteLocalTemplate(tmpl.id)} className="p-2 text-zinc-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-all" title="à¤¹à¤Ÿà¤¾à¤à¤‚">
+                  <button onClick={() => handleDeleteLocalTemplate(tmpl.id)} className="p-2 text-zinc-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-all" title="हटाएं">
                     <Trash2 className="w-4 h-4" />
                   </button>
                 )}
@@ -330,8 +330,8 @@ export function TemplatesView({ selectedWaba }: { selectedWaba?: any }) {
           <div className="bg-white dark:bg-zinc-900 rounded-3xl w-full max-w-lg overflow-hidden border border-zinc-200 dark:border-zinc-800 shadow-2xl">
             <div className="p-6 border-b border-zinc-100 dark:border-zinc-800 flex justify-between items-center bg-zinc-50 dark:bg-zinc-900">
               <div>
-                <h3 className="font-bold text-lg text-zinc-900 dark:text-white">à¤¨à¤¯à¤¾ à¤Ÿà¥‡à¤®à¥à¤ªà¤²à¥‡à¤Ÿ à¤¬à¤¨à¤¾à¤à¤‚</h3>
-                <p className="text-xs text-zinc-500">à¤Ÿà¥‡à¤®à¥à¤ªà¤²à¥‡à¤Ÿ à¤¸à¥€à¤§à¥‡ Meta API à¤ªà¤° à¤¸à¤¬à¤®à¤¿à¤Ÿ à¤•à¤¿à¤¯à¤¾ à¤œà¤¾à¤à¤—à¤¾</p>
+                <h3 className="font-bold text-lg text-zinc-900 dark:text-white">नया टेम्पलेट बनाएं</h3>
+                <p className="text-xs text-zinc-500">टेम्पलेट सीधे Meta API पर सबमिट किया जाएगा</p>
               </div>
               <button onClick={() => setShowCreateModal(false)} className="p-2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800">
                 <X className="w-5 h-5" />
@@ -339,30 +339,30 @@ export function TemplatesView({ selectedWaba }: { selectedWaba?: any }) {
             </div>
             <form onSubmit={handleCreateTemplate} className="p-6 space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">à¤Ÿà¥‡à¤®à¥à¤ªà¤²à¥‡à¤Ÿ à¤¨à¤¾à¤® (Alphanumeric and underscores only)</label>
+                <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">टेम्पलेट नाम (केवल अल्फ़ान्यूमेरिक और अंडरस्कोर)</label>
                 <input type="text" value={templateName} onChange={e => setTemplateName(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '_'))} placeholder="e.g. welcome_offer_new" className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-indigo-500 font-mono" required />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">à¤¶à¥à¤°à¥‡à¤£à¥€ (Category)</label>
+                  <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">श्रेणी</label>
                   <select value={category} onChange={e => setCategory(e.target.value)} className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-indigo-500">
-                    <option value="UTILITY">UTILITY (à¤‰à¤ªà¤¯à¥‹à¤—à¤¿à¤¤à¤¾)</option>
-                    <option value="MARKETING">MARKETING (à¤µà¤¿à¤ªà¤£à¤¨)</option>
-                    <option value="AUTHENTICATION">AUTHENTICATION (à¤ªà¥à¤°à¤®à¤¾à¤£à¥€à¤•à¤°à¤£)</option>
+                    <option value="UTILITY">उपयोगिता</option>
+                    <option value="MARKETING">विपणन</option>
+                    <option value="AUTHENTICATION">प्रमाणीकरण</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">à¤­à¤¾à¤·à¤¾ (Language Code)</label>
+                  <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">भाषा</label>
                   <select value={language} onChange={e => setLanguage(e.target.value)} className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-indigo-500 font-mono">
-                    <option value="en_US">en_US (à¤…à¤‚à¤—à¥à¤°à¥‡à¤œà¤¼à¥€)</option>
-                    <option value="hi_IN">hi_IN (à¤¹à¤¿à¤‚à¤¦à¥€)</option>
+                    <option value="en_US">अंग्रेज़ी</option>
+                    <option value="hi_IN">हिंदी</option>
                   </select>
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">à¤Ÿà¥‡à¤®à¥à¤ªà¤²à¥‡à¤Ÿ à¤¬à¥‰à¤¡à¥€ à¤Ÿà¥‡à¤•à¥à¤¸à¥à¤Ÿ (Template Body)</label>
-                <textarea rows={4} value={bodyText} onChange={e => setBodyText(e.target.value)} placeholder="à¤¨à¤®à¤¸à¥à¤¤à¥‡ {{1}}, à¤†à¤ªà¤•à¥‡ à¤‘à¤°à¥à¤¡à¤° {{2}} à¤•à¥€ à¤ªà¥à¤·à¥à¤Ÿà¤¿ à¤¹à¥‹ à¤—à¤ˆ à¤¹à¥ˆ!" className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-indigo-500 resize-none" required />
-                <p className="text-[10px] text-zinc-400 mt-1.5">à¤ªà¥ˆà¤°à¤¾à¤®à¥€à¤Ÿà¤° à¤µà¥‡à¤°à¤¿à¤à¤¬à¤² à¤œà¥‹à¤¡à¤¼à¤¨à¥‡ à¤•à¥‡ à¤²à¤¿à¤ {"{{1}}"}, {"{{2}}"} à¤†à¤¦à¤¿ à¤•à¤¾ à¤‰à¤ªà¤¯à¥‹à¤— à¤•à¤°à¥‡à¤‚à¥¤</p>
+                <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">टेम्पलेट बॉडी टेक्स्ट</label>
+                <textarea rows={4} value={bodyText} onChange={e => setBodyText(e.target.value)} placeholder="नमस्ते {{1}}, आपके ऑर्डर {{2}} की पुष्टि हो गई है!" className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-indigo-500 resize-none" required />
+                <p className="text-[10px] text-zinc-400 mt-1.5">पैरामीटर वेरिएबल जोड़ने के लिए {"{{1}}"}, {"{{2}}"} आदि का उपयोग करें।</p>
               </div>
 
               {createMessage && (
@@ -373,10 +373,10 @@ export function TemplatesView({ selectedWaba }: { selectedWaba?: any }) {
 
               <div className="pt-2 flex gap-3">
                 <button type="submit" disabled={createLoading} className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2">
-                  {createLoading ? "à¤ªà¥à¤°à¤¸à¤‚à¤¸à¥à¤•à¤°à¤£ à¤¹à¥‹ à¤°à¤¹à¤¾ à¤¹à¥ˆ..." : "à¤Ÿà¥‡à¤®à¥à¤ªà¤²à¥‡à¤Ÿ à¤¸à¤¬à¤®à¤¿à¤Ÿ à¤•à¤°à¥‡à¤‚"}
+                  {createLoading ? "प्रसंस्करण हो रहा है..." : "टेम्पलेट सबमिट करें"}
                 </button>
                 <button type="button" onClick={() => setShowCreateModal(false)} className="border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900 text-zinc-700 dark:text-zinc-300 px-6 rounded-xl text-sm font-medium transition-all">
-                  à¤°à¤¦à¥à¤¦ à¤•à¤°à¥‡à¤‚
+                  रद्द करें
                 </button>
               </div>
             </form>
@@ -390,8 +390,8 @@ export function TemplatesView({ selectedWaba }: { selectedWaba?: any }) {
           <div className="bg-white dark:bg-zinc-900 rounded-3xl w-full max-w-lg overflow-hidden border border-zinc-200 dark:border-zinc-800 shadow-2xl">
             <div className="p-6 border-b border-zinc-100 dark:border-zinc-800 flex justify-between items-center bg-zinc-50 dark:bg-zinc-900">
               <div>
-                <h3 className="font-bold text-lg text-zinc-900 dark:text-white">à¤Ÿà¥‡à¤®à¥à¤ªà¤²à¥‡à¤Ÿ à¤¸à¤‚à¤¦à¥‡à¤¶ à¤­à¥‡à¤œà¥‡à¤‚</h3>
-                <p className="text-xs text-zinc-500">à¤Ÿà¥‡à¤®à¥à¤ªà¤²à¥‡à¤Ÿ: <span className="font-mono">{selectedTemplate.name}</span></p>
+                <h3 className="font-bold text-lg text-zinc-900 dark:text-white">टेम्पलेट संदेश भेजें</h3>
+                <p className="text-xs text-zinc-500">टेम्पलेट: <span className="font-mono">{selectedTemplate.name}</span></p>
               </div>
               <button onClick={() => setShowSendModal(false)} className="p-2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800">
                 <X className="w-5 h-5" />
@@ -400,7 +400,7 @@ export function TemplatesView({ selectedWaba }: { selectedWaba?: any }) {
             <form onSubmit={handleSendTemplate} className="p-6 space-y-4">
               {configs.length > 1 && (
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">à¤ªà¥à¤°à¥‡à¤·à¤• à¤¨à¤‚à¤¬à¤° (Sender WABA)</label>
+                  <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">प्रेषक नंबर</label>
                   <select 
                     value={chosenWaba?.id || ''} 
                     onChange={e => {
@@ -418,13 +418,13 @@ export function TemplatesView({ selectedWaba }: { selectedWaba?: any }) {
                 </div>
               )}
               <div>
-                <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">à¤ªà¥à¤°à¤¾à¤ªà¥à¤¤à¤•à¤°à¥à¤¤à¤¾ à¤•à¤¾ à¤®à¥‹à¤¬à¤¾à¤‡à¤² à¤¨à¤‚à¤¬à¤° (à¤¦à¥‡à¤¶ à¤•à¥‹à¤¡ à¤•à¥‡ à¤¸à¤¾à¤¥)</label>
+                <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">प्राप्तकर्ता का मोबाइल नंबर (देश कोड के साथ)</label>
                 <input type="text" value={recipient} onChange={e => setRecipient(e.target.value.replace(/[^0-9+]/g, ''))} placeholder="e.g. +919876543210" className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-indigo-500 font-mono" required />
               </div>
 
               {paramValues.length > 0 && (
                 <div className="space-y-3 pt-2">
-                  <h4 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">à¤ªà¥ˆà¤°à¤¾à¤®à¥€à¤Ÿà¤° à¤®à¤¾à¤¨ (Dynamic Values)</h4>
+                  <h4 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">पैरामीटर मान</h4>
                   {paramValues.map((val, idx) => (
                     <div key={idx} className="flex items-center gap-3">
                       <span className="w-12 text-xs font-bold font-mono text-indigo-500 text-center bg-indigo-50 dark:bg-indigo-950/20 py-2 rounded-lg border border-indigo-100 dark:border-indigo-950/30">
@@ -434,14 +434,14 @@ export function TemplatesView({ selectedWaba }: { selectedWaba?: any }) {
                         const copy = [...paramValues];
                         copy[idx] = e.target.value;
                         setParamValues(copy);
-                      }} placeholder={`à¤µà¥ˆà¤²à¥à¤¯à¥‚ à¤¦à¤°à¥à¤œ à¤•à¤°à¥‡à¤‚ (Value for {{${idx+1}}})`} className="flex-1 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-indigo-500" required />
+                      }} placeholder={`{{${idx+1}}} के लिए वैल्यू दर्ज करें`} className="flex-1 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-indigo-500" required />
                     </div>
                   ))}
                 </div>
               )}
 
               <div className="p-4 bg-zinc-50 dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-900 rounded-xl space-y-1">
-                <span className="text-[10px] uppercase font-bold text-zinc-400">à¤ªà¥‚à¤°à¥à¤µà¤¾à¤µà¤²à¥‹à¤•à¤¨ (Preview):</span>
+                <span className="text-[10px] uppercase font-bold text-zinc-400">पूर्वावलोकन:</span>
                 <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed whitespace-pre-wrap">
                   {selectedTemplate.body_text.replace(/\{\{(\d+)\}\}/g, (match: string, p1: string) => {
                     const idx = parseInt(p1) - 1;
@@ -458,10 +458,10 @@ export function TemplatesView({ selectedWaba }: { selectedWaba?: any }) {
 
               <div className="pt-2 flex gap-3">
                 <button type="submit" disabled={sendLoading} className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2">
-                  {sendLoading ? "à¤­à¥‡à¤œà¤¾ à¤œà¤¾ à¤°à¤¹à¤¾ à¤¹à¥ˆ..." : "à¤Ÿà¥‡à¤®à¥à¤ªà¤²à¥‡à¤Ÿ à¤­à¥‡à¤œà¥‡à¤‚"}
+                  {sendLoading ? "भेजा जा रहा है..." : "टेम्पलेट भेजें"}
                 </button>
                 <button type="button" onClick={() => setShowSendModal(false)} className="border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900 text-zinc-700 dark:text-zinc-300 px-6 rounded-xl text-sm font-medium transition-all">
-                  à¤°à¤¦à¥à¤¦ à¤•à¤°à¥‡à¤‚
+                  रद्द करें
                 </button>
               </div>
             </form>

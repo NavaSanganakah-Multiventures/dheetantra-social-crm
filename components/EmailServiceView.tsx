@@ -24,10 +24,10 @@ function StatusBadge({ status }: { status: string }) {
     suspended: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400',
   };
   const label: Record<string, string> = {
-    active: 'Active (Verified)',
-    pending: 'Pending Verification',
-    failed: 'Failed',
-    suspended: 'Suspended (Auto)',
+    active: 'सक्रिय (वेरिफाइड)',
+    pending: 'वेरिफिकेशन बाकी',
+    failed: 'विफल',
+    suspended: 'सस्पेंड (ऑटो)',
   };
   return (
     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${map[status] || map.pending}`}>
@@ -44,9 +44,9 @@ function ReviewBadge({ status }: { status: string }) {
     rejected: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400',
   };
   const label: Record<string, string> = {
-    pending_review: 'Pending Review',
-    approved: 'Approved',
-    rejected: 'Rejected',
+    pending_review: 'रिव्यू बाकी',
+    approved: 'स्वीकृत',
+    rejected: 'अस्वीकृत',
   };
   return (
     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${map[status] || map.pending_review}`}>
@@ -69,7 +69,7 @@ function CopyButton({ text, label }: { text: string; label?: string }) {
       className="inline-flex items-center gap-1 text-[11px] font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 px-2 py-1 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors"
     >
       {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-      {copied ? 'Copied!' : (label || 'Copy')}
+      {copied ? 'कॉपी हो गया!' : (label || 'कॉपी करें')}
     </button>
   );
 }
@@ -124,11 +124,11 @@ export default function EmailServiceView() {
         toast('success', data.message || 'जांच पूरी — status अपडेट हो गया');
         refreshDomains();
       } else {
-        toast('error', data.error || 'Verification failed');
+        toast('error', data.error || 'वेरिफिकेशन विफल');
         refreshDomains();
       }
     } catch (e: any) {
-      toast('error', e.message || 'Verification failed');
+      toast('error', e.message || 'वेरिफिकेशन विफल');
       refreshDomains();
     }
   };
@@ -139,15 +139,15 @@ export default function EmailServiceView() {
       const res = await fetch(`/api/domains/${id}`, { method: 'DELETE', headers: getHeaders() });
       const data: any = await res.json();
       if (data.success) {
-        toast('success', 'डोमेन हटा दिया गया (Domain removed)');
+        toast('success', 'डोमेन हटा दिया गया');
         refreshDomains();
       } else {
         const detail = (data.errors && data.errors.length) ? ` — ${data.errors.join('; ')}` : '';
-        toast('error', `${data.error || 'Failed to remove domain'}${detail}`);
+        toast('error', `${data.error || 'डोमेन हटाने में विफल'}${detail}`);
         refreshDomains();
       }
     } catch (e: any) {
-      toast('error', e.message || 'Failed to remove domain');
+      toast('error', e.message || 'डोमेन हटाने में विफल');
     }
   };
 
@@ -166,10 +166,10 @@ export default function EmailServiceView() {
       if (data.success) {
         toast('success', `टेस्ट ईमेल भेजा गया → ${to}`);
       } else {
-        toast('error', data.error || 'Test email failed');
+        toast('error', data.error || 'टेस्ट ईमेल विफल');
       }
     } catch (e: any) {
-      toast('error', e.message || 'Test email failed');
+      toast('error', e.message || 'टेस्ट ईमेल विफल');
     }
   };
 
@@ -180,7 +180,7 @@ export default function EmailServiceView() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-zinc-900 dark:text-white">ईमेल सेवा (Email Service)</h2>
+          <h2 className="text-2xl font-bold text-zinc-900 dark:text-white">ईमेल सेवा</h2>
           <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
             अपना डोमेन जोड़ें और Cloudflare Email Service से ईमेल भेजें व पाएं।
           </p>
@@ -189,7 +189,7 @@ export default function EmailServiceView() {
           onClick={() => setShowAddModal(true)}
           className="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white text-sm font-semibold rounded-xl transition-colors shadow-sm"
         >
-          <Plus className="w-4 h-4" /> डोमेन जोड़ें (Add Domain)
+          <Plus className="w-4 h-4" /> डोमेन जोड़ें
         </button>
       </div>
 
@@ -352,7 +352,7 @@ function InboxSection({ domains }: { domains: any[] }) {
       <div className={`${selectedId ? 'hidden md:flex' : 'flex'} md:flex flex-col border-r border-zinc-200 dark:border-zinc-800`}>
         <div className="p-4 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
           <h3 className="font-semibold text-zinc-900 dark:text-white">ईमेल बातचीत</h3>
-          <button onClick={loadConversations} className="p-1.5 text-zinc-500 hover:text-indigo-600 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800" title="Refresh">
+          <button onClick={loadConversations} className="p-1.5 text-zinc-500 hover:text-indigo-600 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800" title="रिफ्रेश करें">
             <RefreshCw className="w-4 h-4" />
           </button>
         </div>
@@ -372,7 +372,7 @@ function InboxSection({ domains }: { domains: any[] }) {
                   </p>
                   <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">{conv.sender_email}</p>
                   <p className="text-xs text-zinc-700 dark:text-zinc-300 mt-1 truncate">
-                    {conv.subject ? <span className="font-medium">{conv.subject}</span> : <span className="text-zinc-400">(no subject)</span>}
+                    {conv.subject ? <span className="font-medium">{conv.subject}</span> : <span className="text-zinc-400">(कोई विषय नहीं)</span>}
                   </p>
                   <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 truncate">{conv.preview || ''}</p>
                 </div>
@@ -387,7 +387,7 @@ function InboxSection({ domains }: { domains: any[] }) {
           {conversations.length === 0 && (
             <div className="p-8 text-center text-zinc-500 dark:text-zinc-400 text-sm">
               अभी तक कोई ईमेल नहीं आया।<br />
-              <span className="text-xs">Active domain के mailbox पर email भेजकर test करें।</span>
+              <span className="text-xs">सक्रिय domain के mailbox पर email भेजकर test करें।</span>
             </div>
           )}
         </div>
@@ -418,10 +418,10 @@ function InboxSection({ domains }: { domains: any[] }) {
                   {detail.conversation.contact_name || detail.conversation.sender_email}
                 </h3>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">{detail.conversation.sender_email}</p>
-                <p className="text-xs text-zinc-400 mt-1 truncate">Reply from: {detail.replyMailbox || '—'}</p>
+                <p className="text-xs text-zinc-400 mt-1 truncate">Reply भेजने वाला: {detail.replyMailbox || '—'}</p>
               </div>
               <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${detail.conversation.status === 'open' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300'}`}>
-                {detail.conversation.status === 'open' ? 'Open' : 'Closed'}
+                {detail.conversation.status === 'open' ? 'सक्रिय' : 'बंद'}
               </span>
             </div>
 
@@ -436,11 +436,11 @@ function InboxSection({ domains }: { domains: any[] }) {
                     <div className={`max-w-full md:max-w-[80%] rounded-2xl p-4 ${isContact ? 'bg-zinc-100 dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100' : 'bg-indigo-600 text-white'}`}>
                       <div className="flex items-center gap-2 mb-2">
                         {isContact ? <User className="w-3.5 h-3.5" /> : <CornerUpLeft className="w-3.5 h-3.5" />}
-                        <span className="text-xs font-medium">{isContact ? (detail.conversation.contact_name || 'Customer') : 'You'}</span>
+                        <span className="text-xs font-medium">{isContact ? (detail.conversation.contact_name || 'ग्राहक') : 'आप'}</span>
                         <span className="text-[10px] opacity-70">{formatDate(m.created_at)}</span>
                       </div>
                       {m.media?.subject && (
-                        <p className={`text-xs font-semibold mb-2 ${isContact ? 'text-zinc-800 dark:text-zinc-200' : 'text-indigo-100'}`}>Subject: {m.media.subject}</p>
+                        <p className={`text-xs font-semibold mb-2 ${isContact ? 'text-zinc-800 dark:text-zinc-200' : 'text-indigo-100'}`}>विषय: {m.media.subject}</p>
                       )}
                       <div className={`text-sm overflow-auto ${isContact ? 'text-zinc-800 dark:text-zinc-200' : 'text-white'}`}>
                         {html ? (
@@ -451,7 +451,7 @@ function InboxSection({ domains }: { domains: any[] }) {
                             className="w-full min-h-[120px] bg-transparent"
                           />
                         ) : (
-                          <p className="whitespace-pre-wrap">{m.content || '(no content)'}</p>
+                          <p className="whitespace-pre-wrap">{m.content || '(कोई सामग्री नहीं)'}</p>
                         )}
                       </div>
                       {(m.media?.attachments || []).length > 0 && (
@@ -481,7 +481,7 @@ function InboxSection({ domains }: { domains: any[] }) {
             </div>
 
             <div className="p-4 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/50">
-              <label className="block text-xs font-semibold text-zinc-500 dark:text-zinc-400 mb-2">Reply भेजें (HTML support)</label>
+              <label className="block text-xs font-semibold text-zinc-500 dark:text-zinc-400 mb-2">Reply भेजें</label>
               <textarea
                 value={replyBody}
                 onChange={e => setReplyBody(e.target.value)}
@@ -584,10 +584,10 @@ function DomainsSection({
         toast('success', 'Mailbox हटा दिया गया');
         loadMailboxes(domainId);
       } else {
-        toast('error', data.error || 'Failed to delete mailbox');
+        toast('error', data.error || 'Mailbox हटाने में विफल');
       }
     } catch (e: any) {
-      toast('error', e.message || 'Failed to delete mailbox');
+      toast('error', e.message || 'Mailbox हटाने में विफल');
     }
   };
 
@@ -636,8 +636,8 @@ function DomainsSection({
                 <div className="min-w-0">
                   <h3 className="font-semibold text-zinc-900 dark:text-white truncate">{domain.domain_name}</h3>
                   <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-                    {domain.setup_mode === 'cname' ? 'CNAME (DNS-only) Setup' : 'Full Setup (Nameservers)'}
-                    {domain.sending_onboarded ? ' • Sending: Ready' : ' • Sending: Pending'}
+                    {domain.setup_mode === 'cname' ? 'CNAME (सिर्फ DNS) सेटअप' : 'फुल सेटअप (Nameservers)'}
+                    {domain.sending_onboarded ? ' • भेजना: तैयार' : ' • भेजना: बाकी'}
                   </p>
                 </div>
               </div>
@@ -654,7 +654,7 @@ function DomainsSection({
                       ? 'text-zinc-700 dark:text-zinc-200 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700'
                       : 'text-zinc-400 bg-zinc-100 dark:bg-zinc-800 cursor-not-allowed'
                   }`}
-                  title={domain.review_status === 'approved' ? 'फिर से जांचें' : 'Admin approval pending'}
+                  title={domain.review_status === 'approved' ? 'फिर से जांचें' : 'Admin की मंज़ूरी बाकी'}
                 >
                   {verifyingId === domain.id
                     ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -697,7 +697,7 @@ function DomainsSection({
                 {domain.status !== 'active' && domain.review_status === 'approved' && (
                   <div className="bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 rounded-xl p-4">
                     <h4 className="text-sm font-semibold text-amber-800 dark:text-amber-300 mb-2 flex items-center gap-2">
-                      <KeyRound className="w-4 h-4" /> Setup Instructions (DNS जोड़ें)
+                      <KeyRound className="w-4 h-4" /> सेटअप निर्देश (DNS जोड़ें)
                     </h4>
                     {domain.setup_mode === 'cname' ? (
                       <div className="space-y-2">
@@ -755,7 +755,7 @@ function DomainsSection({
                       type="email"
                       value={testTo[domain.id] || ''}
                       onChange={e => setTestTo(prev => ({ ...prev, [domain.id]: e.target.value }))}
-                      placeholder="test@example.com (test email किसे भेजें)"
+                      placeholder="test@example.com (टेस्ट ईमेल किसे भेजें)"
                       className="flex-1 px-3 py-2 text-sm rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     />
                     <button
@@ -781,7 +781,7 @@ function DomainsSection({
                           <span className="text-xs text-zinc-500 dark:text-zinc-400 hidden md:block">→ {mb.forward_to}</span>
                         )}
                         {mb.is_default ? (
-                          <span className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 px-2 py-0.5 rounded-full">Default</span>
+                          <span className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 px-2 py-0.5 rounded-full">डिफ़ॉल्ट</span>
                         ) : null}
                         <button
                           onClick={() => removeMailbox(mb.id, mb.email_address, domain.id)}
@@ -799,14 +799,14 @@ function DomainsSection({
                     <input
                       value={newMailbox[domain.id]?.localPart || ''}
                       onChange={e => setNewMailbox(prev => ({ ...prev, [domain.id]: { ...(prev[domain.id] || {}), localPart: e.target.value } }))}
-                      placeholder={domain.review_status === 'approved' ? `mailbox name (जैसे: hello → hello@${domain.domain_name})` : 'Admin approval pending'}
+                      placeholder={domain.review_status === 'approved' ? `mailbox name (जैसे: hello → hello@${domain.domain_name})` : 'Admin की मंज़ूरी बाकी'}
                       disabled={domain.review_status !== 'approved'}
                       className="flex-1 px-3 py-2 text-sm rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
                     />
                     <input
                       value={newMailbox[domain.id]?.forwardTo || ''}
                       onChange={e => setNewMailbox(prev => ({ ...prev, [domain.id]: { ...(prev[domain.id] || {}), forwardTo: e.target.value } }))}
-                      placeholder="forward to (optional, e.g. you@gmail.com)"
+                      placeholder="फॉरवर्ड करें (वैकल्पिक, जैसे: you@gmail.com)"
                       disabled={domain.review_status !== 'approved'}
                       className="flex-1 px-3 py-2 text-sm rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
                     />
@@ -871,7 +871,7 @@ function AddDomainModal({ onClose, onAdded }: { onClose: () => void; onAdded: ()
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
       <div className="bg-white dark:bg-zinc-900 rounded-2xl w-full max-w-lg p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5">
-          <h3 className="text-lg font-bold text-zinc-900 dark:text-white">डोमेन जोड़ें (Add Domain)</h3>
+          <h3 className="text-lg font-bold text-zinc-900 dark:text-white">डोमेन जोड़ें</h3>
           <button onClick={onClose} className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200">
             <X className="w-5 h-5" />
           </button>
@@ -890,14 +890,14 @@ function AddDomainModal({ onClose, onAdded }: { onClose: () => void; onAdded: ()
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-zinc-500 dark:text-zinc-400 mb-1">Setup Mode</label>
+            <label className="block text-xs font-semibold text-zinc-500 dark:text-zinc-400 mb-1">सेटअप मोड</label>
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={() => setSetupMode('full')}
                 className={`p-3 rounded-xl border text-left transition-colors ${setupMode === 'full' ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20' : 'border-zinc-200 dark:border-zinc-700 hover:border-zinc-300'}`}
               >
-                <span className="block text-sm font-semibold text-zinc-900 dark:text-white">Full Setup (Recommended)</span>
+                <span className="block text-sm font-semibold text-zinc-900 dark:text-white">फुल सेटअप (सुझाया गया)</span>
                 <span className="block text-xs text-zinc-500 dark:text-zinc-400 mt-1">Nameservers बदलें — बाकी सब automatic</span>
               </button>
               <button
@@ -905,7 +905,7 @@ function AddDomainModal({ onClose, onAdded }: { onClose: () => void; onAdded: ()
                 onClick={() => setSetupMode('cname')}
                 className={`p-3 rounded-xl border text-left transition-colors ${setupMode === 'cname' ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20' : 'border-zinc-200 dark:border-zinc-700 hover:border-zinc-300'}`}
               >
-                <span className="block text-sm font-semibold text-zinc-900 dark:text-white">CNAME Setup</span>
+                <span className="block text-sm font-semibold text-zinc-900 dark:text-white">CNAME सेटअप</span>
                 <span className="block text-xs text-zinc-500 dark:text-zinc-400 mt-1">DNS records खुद जोड़ें (Business+ plan)</span>
               </button>
             </div>
@@ -913,7 +913,7 @@ function AddDomainModal({ onClose, onAdded }: { onClose: () => void; onAdded: ()
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-zinc-500 dark:text-zinc-400 mb-1">Default Mailbox</label>
+              <label className="block text-xs font-semibold text-zinc-500 dark:text-zinc-400 mb-1">डिफ़ॉल्ट Mailbox</label>
               <input
                 type="text"
                 value={defaultEmailPrefix}
@@ -923,7 +923,7 @@ function AddDomainModal({ onClose, onAdded }: { onClose: () => void; onAdded: ()
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-zinc-500 dark:text-zinc-400 mb-1">Forward To (optional)</label>
+              <label className="block text-xs font-semibold text-zinc-500 dark:text-zinc-400 mb-1">फॉरवर्ड करें (वैकल्पिक)</label>
               <input
                 type="email"
                 value={forwardTo}
@@ -1031,7 +1031,7 @@ function ComposeSection({ domains }: { domains: any[] }) {
       <div className="lg:col-span-2 bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 p-6 space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-semibold text-zinc-500 dark:text-zinc-400 mb-1">From (आपके डोमेन से)</label>
+            <label className="block text-xs font-semibold text-zinc-500 dark:text-zinc-400 mb-1">किससे भेजें (आपके डोमेन से)</label>
             <select
               value={from}
               onChange={e => setFrom(e.target.value)}
@@ -1043,7 +1043,7 @@ function ComposeSection({ domains }: { domains: any[] }) {
             </select>
           </div>
           <div>
-            <label className="block text-xs font-semibold text-zinc-500 dark:text-zinc-400 mb-1">To (किसे भेजना है)</label>
+            <label className="block text-xs font-semibold text-zinc-500 dark:text-zinc-400 mb-1">किसे भेजना है</label>
             <input
               type="email"
               value={to}
@@ -1054,18 +1054,18 @@ function ComposeSection({ domains }: { domains: any[] }) {
           </div>
         </div>
         <div>
-          <label className="block text-xs font-semibold text-zinc-500 dark:text-zinc-400 mb-1">Subject</label>
+          <label className="block text-xs font-semibold text-zinc-500 dark:text-zinc-400 mb-1">विषय</label>
           <input
             type="text"
             value={subject}
             onChange={e => setSubject(e.target.value)}
-            placeholder="ईमेल का subject"
+            placeholder="ईमेल का विषय"
             className="w-full px-3 py-2.5 text-sm rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
         </div>
         <div>
           <label className="block text-xs font-semibold text-zinc-500 dark:text-zinc-400 mb-1">
-            Body (HTML support) — वेरिएबल: {'{{name}} {{otp}} {{link}}'}
+            Body — वेरिएबल: {'{{name}} {{otp}} {{link}}'}
           </label>
           <textarea
             value={body}
@@ -1200,7 +1200,7 @@ function TemplatesSection() {
                 onClick={() => setEditing(t)}
                 className="px-3 py-1.5 text-xs font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors"
               >
-                Edit
+                एडिट करें
               </button>
             </div>
           ))}
@@ -1219,7 +1219,7 @@ function TemplatesSection() {
         <input
           value={editing?.subject || ''}
           onChange={e => setEditing((p: any) => ({ ...p, subject: e.target.value }))}
-          placeholder="Subject"
+          placeholder="विषय"
           className="w-full px-3 py-2.5 text-sm rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
         />
         <textarea
@@ -1274,10 +1274,10 @@ function LogsSection() {
           <thead>
             <tr className="text-left text-xs text-zinc-500 dark:text-zinc-400 border-b border-zinc-100 dark:border-zinc-800">
               <th className="px-5 py-3 font-semibold">समय</th>
-              <th className="px-5 py-3 font-semibold">From</th>
-              <th className="px-5 py-3 font-semibold">To</th>
-              <th className="px-5 py-3 font-semibold">Subject</th>
-              <th className="px-5 py-3 font-semibold">Status</th>
+              <th className="px-5 py-3 font-semibold">किससे</th>
+              <th className="px-5 py-3 font-semibold">किसको</th>
+              <th className="px-5 py-3 font-semibold">विषय</th>
+              <th className="px-5 py-3 font-semibold">स्थिति</th>
             </tr>
           </thead>
           <tbody>
@@ -1291,7 +1291,7 @@ function LogsSection() {
                 <td className="px-5 py-3 text-xs text-zinc-600 dark:text-zinc-400 max-w-[200px] truncate">{l.subject || ''}</td>
                 <td className="px-5 py-3">
                   <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${l.status === 'sent' ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'}`}>
-                    {l.status === 'sent' ? 'Sent' : (l.error_code || 'Failed')}
+                    {l.status === 'sent' ? 'भेजा गया' : (l.error_code || 'विफल')}
                   </span>
                 </td>
               </tr>

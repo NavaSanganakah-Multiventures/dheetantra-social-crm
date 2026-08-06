@@ -5,9 +5,9 @@ export function IntegrationsView() {
     <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-zinc-900 dark:text-white">à¤‡à¤‚à¤Ÿà¥€à¤—à¥à¤°à¥‡à¤¶à¤¨à¥à¤¸ (Integrations)</h2>
+          <h2 className="text-2xl font-bold text-zinc-900 dark:text-white">इंटीग्रेशन्स</h2>
           <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-            à¤…à¤ªà¤¨à¥‡ à¤…à¤•à¤¾à¤‰à¤‚à¤Ÿ à¤•à¥‹ à¤…à¤¨à¥à¤¯ à¤¸à¥‡à¤µà¤¾à¤“à¤‚ à¤¸à¥‡ à¤•à¤¨à¥‡à¤•à¥à¤Ÿ à¤•à¤°à¥‡à¤‚à¥¤ (Connect your account with other services)
+            अपने अकाउंट को अन्य सेवाओं से कनेक्ट करें।
           </p>
         </div>
       </div>
@@ -21,13 +21,13 @@ export function IntegrationsView() {
             <div>
               <h3 className="font-semibold text-zinc-900 dark:text-white">Google Contacts</h3>
               <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-                à¤…à¤ªà¤¨à¥‡ Google Contacts à¤•à¥‹ à¤¸à¤¿à¤‚à¤• à¤•à¤°à¥‡à¤‚à¥¤ (Sync your Google Contacts)
+                अपने Google Contacts को सिंक करें।
               </p>
             </div>
           </div>
           <div className="mt-auto pt-4 flex gap-3">
              <button disabled className="w-full bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 py-2 rounded-xl text-sm font-medium cursor-not-allowed">
-               Coming Soon
+               जल्द आ रहा है
              </button>
           </div>
         </div>
@@ -39,9 +39,9 @@ export function IntegrationsView() {
               <Blocks className="w-6 h-6" />
             </div>
             <div>
-              <h3 className="font-semibold text-zinc-900 dark:text-white">Future Integration</h3>
+              <h3 className="font-semibold text-zinc-900 dark:text-white">आगामी इंटीग्रेशन</h3>
               <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-                More integrations coming soon
+                अधिक इंटीग्रेशन जल्द आ रहे हैं
               </p>
             </div>
           </div>

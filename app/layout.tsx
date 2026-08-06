@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { FcmRegistration } from '../components/FcmRegistration';
 import { ToastProvider } from '../components/ui/Toast';
+import { LanguageProvider } from '../lib/i18n';
 
 export const metadata: Metadata = {
   title: 'DheeTantra | Ultimate Omnichannel SaaS & WhatsApp CRM',
@@ -15,7 +16,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
       <body className="min-h-screen bg-surface-50 dark:bg-surface-950 text-surface-900 dark:text-surface-50 flex flex-col font-sans selection:bg-primary-500/20">
         <FcmRegistration />
-        <ToastProvider>{children}</ToastProvider>
+        <LanguageProvider>
+          <ToastProvider>{children}</ToastProvider>
+        </LanguageProvider>
       </body>
     </html>
   );

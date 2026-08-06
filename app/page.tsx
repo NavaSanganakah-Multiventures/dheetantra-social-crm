@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
+import { useLang, LangSwitcher } from '../lib/i18n';
 
 function useScrollProgress() {
   const { scrollY } = useScroll();
@@ -67,6 +68,7 @@ function NavBar({
   navBg: any;
   navBorder: any;
 }) {
+  const { t } = useLang();
   return (
     <motion.nav
       style={{ background: navBg, borderBottomColor: navBorder }}
@@ -83,21 +85,22 @@ function NavBar({
         </Link>
 
         <div className="hidden md:flex items-center gap-8 text-sm font-medium text-surface-600 dark:text-surface-300">
-          <NavLink href="#features">Features</NavLink>
-          <NavLink href="/pricing">Pricing</NavLink>
-          <NavLink href="/about">About Us</NavLink>
-          <NavLink href="/contact">Contact</NavLink>
+          <NavLink href="#features">{t('nav.features')}</NavLink>
+          <NavLink href="/pricing">{t('nav.pricing')}</NavLink>
+          <NavLink href="/about">{t('nav.about')}</NavLink>
+          <NavLink href="/contact">{t('nav.contact')}</NavLink>
         </div>
 
         <div className="hidden md:flex items-center gap-4">
+          <LangSwitcher />
           <Link
             href="/login"
             className="text-sm font-medium text-surface-600 dark:text-surface-300 hover:text-surface-900 dark:hover:text-white transition-colors"
           >
-            Log In
+            {t('nav.login')}
           </Link>
           <Button as={Link} href="/register" size="sm">
-            Get Started <ArrowRight className="w-4 h-4" />
+            {t('nav.getStarted')} <ArrowRight className="w-4 h-4" />
           </Button>
         </div>
 
@@ -124,6 +127,7 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
 }
 
 function HeroSection() {
+  const { t } = useLang();
   return (
     <section className="relative min-h-screen flex items-center pt-20 pb-20 overflow-hidden">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -145,7 +149,7 @@ function HeroSection() {
             >
               <Badge variant="primary" size="md" className="mb-6">
                 <span className="w-2 h-2 rounded-full bg-primary-500 animate-pulse-soft" />
-                Next-Gen Omnichannel CRM
+                {t('home.badge')}
               </Badge>
             </motion.div>
 
@@ -155,8 +159,8 @@ function HeroSection() {
               transition={{ duration: 0.6, delay: 0.1 }}
               className="text-5xl md:text-7xl font-extrabold tracking-tight text-surface-900 dark:text-white mb-6 leading-[1.05] font-['Inter']"
             >
-              Unify Your Customer{' '}
-              <span className="gradient-text">Communications</span>
+              {t('home.hero.title1')}{' '}
+              <span className="gradient-text">{t('home.hero.title2')}</span>
             </motion.h1>
 
             <motion.p
@@ -165,9 +169,7 @@ function HeroSection() {
               transition={{ duration: 0.6, delay: 0.2 }}
               className="text-lg md:text-xl text-surface-500 dark:text-surface-400 mb-10 max-w-xl leading-relaxed"
             >
-              DheeTantra seamlessly connects WhatsApp, Emails, and Social Media
-              into one powerful, lightning-fast dashboard powered by Cloudflare
-              Edge.
+              {t('home.hero.subtitle')}
             </motion.p>
 
             <motion.div
@@ -177,10 +179,10 @@ function HeroSection() {
               className="flex flex-col sm:flex-row gap-4"
             >
               <Button size="lg" as={Link} href="/register">
-                Start for Free <ArrowRight className="w-5 h-5" />
+                {t('home.hero.startFree')} <ArrowRight className="w-5 h-5" />
               </Button>
               <Button variant="glass" size="lg" as={Link} href="/contact">
-                Book a Demo
+                {t('home.hero.bookDemo')}
               </Button>
             </motion.div>
 
@@ -191,13 +193,13 @@ function HeroSection() {
               className="flex items-center gap-6 mt-10 text-sm text-surface-500"
             >
               <span className="flex items-center gap-2">
-                <Check className="w-4 h-4 text-emerald-500" /> No credit card
+                <Check className="w-4 h-4 text-emerald-500" /> {t('home.hero.noCreditCard')}
               </span>
               <span className="flex items-center gap-2">
-                <Check className="w-4 h-4 text-emerald-500" /> Free workspace
+                <Check className="w-4 h-4 text-emerald-500" /> {t('home.hero.freeWorkspace')}
               </span>
               <span className="flex items-center gap-2">
-                <Check className="w-4 h-4 text-emerald-500" /> Cancel anytime
+                <Check className="w-4 h-4 text-emerald-500" /> {t('home.hero.cancelAnytime')}
               </span>
             </motion.div>
           </div>
@@ -222,20 +224,20 @@ function HeroSection() {
                   {[
                     {
                       name: 'Priya Sharma',
-                      msg: 'Hi! Is this product available?',
-                      time: '2m ago',
+                      msg: t('home.mock.msg1'),
+                      time: t('home.mock.time1'),
                       active: true,
                     },
                     {
                       name: 'Rajesh Kumar',
-                      msg: 'Thanks for the quick response!',
-                      time: '15m ago',
+                      msg: t('home.mock.msg2'),
+                      time: t('home.mock.time2'),
                       active: false,
                     },
                     {
                       name: 'Anita Patel',
-                      msg: 'Can I get a demo this week?',
-                      time: '1h ago',
+                      msg: t('home.mock.msg3'),
+                      time: t('home.mock.time3'),
                       active: false,
                     },
                   ].map((item, i) => (
@@ -268,7 +270,7 @@ function HeroSection() {
                 <div className="mt-4 pt-4 border-t border-surface-200 dark:border-surface-700/50">
                   <div className="flex items-center gap-3">
                     <div className="flex-1 h-10 rounded-xl bg-surface-100 dark:bg-surface-800 flex items-center px-4">
-                      <span className="text-sm text-surface-400">Type a message...</span>
+                      <span className="text-sm text-surface-400">{t('home.mock.type')}</span>
                     </div>
                     <div className="w-10 h-10 rounded-xl bg-primary-600 flex items-center justify-center">
                       <ArrowRight className="w-4 h-4 text-white" />
@@ -287,11 +289,12 @@ function HeroSection() {
 }
 
 function BrandStrip() {
+  const { t } = useLang();
   return (
     <section className="py-12 border-y border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-900/50">
       <div className="max-w-7xl mx-auto px-6">
         <p className="text-center text-xs font-semibold uppercase tracking-widest text-surface-400 mb-8">
-          Trusted by innovative teams worldwide
+          {t('home.trustedBy')}
         </p>
         <div className="flex flex-wrap items-center justify-center gap-x-16 gap-y-6 opacity-40 dark:opacity-30">
           {['Cloudflare', 'Meta', 'Google', 'AWS', 'Stripe', 'Twilio'].map(name => (
@@ -306,47 +309,42 @@ function BrandStrip() {
 }
 
 function FeaturesSection() {
+  const { t } = useLang();
   const features = [
     {
       icon: <MessageSquare className="w-6 h-6" />,
-      title: 'Unified Inbox',
-      description:
-        'Manage WhatsApp, Facebook Messenger, and Instagram DMs from a single, collaborative dashboard.',
+      title: t('home.features.inbox.title'),
+      description: t('home.features.inbox.desc'),
       color: 'from-primary-500 to-indigo-600',
     },
     {
       icon: <Megaphone className="w-6 h-6" />,
-      title: 'Smart Broadcasts',
-      description:
-        'Send personalized WhatsApp campaigns to thousands of contacts with automated rate limiting.',
+      title: t('home.features.broadcast.title'),
+      description: t('home.features.broadcast.desc'),
       color: 'from-emerald-500 to-teal-600',
     },
     {
       icon: <Zap className="w-6 h-6" />,
-      title: 'Edge Infrastructure',
-      description:
-        'Built on Cloudflare Workers for global 0ms latency. Fast, secure, and incredibly reliable.',
+      title: t('home.features.edge.title'),
+      description: t('home.features.edge.desc'),
       color: 'from-amber-500 to-orange-600',
     },
     {
       icon: <Globe className="w-6 h-6" />,
-      title: 'Email Routing',
-      description:
-        'Connect your domain and route customer emails directly into your DheeTantra workspace.',
+      title: t('home.features.email.title'),
+      description: t('home.features.email.desc'),
       color: 'from-blue-500 to-cyan-600',
     },
     {
       icon: <BarChart3 className="w-6 h-6" />,
-      title: 'Actionable Analytics',
-      description:
-        'Track response times, campaign ROI, and team performance with beautiful visual reports.',
+      title: t('home.features.analytics.title'),
+      description: t('home.features.analytics.desc'),
       color: 'from-purple-500 to-pink-600',
     },
     {
       icon: <Shield className="w-6 h-6" />,
-      title: 'Enterprise Security',
-      description:
-        'Role-based access control, end-to-end encryption for API keys, and compliance ready.',
+      title: t('home.features.security.title'),
+      description: t('home.features.security.desc'),
       color: 'from-rose-500 to-red-600',
     },
   ];
@@ -361,15 +359,14 @@ function FeaturesSection() {
           className="text-center mb-20"
         >
           <Badge variant="primary" className="mb-4">
-            Features
+            {t('home.features.badge')}
           </Badge>
           <h2 className="text-4xl md:text-5xl font-extrabold mb-4 font-['Inter'] tracking-tight">
-            Everything you need to{' '}
-            <span className="gradient-text">scale</span>
+            {t('home.features.title1')}{' '}
+            <span className="gradient-text">{t('home.features.title2')}</span>
           </h2>
           <p className="text-surface-500 dark:text-surface-400 max-w-2xl mx-auto text-lg">
-            Powerful features designed to help your team respond faster,
-            automate workflows, and close more deals.
+            {t('home.features.subtitle')}
           </p>
         </motion.div>
 
@@ -403,11 +400,12 @@ function FeaturesSection() {
 }
 
 function StatsSection() {
+  const { t } = useLang();
   const stats = [
-    { value: '10K+', label: 'Active Workspaces' },
-    { value: '1M+', label: 'Messages Sent' },
-    { value: '99.9%', label: 'Uptime' },
-    { value: '150+', label: 'Countries' },
+    { value: '10K+', label: t('home.stats.workspaces') },
+    { value: '1M+', label: t('home.stats.messages') },
+    { value: '99.9%', label: t('home.stats.uptime') },
+    { value: '150+', label: t('home.stats.countries') },
   ];
 
   return (
@@ -437,26 +435,24 @@ function StatsSection() {
 }
 
 function TestimonialsSection() {
+  const { t } = useLang();
   const testimonials = [
     {
-      quote:
-        'DheeTantra transformed our customer support. We now respond 3x faster across all channels from a single dashboard.',
+      quote: t('home.testimonials.quote1'),
       name: 'Vikram Mehta',
-      role: 'CEO, TechVista Solutions',
+      role: t('home.testimonials.role1'),
       rating: 5,
     },
     {
-      quote:
-        'The WhatsApp broadcast feature alone saved us hundreds of hours. Our campaign ROI increased by 40%.',
+      quote: t('home.testimonials.quote2'),
       name: 'Neha Gupta',
-      role: 'Marketing Head, GrowthLabs',
+      role: t('home.testimonials.role2'),
       rating: 5,
     },
     {
-      quote:
-        'Finally, a CRM that handles Indian languages perfectly. The Hindi support and regional focus sets it apart.',
+      quote: t('home.testimonials.quote3'),
       name: 'Arun Singh',
-      role: 'Founder, BharatConnect',
+      role: t('home.testimonials.role3'),
       rating: 5,
     },
   ];
@@ -471,11 +467,11 @@ function TestimonialsSection() {
           className="text-center mb-16"
         >
           <Badge variant="primary" className="mb-4">
-            Testimonials
+            {t('home.testimonials.badge')}
           </Badge>
           <h2 className="text-4xl font-extrabold mb-4 font-['Inter'] tracking-tight">
-            Loved by{' '}
-            <span className="gradient-text">businesses</span>
+            {t('home.testimonials.title1')}{' '}
+            <span className="gradient-text">{t('home.testimonials.title2')}</span>
           </h2>
         </motion.div>
 
@@ -520,6 +516,7 @@ function TestimonialsSection() {
 }
 
 function PricingPreviewSection() {
+  const { t } = useLang();
   return (
     <section className="py-24 bg-surface-100 dark:bg-surface-900/50">
       <div className="max-w-7xl mx-auto px-6">
@@ -530,14 +527,14 @@ function PricingPreviewSection() {
           className="text-center mb-16"
         >
           <Badge variant="primary" className="mb-4">
-            Pricing
+            {t('home.pricing.badge')}
           </Badge>
           <h2 className="text-4xl font-extrabold mb-4 font-['Inter'] tracking-tight">
-            Simple, transparent{' '}
-            <span className="gradient-text">pricing</span>
+            {t('home.pricing.title1')}{' '}
+            <span className="gradient-text">{t('home.pricing.title2')}</span>
           </h2>
           <p className="text-surface-500 max-w-xl mx-auto">
-            Start free, scale as you grow. No hidden fees, no surprises.
+            {t('home.pricing.subtitle')}
           </p>
         </motion.div>
 
@@ -546,32 +543,37 @@ function PricingPreviewSection() {
             {
               name: 'Starter',
               price: 'Free',
-              desc: 'Perfect for small teams getting started',
-              features: ['Up to 500 messages/mo', '2 team members', 'WhatsApp + Email', 'Basic analytics'],
+              desc: t('home.pricing.starter.desc'),
+              features: [
+                t('home.pricing.starter.f1'),
+                t('home.pricing.starter.f2'),
+                t('home.pricing.starter.f3'),
+                t('home.pricing.starter.f4'),
+              ],
             },
             {
               name: 'Business',
               price: '$29',
-              desc: 'For growing businesses needs',
+              desc: t('home.pricing.business.desc'),
               popular: true,
               features: [
-                'Up to 5,000 messages/mo',
-                '10 team members',
-                'All channels',
-                'Advanced analytics',
-                'API access',
+                t('home.pricing.business.f1'),
+                t('home.pricing.business.f2'),
+                t('home.pricing.business.f3'),
+                t('home.pricing.business.f4'),
+                t('home.pricing.business.f5'),
               ],
             },
             {
               name: 'Enterprise',
               price: '$99',
-              desc: 'For large-scale operations',
+              desc: t('home.pricing.enterprise.desc'),
               features: [
-                'Unlimited messages',
-                'Unlimited team members',
-                'Custom integrations',
-                'Priority support',
-                'SLA guarantee',
+                t('home.pricing.enterprise.f1'),
+                t('home.pricing.enterprise.f2'),
+                t('home.pricing.enterprise.f3'),
+                t('home.pricing.enterprise.f4'),
+                t('home.pricing.enterprise.f5'),
               ],
             },
           ].map((plan, i) => (
@@ -590,7 +592,7 @@ function PricingPreviewSection() {
               {plan.popular && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                   <Badge variant="primary" size="md">
-                    Most Popular
+                    {t('home.pricing.mostPopular')}
                   </Badge>
                 </div>
               )}
@@ -610,7 +612,7 @@ function PricingPreviewSection() {
                 </span>
                 {plan.price !== 'Free' && (
                   <span className={`text-sm ml-1 ${plan.popular ? 'text-surface-400' : 'text-surface-500'}`}>
-                    /mo
+                    {t('home.pricing.perMonth')}
                   </span>
                 )}
               </div>
@@ -633,7 +635,7 @@ function PricingPreviewSection() {
                     : 'bg-surface-100 dark:bg-surface-800 text-surface-900 dark:text-surface-100 hover:bg-surface-200 dark:hover:bg-surface-700'
                 }`}
               >
-                Get Started
+                {t('home.pricing.getStarted')}
               </Link>
             </motion.div>
           ))}
@@ -644,6 +646,7 @@ function PricingPreviewSection() {
 }
 
 function CTASection() {
+  const { t } = useLang();
   return (
     <section className="py-24 relative overflow-hidden">
       <div className="absolute inset-0 bg-gradient-to-br from-primary-600 via-primary-700 to-cyan-700" />
@@ -655,25 +658,24 @@ function CTASection() {
           viewport={{ once: true }}
         >
           <h2 className="text-4xl md:text-6xl font-extrabold text-white mb-6 font-['Inter'] leading-tight">
-            Ready to transform your{' '}
-            <span className="text-cyan-300">communication?</span>
+            {t('home.cta.title1')}{' '}
+            <span className="text-cyan-300">{t('home.cta.title2')}</span>
           </h2>
           <p className="text-white/70 mb-10 max-w-xl mx-auto text-lg">
-            Join thousands of businesses using DheeTantra to build better
-            customer relationships.
+            {t('home.cta.subtitle')}
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
               href="/register"
               className="inline-flex items-center gap-2 bg-white text-surface-900 px-8 py-4 rounded-xl font-semibold text-lg hover:bg-white/90 hover:shadow-2xl transition-all"
             >
-              Create Your Free Workspace <ArrowRight className="w-5 h-5" />
+              {t('home.cta.createWorkspace')} <ArrowRight className="w-5 h-5" />
             </Link>
             <Link
               href="/contact"
               className="inline-flex items-center gap-2 bg-white/10 text-white border border-white/20 px-8 py-4 rounded-xl font-medium text-lg hover:bg-white/20 transition-all"
             >
-              Talk to Sales
+              {t('home.cta.talkToSales')}
             </Link>
           </div>
         </motion.div>
@@ -683,6 +685,7 @@ function CTASection() {
 }
 
 function FooterSection() {
+  const { t } = useLang();
   return (
     <footer className="border-t border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-950 py-16">
       <div className="max-w-7xl mx-auto px-6">
@@ -695,21 +698,35 @@ function FooterSection() {
               <span className="font-bold text-lg font-['Inter']">DheeTantra</span>
             </div>
             <p className="text-sm text-surface-500 leading-relaxed">
-              Next-gen omnichannel CRM powered by Cloudflare Edge.
+              {t('home.footer.tagline')}
             </p>
           </div>
           {[
             {
-              title: 'Product',
-              links: ['Features', 'Pricing', 'Integrations', 'Changelog'],
+              title: t('home.footer.product'),
+              links: [
+                { key: 'features', href: '/#features' },
+                { key: 'pricing', href: '/pricing' },
+                { key: 'integrations', href: '/integrations' },
+                { key: 'changelog', href: '/changelog' },
+              ],
             },
             {
-              title: 'Company',
-              links: ['About', 'Blog', 'Careers', 'Contact'],
+              title: t('home.footer.company'),
+              links: [
+                { key: 'about', href: '/about' },
+                { key: 'blog', href: '/blog' },
+                { key: 'careers', href: '/careers' },
+                { key: 'contact', href: '/contact' },
+              ],
             },
             {
-              title: 'Legal',
-              links: ['Privacy Policy', 'Terms & Conditions', 'Data Deletion'],
+              title: t('home.footer.legal'),
+              links: [
+                { key: 'privacy', href: '/privacy-policy' },
+                { key: 'terms', href: '/terms-conditions' },
+                { key: 'dataDeletion', href: '/data-deletion-status' },
+              ],
             },
           ].map((col, i) => (
             <div key={i}>
@@ -720,18 +737,10 @@ function FooterSection() {
                 {col.links.map((link, j) => (
                   <li key={j}>
                     <Link
-                      href={
-                        link === 'Privacy Policy'
-                          ? '/privacy-policy'
-                          : link === 'Terms & Conditions'
-                            ? '/terms-conditions'
-                            : link === 'Data Deletion'
-                              ? '/data-deletion-status'
-                              : `/${link.toLowerCase()}`
-                      }
+                      href={link.href}
                       className="text-sm text-surface-500 hover:text-surface-900 dark:hover:text-surface-100 transition-colors"
                     >
-                      {link}
+                      {t(`home.footer.${link.key}`)}
                     </Link>
                   </li>
                 ))}
@@ -740,7 +749,7 @@ function FooterSection() {
           ))}
         </div>
         <div className="pt-8 border-t border-surface-200 dark:border-surface-800 text-center text-sm text-surface-400">
-          &copy; {new Date().getFullYear()} DheeTantra Inc. All rights reserved.
+          &copy; {new Date().getFullYear()} DheeTantra Inc. {t('home.footer.rights')}
         </div>
       </div>
     </footer>
@@ -748,6 +757,7 @@ function FooterSection() {
 }
 
 function MobileMenu({ onClose }: { onClose: () => void }) {
+  const { t } = useLang();
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -757,29 +767,30 @@ function MobileMenu({ onClose }: { onClose: () => void }) {
     >
       <div className="flex flex-col items-center gap-6 p-8 text-lg font-medium">
         <Link href="#features" onClick={onClose} className="hover:text-primary-600 transition-colors">
-          Features
+          {t('nav.features')}
         </Link>
         <Link href="/pricing" onClick={onClose} className="hover:text-primary-600 transition-colors">
-          Pricing
+          {t('nav.pricing')}
         </Link>
         <Link href="/about" onClick={onClose} className="hover:text-primary-600 transition-colors">
-          About Us
+          {t('nav.about')}
         </Link>
         <Link href="/contact" onClick={onClose} className="hover:text-primary-600 transition-colors">
-          Contact
+          {t('nav.contact')}
         </Link>
+        <LangSwitcher />
         <div className="flex flex-col gap-3 w-full max-w-xs mt-4">
           <Link
             href="/login"
             className="w-full text-center py-3 rounded-xl border border-surface-300 dark:border-surface-700 font-medium"
           >
-            Log In
+            {t('nav.login')}
           </Link>
           <Link
             href="/register"
             className="w-full text-center py-3 rounded-xl bg-primary-600 text-white font-medium"
           >
-            Get Started
+            {t('nav.getStarted')}
           </Link>
         </div>
       </div>

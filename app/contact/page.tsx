@@ -8,8 +8,10 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Badge } from '../../components/ui/Badge';
 import { useToast } from '../../components/ui/Toast';
+import { useLang, LangSwitcher } from '../../lib/i18n';
 
 export default function ContactPage() {
+  const { t } = useLang();
   const [formData, setFormData] = useState({ name: '', email: '', message: '' });
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -18,13 +20,13 @@ export default function ContactPage() {
 
   const validate = () => {
     const errs: Record<string, string> = {};
-    if (!formData.name.trim()) errs.name = 'Name is required';
-    if (!formData.email.trim()) errs.email = 'Email is required';
+    if (!formData.name.trim()) errs.name = t('contact.errName');
+    if (!formData.email.trim()) errs.email = t('contact.errEmail');
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email))
-      errs.email = 'Invalid email address';
-    if (!formData.message.trim()) errs.message = 'Message is required';
+      errs.email = t('contact.errEmailInvalid');
+    if (!formData.message.trim()) errs.message = t('contact.errMessage');
     else if (formData.message.trim().length < 10)
-      errs.message = 'Message must be at least 10 characters';
+      errs.message = t('contact.errMessageShort');
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -42,13 +44,13 @@ export default function ContactPage() {
       });
       if (res.ok) {
         setSubmitted(true);
-        toast('success', 'Message sent successfully! We will get back to you soon.');
+        toast('success', t('contact.toastSuccess'));
       } else {
         const data: any = await res.json();
-        toast('error', data.error || 'Failed to send message. Please try again.');
+        toast('error', data.error || t('contact.toastFail'));
       }
     } catch {
-      toast('error', 'Something went wrong. Please try again.');
+      toast('error', t('contact.toastError'));
     } finally {
       setLoading(false);
     }
@@ -61,12 +63,15 @@ export default function ContactPage() {
 
       <div className="max-w-7xl mx-auto relative">
         <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}>
-          <Link
-            href="/"
-            className="inline-flex items-center gap-2 text-surface-500 hover:text-surface-900 dark:hover:text-white mb-12 transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" /> Back to Home
-          </Link>
+          <div className="flex items-center justify-between mb-12">
+            <Link
+              href="/"
+              className="inline-flex items-center gap-2 text-surface-500 hover:text-surface-900 dark:hover:text-white transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4" /> {t('back.toHome')}
+            </Link>
+            <LangSwitcher />
+          </div>
         </motion.div>
 
         <div className="max-w-4xl mx-auto">
@@ -76,14 +81,13 @@ export default function ContactPage() {
             className="text-center mb-16"
           >
             <Badge variant="primary" className="mb-4">
-              Contact
+              {t('contact.badge')}
             </Badge>
             <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-surface-900 dark:text-white mb-4 font-['Inter']">
-              Get in <span className="gradient-text">Touch</span>
+              {t('contact.title1')} <span className="gradient-text">{t('contact.title2')}</span>
             </h1>
             <p className="text-lg text-surface-500 dark:text-surface-400 max-w-xl mx-auto">
-              Have questions about DheeTantra? Our team is here to help you
-              build better customer relationships.
+              {t('contact.subtitle')}
             </p>
           </motion.div>
 
@@ -97,17 +101,17 @@ export default function ContactPage() {
               <div className="glass rounded-2xl p-6 shadow-glass space-y-6">
                 <ContactInfo
                   icon={<Mail className="w-5 h-5" />}
-                  title="Email"
+                  title={t('contact.infoEmail')}
                   lines={['support@dheetantra.com', 'sales@dheetantra.com']}
                 />
                 <ContactInfo
                   icon={<Phone className="w-5 h-5" />}
-                  title="Phone"
+                  title={t('contact.infoPhone')}
                   lines={['+1 (555) 123-4567']}
                 />
                 <ContactInfo
                   icon={<MapPin className="w-5 h-5" />}
-                  title="Office"
+                  title={t('contact.infoOffice')}
                   lines={['123 Innovation Drive', 'Tech City, TC 94043']}
                 />
               </div>
@@ -125,10 +129,10 @@ export default function ContactPage() {
                     <CheckCircle className="w-8 h-8 text-emerald-600 dark:text-emerald-400" />
                   </div>
                   <h3 className="text-xl font-bold text-surface-900 dark:text-surface-100 mb-2">
-                    Message Sent!
+                    {t('contact.sentTitle')}
                   </h3>
                   <p className="text-surface-500 mb-6">
-                    Thank you for reaching out. We&rsquo;ll get back to you within 24 hours.
+                    {t('contact.sentText')}
                   </p>
                   <Button
                     variant="secondary"
@@ -137,23 +141,23 @@ export default function ContactPage() {
                       setFormData({ name: '', email: '', message: '' });
                     }}
                   >
-                    Send Another Message
+                    {t('contact.sentAnother')}
                   </Button>
                 </div>
               ) : (
                 <form onSubmit={handleSubmit} className="glass rounded-2xl p-8 shadow-glass space-y-5">
                   <Input
-                    label="Full Name"
-                    placeholder="John Doe"
+                    label={t('contact.nameLabel')}
+                    placeholder={t('contact.namePlaceholder')}
                     value={formData.name}
                     onChange={e => setFormData(p => ({ ...p, name: e.target.value }))}
                     error={errors.name}
                     icon={<Mail className="w-4 h-4" />}
                   />
                   <Input
-                    label="Email Address"
+                    label={t('contact.emailLabel')}
                     type="email"
-                    placeholder="john@company.com"
+                    placeholder={t('contact.emailPlaceholder')}
                     value={formData.email}
                     onChange={e => setFormData(p => ({ ...p, email: e.target.value }))}
                     error={errors.email}
@@ -161,7 +165,7 @@ export default function ContactPage() {
                   />
                   <div className="space-y-1.5">
                     <label className="block text-sm font-medium text-surface-700 dark:text-surface-300">
-                      Message
+                      {t('contact.messageLabel')}
                     </label>
                     <textarea
                       rows={4}
@@ -172,7 +176,7 @@ export default function ContactPage() {
                           ? 'border-red-400 dark:border-red-600'
                           : 'border-surface-300 dark:border-surface-700'
                       }`}
-                      placeholder="How can we help?"
+                      placeholder={t('contact.messagePlaceholder')}
                     />
                     {errors.message && (
                       <p className="text-xs text-red-500 dark:text-red-400">{errors.message}</p>
@@ -180,7 +184,7 @@ export default function ContactPage() {
                   </div>
                   <Button type="submit" loading={loading} className="w-full">
                     <Send className="w-4 h-4" />
-                    Send Message
+                    {t('contact.sendMessage')}
                   </Button>
                 </form>
               )}

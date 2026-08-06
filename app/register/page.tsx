@@ -8,8 +8,10 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Badge } from '../../components/ui/Badge';
+import { useLang, LangSwitcher } from '../../lib/i18n';
 
 export default function RegisterPage() {
+  const { t } = useLang();
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
@@ -34,15 +36,15 @@ export default function RegisterPage() {
       const data: any = await res.json();
       if (res.ok) {
         setStep('otp');
-        setMessage('OTP sent! Check your inbox.');
+        setMessage(t('register.msgOtpSent'));
         setMessageType('success');
         setTimeout(() => otpRefs.current[0]?.focus(), 100);
       } else {
-        setMessage(data.error || 'Registration failed.');
+        setMessage(data.error || t('register.msgRegFail'));
         setMessageType('error');
       }
     } catch {
-      setMessage('Something went wrong. Please try again.');
+      setMessage(t('register.msgWrong'));
       setMessageType('error');
     } finally {
       setLoading(false);
@@ -85,13 +87,13 @@ export default function RegisterPage() {
         }
         router.push('/dashboard');
       } else {
-        setMessage(data.error || 'Invalid OTP.');
+        setMessage(data.error || t('register.msgInvalidOtp'));
         setMessageType('error');
         setOtp(['', '', '', '', '', '']);
         otpRefs.current[0]?.focus();
       }
     } catch {
-      setMessage('Something went wrong. Please try again.');
+      setMessage(t('register.msgWrong'));
       setMessageType('error');
     } finally {
       setLoading(false);
@@ -103,6 +105,10 @@ export default function RegisterPage() {
       <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-emerald-500/10 dark:bg-emerald-500/15 rounded-full blur-3xl pointer-events-none animate-float-delayed" />
       <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-blue-500/10 dark:bg-blue-500/15 rounded-full blur-3xl pointer-events-none animate-float" />
 
+      <div className="absolute top-4 right-4 z-20">
+        <LangSwitcher />
+      </div>
+
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -113,12 +119,12 @@ export default function RegisterPage() {
         </div>
 
         <h1 className="text-3xl font-bold text-center mb-2 tracking-tight font-['Inter']">
-          Create account
+          {t('register.createTitle')}
         </h1>
         <p className="text-surface-500 dark:text-surface-400 text-sm text-center mb-8">
           {step === 'details'
-            ? 'Start your journey with DheeTantra'
-            : `Code sent to ${email}`}
+            ? t('register.subtitle')
+            : t('register.codeSent', { email })}
         </p>
 
         <AnimatePresence mode="wait">
@@ -132,19 +138,19 @@ export default function RegisterPage() {
               className="space-y-5"
             >
               <Input
-                label="Full name"
+                label={t('register.nameLabel')}
                 value={name}
                 onChange={e => setName(e.target.value)}
-                placeholder="Your name"
+                placeholder={t('register.namePlaceholder')}
                 required
                 icon={<User className="w-4 h-4" />}
               />
               <Input
-                label="Business email"
+                label={t('register.emailLabel')}
                 type="email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
-                placeholder="name@company.com"
+                placeholder={t('register.emailPlaceholder')}
                 required
                 icon={<Mail className="w-4 h-4" />}
               />
@@ -154,7 +160,7 @@ export default function RegisterPage() {
                 disabled={!email || !name}
                 className="w-full"
               >
-                Create Account <ArrowRight className="w-5 h-5" />
+                {t('register.createBtn')} <ArrowRight className="w-5 h-5" />
               </Button>
             </motion.form>
           ) : (
@@ -168,7 +174,7 @@ export default function RegisterPage() {
             >
               <div>
                 <label className="block text-sm font-medium mb-3 text-center text-surface-700 dark:text-surface-300">
-                  Enter 6-digit code
+                  {t('register.otpLabel')}
                 </label>
                 <div className="flex gap-2 justify-center">
                   {otp.map((digit, index) => (
@@ -194,7 +200,7 @@ export default function RegisterPage() {
                 disabled={otp.join('').length !== 6}
                 className="w-full"
               >
-                Verify Code
+                {t('register.verifyBtn')}
               </Button>
               <div className="text-center">
                 <button
@@ -205,7 +211,7 @@ export default function RegisterPage() {
                   }}
                   className="text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline"
                 >
-                  Edit details
+                  {t('register.editDetails')}
                 </button>
               </div>
             </motion.form>
@@ -231,12 +237,12 @@ export default function RegisterPage() {
 
         <div className="mt-8 text-center border-t border-surface-200 dark:border-surface-800 pt-6">
           <p className="text-sm text-surface-500 dark:text-surface-400">
-            Already have an account?{' '}
+            {t('register.haveAccount')}{' '}
             <Link
               href="/login"
               className="font-semibold text-primary-600 dark:text-primary-400 hover:underline"
             >
-              Sign in
+              {t('register.signIn')}
             </Link>
           </p>
         </div>

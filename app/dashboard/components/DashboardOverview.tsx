@@ -16,47 +16,47 @@ export function DashboardOverview() {
   }, []);
 
   if (loading) {
-    return <div className="p-8 text-sm text-zinc-500">à¤¡à¥ˆà¤¶à¤¬à¥‹à¤°à¥à¤¡ à¤²à¥‹à¤¡ à¤¹à¥‹ à¤°à¤¹à¤¾ à¤¹à¥ˆ...</div>;
+    return <div className="p-8 text-sm text-zinc-500">डैशबोर्ड लोड हो रहा है...</div>;
   }
 
   return (
     <div className="p-6 md:p-10 w-full max-w-7xl mx-auto space-y-8">
       <div className="mb-8">
-        <h2 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white font-display">à¤†à¤ªà¤•à¤¾ à¤¸à¥à¤µà¤¾à¤—à¤¤ à¤¹à¥ˆ!</h2>
-        <p className="text-zinc-500 dark:text-zinc-400">à¤¯à¤¹à¤¾à¤ à¤†à¤ªà¤•à¥‡ à¤µà¤°à¥à¤•à¤¸à¥à¤ªà¥‡à¤¸ à¤•à¤¾ à¤…à¤µà¤²à¥‹à¤•à¤¨ à¤¹à¥ˆà¥¤</p>
+        <h2 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white font-display">आपका स्वागत है!</h2>
+        <p className="text-zinc-500 dark:text-zinc-400">यहाँ आपके वर्कस्पेस का अवलोकन है।</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <StatCard title="à¤•à¥à¤² à¤¸à¤‚à¤ªà¤°à¥à¤• (Contacts)" value={stats?.totalContacts?.toString() || "0"} trend="+12% à¤ªà¤¿à¤›à¤²à¥‡ à¤¸à¤ªà¥à¤¤à¤¾à¤¹ à¤¸à¥‡" icon={<Users />} />
-        <StatCard title="à¤–à¥à¤²à¥€ à¤¬à¤¾à¤¤à¤šà¥€à¤¤" value={stats?.openConversations?.toString() || "0"} trend="à¤¸à¤•à¥à¤°à¤¿à¤¯ à¤•à¤¨à¥‡à¤•à¥à¤¶à¤¨" icon={<Activity />} />
-        <StatCard title="à¤¬à¥à¤°à¥‰à¤¡à¤•à¤¾à¤¸à¥à¤Ÿ à¤­à¥‡à¤œà¥‡ à¤—à¤" value={stats?.broadcastsSent?.toString() || "0"} trend="+5% à¤ªà¤¿à¤›à¤²à¥‡ à¤®à¤¹à¥€à¤¨à¥‡ à¤¸à¥‡" icon={<Zap />} />
+        <StatCard title="कुल संपर्क" value={stats?.totalContacts?.toString() || "0"} trend="+12% पिछले सप्ताह से" icon={<Users />} />
+        <StatCard title="खुली बातचीत" value={stats?.openConversations?.toString() || "0"} trend="सक्रिय कनेक्शन" icon={<Activity />} />
+        <StatCard title="ब्रॉडकास्ट भेजे गए" value={stats?.broadcastsSent?.toString() || "0"} trend="+5% पिछले महीने से" icon={<Zap />} />
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-8 shadow-sm">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="font-bold text-lg text-zinc-900 dark:text-white font-display">à¤¹à¤¾à¤² à¤•à¥€ à¤¬à¤¾à¤¤à¤šà¥€à¤¤</h3>
-            <button className="text-sm text-indigo-600 dark:text-indigo-400 font-medium hover:underline">à¤¸à¤­à¥€ à¤¦à¥‡à¤–à¥‡à¤‚</button>
+            <h3 className="font-bold text-lg text-zinc-900 dark:text-white font-display">हाल की बातचीत</h3>
+            <button className="text-sm text-indigo-600 dark:text-indigo-400 font-medium hover:underline">सभी देखें</button>
           </div>
           <div className="space-y-4">
             <div className="flex flex-col items-center justify-center py-10 text-center border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-2xl bg-zinc-50 dark:bg-zinc-950/50">
               <MessageSquare className="w-10 h-10 text-zinc-300 dark:text-zinc-700 mb-3" />
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">à¤•à¥‹à¤ˆ à¤¸à¤•à¥à¤°à¤¿à¤¯ à¤¬à¤¾à¤¤à¤šà¥€à¤¤ à¤¨à¤¹à¥€à¤‚ à¤®à¤¿à¤²à¥€à¥¤</p>
-              <p className="text-xs text-zinc-500 mt-1">à¤…à¤ªà¤¨à¤¾ API à¤¸à¤¿à¤‚à¤• à¤•à¤°à¥‡à¤‚ à¤¯à¤¾ à¤¸à¤‚à¤¦à¥‡à¤¶ à¤ªà¥à¤°à¤¾à¤ªà¥à¤¤ à¤•à¤°à¥‡à¤‚à¥¤</p>
+              <p className="text-sm text-zinc-600 dark:text-zinc-400">कोई सक्रिय बातचीत नहीं मिली।</p>
+              <p className="text-xs text-zinc-500 mt-1">अपना API सिंक करें या संदेश प्राप्त करें।</p>
             </div>
           </div>
         </div>
 
         <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-8 shadow-sm">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="font-bold text-lg text-zinc-900 dark:text-white font-display">à¤†à¤—à¤¾à¤®à¥€ à¤ªà¥‹à¤¸à¥à¤Ÿà¥à¤¸</h3>
-            <button className="text-sm text-indigo-600 dark:text-indigo-400 font-medium hover:underline">à¤¶à¥‡à¤¡à¥à¤¯à¥‚à¤² à¤•à¤°à¥‡à¤‚</button>
+            <h3 className="font-bold text-lg text-zinc-900 dark:text-white font-display">आगामी पोस्ट्स</h3>
+            <button className="text-sm text-indigo-600 dark:text-indigo-400 font-medium hover:underline">शेड्यूल करें</button>
           </div>
           <div className="space-y-4">
             <div className="flex flex-col items-center justify-center py-10 text-center border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-2xl bg-zinc-50 dark:bg-zinc-950/50">
               <CalendarClock className="w-10 h-10 text-zinc-300 dark:text-zinc-700 mb-3" />
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">à¤•à¥‹à¤ˆ à¤ªà¥‹à¤¸à¥à¤Ÿ à¤¶à¥‡à¤¡à¥à¤¯à¥‚à¤² à¤¨à¤¹à¥€à¤‚ à¤¹à¥ˆà¥¤</p>
-              <p className="text-xs text-zinc-500 mt-1">à¤¶à¥‡à¤¡à¥à¤¯à¥‚à¤²à¤¿à¤‚à¤— à¤Ÿà¥ˆà¤¬ à¤ªà¤° à¤œà¤¾à¤•à¤° à¤¨à¤ˆ à¤ªà¥‹à¤¸à¥à¤Ÿ à¤¬à¤¨à¤¾à¤à¤à¥¤</p>
+              <p className="text-sm text-zinc-600 dark:text-zinc-400">कोई पोस्ट शेड्यूल नहीं है।</p>
+              <p className="text-xs text-zinc-500 mt-1">शेड्यूलिंग टैब पर जाकर नई पोस्ट बनाएँ।</p>
             </div>
           </div>
         </div>

@@ -7,8 +7,10 @@ import Link from 'next/link';
 import { motion, AnimatePresence } from 'motion/react';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { useLang, LangSwitcher } from '../../lib/i18n';
 
 export default function LoginPage() {
+  const { t } = useLang();
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [step, setStep] = useState<'email' | 'otp'>('email');
@@ -31,15 +33,15 @@ export default function LoginPage() {
       const data: any = await res.json();
       if (res.ok) {
         setStep('otp');
-        setMessage('OTP sent! Check your inbox.');
+        setMessage(t('login.msgOtpSent'));
         setMessageType('success');
         setTimeout(() => otpRefs.current[0]?.focus(), 100);
       } else {
-        setMessage(data.error || 'Failed to send OTP.');
+        setMessage(data.error || t('login.msgSendFail'));
         setMessageType('error');
       }
     } catch {
-      setMessage('Something went wrong. Please try again.');
+      setMessage(t('login.msgWrong'));
       setMessageType('error');
     } finally {
       setLoading(false);
@@ -82,13 +84,13 @@ export default function LoginPage() {
         }
         router.push('/dashboard');
       } else {
-        setMessage(data.error || 'Invalid OTP.');
+        setMessage(data.error || t('login.msgInvalidOtp'));
         setMessageType('error');
         setOtp(['', '', '', '', '', '']);
         otpRefs.current[0]?.focus();
       }
     } catch {
-      setMessage('Something went wrong. Please try again.');
+      setMessage(t('login.msgWrong'));
       setMessageType('error');
     } finally {
       setLoading(false);
@@ -99,6 +101,10 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-surface-50 dark:bg-surface-950 p-4 font-sans relative overflow-hidden">
       <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-primary-500/10 dark:bg-primary-500/20 rounded-full blur-3xl pointer-events-none animate-float" />
       <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-cyan-500/10 dark:bg-cyan-500/20 rounded-full blur-3xl pointer-events-none animate-float-delayed" />
+
+      <div className="absolute top-4 right-4 z-20">
+        <LangSwitcher />
+      </div>
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -113,12 +119,12 @@ export default function LoginPage() {
         </Link>
 
         <h1 className="text-3xl font-bold text-center mb-2 tracking-tight font-['Inter']">
-          Welcome back
+          {t('login.welcomeBack')}
         </h1>
         <p className="text-surface-500 dark:text-surface-400 text-sm text-center mb-8">
           {step === 'email'
-            ? 'Sign in to your account securely'
-            : `Code sent to ${email}`}
+            ? t('login.subtitle')
+            : t('login.codeSent', { email })}
         </p>
 
         <AnimatePresence mode="wait">
@@ -132,11 +138,11 @@ export default function LoginPage() {
               className="space-y-5"
             >
               <Input
-                label="Email address"
+                label={t('login.emailLabel')}
                 type="email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
-                placeholder="you@email.com"
+                placeholder={t('login.emailPlaceholder')}
                 required
                 icon={<Mail className="w-4 h-4" />}
               />
@@ -146,7 +152,7 @@ export default function LoginPage() {
                 disabled={!email}
                 className="w-full"
               >
-                Continue with Email <ArrowRight className="w-4 h-4" />
+                {t('login.continueBtn')} <ArrowRight className="w-4 h-4" />
               </Button>
             </motion.form>
           ) : (
@@ -160,7 +166,7 @@ export default function LoginPage() {
             >
               <div>
                 <label className="block text-sm font-medium mb-3 text-center text-surface-700 dark:text-surface-300">
-                  Enter 6-digit code
+                  {t('login.otpLabel')}
                 </label>
                 <div className="flex gap-2 justify-center">
                   {otp.map((digit, index) => (
@@ -187,7 +193,7 @@ export default function LoginPage() {
                 className="w-full"
               >
                 <LogIn className="w-4 h-4" />
-                Verify Code
+                {t('login.verifyBtn')}
               </Button>
               <div className="text-center">
                 <button
@@ -198,7 +204,7 @@ export default function LoginPage() {
                   }}
                   className="text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline"
                 >
-                  Use a different email
+                  {t('login.diffEmail')}
                 </button>
               </div>
             </motion.form>
@@ -224,12 +230,12 @@ export default function LoginPage() {
 
         <div className="mt-8 text-center border-t border-surface-200 dark:border-surface-800 pt-6">
           <p className="text-sm text-surface-500 dark:text-surface-400">
-            New to DheeTantra?{' '}
+            {t('login.newHere')}{' '}
             <Link
               href="/register"
               className="font-semibold text-surface-900 dark:text-white hover:underline"
             >
-              Create an account
+              {t('login.createAccount')}
             </Link>
           </p>
         </div>

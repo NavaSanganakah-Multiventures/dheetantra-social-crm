@@ -45,11 +45,11 @@ const fmtDay = (dateStr: string | Date | number) => {
 type Platform = 'all' | 'whatsapp' | 'instagram' | 'facebook' | 'email';
 
 const PLATFORMS: { key: Platform; label: string; icon: React.ReactNode; color: string }[] = [
-  { key: 'all', label: 'All', icon: <Inbox className="w-3.5 h-3.5" />, color: 'text-zinc-400' },
+  { key: 'all', label: 'सभी', icon: <Inbox className="w-3.5 h-3.5" />, color: 'text-zinc-400' },
   { key: 'whatsapp', label: 'WhatsApp', icon: <MessageCircle className="w-3.5 h-3.5" />, color: 'text-emerald-500' },
   { key: 'instagram', label: 'Instagram', icon: <Instagram className="w-3.5 h-3.5" />, color: 'text-pink-500' },
   { key: 'facebook', label: 'Facebook', icon: <Facebook className="w-3.5 h-3.5" />, color: 'text-blue-500' },
-  { key: 'email', label: 'Email', icon: <Mail className="w-3.5 h-3.5" />, color: 'text-indigo-500' },
+  { key: 'email', label: 'ईमेल', icon: <Mail className="w-3.5 h-3.5" />, color: 'text-indigo-500' },
 ];
 
 // AI filter categories (match src/services/inboxAI.ts)
@@ -372,7 +372,7 @@ export default function UnifiedInbox({
                       : 'bg-zinc-50 dark:bg-zinc-900 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
                   }`}
                 >
-                  {s === 'open' ? 'Open' : s === 'closed' ? 'Closed' : 'All'}
+                  {s === 'open' ? 'सक्रिय' : s === 'closed' ? 'बंद' : 'सभी'}
                 </button>
               ))}
             </div>
@@ -445,7 +445,7 @@ export default function UnifiedInbox({
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
                         <h4 className="font-semibold text-sm text-zinc-900 dark:text-white truncate">
-                          {conv.contact_name || conv.phone || 'Unknown'}
+                          {conv.contact_name || conv.phone || 'अज्ञात'}
                         </h4>
                         <span className="text-[10px] text-zinc-400 whitespace-nowrap shrink-0">
                           {conv.customer_last_message_at ? fmtDay(conv.customer_last_message_at) : fmtDay(conv.updated_at)}
@@ -460,11 +460,11 @@ export default function UnifiedInbox({
                         </span>
                         {(conv.status || 'open') === 'open' ? (
                           <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold">
-                            Open
+                            सक्रिय
                           </span>
                         ) : (
                           <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-zinc-500/10 text-zinc-500 font-semibold">
-                            Closed
+                            बंद
                           </span>
                         )}
                         {conv.ai_label && conv.ai_label !== 'other' && (
@@ -504,7 +504,7 @@ export default function UnifiedInbox({
                 </div>
                 <div className="min-w-0">
                   <h3 className="font-bold text-zinc-900 dark:text-white truncate">
-                    {activeConv.contact_name || 'Unknown'}
+                    {activeConv.contact_name || 'अज्ञात'}
                   </h3>
                   <p className="text-xs text-zinc-500 truncate flex items-center gap-1">
                     {activeConv.phone}
@@ -656,7 +656,7 @@ export default function UnifiedInbox({
                 {(activeConv.contact_name || '?')[0]?.toUpperCase()}
               </div>
               <div className="min-w-0">
-                <h4 className="font-bold text-sm text-zinc-900 dark:text-white truncate">{activeConv.contact_name || 'Unknown'}</h4>
+                <h4 className="font-bold text-sm text-zinc-900 dark:text-white truncate">{activeConv.contact_name || 'अज्ञात'}</h4>
                 <p className="text-[10px] text-zinc-500 truncate">{activeConv.phone}</p>
               </div>
             </div>
