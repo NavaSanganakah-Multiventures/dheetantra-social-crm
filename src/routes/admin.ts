@@ -759,4 +759,86 @@ admin.post('/domains/:id/unsuspend', async (c) => {
   }
 });
 
+// ==========================================
+// KV NAMESPACE COPY TOOL
+// ==========================================
+
+/**
+ * Copies keys from one KV namespace to another via the Cloudflare REST API.
+ *
+ * The copy is cursor-resumable and bounded per request (20 keys max) so it
+ * stays inside Worker subrequest/wall-time limits even on big namespaces.
+ * Listing uses the same page size as the batch, so `cursor` stays page-aligned
+ * and no keys are skipped. The client keeps calling with the returned `cursor`
+ * until `done: true`.
+ *
+ * Live session/OTP keys (`SESSION:` / `OTP:` prefixes) are never copied —
+ * they hold per-user auth state and must not leak into another namespace.
+ *
+ * Body: { sourceNamespaceId, destNamespaceId, cursor? }
+ */
+admin.post('/kv-copy', async (c) => {
+  const isAdmin = await verifyAdmin(c);
+  if (!isAdmin) return c.json({ error: 'Unauthorized' }, 403);
+
+  const { sourceNamespaceId, destNamespaceId, cursor } = await c.req.json();
+  if (!sourceNamespaceId || !destNamespaceId) {
+    return c.json({ error: 'sourceNamespaceId and destNamespaceId are required' }, 400);
+  }
+  if (sourceNamespaceId === destNamespaceId) {
+    return c.json({ error: 'Source and destination namespaces must be different' }, 400);
+  }
+
+  try {
+    const { listKvKeys, getKvValue, putKvValue, getCloudflareCredentials } = await import('../services/cloudflareApi');
+    const creds = await getCloudflareCredentials(c.env);
+    if (!creds.token || !creds.accountId) {
+      return c.json({ error: 'CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID missing from SECRETS_KV' }, 500);
+    }
+
+    // 1. List keys from the source namespace. Page size == batch size so the
+    //    cursor returned by Cloudflare always aligns with what was copied.
+    const MAX_KEYS_PER_REQUEST = 20;
+    const { keys, cursor: nextCursor } = await listKvKeys(
+      c.env, sourceNamespaceId, { limit: MAX_KEYS_PER_REQUEST, cursor }, creds
+    );
+
+    // 2. Never copy keys the /kv admin route blocks from being written
+    //    (ADMIN_CONTACT_EMAIL, live session/OTP entries).
+    const blockedKeys = ['ADMIN_CONTACT_EMAIL', 'SESSION:', 'OTP:'];
+    const batch = keys.filter((k: any) => !blockedKeys.some((b) => k.name === b || k.name.startsWith(b)));
+
+    let copied = 0;
+    let skipped = keys.length - batch.length;
+    const failures: string[] = [];
+
+    for (const keyMeta of batch) {
+      const key = keyMeta.name;
+      try {
+        const value = await getKvValue(c.env, sourceNamespaceId, key, creds);
+        await putKvValue(c.env, destNamespaceId, key, value, keyMeta.expiration, creds);
+        copied++;
+      } catch (e: any) {
+        console.error(`[Admin] KV copy failed for key ${key}:`, e);
+        failures.push(key);
+      }
+    }
+
+    const done = !nextCursor;
+
+    return c.json({
+      success: true,
+      done,
+      cursor: done ? undefined : nextCursor,
+      copied,
+      skipped,
+      failed: failures.length,
+      failures: failures.slice(0, 20),
+    });
+  } catch (err: any) {
+    console.error('[Admin] KV copy error:', err);
+    return c.json({ error: err.message }, 500);
+  }
+});
+
 export default admin;

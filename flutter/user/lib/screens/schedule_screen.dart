@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../models/models.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
@@ -14,7 +13,7 @@ class ScheduleScreen extends StatefulWidget {
 
 class _ScheduleScreenState extends State<ScheduleScreen> {
   bool _loading = true;
-  List<Conversation> _conversations = [];
+  List<Map<String, dynamic>> _campaigns = [];
 
   @override
   void initState() {
@@ -24,10 +23,10 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
 
   Future<void> _loadData() async {
     setState(() => _loading = true);
-    final data = await ApiService().getConversations();
+    final data = await ApiService().getBroadcasts();
     if (!mounted) return;
     setState(() {
-      _conversations = data.map((j) => Conversation.fromJson(j)).toList();
+      _campaigns = data.map((j) => Map<String, dynamic>.from(j)).toList();
       _loading = false;
     });
   }
@@ -36,7 +35,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('शेड्यूल्ड पोस्ट्स'),
+        title: const Text('ब्रॉडकास्ट कैंपेन'),
         actions: [
           IconButton(
             onPressed: _loadData,
@@ -60,14 +59,14 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.event_available_rounded, color: Colors.white, size: 30),
+                        const Icon(Icons.campaign_rounded, color: Colors.white, size: 30),
                         const SizedBox(width: 14),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                '${_conversations.length} बातचीत',
+                                '${_campaigns.length} कैंपेन',
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 16,
@@ -76,7 +75,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                               ),
                               const SizedBox(height: 3),
                               const Text(
-                                'आपकी सभी बातचीत',
+                                'आपके सभी ब्रॉडकास्ट कैंपेन और उनकी स्थिति',
                                 style: TextStyle(
                                   color: Colors.white70,
                                   fontSize: 12.5,
@@ -89,17 +88,17 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  const SectionHeader(title: 'हाल की बातचीत'),
+                  const SectionHeader(title: 'कैंपेन इतिहास'),
                   const SizedBox(height: 12),
-                  if (_conversations.isEmpty)
+                  if (_campaigns.isEmpty)
                     const EmptyState(
-                      icon: Icons.event_outlined,
-                      title: 'कोई डेटा नहीं',
-                      subtitle: 'शेड्यूल्ड पोस्ट्स यहाँ दिखेंगी।',
+                      icon: Icons.campaign_outlined,
+                      title: 'कोई कैंपेन नहीं',
+                      subtitle: 'जब आप ब्रॉडकास्ट भेजेंगे तो कैंपेन यहाँ दिखेंगे।',
                     )
                   else
-                    for (final conv in _conversations.take(10)) ...[
-                      _ConversationTile(conversation: conv),
+                    for (final campaign in _campaigns) ...[
+                      _CampaignTile(campaign: campaign),
                       const SizedBox(height: 10),
                     ],
                 ],
@@ -109,13 +108,38 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
   }
 }
 
-class _ConversationTile extends StatelessWidget {
-  final Conversation conversation;
+class _CampaignTile extends StatelessWidget {
+  final Map<String, dynamic> campaign;
 
-  const _ConversationTile({required this.conversation});
+  const _CampaignTile({required this.campaign});
 
   @override
   Widget build(BuildContext context) {
+    final status = (campaign['status'] ?? 'processing').toString();
+    final total = campaign['total_recipients'] ?? 0;
+    final sent = campaign['successful_sends'] ?? 0;
+    final failed = campaign['failed_sends'] ?? 0;
+    final pending = total - sent - failed;
+
+    final Color statusColor;
+    final String statusLabel;
+    switch (status) {
+      case 'completed':
+        statusColor = AppColors.success;
+        statusLabel = 'पूर्ण';
+        break;
+      case 'failed':
+        statusColor = AppColors.danger;
+        statusLabel = 'विफल';
+        break;
+      default:
+        statusColor = AppColors.warning;
+        statusLabel = 'प्रोसेसिंग';
+    }
+
+    final createdAt = DateTime.tryParse(campaign['created_at'] ?? '');
+    final progress = total > 0 ? (sent + failed) / total : 0.0;
+
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -123,79 +147,93 @@ class _ConversationTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.border),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: AppColors.whatsapp.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(13),
-            ),
-            child: const Icon(
-              Icons.chat_rounded,
-              color: AppColors.whatsapp,
-              size: 20,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  conversation.contact.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w600,
-                    height: 1.3,
-                  ),
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  conversation.lastMessage.isNotEmpty ? conversation.lastMessage : 'कोई संदेश नहीं',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
+          Row(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                width: 44,
+                height: 44,
                 decoration: BoxDecoration(
-                  color: conversation.isActive
-                      ? AppColors.success.withValues(alpha: 0.12)
-                      : AppColors.textMuted.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(8),
+                  color: AppColors.accent.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(13),
                 ),
-                child: Text(
-                  conversation.isActive ? 'खुली' : 'बंद',
-                  style: TextStyle(
-                    color: conversation.isActive ? AppColors.success : AppColors.textMuted,
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w700,
-                  ),
+                child: const Icon(Icons.campaign_rounded, color: AppColors.accent, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      campaign['name'] ?? 'ब्रॉडकास्ट',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '$total प्राप्तकर्ता • $sent भेजे गए${failed > 0 ? ' • $failed विफल' : ''}',
+                      style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 6),
-              Text(
-                timeLabel(conversation.lastTime),
-                style: const TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
+              const SizedBox(width: 8),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: statusColor.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      statusLabel,
+                      style: TextStyle(
+                        color: statusColor,
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  if (createdAt != null)
+                    Text(
+                      timeLabel(createdAt),
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                ],
               ),
             ],
           ),
+          if (status == 'processing' && total > 0) ...[
+            const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: LinearProgressIndicator(
+                value: progress,
+                minHeight: 5,
+                backgroundColor: AppColors.surfaceAlt,
+                valueColor: const AlwaysStoppedAnimation(AppColors.accent),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '$pending बाकी',
+              style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
+            ),
+          ],
         ],
       ),
     );

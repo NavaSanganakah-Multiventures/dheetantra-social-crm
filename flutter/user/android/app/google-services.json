@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "365999950154",
+    "project_id": "dheetantra",
+    "storage_bucket": "dheetantra.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:365999950154:android:71e233cde891e7fb4f99b3",
+        "android_client_info": {
+          "package_name": "com.navasanganakah.dheetantra"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAp5Piww6Yim2F7pGrAO5p1guvNXCuQSJc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:365999950154:android:b27d1e062ad8c06f4f99b3",
+        "android_client_info": {
+          "package_name": "com.navasanganakah.dheetantra.admin"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAp5Piww6Yim2F7pGrAO5p1guvNXCuQSJc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

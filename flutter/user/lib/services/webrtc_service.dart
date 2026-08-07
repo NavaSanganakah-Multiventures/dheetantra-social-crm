@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'api_service.dart';
@@ -10,7 +11,6 @@ class WebRTCService {
 
   RTCPeerConnection? _peerConnection;
   MediaStream? _localStream;
-  MediaStream? _remoteStream;
 
   final _remoteStreamController = StreamController<MediaStream?>.broadcast();
   Stream<MediaStream?> get onRemoteStream => _remoteStreamController.stream;
@@ -61,7 +61,6 @@ class WebRTCService {
       });
 
       _peerConnection!.onAddStream = (stream) {
-        _remoteStream = stream;
         _remoteStreamController.add(stream);
       };
 
@@ -96,7 +95,7 @@ class WebRTCService {
         );
       }
     } catch (e) {
-      print('WebRTC Error: $e');
+      debugPrint('WebRTC Error: $e');
       _callStateController.add('error');
       cleanup();
     }
@@ -111,7 +110,7 @@ class WebRTCService {
         },
       );
     } catch (e) {
-      print('Reject Error: $e');
+      debugPrint('Reject Error: $e');
     }
     cleanup();
   }
@@ -125,7 +124,7 @@ class WebRTCService {
         },
       );
     } catch (e) {
-      print('Hangup Error: $e');
+      debugPrint('Hangup Error: $e');
     }
     cleanup();
     _callStateController.add('ended');
@@ -150,7 +149,6 @@ class WebRTCService {
     _peerConnection?.close();
     _peerConnection = null;
 
-    _remoteStream = null;
     _remoteStreamController.add(null);
     _isMuted = false;
   }

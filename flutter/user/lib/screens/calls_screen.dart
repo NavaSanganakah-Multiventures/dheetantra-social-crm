@@ -40,10 +40,13 @@ class _CallsScreenState extends State<CallsScreen> {
     switch (_filter) {
       case 'आने वाली':
         list = list.where((c) => c.direction == 'incoming').toList();
+        break;
       case 'जाने वाली':
         list = list.where((c) => c.direction == 'outgoing').toList();
+        break;
       case 'मिस्ड':
         list = list.where((c) => c.status == 'missed').toList();
+        break;
     }
     return list;
   }

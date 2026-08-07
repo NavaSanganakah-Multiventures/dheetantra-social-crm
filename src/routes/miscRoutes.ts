@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { getCookie } from 'hono/cookie';
 import { Env } from '../types';
-import { requireRole } from '../shared';
+import { requireRole, pagination } from '../shared';
 
 const router = new Hono<{ Bindings: Env }>();
 
@@ -183,14 +183,55 @@ router.post('/api/whatsapp/webhook/subscribe', async (c) => {
   }
 });
 
-// Broadcast Campaign — Create campaign and queue messages
+// Broadcast Campaign — list campaigns for the workspace
+router.get('/api/broadcast', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+  if (!c.env.DB) return c.json({ error: 'Database not connected' }, 500);
+
+  const { limit, offset } = pagination(c, 100);
+  try {
+    const { results } = await c.env.DB.prepare(
+      'SELECT id, name, status, total_recipients, successful_sends, failed_sends, created_at FROM broadcast_campaigns WHERE workspace_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?'
+    ).bind(workspaceId, limit, offset).all();
+    return c.json({ broadcasts: results || [] });
+  } catch (err: any) {
+    console.error('Failed to list broadcast campaigns:', err);
+    return c.json({ error: err.message || 'Failed to list broadcasts' }, 500);
+  }
+});
+
+// Broadcast Campaign — Create campaign and queue messages.
+// Supports two modes:
+//   1. Template mode: { campaignName, templateName, languageCode, parameters, contactIds, phoneNumberId }
+//   2. Text mode (free-form): { message, audience: 'all'|'leads'|'customers', contactIds?, phoneNumberId? }
 router.post('/api/broadcast', requireRole('owner', 'admin'), async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
-  const { campaignName, templateName, languageCode, parameters, contactIds, phoneNumberId } = await c.req.json();
-  if (!campaignName || !templateName || !contactIds || !Array.isArray(contactIds) || contactIds.length === 0) {
-    return c.json({ error: 'Missing required fields: campaignName, templateName, contactIds' }, 400);
+  const { campaignName, templateName, languageCode, parameters, contactIds, phoneNumberId, message, audience } = await c.req.json();
+
+  // Resolve contact IDs for text mode when audience is given instead of explicit IDs
+  let resolvedContactIds: string[] = Array.isArray(contactIds) ? contactIds : [];
+  if (resolvedContactIds.length === 0 && !templateName && message) {
+    let where = 'workspace_id = ?';
+    const binds: any[] = [workspaceId];
+    if (audience === 'leads') {
+      where += ' AND is_lead = 1';
+    } else if (audience === 'customers') {
+      where += ' AND (is_lead = 0 OR is_lead IS NULL)';
+    }
+    const { results } = await c.env.DB.prepare(
+      `SELECT id FROM contacts WHERE ${where} LIMIT 5000`
+    ).bind(...binds).all<{ id: string }>();
+    resolvedContactIds = (results || []).map(r => r.id);
+  }
+
+  const finalCampaignName = campaignName || (message ? (message.length > 40 ? message.slice(0, 37) + '...' : message) : 'Broadcast');
+  const isTextMode = !templateName;
+
+  if (!finalCampaignName || (isTextMode ? !message : !templateName) || resolvedContactIds.length === 0) {
+    return c.json({ error: 'Missing required fields: message/templateName and contacts' }, 400);
   }
 
   if (!c.env.DB) return c.json({ error: 'Database not connected' }, 500);
@@ -211,43 +252,57 @@ router.post('/api/broadcast', requireRole('owner', 'admin'), async (c) => {
     const broadcastNow = new Date().toISOString();
     await c.env.DB.prepare(
       'INSERT INTO broadcast_campaigns (id, workspace_id, name, status, total_recipients, created_at) VALUES (?, ?, ?, ?, ?, ?)'
-    ).bind(campaignId, workspaceId, campaignName, 'processing', contactIds.length, broadcastNow).run();
+    ).bind(campaignId, workspaceId, finalCampaignName, 'processing', resolvedContactIds.length, broadcastNow).run();
 
-    // Fetch contact phone numbers
-    const placeholders = contactIds.map(() => '?').join(',');
-    const { results: contacts } = await c.env.DB.prepare(
-      `SELECT id, platform_contact_id, phone FROM contacts WHERE id IN (${placeholders}) AND workspace_id = ?`
-    ).bind(...contactIds, workspaceId).all<{ id: string; platform_contact_id: string; phone: string }>();
+    // Fetch contact phone numbers.
+    // D1 caps bound parameters at 100 per query, so chunk the IN clause.
+    const contacts: { id: string; platform_contact_id: string; phone: string }[] = [];
+    for (let i = 0; i < resolvedContactIds.length; i += 99) {
+      const chunk = resolvedContactIds.slice(i, i + 99);
+      const placeholders = chunk.map(() => '?').join(',');
+      const { results } = await c.env.DB.prepare(
+        `SELECT id, platform_contact_id, phone FROM contacts WHERE id IN (${placeholders}) AND workspace_id = ?`
+      ).bind(...chunk, workspaceId).all<{ id: string; platform_contact_id: string; phone: string }>();
+      contacts.push(...(results || []));
+    }
 
-    // Queue each message to Cloudflare Queue
+    // Queue each message to Cloudflare Queue (parallel batches of 25 so a
+    // large audience doesn't hit the Worker's 30s wall-time limit).
     let queued = 0;
     const queueAvailable = !!c.env.BROADCAST_QUEUE;
-    for (const contact of contacts) {
-      const toPhone = contact.platform_contact_id || contact.phone;
-      if (!toPhone) continue;
-      if (!queueAvailable) {
-        console.error('[broadcast] BROADCAST_QUEUE binding not configured — skipping queue');
-        break;
-      }
-      try {
-        await c.env.BROADCAST_QUEUE.send({
+    if (!queueAvailable) {
+      console.error('[broadcast] BROADCAST_QUEUE binding not configured — skipping queue');
+    }
+    for (let i = 0; i < contacts.length; i += 25) {
+      const batch = contacts.slice(i, i + 25);
+      await Promise.all(batch.map(async (contact) => {
+        const toPhone = contact.platform_contact_id || contact.phone;
+        if (!toPhone || !queueAvailable) return;
+        const queuePayload: any = {
           campaignId,
           workspaceId,
           contactId: contact.id,
           phoneId: config.phone_number_id,
-          templateName,
-          languageCode: languageCode || 'en_US',
-          parameters: parameters || [],
           toPhone
-        });
-        queued++;
-      } catch (qErr) {
-        console.error(`Failed to queue broadcast for contact ${contact.id}:`, qErr);
-      }
+        };
+        if (isTextMode) {
+          queuePayload.text = message;
+        } else {
+          queuePayload.templateName = templateName;
+          queuePayload.languageCode = languageCode || 'en_US';
+          queuePayload.parameters = parameters || [];
+        }
+        try {
+          await c.env.BROADCAST_QUEUE.send(queuePayload);
+          queued++;
+        } catch (qErr) {
+          console.error(`Failed to queue broadcast for contact ${contact.id}:`, qErr);
+        }
+      }));
     }
 
     // Update total_recipients to actual queued count
-    if (queued !== contactIds.length) {
+    if (queued !== resolvedContactIds.length) {
       await c.env.DB.prepare('UPDATE broadcast_campaigns SET total_recipients = ? WHERE id = ?').bind(queued, campaignId).run();
     }
 

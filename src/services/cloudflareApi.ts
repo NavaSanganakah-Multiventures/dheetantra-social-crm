@@ -19,7 +19,7 @@ export async function getCloudflareCredentials(env: any): Promise<CFCreds> {
   return { token, accountId };
 }
 
-async function cfFetchCreds(creds: CFCreds, path: string, options: RequestInit = {}) {
+async function cfFetchCreds(creds: CFCreds, path: string, options: RequestInit = {}, opts: { returnFull?: boolean } = {}) {
   if (!creds.token) {
     throw new CloudflareApiError(500, 'Cloudflare API token not configured. Set CLOUDFLARE_API_TOKEN in SECRETS_KV.');
   }
@@ -49,7 +49,7 @@ async function cfFetchCreds(creds: CFCreds, path: string, options: RequestInit =
     throw new CloudflareApiError(res.status, message, errors);
   }
 
-  return data?.result;
+  return opts.returnFull ? data : data?.result;
 }
 
 // Public helper for one-off calls: fetches credentials itself.
@@ -157,4 +157,64 @@ export async function listZoneDnsRecords(env: any, zoneId: string, creds?: CFCre
     page++;
   }
   return records;
+}
+
+// ==========================================
+// KV NAMESPACES (admin KV-copy tool)
+// ==========================================
+
+// Cloudflare KV namespace IDs are 32-hex-character strings. Validating before
+// they hit the URL prevents dot-segment traversal to other CF endpoints.
+const KV_NAMESPACE_ID_RE = /^[a-f0-9]{32}$/i;
+
+function assertKvNamespaceId(namespaceId: string) {
+  if (!KV_NAMESPACE_ID_RE.test(namespaceId)) {
+    throw new CloudflareApiError(400, `Invalid KV namespace ID: "${namespaceId}"`);
+  }
+}
+
+export async function listKvKeys(env: any, namespaceId: string, opts: { limit?: number; cursor?: string } = {}, creds?: CFCreds) {
+  assertKvNamespaceId(namespaceId);
+  const c = creds ?? await getCloudflareCredentials(env);
+  const qs = new URLSearchParams();
+  if (opts.limit) qs.set('limit', String(opts.limit));
+  if (opts.cursor) qs.set('cursor', opts.cursor);
+  const full: any = await cfFetchCreds(c, `/storage/kv/namespaces/${namespaceId}/keys?${qs}`, {}, { returnFull: true });
+  return {
+    keys: Array.isArray(full?.result) ? full.result : [],
+    cursor: full?.result_info?.cursor || '',
+  };
+}
+
+// KV values are raw text, not JSON — cfFetchCreds would mis-parse them, so
+// these use the shared credential fetch with a plain-text body and explicit
+// timeouts instead.
+export async function getKvValue(env: any, namespaceId: string, key: string, creds?: CFCreds): Promise<string> {
+  assertKvNamespaceId(namespaceId);
+  const c = creds ?? await getCloudflareCredentials(env);
+  if (!c.token) throw new CloudflareApiError(500, 'Cloudflare API token not configured. Set CLOUDFLARE_API_TOKEN in SECRETS_KV.');
+  const res = await fetch(`${CF_API}/storage/kv/namespaces/${namespaceId}/values/${encodeURIComponent(key)}`, {
+    headers: { Authorization: `Bearer ${c.token}` },
+    signal: AbortSignal.timeout(10000),
+  });
+  if (!res.ok) throw new CloudflareApiError(res.status, `KV read failed for key "${key}" (${res.status})`);
+  return res.text();
+}
+
+export async function putKvValue(env: any, namespaceId: string, key: string, value: string, expiration?: number, creds?: CFCreds) {
+  assertKvNamespaceId(namespaceId);
+  const c = creds ?? await getCloudflareCredentials(env);
+  if (!c.token) throw new CloudflareApiError(500, 'Cloudflare API token not configured. Set CLOUDFLARE_API_TOKEN in SECRETS_KV.');
+  const url = new URL(`${CF_API}/storage/kv/namespaces/${namespaceId}/values/${encodeURIComponent(key)}`);
+  if (expiration) url.searchParams.set('expiration', String(expiration));
+  const res = await fetch(url, {
+    method: 'PUT',
+    headers: {
+      Authorization: `Bearer ${c.token}`,
+      'Content-Type': 'text/plain',
+    },
+    body: value,
+    signal: AbortSignal.timeout(15000),
+  });
+  if (!res.ok) throw new CloudflareApiError(res.status, `KV write failed for key "${key}" (${res.status})`);
 }

@@ -1,7 +1,9 @@
 import 'package:dio/dio.dart';
 import 'package:dio_cookie_manager/dio_cookie_manager.dart';
 import 'package:cookie_jar/cookie_jar.dart';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:path_provider/path_provider.dart';
 
 class ApiService {
   static const String baseUrl = 'https://dheetantra.navasanganakah.com';
@@ -10,7 +12,7 @@ class ApiService {
   factory ApiService() => _instance;
 
   late final Dio _dio;
-  late final CookieJar _cookieJar;
+  late final PersistCookieJar _cookieJar;
   String? _workspaceId;
   Map<String, dynamic>? _currentUser;
 
@@ -19,7 +21,6 @@ class ApiService {
   Map<String, dynamic>? get currentUser => _currentUser;
 
   ApiService._internal() {
-    _cookieJar = CookieJar();
     _dio = Dio(BaseOptions(
       baseUrl: baseUrl,
       connectTimeout: const Duration(seconds: 15),
@@ -28,7 +29,6 @@ class ApiService {
         'Content-Type': 'application/json',
       },
     ));
-    _dio.interceptors.add(CookieManager(_cookieJar));
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) {
         if (_workspaceId != null) {
@@ -40,6 +40,12 @@ class ApiService {
   }
 
   Future<void> init() async {
+    final dir = await getApplicationDocumentsDirectory();
+    _cookieJar = PersistCookieJar(
+      storage: FileStorage(dir.path),
+    );
+    _dio.interceptors.add(CookieManager(_cookieJar));
+
     final prefs = await SharedPreferences.getInstance();
     _workspaceId = prefs.getString('workspaceId');
   }
@@ -111,6 +117,31 @@ class ApiService {
       await _dio.post('/api/auth/logout');
     } catch (_) {}
     await clearSession();
+  }
+
+  // ========== FCM PUSH NOTIFICATIONS ==========
+
+  Future<bool> registerFcmToken(String token, {String deviceType = 'android'}) async {
+    try {
+      final res = await _dio.post('/api/fcm/register', data: {
+        'token': token,
+        'device_type': deviceType,
+      });
+      return res.data['success'] == true;
+    } catch (e) {
+      debugPrint('FCM register error: $e');
+      return false;
+    }
+  }
+
+  Future<void> unregisterFcmToken({String? token}) async {
+    try {
+      await _dio.delete('/api/fcm/register', data: {
+        if (token != null) 'token': token,
+      });
+    } catch (e) {
+      debugPrint('FCM unregister error: $e');
+    }
   }
 
   // ========== CONTACTS ==========
@@ -192,15 +223,26 @@ class ApiService {
     required String text,
     required String conversationId,
     String type = 'text',
+    String platform = 'whatsapp',
+    String? subject,
   }) async {
     try {
-      final res = await _dio.post('/api/whatsapp/send', data: {
-        'to': to,
-        'text': text,
-        'conversationId': conversationId,
-        'type': type,
-      });
-      return res.data;
+      if (platform == 'email') {
+        final res = await _dio.post('/api/email/inbox/conversations/$conversationId/reply', data: {
+          'text': text,
+          'html': text.replaceAll('\n', '<br/>'),
+          if (subject != null) 'subject': subject,
+        });
+        return res.data;
+      } else {
+        final res = await _dio.post('/api/whatsapp/send', data: {
+          'to': to,
+          'text': text,
+          'conversationId': conversationId,
+          'type': type,
+        });
+        return res.data;
+      }
     } on DioException catch (e) {
       return _handleError(e);
     }
@@ -222,9 +264,9 @@ class ApiService {
 
   Future<List<dynamic>> getBroadcasts() async {
     try {
-      final res = await _dio.get('/api/inbox/conversations', queryParameters: {'limit': '500'});
+      final res = await _dio.get('/api/broadcast');
       final data = res.data as Map<String, dynamic>;
-      return data['conversations'] ?? [];
+      return data['broadcasts'] ?? [];
     } on DioException {
       return [];
     }
@@ -278,7 +320,9 @@ class ApiService {
     try {
       final res = await _dio.get('/api/whatsapp/templates');
       final data = res.data as Map<String, dynamic>;
-      return data['templates'] ?? [];
+      final local = (data['local'] as List?) ?? [];
+      final meta = (data['meta'] as List?) ?? [];
+      return [...local, ...meta];
     } on DioException {
       return [];
     }

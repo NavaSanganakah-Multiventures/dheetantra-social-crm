@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../models/models.dart';
 import '../services/api_service.dart';
+import '../services/websocket_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
 import 'calls_screen.dart';
@@ -10,8 +13,15 @@ import 'schedule_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   final VoidCallback onOpenInbox;
+  final VoidCallback onOpenBroadcast;
+  final VoidCallback onOpenNotifications;
 
-  const DashboardScreen({super.key, required this.onOpenInbox});
+  const DashboardScreen({
+    super.key,
+    required this.onOpenInbox,
+    required this.onOpenBroadcast,
+    required this.onOpenNotifications,
+  });
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -22,15 +32,36 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int _totalContacts = 0;
   int _openConversations = 0;
   List<Conversation> _recentChats = [];
+  StreamSubscription? _msgSub;
+  StreamSubscription? _convStatusSub;
+  Timer? _autoRefresh;
 
   @override
   void initState() {
     super.initState();
     _loadData();
+
+    // Realtime: refresh whenever a message or conversation status arrives.
+    _msgSub = WebSocketService().onNewMessage.listen((_) => _loadData(silent: true));
+    _convStatusSub =
+        WebSocketService().onConversationStatusUpdated.listen((_) => _loadData(silent: true));
+
+    // Safety net: silent refresh every 60s keeps stats in sync if WS drops.
+    _autoRefresh = Timer.periodic(const Duration(seconds: 60), (_) {
+      _loadData(silent: true);
+    });
   }
 
-  Future<void> _loadData() async {
-    setState(() => _loading = true);
+  @override
+  void dispose() {
+    _msgSub?.cancel();
+    _convStatusSub?.cancel();
+    _autoRefresh?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadData({bool silent = false}) async {
+    if (!silent) setState(() => _loading = true);
     final api = ApiService();
     final stats = await api.getDashboardStats();
     if (!mounted) return;
@@ -73,29 +104,41 @@ class _DashboardScreenState extends State<DashboardScreen> {
             style: TextStyle(color: AppColors.textMuted, fontSize: 13),
           ),
           const SizedBox(height: 24),
-          Row(
-            children: [
-              Expanded(
-                child: StatCard(
-                  title: 'कुल संपर्क',
-                  value: '$_totalContacts',
-                  trend: 'CRM डेटा',
-                  icon: Icons.people_alt_outlined,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: StatCard(
-                  title: 'खुली बातचीत',
-                  value: '$_openConversations',
-                  trend: 'सक्रिय कनेक्शन',
-                  icon: Icons.forum_outlined,
-                ),
-              ),
-            ],
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final cardWidth = (constraints.maxWidth - 12) / 2;
+              return Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  SizedBox(
+                    width: cardWidth,
+                    child: StatCard(
+                      title: 'कुल संपर्क',
+                      value: '$_totalContacts',
+                      trend: 'CRM डेटा',
+                      icon: Icons.people_alt_outlined,
+                    ),
+                  ),
+                  SizedBox(
+                    width: cardWidth,
+                    child: StatCard(
+                      title: 'खुली बातचीत',
+                      value: '$_openConversations',
+                      trend: 'सक्रिय कनेक्शन',
+                      icon: Icons.forum_outlined,
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
           const SizedBox(height: 28),
-          _QuickActions(onOpenInbox: widget.onOpenInbox),
+          _QuickActions(
+            onOpenInbox: widget.onOpenInbox,
+            onOpenBroadcast: widget.onOpenBroadcast,
+            onOpenNotifications: widget.onOpenNotifications,
+          ),
           const SizedBox(height: 28),
           SectionHeader(
             title: 'हाल की बातचीत',
@@ -112,62 +155,98 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
 class _QuickActions extends StatelessWidget {
   final VoidCallback onOpenInbox;
+  final VoidCallback onOpenBroadcast;
+  final VoidCallback onOpenNotifications;
 
-  const _QuickActions({required this.onOpenInbox});
+  const _QuickActions({
+    required this.onOpenInbox,
+    required this.onOpenBroadcast,
+    required this.onOpenNotifications,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final actions = [
+      _QuickActionData(
+        icon: Icons.chat_outlined,
+        label: 'इनबॉक्स',
+        onTap: onOpenInbox,
+      ),
+      _QuickActionData(
+        icon: Icons.notifications_outlined,
+        label: 'सूचनाएं',
+        onTap: onOpenNotifications,
+      ),
+      _QuickActionData(
+        icon: Icons.call_outlined,
+        label: 'कॉल लॉग्स',
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const CallsScreen()),
+          );
+        },
+      ),
+      _QuickActionData(
+        icon: Icons.event_outlined,
+        label: 'शेड्यूल',
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const ScheduleScreen()),
+          );
+        },
+      ),
+      _QuickActionData(
+        icon: Icons.campaign_outlined,
+        label: 'ब्रॉडकास्ट',
+        onTap: onOpenBroadcast,
+      ),
+    ];
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SectionHeader(title: 'क्विक एक्शन्स'),
         const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: _QuickActionCard(
-                icon: Icons.chat_outlined,
-                label: 'इनबॉक्स',
-                onTap: onOpenInbox,
+        // Responsive: grid on wide screens, horizontal scroll on narrow ones.
+        LayoutBuilder(
+          builder: (context, constraints) {
+            if (constraints.maxWidth >= 420) {
+              return Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  for (final a in actions)
+                    SizedBox(
+                      width: (constraints.maxWidth - 30) / 4,
+                      child: _QuickActionCard(icon: a.icon, label: a.label, onTap: a.onTap),
+                    ),
+                ],
+              );
+            }
+            return SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  for (final a in actions) ...[
+                    SizedBox(width: 84, child: _QuickActionCard(icon: a.icon, label: a.label, onTap: a.onTap)),
+                    const SizedBox(width: 10),
+                  ],
+                ],
               ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _QuickActionCard(
-                icon: Icons.call_outlined,
-                label: 'कॉल लॉग्स',
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const CallsScreen()),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _QuickActionCard(
-                icon: Icons.event_outlined,
-                label: 'शेड्यूल',
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const ScheduleScreen()),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _QuickActionCard(
-                icon: Icons.campaign_outlined,
-                label: 'ब्रॉडकास्ट',
-                onTap: () {},
-              ),
-            ),
-          ],
+            );
+          },
         ),
       ],
     );
   }
+}
+
+class _QuickActionData {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _QuickActionData({required this.icon, required this.label, required this.onTap});
 }
 
 class _QuickActionCard extends StatelessWidget {

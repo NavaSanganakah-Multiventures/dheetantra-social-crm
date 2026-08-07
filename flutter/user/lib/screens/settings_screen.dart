@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/api_service.dart';
+import '../services/fcm_service.dart';
+import '../services/notification_center.dart';
+import '../services/websocket_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
 import 'login_screen.dart';
@@ -13,17 +17,30 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  static const _notificationsPref = 'notifications_enabled';
+  static const _callsPref = 'calls_enabled';
+
   bool _notifications = true;
   bool _callsEnabled = true;
-  bool _darkMode = true;
+  bool _loading = true;
+  bool _savingNotifications = false;
   String _userName = '';
   String _userEmail = '';
-  bool _loading = true;
 
   @override
   void initState() {
     super.initState();
     _loadUserData();
+    _loadPrefs();
+  }
+
+  Future<void> _loadPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      _notifications = prefs.getBool(_notificationsPref) ?? true;
+      _callsEnabled = prefs.getBool(_callsPref) ?? true;
+    });
   }
 
   Future<void> _loadUserData() async {
@@ -37,7 +54,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
     });
   }
 
+  Future<void> _setNotifications(bool enabled) async {
+    setState(() {
+      _notifications = enabled;
+      _savingNotifications = true;
+    });
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_notificationsPref, enabled);
+    // Register/remove the FCM device token with the backend.
+    await FcmService().setEnabled(enabled);
+    if (!mounted) return;
+    setState(() => _savingNotifications = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(enabled ? 'पुश नोटिफिकेशन्स चालू' : 'पुश नोटिफिकेशन्स बंद'),
+      ),
+    );
+  }
+
+  Future<void> _setCallsEnabled(bool enabled) async {
+    setState(() => _callsEnabled = enabled);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_callsPref, enabled);
+  }
+
   Future<void> _logout() async {
+    // Clean up FCM token + realtime socket before leaving.
+    await FcmService().cleanup();
+    WebSocketService().disconnect();
+    NotificationCenter().clear();
     await ApiService().logout();
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
@@ -132,9 +177,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _SettingsSwitchTile(
               icon: Icons.notifications_outlined,
               title: 'नोटिफिकेशन्स',
-              subtitle: 'नई बातचीत और कॉल्स की सूचना',
+              subtitle: _savingNotifications
+                  ? 'सिंक हो रहा है...'
+                  : 'नई बातचीत और कॉल्स की पुश सूचना',
               value: _notifications,
-              onChanged: (v) => setState(() => _notifications = v),
+              onChanged: _savingNotifications ? (_) {} : _setNotifications,
             ),
             const Divider(height: 1, indent: 52),
             _SettingsSwitchTile(
@@ -142,15 +189,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
               title: 'कॉलिंग सक्षम',
               subtitle: 'WhatsApp कॉल्स प्राप्त करें',
               value: _callsEnabled,
-              onChanged: (v) => setState(() => _callsEnabled = v),
+              onChanged: _setCallsEnabled,
             ),
             const Divider(height: 1, indent: 52),
-            _SettingsSwitchTile(
+            const _SettingsTile(
               icon: Icons.dark_mode_outlined,
-              title: 'डार्क मोड',
-              subtitle: 'थीम बदलें',
-              value: _darkMode,
-              onChanged: (v) => setState(() => _darkMode = v),
+              title: 'थीम',
+              subtitle: 'डार्क मोड (डिफ़ॉल्ट)',
+              trailing: Icon(Icons.check_rounded, color: AppColors.accent, size: 20),
+              onTap: null,
             ),
           ],
         ),
@@ -229,12 +276,13 @@ class _SettingsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surface,
+    return Material(
+      color: AppColors.surface,
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.border),
+        side: const BorderSide(color: AppColors.border),
       ),
+      clipBehavior: Clip.antiAlias,
       child: Column(children: children),
     );
   }
@@ -245,14 +293,14 @@ class _SettingsTile extends StatelessWidget {
   final String title;
   final String? subtitle;
   final Widget trailing;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   const _SettingsTile({
     required this.icon,
     required this.title,
     this.subtitle,
     required this.trailing,
-    required this.onTap,
+    this.onTap,
   });
 
   @override

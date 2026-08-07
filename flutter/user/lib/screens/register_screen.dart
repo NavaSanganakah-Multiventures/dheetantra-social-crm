@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../services/api_service.dart';
@@ -23,9 +25,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
   String _step = 'form'; // 'form' or 'otp'
   String? _message;
   bool _isError = false;
+  int _resendCooldown = 0;
+  Timer? _resendTimer;
+
+  static final _emailRegex = RegExp(r'^[\w\.\-+]+@[\w\-]+(\.[\w\-]+)+$');
 
   @override
   void dispose() {
+    _resendTimer?.cancel();
     _nameController.dispose();
     _emailController.dispose();
     for (final c in _otpControllers) {
@@ -37,10 +44,28 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
+  void _startResendCooldown() {
+    _resendTimer?.cancel();
+    setState(() => _resendCooldown = 30);
+    _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) return;
+      if (_resendCooldown <= 1) {
+        timer.cancel();
+        setState(() => _resendCooldown = 0);
+      } else {
+        setState(() => _resendCooldown--);
+      }
+    });
+  }
+
   Future<void> _sendOtp() async {
     FocusScope.of(context).unfocus();
     if (_nameController.text.trim().isEmpty || _emailController.text.trim().isEmpty) {
       _showMessage('कृपया सभी फ़ील्ड भरें', true);
+      return;
+    }
+    if (!_emailRegex.hasMatch(_emailController.text.trim())) {
+      _showMessage('कृपया सही ईमेल पता दर्ज करें', true);
       return;
     }
 
@@ -58,6 +83,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     } else {
       setState(() => _step = 'otp');
       _showMessage('OTP आपके ईमेल पर भेजा गया', false);
+      _startResendCooldown();
       Future.delayed(const Duration(milliseconds: 100), () {
         if (mounted) _otpFocusNodes[0].requestFocus();
       });
@@ -169,32 +195,38 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         : const Text('OTP भेजें'),
                   ),
                 ] else ...[
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: List.generate(6, (i) {
-                      return Container(
-                        width: 46,
-                        height: 54,
-                        margin: EdgeInsets.only(right: i < 5 ? 8 : 0),
-                        child: TextField(
-                          controller: _otpControllers[i],
-                          focusNode: _otpFocusNodes[i],
-                          keyboardType: TextInputType.number,
-                          textAlign: TextAlign.center,
-                          maxLength: 1,
-                          onChanged: (v) => _onOtpChanged(i, v),
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.textPrimary,
-                          ),
-                          decoration: const InputDecoration(
-                            counterText: '',
-                            contentPadding: EdgeInsets.symmetric(vertical: 14),
-                          ),
-                        ),
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      const gap = 8.0;
+                      final boxWidth = (constraints.maxWidth - gap * 5) / 6;
+                      return Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: List.generate(6, (i) {
+                          return Container(
+                            width: boxWidth,
+                            height: 54,
+                            margin: EdgeInsets.only(right: i < 5 ? gap : 0),
+                            child: TextField(
+                              controller: _otpControllers[i],
+                              focusNode: _otpFocusNodes[i],
+                              keyboardType: TextInputType.number,
+                              textAlign: TextAlign.center,
+                              maxLength: 1,
+                              onChanged: (v) => _onOtpChanged(i, v),
+                              style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.textPrimary,
+                              ),
+                              decoration: const InputDecoration(
+                                counterText: '',
+                                contentPadding: EdgeInsets.symmetric(vertical: 14),
+                              ),
+                            ),
+                          );
+                        }),
                       );
-                    }),
+                    },
                   ),
                   const SizedBox(height: 24),
                   FilledButton(
@@ -210,17 +242,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   const SizedBox(height: 12),
                   Center(
                     child: TextButton(
-                      onPressed: () {
-                        setState(() {
-                          _step = 'form';
-                          _message = null;
-                          for (final c in _otpControllers) {
-                            c.clear();
-                          }
-                        });
-                      },
+                      onPressed: _resendCooldown > 0 || _loading
+                          ? null
+                          : _sendOtp,
                       style: TextButton.styleFrom(foregroundColor: AppColors.accent),
-                      child: const Text('वापस जाएं', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                      child: Text(
+                        _resendCooldown > 0
+                            ? 'दोबारा भेजें ($_resendCooldown सेकंड)'
+                            : 'दोबारा OTP भेजें',
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                      ),
                     ),
                   ),
                 ],

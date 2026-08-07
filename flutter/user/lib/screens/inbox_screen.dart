@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../models/models.dart';
 import '../services/api_service.dart';
+import '../services/websocket_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
 import 'chat_screen.dart';
@@ -18,6 +21,10 @@ class _InboxScreenState extends State<InboxScreen> {
   String _filter = 'सभी';
   bool _loading = true;
   List<Conversation> _allConversations = [];
+  StreamSubscription? _msgSub;
+  StreamSubscription? _statusSub;
+  StreamSubscription? _deletedSub;
+  Timer? _autoRefresh;
 
   static const _filters = ['सभी', 'खुली', 'बंद'];
 
@@ -25,10 +32,38 @@ class _InboxScreenState extends State<InboxScreen> {
   void initState() {
     super.initState();
     _loadConversations();
+
+    // Realtime sync: new messages, status changes and deletions update the
+    // list instantly without a manual refresh.
+    _msgSub = WebSocketService().onNewMessage.listen((_) => _loadConversations(silent: true));
+    _statusSub = WebSocketService()
+        .onConversationStatusUpdated
+        .listen((_) => _loadConversations(silent: true));
+    _deletedSub = WebSocketService().onConversationDeleted.listen((data) {
+      final convId = data['conversation_id'] ?? '';
+      if (!mounted || convId.isEmpty) return;
+      setState(() {
+        _allConversations.removeWhere((c) => c.id == convId);
+      });
+    });
+
+    // Fallback sync if WebSocket drops: silent refresh every 45s.
+    _autoRefresh = Timer.periodic(const Duration(seconds: 45), (_) {
+      _loadConversations(silent: true);
+    });
   }
 
-  Future<void> _loadConversations() async {
-    setState(() => _loading = true);
+  @override
+  void dispose() {
+    _msgSub?.cancel();
+    _statusSub?.cancel();
+    _deletedSub?.cancel();
+    _autoRefresh?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadConversations({bool silent = false}) async {
+    if (!silent) setState(() => _loading = true);
     final api = ApiService();
 
     String? statusFilter;

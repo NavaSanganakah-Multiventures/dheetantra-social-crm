@@ -94,6 +94,39 @@ router.post('/api/fcm/register', async (c) => {
 });
 
 
+// Unregister FCM token (logout / notifications disabled)
+router.delete('/api/fcm/register', async (c) => {
+  const sessionId = getCookie(c, 'auth_session');
+  if (!sessionId) return c.json({ error: 'Unauthorized' }, 401);
+
+  let userId = '';
+  if (c.env.SECRETS_KV) {
+    const userDataStr = await c.env.SECRETS_KV.get(`SESSION:${sessionId}`);
+    if (userDataStr) {
+      const user = JSON.parse(userDataStr);
+      userId = user.id;
+    }
+  }
+  if (!userId) return c.json({ error: 'User not found' }, 401);
+
+  const { token } = await c.req.json();
+  if (c.env.DB) {
+    try {
+      if (token) {
+        await c.env.DB.prepare('DELETE FROM fcm_tokens WHERE token = ? AND user_id = ?').bind(token, userId).run();
+      } else {
+        await c.env.DB.prepare('DELETE FROM fcm_tokens WHERE user_id = ?').bind(userId).run();
+      }
+      return c.json({ success: true, message: 'FCM token unregistered' });
+    } catch (e: any) {
+      console.error('Failed to unregister FCM token', e);
+      return c.json({ error: 'Failed to unregister token' }, 500);
+    }
+  }
+  return c.json({ error: 'DB not configured' }, 500);
+});
+
+
 // 2. CRM & Social Media Data (D1 Database)
 router.get('/api/crm/contacts', async (c) => {
   const workspaceId = c.req.header('x-workspace-id');

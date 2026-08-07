@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../models/models.dart';
@@ -5,7 +7,6 @@ import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
 import '../services/websocket_service.dart';
-import 'dart:async';
 
 class ChatScreen extends StatefulWidget {
   final Conversation conversation;
@@ -71,16 +72,21 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
 
-  void _scrollToBottom() {
-    if (_scrollController.hasClients) {
-      Future.delayed(const Duration(milliseconds: 100), () {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
-      });
+  void _scrollToBottom({bool animate = true}) {
+    if (!_scrollController.hasClients) return;
+    final target = _scrollController.position.maxScrollExtent;
+    if (!animate) {
+      _scrollController.jumpTo(target);
+      return;
     }
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (!_scrollController.hasClients) return;
+      _scrollController.animateTo(
+        target,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    });
   }
 
   @override
@@ -121,7 +127,7 @@ class _ChatScreenState extends State<ChatScreen> {
       _messages = msgList;
       _loading = false;
     });
-    _scrollToBottom();
+    _scrollToBottom(animate: false);
   }
 
   Future<void> _send() async {
@@ -145,6 +151,7 @@ class _ChatScreenState extends State<ChatScreen> {
       to: _contactPhone,
       text: text,
       conversationId: widget.conversation.id,
+      platform: widget.conversation.platform,
     );
 
     if (res['error'] != null && mounted) {
@@ -162,6 +169,101 @@ class _ChatScreenState extends State<ChatScreen> {
         }
       });
     }
+  }
+
+  Future<void> _initiateCall() async {
+    final contactId = widget.conversation.contact.id;
+    if (contactId.isEmpty) return;
+    try {
+      final res = await ApiService().dio.post('/api/whatsapp/calls', data: {
+        'contactId': contactId,
+        'type': 'voice',
+        'direction': 'outgoing',
+        'status': 'ringing',
+      });
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            res.data['success'] == true ? 'कॉल शुरू की गई' : 'कॉल शुरू नहीं हो सकी',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('कॉल शुरू नहीं हो सकी')),
+      );
+    }
+  }
+
+  Future<void> _showTemplatePicker() async {
+    final templates = await ApiService().getTemplates();
+    if (!mounted) return;
+    if (templates.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('कोई टेम्पलेट उपलब्ध नहीं है')),
+      );
+      return;
+    }
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.surfaceAlt,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text(
+                'टेम्पलेट चुनें',
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            Flexible(
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: templates.length,
+                itemBuilder: (context, i) {
+                  final t = templates[i];
+                  final name = t['name'] ?? 'Template';
+                  final body = t['body_text'] ?? t['body'] ?? '';
+                  return ListTile(
+                    title: Text(
+                      name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    subtitle: Text(
+                      body,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+                    ),
+                    onTap: () {
+                      Navigator.of(ctx).pop();
+                      _inputController.text = body;
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -201,10 +303,11 @@ class _ChatScreenState extends State<ChatScreen> {
           ],
         ),
         actions: [
-          IconButton(
-            onPressed: () {},
-            icon: const Icon(Icons.call_outlined, color: AppColors.success, size: 21),
-          ),
+          if (widget.conversation.platform != 'email')
+            IconButton(
+              onPressed: widget.conversation.contact.id.isEmpty ? null : _initiateCall,
+              icon: const Icon(Icons.call_outlined, color: AppColors.success, size: 21),
+            ),
           IconButton(
             onPressed: _loadMessages,
             icon: const Icon(Icons.refresh_rounded, size: 21),
@@ -241,6 +344,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Widget _buildInputBar() {
+    final isEmail = widget.conversation.platform == 'email';
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
       decoration: const BoxDecoration(
@@ -250,20 +354,23 @@ class _ChatScreenState extends State<ChatScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          IconButton(
-            onPressed: () {},
-            icon: const Icon(Icons.add_circle_outline_rounded, color: AppColors.textMuted),
-          ),
+          if (!isEmail)
+            IconButton(
+              onPressed: _showTemplatePicker,
+              tooltip: 'टेम्पलेट',
+              icon: const Icon(Icons.description_outlined, color: AppColors.textMuted, size: 22),
+            ),
+          if (isEmail) const SizedBox(width: 8),
           Expanded(
             child: TextField(
               controller: _inputController,
               minLines: 1,
-              maxLines: 4,
+              maxLines: isEmail ? 8 : 4,
               textCapitalization: TextCapitalization.sentences,
               onSubmitted: (_) => _send(),
-              decoration: const InputDecoration(
-                hintText: 'संदेश लिखें...',
-                contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+              decoration: InputDecoration(
+                hintText: isEmail ? 'ईमेल का जवाब दें...' : 'संदेश लिखें...',
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
                 isDense: true,
               ),
             ),
@@ -295,13 +402,16 @@ class _MessageBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final mine = message.isMine;
+    // Responsive: bubble never wider than 76% of a narrow phone, capped at 480
+    // on tablets/desktop so lines stay readable.
+    final maxBubbleWidth = MediaQuery.of(context).size.width * 0.76;
     return Align(
       alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 4),
         padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
         constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.76,
+          maxWidth: maxBubbleWidth < 480 ? maxBubbleWidth : 480,
         ),
         decoration: BoxDecoration(
           color: mine ? AppColors.accent : AppColors.surface,
@@ -317,12 +427,34 @@ class _MessageBubble extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.end,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              message.text,
-              style: TextStyle(
-                color: mine ? Colors.white : AppColors.textPrimary,
-                fontSize: 14,
-                height: 1.35,
+            if (message.subject != null && message.subject!.isNotEmpty) ...[
+              SizedBox(
+                width: double.infinity,
+                child: Text(
+                  message.subject!,
+                  style: TextStyle(
+                    color: mine ? Colors.white : AppColors.textPrimary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Divider(
+                height: 1,
+                color: mine ? Colors.white.withValues(alpha: 0.2) : AppColors.border,
+              ),
+              const SizedBox(height: 6),
+            ],
+            SizedBox(
+              width: double.infinity,
+              child: Text(
+                message.text,
+                style: TextStyle(
+                  color: mine ? Colors.white : AppColors.textPrimary,
+                  fontSize: 14,
+                  height: 1.35,
+                ),
               ),
             ),
             const SizedBox(height: 3),

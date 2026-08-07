@@ -33,6 +33,29 @@ import {
   stripHtmlTags,
 } from './shared';
 
+// HMAC-SHA256 hex digest (Meta webhook signature verification).
+async function hmacSha256Hex(secret: string, data: string): Promise<string> {
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(data));
+  return [...new Uint8Array(sig)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Constant-time string comparison (HMAC signatures, etc.).
+function constantTimeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) {
+    diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return diff === 0;
+}
+
 export class ChatDurableObject extends DurableObject {
   constructor(state: any, env: Env) {
     super(state, env);
@@ -257,7 +280,30 @@ app.get('/api/whatsapp/webhook', async (c) => {
 // Webhook Receiver (WhatsApp sends incoming messages via POST)
 app.post('/api/whatsapp/webhook', async (c) => {
   try {
-    const body = await c.req.json();
+    // Meta signs webhook deliveries with the app secret. Verification is
+    // REQUIRED: without WHATSAPP_APP_SECRET in SECRETS_KV the endpoint fails
+    // closed (503) unless the explicit insecure opt-out flag is set — never
+    // silently accept unauthenticated events.
+    const appSecret = await c.env.SECRETS_KV?.get('WHATSAPP_APP_SECRET');
+    const insecureFlag = await c.env.SECRETS_KV?.get('WHATSAPP_WEBHOOK_INSECURE');
+    if (!appSecret) {
+      if (insecureFlag === '1') {
+        console.warn('[WhatsApp] WHATSAPP_APP_SECRET not set — accepting webhook with insecure opt-out (WHATSAPP_WEBHOOK_INSECURE=1)');
+      } else {
+        console.error('[WhatsApp] WHATSAPP_APP_SECRET not set — rejecting webhook');
+        return c.json({ error: 'Webhook signature verification not configured' }, 503);
+      }
+    }
+    const rawBody = await c.req.text();
+    if (appSecret) {
+      const signature = c.req.header('x-hub-signature-256') || '';
+      const expected = 'sha256=' + await hmacSha256Hex(appSecret, rawBody);
+      if (!constantTimeEqual(signature, expected)) {
+        console.warn('[WhatsApp] Webhook signature mismatch — ignoring event');
+        return c.json({ error: 'Invalid signature' }, 403);
+      }
+    }
+    const body = rawBody ? JSON.parse(rawBody) : {};
     // Log only metadata, never the full body (it may contain PII, tokens and
     // media URLs). Errors below already capture what is needed for debugging.
     console.log('[WhatsApp] Webhook received:', {
@@ -431,12 +477,37 @@ app.post('/api/whatsapp/webhook', async (c) => {
                             .bind(...userIds).all<{ token: string }>();
 
                           const { sendPushNotification } = await import('../lib/fcm');
-                          if (tokens.results) {
-                            for (const row of tokens.results) {
-                              await sendPushNotification(c.env, row.token,
-                                `मिस्ड कॉल +${callerNumber}`,
-                                'आपकी एक WhatsApp वॉयस कॉल मिस हो गई',
-                                { workspaceId: config.workspace_id, type: 'missed_call' });
+                          if (tokens.results && tokens.results.length > 0) {
+                            // Bound the fan-out: subrequest/wall-time limits are
+                            // cumulative per invocation, so cap the TOTAL sends
+                            // (not just concurrency) and chunk them.
+                            const CHUNK = 25;
+                            const MAX_TOTAL_SENDS = 45;
+                            const targets = tokens.results.slice(0, MAX_TOTAL_SENDS);
+                            if (tokens.results.length > MAX_TOTAL_SENDS) {
+                              console.warn(`[Calling] Missed-call push truncated: ${tokens.results.length} tokens, sending to ${MAX_TOTAL_SENDS}`);
+                            }
+                            for (let start = 0; start < targets.length; start += CHUNK) {
+                              const chunk = targets.slice(start, start + CHUNK);
+                              const sends = await Promise.allSettled(
+                                chunk.map((row) =>
+                                  sendPushNotification(c.env, row.token,
+                                    `मिस्ड कॉल +${callerNumber}`,
+                                    'आपकी एक WhatsApp वॉयस कॉल मिस हो गई',
+                                    { workspaceId: config.workspace_id, type: 'missed_call', phone: callerNumber })
+                                )
+                              );
+                              // Remove dead tokens so future sends don't hit FCM with them.
+                              for (let i = 0; i < sends.length; i++) {
+                                const s = sends[i];
+                                if (s.status === 'fulfilled' && s.value.unregistered) {
+                                  try {
+                                    await c.env.DB.prepare('DELETE FROM fcm_tokens WHERE token = ?').bind(chunk[i].token).run();
+                                  } catch (e) {
+                                    console.error('Failed to delete unregistered FCM token:', e);
+                                  }
+                                }
+                              }
                             }
                           }
                         }
@@ -582,9 +653,40 @@ app.post('/api/whatsapp/webhook', async (c) => {
                         const title = `New message from ${contact.profile.name}`;
                         const bodyPreview = messageText.length > 100 ? messageText.substring(0, 97) + '...' : messageText;
 
-                        if (tokens.results) {
-                          for (const row of tokens.results) {
-                            await sendPushNotification(c.env, row.token, title, bodyPreview, { workspaceId: config.workspace_id, contactName: contact?.profile?.name ?? 'Unknown' });
+                        if (tokens.results && tokens.results.length > 0) {
+                          // Bound the fan-out: subrequest/wall-time limits are
+                          // cumulative per invocation, so cap the TOTAL sends
+                          // (not just concurrency) and chunk them.
+                          const CHUNK = 25;
+                          const MAX_TOTAL_SENDS = 45;
+                          const targets = tokens.results.slice(0, MAX_TOTAL_SENDS);
+                          if (tokens.results.length > MAX_TOTAL_SENDS) {
+                            console.warn(`[Webhook] New-message push truncated: ${tokens.results.length} tokens, sending to ${MAX_TOTAL_SENDS}`);
+                          }
+                          for (let start = 0; start < targets.length; start += CHUNK) {
+                            const chunk = targets.slice(start, start + CHUNK);
+                            const sends = await Promise.allSettled(
+                              chunk.map((row) =>
+                                sendPushNotification(c.env, row.token, title, bodyPreview, {
+                                  workspaceId: config.workspace_id,
+                                  contactName: contact?.profile?.name ?? 'Unknown',
+                                  type: 'new_message',
+                                  from: message.from || '',
+                                  messageId: message.id || '',
+                                })
+                              )
+                            );
+                            // Remove dead tokens so future sends don't hit FCM with them.
+                            for (let i = 0; i < sends.length; i++) {
+                              const s = sends[i];
+                              if (s.status === 'fulfilled' && s.value.unregistered) {
+                                try {
+                                  await c.env.DB.prepare('DELETE FROM fcm_tokens WHERE token = ?').bind(chunk[i].token).run();
+                                } catch (e) {
+                                  console.error('Failed to delete unregistered FCM token:', e);
+                                }
+                              }
+                            }
                           }
                         }
 

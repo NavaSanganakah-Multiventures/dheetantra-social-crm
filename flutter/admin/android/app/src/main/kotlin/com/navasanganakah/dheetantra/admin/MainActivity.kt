@@ -1,4 +1,4 @@
-package com.dheetantra.dheetantra_admin
+package com.navasanganakah.dheetantra.admin
 
 import io.flutter.embedding.android.FlutterActivity
 

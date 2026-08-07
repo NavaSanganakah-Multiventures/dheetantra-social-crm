@@ -1,3 +1,17 @@
+import 'dart:convert';
+
+DateTime? _parseUtcDateTime(dynamic value) {
+  if (value == null || value.toString().trim().isEmpty) return null;
+  String s = value.toString().trim();
+  if (!s.endsWith('Z') && !s.contains('+')) {
+    if (s.contains(' ')) {
+      s = s.replaceFirst(' ', 'T');
+    }
+    s = '${s}Z';
+  }
+  return DateTime.tryParse(s)?.toLocal();
+}
+
 class Contact {
   final String id;
   final String name;
@@ -60,7 +74,7 @@ class Contact {
   static DateTime? _parseDateTime(dynamic value) {
     if (value == null) return null;
     if (value is String) {
-      return DateTime.tryParse(value);
+      return _parseUtcDateTime(value);
     }
     return null;
   }
@@ -74,6 +88,8 @@ class Message {
   final bool isRead;
   final String? senderType;
   final String status;
+  final String? subject;
+  final String? html;
 
   const Message({
     required this.id,
@@ -83,18 +99,40 @@ class Message {
     this.isRead = false,
     this.senderType,
     this.status = 'sent',
+    this.subject,
+    this.html,
   });
 
   factory Message.fromJson(Map<String, dynamic> json) {
     final senderType = json['sender_type'] ?? 'customer';
+    String textContent = json['content'] ?? json['text'] ?? '';
+    String? subject;
+    String? html;
+
+    // Parse email payload if present in media_url
+    if (json['media_url'] != null) {
+      try {
+        final parsed = jsonDecode(json['media_url']);
+        if (parsed is Map) {
+          if (parsed['subject'] != null) subject = parsed['subject'];
+          if (parsed['text'] != null) textContent = parsed['text'];
+          if (parsed['html'] != null) html = parsed['html'];
+        }
+      } catch (_) {
+        // Not a JSON string
+      }
+    }
+
     return Message(
       id: json['id'] ?? '',
-      text: json['content'] ?? json['text'] ?? '',
-      time: DateTime.tryParse(json['created_at'] ?? '') ?? DateTime.now(),
+      text: textContent,
+      time: _parseUtcDateTime(json['created_at']) ?? DateTime.now(),
       isMine: senderType == 'agent' || senderType == 'system',
       isRead: json['status'] == 'read',
       senderType: senderType,
       status: json['status'] ?? 'sent',
+      subject: subject,
+      html: html,
     );
   }
 
@@ -106,6 +144,8 @@ class Message {
     bool? isRead,
     String? senderType,
     String? status,
+    String? subject,
+    String? html,
   }) {
     return Message(
       id: id ?? this.id,
@@ -115,6 +155,8 @@ class Message {
       isRead: isRead ?? this.isRead,
       senderType: senderType ?? this.senderType,
       status: status ?? this.status,
+      subject: subject ?? this.subject,
+      html: html ?? this.html,
     );
   }
 }
@@ -131,6 +173,7 @@ class Conversation {
   final String? aiLabel;
   final String? aiSummary;
   final String? phoneNumberId;
+  final String platform;
 
   const Conversation({
     this.id = '',
@@ -144,6 +187,7 @@ class Conversation {
     this.aiLabel,
     this.aiSummary,
     this.phoneNumberId,
+    this.platform = 'whatsapp',
   });
 
   String get lastMessage => lastMessageText ?? (messages.isEmpty ? '' : messages.last.text);
@@ -161,11 +205,12 @@ class Conversation {
       unreadCount: 0,
       isActive: json['status'] == 'open',
       lastMessageText: json['last_message'],
-      updatedAt: DateTime.tryParse(json['updated_at'] ?? json['customer_last_message_at'] ?? ''),
+      updatedAt: _parseUtcDateTime(json['updated_at'] ?? json['customer_last_message_at']),
       status: json['status'],
       aiLabel: json['ai_label'],
       aiSummary: json['ai_summary'],
       phoneNumberId: json['phone_number_id'],
+      platform: json['platform'] ?? 'whatsapp',
     );
   }
 }
@@ -193,7 +238,7 @@ class ScheduledPost {
       title: json['title'] ?? json['message'] ?? '',
       channel: json['channel'] ?? 'WhatsApp',
       channelIcon: (json['channel'] ?? 'WhatsApp').toString().toLowerCase() == 'email' ? 'email' : 'whatsapp',
-      scheduledAt: DateTime.tryParse(json['scheduled_at'] ?? '') ?? DateTime.now(),
+      scheduledAt: _parseUtcDateTime(json['scheduled_at']) ?? DateTime.now(),
       audience: json['audience'] ?? '',
     );
   }
@@ -225,7 +270,7 @@ class CallLog {
       phone: json['phone'] ?? json['from_number'] ?? json['to_number'] ?? '',
       direction: json['direction'] ?? 'incoming',
       status: json['status'] ?? 'unknown',
-      time: DateTime.tryParse(json['created_at'] ?? json['time'] ?? '') ?? DateTime.now(),
+      time: _parseUtcDateTime(json['created_at'] ?? json['time']) ?? DateTime.now(),
       durationSeconds: json['duration_seconds'] ?? json['durationSeconds'] ?? 0,
     );
   }
@@ -254,7 +299,7 @@ class Broadcast {
       message: json['message'] ?? json['content'] ?? '',
       recipients: json['recipients'] ?? json['total_recipients'] ?? 0,
       delivered: json['delivered'] ?? json['delivered_count'] ?? 0,
-      sentAt: DateTime.tryParse(json['sent_at'] ?? json['created_at'] ?? '') ?? DateTime.now(),
+      sentAt: _parseUtcDateTime(json['sent_at'] ?? json['created_at']) ?? DateTime.now(),
       channel: json['channel'] ?? 'WhatsApp',
     );
   }

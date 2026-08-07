@@ -5,16 +5,17 @@ interface BroadcastMessage {
   workspaceId: string;
   contactId: string;
   phoneId: string;
-  templateName: string;
-  languageCode: string;
-  parameters: string[];
+  templateName?: string;
+  text?: string;
+  languageCode?: string;
+  parameters?: string[];
   toPhone: string;
 }
 
 const broadcastQueueConsumer = {
   async queue(batch: MessageBatch<BroadcastMessage>, env: Env): Promise<void> {
     for (const msg of batch.messages) {
-      const { campaignId, contactId, phoneId, templateName, languageCode, parameters, toPhone } = msg.body;
+      const { campaignId, contactId, phoneId, templateName, text, languageCode, parameters, toPhone } = msg.body;
 
       try {
         // 1. Use phone number from queue message
@@ -52,24 +53,34 @@ const broadcastQueueConsumer = {
           });
         }
 
-        // 4. Send template message via Meta WhatsApp Cloud API
+        // 4. Decide message type: free-form text (no templateName) or template
+        const isText = !templateName;
+        const payload: any = {
+          messaging_product: "whatsapp",
+          recipient_type: "individual",
+          to: toPhone
+        };
+
+        if (isText) {
+          payload.type = "text";
+          payload.text = { body: text || '' };
+        } else {
+          payload.type = "template";
+          payload.template = {
+            name: templateName,
+            language: { code: languageCode || "en_US" },
+            components: components.length > 0 ? components : undefined
+          };
+        }
+
+        // 4. Send message via Meta WhatsApp Cloud API
         const response = await fetch(`https://graph.facebook.com/v19.0/${phoneId}/messages`, {
           method: "POST",
           headers: {
             "Authorization": `Bearer ${token}`,
             "Content-Type": "application/json"
           },
-          body: JSON.stringify({
-            messaging_product: "whatsapp",
-            recipient_type: "individual",
-            to: toPhone,
-            type: "template",
-            template: {
-              name: templateName,
-              language: { code: languageCode || "en_US" },
-              components: components.length > 0 ? components : undefined
-            }
-          })
+          body: JSON.stringify(payload)
         });
 
         // 4. Record success or failure
