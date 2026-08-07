@@ -1,7 +1,7 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
-import '../data/mock_data.dart';
 import '../models/models.dart';
+import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
 import 'chat_screen.dart';
@@ -15,15 +15,33 @@ class ContactsScreen extends StatefulWidget {
 
 class _ContactsScreenState extends State<ContactsScreen> {
   String _query = '';
-  String _filter = 'à¤¸à¤­à¥€';
+  String _filter = 'सभी';
+  bool _loading = true;
+  List<Contact> _allContacts = [];
 
-  static const _filters = ['à¤¸à¤­à¥€', 'à¤²à¥€à¤¡à¥à¤¸', 'à¤—à¥à¤°à¤¾à¤¹à¤•'];
+  static const _filters = ['सभी', 'लीड्स', 'ग्राहक'];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadContacts();
+  }
+
+  Future<void> _loadContacts() async {
+    setState(() => _loading = true);
+    final data = await ApiService().getContacts();
+    if (!mounted) return;
+    setState(() {
+      _allContacts = data.map((j) => Contact.fromJson(j)).toList();
+      _loading = false;
+    });
+  }
 
   List<Contact> get _contacts {
-    var list = mockContacts;
-    if (_filter == 'à¤²à¥€à¤¡à¥à¤¸') {
+    var list = _allContacts;
+    if (_filter == 'लीड्स') {
       list = list.where((c) => c.isLead).toList();
-    } else if (_filter == 'à¤—à¥à¤°à¤¾à¤¹à¤•') {
+    } else if (_filter == 'ग्राहक') {
       list = list.where((c) => !c.isLead).toList();
     }
     if (_query.trim().isNotEmpty) {
@@ -46,7 +64,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
           child: TextField(
             onChanged: (v) => setState(() => _query = v),
             decoration: const InputDecoration(
-              hintText: 'à¤¸à¤‚à¤ªà¤°à¥à¤• à¤–à¥‹à¤œà¥‡à¤‚...',
+              hintText: 'संपर्क खोजें...',
               prefixIcon: Icon(Icons.search_rounded, color: AppColors.textMuted),
               contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             ),
@@ -71,20 +89,25 @@ class _ContactsScreenState extends State<ContactsScreen> {
           ),
         ),
         Expanded(
-          child: contacts.isEmpty
-              ? const Center(
-                  child: EmptyState(
-                    icon: Icons.people_outline_rounded,
-                    title: 'à¤•à¥‹à¤ˆ à¤¸à¤‚à¤ªà¤°à¥à¤• à¤¨à¤¹à¥€à¤‚ à¤®à¤¿à¤²à¤¾',
-                    subtitle: 'à¤¨à¤¯à¤¾ à¤¸à¤‚à¤ªà¤°à¥à¤• à¤œà¥‹à¤¡à¤¼à¥‡à¤‚ à¤¯à¤¾ à¤–à¥‹à¤œ à¤¬à¤¦à¤²à¥‡à¤‚à¥¤',
-                  ),
-                )
-              : ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(20, 6, 20, 20),
-                  itemCount: contacts.length,
-                  separatorBuilder: (__, ___) => const SizedBox(height: 8),
-                  itemBuilder: (context, i) => _ContactTile(contact: contacts[i]),
-                ),
+          child: _loading
+              ? const Center(child: CircularProgressIndicator())
+              : contacts.isEmpty
+                  ? const Center(
+                      child: EmptyState(
+                        icon: Icons.people_outline_rounded,
+                        title: 'कोई संपर्क नहीं मिला',
+                        subtitle: 'नया संपर्क जोड़ें या खोज बदलें।',
+                      ),
+                    )
+                  : RefreshIndicator(
+                      onRefresh: _loadContacts,
+                      child: ListView.separated(
+                        padding: const EdgeInsets.fromLTRB(20, 6, 20, 20),
+                        itemCount: contacts.length,
+                        separatorBuilder: (__, ___) => const SizedBox(height: 8),
+                        itemBuilder: (context, i) => _ContactTile(contact: contacts[i]),
+                      ),
+                    ),
         ),
       ],
     );
@@ -158,7 +181,15 @@ class _ContactTile extends StatelessWidget {
               ),
               const SizedBox(width: 6),
               IconButton(
-                onPressed: () {},
+                onPressed: () async {
+                  final result = await ApiService().initiateConversation(contact.id);
+                  if (result['conversation'] != null && context.mounted) {
+                    final conv = Conversation.fromJson(result['conversation']);
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => ChatScreen(conversation: conv)),
+                    );
+                  }
+                },
                 icon: const Icon(Icons.chat_bubble_outline_rounded,
                     color: AppColors.accent, size: 20),
               ),
@@ -178,7 +209,7 @@ class _ContactDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('à¤¸à¤‚à¤ªà¤°à¥à¤• à¤µà¤¿à¤µà¤°à¤£')),
+      appBar: AppBar(title: const Text('संपर्क विवरण')),
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
@@ -219,33 +250,30 @@ class _ContactDetailScreen extends StatelessWidget {
                 child: OutlinedButton.icon(
                   onPressed: () {},
                   icon: const Icon(Icons.call_outlined, size: 18),
-                  label: const Text('à¤•à¥‰à¤²'),
+                  label: const Text('कॉल'),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: FilledButton.icon(
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => ChatScreen(
-                          conversation: Conversation(
-                            contact: contact,
-                            messages: const [],
-                          ),
-                        ),
-                      ),
-                    );
+                  onPressed: () async {
+                    final result = await ApiService().initiateConversation(contact.id);
+                    if (result['conversation'] != null && context.mounted) {
+                      final conv = Conversation.fromJson(result['conversation']);
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => ChatScreen(conversation: conv)),
+                      );
+                    }
                   },
                   icon: const Icon(Icons.chat_outlined, size: 18),
-                  label: const Text('à¤šà¥ˆà¤Ÿ'),
+                  label: const Text('चैट'),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 24),
           const Text(
-            'à¤œà¤¾à¤¨à¤•à¤¾à¤°à¥€',
+            'जानकारी',
             style: TextStyle(
               color: AppColors.textPrimary,
               fontSize: 15,
@@ -263,26 +291,67 @@ class _ContactDetailScreen extends StatelessWidget {
               children: [
                 _InfoRow(
                   icon: Icons.phone_outlined,
-                  label: 'à¤«à¤¼à¥‹à¤¨',
+                  label: 'फ़ोन',
                   value: contact.phone,
                 ),
                 const Divider(height: 1, indent: 50),
+                if (contact.email != null) ...[
+                  _InfoRow(
+                    icon: Icons.mail_outline_rounded,
+                    label: 'ईमेल',
+                    value: contact.email!,
+                  ),
+                  const Divider(height: 1, indent: 50),
+                ],
                 _InfoRow(
                   icon: Icons.person_outline_rounded,
-                  label: 'à¤ªà¥à¤°à¤•à¤¾à¤°',
-                  value: contact.isLead ? 'à¤²à¥€à¤¡' : 'à¤—à¥à¤°à¤¾à¤¹à¤•',
+                  label: 'प्रकार',
+                  value: contact.isLead ? 'लीड' : 'ग्राहक',
                 ),
+                if (contact.leadStatus != null) ...[
+                  const Divider(height: 1, indent: 50),
+                  _InfoRow(
+                    icon: Icons.flag_outlined,
+                    label: 'स्थिति',
+                    value: contact.leadStatus!,
+                  ),
+                ],
                 const Divider(height: 1, indent: 50),
                 _InfoRow(
                   icon: Icons.schedule_rounded,
-                  label: 'à¤†à¤–à¤¿à¤°à¥€ à¤—à¤¤à¤¿à¤µà¤¿à¤§à¤¿',
+                  label: 'आखिरी गतिविधि',
                   value: contact.lastActive == null
-                      ? 'à¤•à¤­à¥€ à¤¨à¤¹à¥€à¤‚'
+                      ? 'कभी नहीं'
                       : timeLabel(contact.lastActive!),
                 ),
               ],
             ),
           ),
+          if (contact.notes != null && contact.notes!.isNotEmpty) ...[
+            const SizedBox(height: 20),
+            const Text(
+              'नोट्स',
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Text(
+                contact.notes!,
+                style: const TextStyle(color: AppColors.textSecondary, fontSize: 13, height: 1.4),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -309,12 +378,15 @@ class _InfoRow extends StatelessWidget {
             style: const TextStyle(color: AppColors.textMuted, fontSize: 13),
           ),
           const Spacer(),
-          Text(
-            value,
-            style: const TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
+          Flexible(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: const TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],

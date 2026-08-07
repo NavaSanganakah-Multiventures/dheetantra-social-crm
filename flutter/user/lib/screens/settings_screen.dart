@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
 import 'login_screen.dart';
@@ -15,9 +16,42 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _notifications = true;
   bool _callsEnabled = true;
   bool _darkMode = true;
+  String _userName = '';
+  String _userEmail = '';
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
+  Future<void> _loadUserData() async {
+    final api = ApiService();
+    final user = await api.getMe();
+    if (!mounted) return;
+    setState(() {
+      _userName = user?['name'] ?? 'User';
+      _userEmail = user?['email'] ?? '';
+      _loading = false;
+    });
+  }
+
+  Future<void> _logout() async {
+    await ApiService().logout();
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      (route) => false,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
       children: [
@@ -30,40 +64,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           child: Row(
             children: [
-              const Avatar(name: 'अर्जुन सिंह', size: 54),
+              Avatar(name: _userName, size: 54),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'अर्जुन सिंह',
-                      style: TextStyle(
+                    Text(
+                      _userName,
+                      style: const TextStyle(
                         color: AppColors.textPrimary,
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
                     const SizedBox(height: 3),
-                    const Text(
-                      'arjun@dheetantra.com',
-                      style: TextStyle(color: AppColors.textMuted, fontSize: 13),
-                    ),
-                    const SizedBox(height: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: AppColors.accent.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Text(
-                        'प्रो प्लान',
-                        style: TextStyle(
-                          color: AppColors.accent,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
+                    Text(
+                      _userEmail,
+                      style: const TextStyle(color: AppColors.textMuted, fontSize: 13),
                     ),
                   ],
                 ),
@@ -83,7 +101,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _SettingsTile(
               icon: Icons.business_center_outlined,
               title: 'मेरा वर्कस्पेस',
-              subtitle: 'अर्जुन एंटरप्राइजेज़',
+              subtitle: ApiService().workspaceId != null
+                  ? 'ID: ${ApiService().workspaceId!.substring(0, 8)}...'
+                  : 'कनेक्ट नहीं',
               trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
               onTap: () {},
             ),
@@ -91,7 +111,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _SettingsTile(
               icon: Icons.smartphone_outlined,
               title: 'WhatsApp अकाउंट्स',
-              subtitle: '2 कनेक्टेड',
               trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
               onTap: () {},
             ),
@@ -164,12 +183,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         const SizedBox(height: 24),
         OutlinedButton.icon(
-          onPressed: () {
-            Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute(builder: (_) => const LoginScreen()),
-              (route) => false,
-            );
-          },
+          onPressed: _logout,
           style: OutlinedButton.styleFrom(
             foregroundColor: AppColors.danger,
             side: BorderSide(color: AppColors.danger.withValues(alpha: 0.5)),

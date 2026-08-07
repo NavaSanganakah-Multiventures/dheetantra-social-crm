@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../services/api_service.dart';
 import '../theme/app_theme.dart';
+import 'home_shell.dart';
 import 'login_screen.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -14,10 +16,25 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(milliseconds: 1800), () {
-      if (!mounted) return;
+    _checkAuth();
+  }
+
+  Future<void> _checkAuth() async {
+    await Future.delayed(const Duration(milliseconds: 1200));
+    if (!mounted) return;
+
+    final api = ApiService();
+    final user = await api.getMe();
+
+    if (!mounted) return;
+
+    if (user != null && api.workspaceId != null) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const HomeShell()),
+      );
+    } else {
       Navigator.of(context).pushReplacementNamed(LoginScreen.routeName);
-    });
+    }
   }
 
   @override

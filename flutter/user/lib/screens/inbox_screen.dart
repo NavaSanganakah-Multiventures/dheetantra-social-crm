@@ -1,7 +1,7 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
-import '../data/mock_data.dart';
 import '../models/models.dart';
+import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
 import 'chat_screen.dart';
@@ -15,25 +15,42 @@ class InboxScreen extends StatefulWidget {
 
 class _InboxScreenState extends State<InboxScreen> {
   String _query = '';
-  String _filter = 'à¤¸à¤­à¥€';
+  String _filter = 'सभी';
+  bool _loading = true;
+  List<Conversation> _allConversations = [];
 
-  static const _filters = ['à¤¸à¤­à¥€', 'à¤…à¤ªà¤ à¤¿à¤¤', 'à¤¸à¤•à¥à¤°à¤¿à¤¯'];
+  static const _filters = ['सभी', 'खुली', 'बंद'];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadConversations();
+  }
+
+  Future<void> _loadConversations() async {
+    setState(() => _loading = true);
+    final api = ApiService();
+
+    String? statusFilter;
+    if (_filter == 'खुली') statusFilter = 'open';
+    if (_filter == 'बंद') statusFilter = 'closed';
+
+    final data = await api.getConversations(status: statusFilter);
+    if (!mounted) return;
+
+    setState(() {
+      _allConversations = data.map((j) => Conversation.fromJson(j)).toList();
+      _loading = false;
+    });
+  }
 
   List<Conversation> get _conversations {
-    var list = mockConversations;
-    if (_filter == 'à¤…à¤ªà¤ à¤¿à¤¤') {
-      list = list.where((c) => c.unreadCount > 0).toList();
-    } else if (_filter == 'à¤¸à¤•à¥à¤°à¤¿à¤¯') {
-      list = list.where((c) => c.isActive).toList();
-    }
-    if (_query.trim().isNotEmpty) {
-      list = list
-          .where((c) =>
-              c.contact.name.toLowerCase().contains(_query.toLowerCase()) ||
-              c.contact.phone.contains(_query))
-          .toList();
-    }
-    return list;
+    if (_query.trim().isEmpty) return _allConversations;
+    return _allConversations
+        .where((c) =>
+            c.contact.name.toLowerCase().contains(_query.toLowerCase()) ||
+            c.contact.phone.contains(_query))
+        .toList();
   }
 
   @override
@@ -46,7 +63,7 @@ class _InboxScreenState extends State<InboxScreen> {
           child: TextField(
             onChanged: (v) => setState(() => _query = v),
             decoration: const InputDecoration(
-              hintText: 'à¤–à¥‹à¤œà¥‡à¤‚...',
+              hintText: 'खोजें...',
               prefixIcon: Icon(Icons.search_rounded, color: AppColors.textMuted),
               contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             ),
@@ -65,37 +82,45 @@ class _InboxScreenState extends State<InboxScreen> {
               return ChoiceChip(
                 label: Text(f),
                 selected: selected,
-                onSelected: (_) => setState(() => _filter = f),
+                onSelected: (_) {
+                  setState(() => _filter = f);
+                  _loadConversations();
+                },
                 showCheckmark: false,
               );
             },
           ),
         ),
         Expanded(
-          child: conversations.isEmpty
-              ? const Center(
-                  child: EmptyState(
-                    icon: Icons.search_off_rounded,
-                    title: 'à¤•à¥‹à¤ˆ à¤¬à¤¾à¤¤à¤šà¥€à¤¤ à¤¨à¤¹à¥€à¤‚ à¤®à¤¿à¤²à¥€',
-                    subtitle: 'à¤–à¥‹à¤œ à¤¬à¤¦à¤²à¤•à¤° à¤¦à¥‡à¤–à¥‡à¤‚ à¤¯à¤¾ à¤¨à¤¯à¤¾ à¤¸à¤‚à¤¦à¥‡à¤¶ à¤¶à¥à¤°à¥‚ à¤•à¤°à¥‡à¤‚à¥¤',
-                  ),
-                )
-              : ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(20, 6, 20, 20),
-                  itemCount: conversations.length,
-                  separatorBuilder: (__, ___) => const SizedBox(height: 8),
-                  itemBuilder: (context, i) {
-                    final c = conversations[i];
-                    return _ConversationTile(
-                      conversation: c,
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(builder: (_) => ChatScreen(conversation: c)),
-                        );
-                      },
-                    );
-                  },
-                ),
+          child: _loading
+              ? const Center(child: CircularProgressIndicator())
+              : conversations.isEmpty
+                  ? const Center(
+                      child: EmptyState(
+                        icon: Icons.search_off_rounded,
+                        title: 'कोई बातचीत नहीं मिली',
+                        subtitle: 'जब ग्राहक संदेश भेजेंगे तो यहाँ दिखेगा।',
+                      ),
+                    )
+                  : RefreshIndicator(
+                      onRefresh: _loadConversations,
+                      child: ListView.separated(
+                        padding: const EdgeInsets.fromLTRB(20, 6, 20, 20),
+                        itemCount: conversations.length,
+                        separatorBuilder: (__, ___) => const SizedBox(height: 8),
+                        itemBuilder: (context, i) {
+                          final c = conversations[i];
+                          return _ConversationTile(
+                            conversation: c,
+                            onTap: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(builder: (_) => ChatScreen(conversation: c)),
+                              );
+                            },
+                          );
+                        },
+                      ),
+                    ),
         ),
       ],
     );
@@ -153,56 +178,22 @@ class _ConversationTile extends StatelessWidget {
                         ),
                         Text(
                           timeLabel(conversation.lastTime),
-                          style: TextStyle(
-                            color: conversation.unreadCount > 0
-                                ? AppColors.accent
-                                : AppColors.textMuted,
+                          style: const TextStyle(
+                            color: AppColors.textMuted,
                             fontSize: 11,
-                            fontWeight: conversation.unreadCount > 0
-                                ? FontWeight.w700
-                                : FontWeight.w400,
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 5),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            conversation.lastMessage,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: conversation.unreadCount > 0
-                                  ? AppColors.textSecondary
-                                  : AppColors.textMuted,
-                              fontSize: 13,
-                              fontWeight: conversation.unreadCount > 0
-                                  ? FontWeight.w600
-                                  : FontWeight.w400,
-                            ),
-                          ),
-                        ),
-                        if (conversation.unreadCount > 0) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                            decoration: const BoxDecoration(
-                              color: AppColors.accent,
-                              borderRadius: BorderRadius.all(Radius.circular(10)),
-                            ),
-                            child: Text(
-                              '${conversation.unreadCount}',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
+                    Text(
+                      conversation.lastMessage,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.textMuted,
+                        fontSize: 13,
+                      ),
                     ),
                   ],
                 ),

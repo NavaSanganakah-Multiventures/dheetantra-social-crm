@@ -851,8 +851,8 @@ export async function handleIncomingEmail(message: any, env: any, ctx: any) {
 
     // Real-time broadcast
     try {
-      const doId = env.CHAT_DO.idFromName(conversation.id);
-      const stub = env.CHAT_DO.get(doId);
+      const globalDoId = env.CHAT_DO.idFromName(`global-${workspaceId}`);
+      const stub = env.CHAT_DO.get(globalDoId);
       await stub.fetch(new Request('http://internal/broadcast', {
         method: 'POST',
         body: JSON.stringify({

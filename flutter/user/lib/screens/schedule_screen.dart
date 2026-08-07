@@ -1,100 +1,121 @@
 import 'package:flutter/material.dart';
 
-import '../data/mock_data.dart';
 import '../models/models.dart';
+import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
 
-class ScheduleScreen extends StatelessWidget {
+class ScheduleScreen extends StatefulWidget {
   const ScheduleScreen({super.key});
 
   @override
+  State<ScheduleScreen> createState() => _ScheduleScreenState();
+}
+
+class _ScheduleScreenState extends State<ScheduleScreen> {
+  bool _loading = true;
+  List<Conversation> _conversations = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    setState(() => _loading = true);
+    final data = await ApiService().getConversations();
+    if (!mounted) return;
+    setState(() {
+      _conversations = data.map((j) => Conversation.fromJson(j)).toList();
+      _loading = false;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final posts = mockScheduledPosts;
-    final count = posts.length;
-    final next = posts.isEmpty ? null : posts.first.scheduledAt;
-    final hours = next == null ? 0 : next.difference(DateTime.now()).inHours;
     return Scaffold(
       appBar: AppBar(
         title: const Text('शेड्यूल्ड पोस्ट्स'),
         actions: [
           IconButton(
-            onPressed: () {},
-            icon: const Icon(Icons.add_circle_outline_rounded, color: AppColors.accent),
+            onPressed: _loadData,
+            icon: const Icon(Icons.refresh_rounded),
           ),
           const SizedBox(width: 8),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              gradient: AppColors.heroGradient,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.event_available_rounded, color: Colors.white, size: 30),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '$count शेड्यूल्ड पोस्ट्स',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: _loadData,
+              child: ListView(
+                padding: const EdgeInsets.all(20),
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      gradient: AppColors.heroGradient,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.event_available_rounded, color: Colors.white, size: 30),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${_conversations.length} बातचीत',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              const Text(
+                                'आपकी सभी बातचीत',
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 12.5,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        next == null ? 'कोई पोस्ट नहीं' : 'अगला: $hours घंटे बाद',
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 12.5,
-                        ),
-                      ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  const SectionHeader(title: 'हाल की बातचीत'),
+                  const SizedBox(height: 12),
+                  if (_conversations.isEmpty)
+                    const EmptyState(
+                      icon: Icons.event_outlined,
+                      title: 'कोई डेटा नहीं',
+                      subtitle: 'शेड्यूल्ड पोस्ट्स यहाँ दिखेंगी।',
+                    )
+                  else
+                    for (final conv in _conversations.take(10)) ...[
+                      _ConversationTile(conversation: conv),
+                      const SizedBox(height: 10),
                     ],
-                  ),
-                ),
-                FilledButton(
-                  onPressed: () {},
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: AppColors.accentDark,
-                    minimumSize: const Size(0, 40),
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                  ),
-                  child: const Text('नई पोस्ट'),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 24),
-          const SectionHeader(title: 'आने वाली पोस्ट्स'),
-          const SizedBox(height: 12),
-          for (final post in mockScheduledPosts) ...[
-            _PostTile(post: post),
-            const SizedBox(height: 10),
-          ],
-        ],
-      ),
     );
   }
 }
 
-class _PostTile extends StatelessWidget {
-  final ScheduledPost post;
+class _ConversationTile extends StatelessWidget {
+  final Conversation conversation;
 
-  const _PostTile({required this.post});
+  const _ConversationTile({required this.conversation});
 
   @override
   Widget build(BuildContext context) {
-    final isSoon = post.scheduledAt.difference(DateTime.now()).inHours < 6;
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -108,14 +129,12 @@ class _PostTile extends StatelessWidget {
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: post.channelIcon == 'whatsapp'
-                  ? AppColors.whatsapp.withValues(alpha: 0.12)
-                  : AppColors.accent.withValues(alpha: 0.12),
+              color: AppColors.whatsapp.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(13),
             ),
-            child: Icon(
-              post.channelIcon == 'whatsapp' ? Icons.chat_rounded : Icons.mail_outline_rounded,
-              color: post.channelIcon == 'whatsapp' ? AppColors.whatsapp : AppColors.accent,
+            child: const Icon(
+              Icons.chat_rounded,
+              color: AppColors.whatsapp,
               size: 20,
             ),
           ),
@@ -125,8 +144,8 @@ class _PostTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  post.title,
-                  maxLines: 2,
+                  conversation.contact.name,
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: AppColors.textPrimary,
@@ -137,7 +156,9 @@ class _PostTile extends StatelessWidget {
                 ),
                 const SizedBox(height: 5),
                 Text(
-                  post.audience,
+                  conversation.lastMessage.isNotEmpty ? conversation.lastMessage : 'कोई संदेश नहीं',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
                 ),
               ],
@@ -150,15 +171,15 @@ class _PostTile extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: isSoon
-                      ? AppColors.warning.withValues(alpha: 0.12)
-                      : AppColors.accent.withValues(alpha: 0.12),
+                  color: conversation.isActive
+                      ? AppColors.success.withValues(alpha: 0.12)
+                      : AppColors.textMuted.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  isSoon ? 'जल्द' : 'बाद में',
+                  conversation.isActive ? 'खुली' : 'बंद',
                   style: TextStyle(
-                    color: isSoon ? AppColors.warning : AppColors.accent,
+                    color: conversation.isActive ? AppColors.success : AppColors.textMuted,
                     fontSize: 10.5,
                     fontWeight: FontWeight.w700,
                   ),
@@ -166,7 +187,7 @@ class _PostTile extends StatelessWidget {
               ),
               const SizedBox(height: 6),
               Text(
-                timeLabel(post.scheduledAt),
+                timeLabel(conversation.lastTime),
                 style: const TextStyle(
                   color: AppColors.textSecondary,
                   fontSize: 12,

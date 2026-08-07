@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
+import '../widgets/call_overlays.dart';
+import '../widgets/responsive_layout.dart';
 import 'broadcast_screen.dart';
 import 'contacts_screen.dart';
 import 'dashboard_screen.dart';
@@ -29,51 +31,55 @@ class _HomeShellState extends State<HomeShell> {
       const SettingsScreen(),
     ];
 
-    return Scaffold(
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            _buildHeader(_titles[_index]),
-            Expanded(
-              child: IndexedStack(
-                index: _index,
-                children: screens,
-              ),
+    return GlobalCallOverlay(
+      child: ResponsiveLayout(
+        child: Scaffold(
+          body: SafeArea(
+            bottom: false,
+            child: Column(
+              children: [
+                _buildHeader(_titles[_index]),
+                Expanded(
+                  child: IndexedStack(
+                    index: _index,
+                    children: screens,
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
+          bottomNavigationBar: NavigationBar(
+            selectedIndex: _index,
+            onDestinationSelected: (i) => setState(() => _index = i),
+            destinations: const [
+              NavigationDestination(
+                icon: Icon(Icons.dashboard_outlined),
+                selectedIcon: Icon(Icons.dashboard_rounded),
+                label: 'होम',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.chat_bubble_outline_rounded),
+                selectedIcon: Icon(Icons.chat_bubble_rounded),
+                label: 'इनबॉक्स',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.people_alt_outlined),
+                selectedIcon: Icon(Icons.people_alt_rounded),
+                label: 'संपर्क',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.campaign_outlined),
+                selectedIcon: Icon(Icons.campaign_rounded),
+                label: 'ब्रॉडकास्ट',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.settings_outlined),
+                selectedIcon: Icon(Icons.settings_rounded),
+                label: 'सेटिंग्स',
+              ),
+            ],
+          ),
         ),
-      ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.dashboard_outlined),
-            selectedIcon: Icon(Icons.dashboard_rounded),
-            label: 'होम',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.chat_bubble_outline_rounded),
-            selectedIcon: Icon(Icons.chat_bubble_rounded),
-            label: 'इनबॉक्स',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.people_alt_outlined),
-            selectedIcon: Icon(Icons.people_alt_rounded),
-            label: 'संपर्क',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.campaign_outlined),
-            selectedIcon: Icon(Icons.campaign_rounded),
-            label: 'ब्रॉडकास्ट',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.settings_outlined),
-            selectedIcon: Icon(Icons.settings_rounded),
-            label: 'सेटिंग्स',
-          ),
-        ],
       ),
     );
   }

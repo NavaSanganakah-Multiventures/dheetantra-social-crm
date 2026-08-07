@@ -1,7 +1,7 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
-import '../data/mock_data.dart';
 import '../models/models.dart';
+import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
 
@@ -13,18 +13,36 @@ class CallsScreen extends StatefulWidget {
 }
 
 class _CallsScreenState extends State<CallsScreen> {
-  String _filter = 'à¤¸à¤­à¥€';
+  String _filter = 'सभी';
+  bool _loading = true;
+  List<CallLog> _allCalls = [];
 
-  static const _filters = ['à¤¸à¤­à¥€', 'à¤†à¤¨à¥‡ à¤µà¤¾à¤²à¥€', 'à¤œà¤¾à¤¨à¥‡ à¤µà¤¾à¤²à¥€', 'à¤®à¤¿à¤¸à¥à¤¡'];
+  static const _filters = ['सभी', 'आने वाली', 'जाने वाली', 'मिस्ड'];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCalls();
+  }
+
+  Future<void> _loadCalls() async {
+    setState(() => _loading = true);
+    final data = await ApiService().getCallLogs();
+    if (!mounted) return;
+    setState(() {
+      _allCalls = data.map((j) => CallLog.fromJson(j)).toList();
+      _loading = false;
+    });
+  }
 
   List<CallLog> get _calls {
-    var list = mockCallLogs;
+    var list = _allCalls;
     switch (_filter) {
-      case 'à¤†à¤¨à¥‡ à¤µà¤¾à¤²à¥€':
+      case 'आने वाली':
         list = list.where((c) => c.direction == 'incoming').toList();
-      case 'à¤œà¤¾à¤¨à¥‡ à¤µà¤¾à¤²à¥€':
+      case 'जाने वाली':
         list = list.where((c) => c.direction == 'outgoing').toList();
-      case 'à¤®à¤¿à¤¸à¥à¤¡':
+      case 'मिस्ड':
         list = list.where((c) => c.status == 'missed').toList();
     }
     return list;
@@ -35,11 +53,11 @@ class _CallsScreenState extends State<CallsScreen> {
     final calls = _calls;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('à¤•à¥‰à¤² à¤²à¥‰à¤—à¥à¤¸'),
+        title: const Text('कॉल लॉग्स'),
         actions: [
           IconButton(
-            onPressed: () {},
-            icon: const Icon(Icons.call_outlined, color: AppColors.success),
+            onPressed: _loadCalls,
+            icon: const Icon(Icons.refresh_rounded),
           ),
           const SizedBox(width: 8),
         ],
@@ -65,20 +83,25 @@ class _CallsScreenState extends State<CallsScreen> {
             ),
           ),
           Expanded(
-            child: calls.isEmpty
-                ? const Center(
-                    child: EmptyState(
-                      icon: Icons.call_outlined,
-                      title: 'à¤•à¥‹à¤ˆ à¤•à¥‰à¤² à¤¨à¤¹à¥€à¤‚ à¤®à¤¿à¤²à¥€',
-                      subtitle: 'à¤•à¥‰à¤² à¤²à¥‰à¤—à¥à¤¸ à¤¯à¤¹à¤¾à¤ à¤¦à¤¿à¤–à¤¾à¤ˆ à¤¦à¥‡à¤‚à¤—à¥‡à¥¤',
-                    ),
-                  )
-                : ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(20, 6, 20, 20),
-                    itemCount: calls.length,
-                    separatorBuilder: (__, ___) => const SizedBox(height: 8),
-                    itemBuilder: (context, i) => _CallTile(call: calls[i]),
-                  ),
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : calls.isEmpty
+                    ? const Center(
+                        child: EmptyState(
+                          icon: Icons.call_outlined,
+                          title: 'कोई कॉल नहीं मिली',
+                          subtitle: 'कॉल लॉग्स यहाँ दिखाई देंगे।',
+                        ),
+                      )
+                    : RefreshIndicator(
+                        onRefresh: _loadCalls,
+                        child: ListView.separated(
+                          padding: const EdgeInsets.fromLTRB(20, 6, 20, 20),
+                          itemCount: calls.length,
+                          separatorBuilder: (__, ___) => const SizedBox(height: 8),
+                          itemBuilder: (context, i) => _CallTile(call: calls[i]),
+                        ),
+                      ),
           ),
         ],
       ),
@@ -178,9 +201,9 @@ class _CallTile extends StatelessWidget {
   String _statusLabel(String status) {
     switch (status) {
       case 'missed':
-        return 'à¤®à¤¿à¤¸à¥à¤¡';
+        return 'मिस्ड';
       case 'declined':
-        return 'à¤…à¤¸à¥à¤µà¥€à¤•à¥ƒà¤¤';
+        return 'अस्वीकृत';
       default:
         return status;
     }

@@ -144,10 +144,10 @@ export async function handleIncomingMessage(
           }
         }
 
-        // Broadcast incoming message via Durable Object
+        // Broadcast incoming message via global Durable Object
         try {
-          const doId = env.CHAT_DO.idFromName(conversationId);
-          const stub = env.CHAT_DO.get(doId);
+          const globalDoId = env.CHAT_DO.idFromName(`global-${workspaceId}`);
+          const stub = env.CHAT_DO.get(globalDoId);
           const broadcastNow = new Date().toISOString();
           await stub.fetch(new Request('http://do/broadcast', {
             method: 'POST',
@@ -377,8 +377,8 @@ export async function sendWhatsAppMessage(
 
           // Broadcast bot reply via Durable Object
           try {
-            const doId = env.CHAT_DO.idFromName(conversationId);
-            const stub = env.CHAT_DO.get(doId);
+            const globalDoId = env.CHAT_DO.idFromName(`global-${workspaceId}`);
+            const stub = env.CHAT_DO.get(globalDoId);
             const botMsgNow = new Date().toISOString();
             await stub.fetch(new Request('http://do/broadcast', {
               method: 'POST',

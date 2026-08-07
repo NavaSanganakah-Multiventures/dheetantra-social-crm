@@ -1,89 +1,111 @@
 import 'package:flutter/material.dart';
 
-import '../data/mock_data.dart';
 import '../models/models.dart';
+import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
 import 'calls_screen.dart';
 import 'chat_screen.dart';
 import 'schedule_screen.dart';
 
-class DashboardScreen extends StatelessWidget {
+class DashboardScreen extends StatefulWidget {
   final VoidCallback onOpenInbox;
 
   const DashboardScreen({super.key, required this.onOpenInbox});
 
   @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+  bool _loading = true;
+  int _totalContacts = 0;
+  int _openConversations = 0;
+  List<Conversation> _recentChats = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    setState(() => _loading = true);
+    final api = ApiService();
+    final stats = await api.getDashboardStats();
+    if (!mounted) return;
+
+    final convList = (stats['conversations'] as List)
+        .map((j) => Conversation.fromJson(j))
+        .toList();
+
+    setState(() {
+      _totalContacts = stats['totalContacts'] ?? 0;
+      _openConversations = stats['openConversations'] ?? 0;
+      _recentChats = convList.take(3).toList();
+      _loading = false;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
-      children: [
-        const Text(
-          'आपका स्वागत है! 👋',
-          style: TextStyle(
-            color: AppColors.textPrimary,
-            fontSize: 22,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -0.4,
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    return RefreshIndicator(
+      onRefresh: _loadData,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
+        children: [
+          const Text(
+            'आपका स्वागत है! 👋',
+            style: TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.4,
+            ),
           ),
-        ),
-        const SizedBox(height: 4),
-        const Text(
-          'यहाँ आपके वर्कस्पेस का अवलोकन है।',
-          style: TextStyle(color: AppColors.textMuted, fontSize: 13),
-        ),
-        const SizedBox(height: 24),
-        const Row(
-          children: [
-            Expanded(
-              child: StatCard(
-                title: 'कुल संपर्क',
-                value: '1,240',
-                trend: '+12% पिछले सप्ताह से',
-                icon: Icons.people_alt_outlined,
+          const SizedBox(height: 4),
+          const Text(
+            'यहाँ आपके वर्कस्पेस का अवलोकन है।',
+            style: TextStyle(color: AppColors.textMuted, fontSize: 13),
+          ),
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              Expanded(
+                child: StatCard(
+                  title: 'कुल संपर्क',
+                  value: '$_totalContacts',
+                  trend: 'CRM डेटा',
+                  icon: Icons.people_alt_outlined,
+                ),
               ),
-            ),
-            SizedBox(width: 12),
-            Expanded(
-              child: StatCard(
-                title: 'खुली बातचीत',
-                value: '38',
-                trend: 'सक्रिय कनेक्शन',
-                icon: Icons.forum_outlined,
+              const SizedBox(width: 12),
+              Expanded(
+                child: StatCard(
+                  title: 'खुली बातचीत',
+                  value: '$_openConversations',
+                  trend: 'सक्रिय कनेक्शन',
+                  icon: Icons.forum_outlined,
+                ),
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        const StatCard(
-          title: 'ब्रॉडकास्ट भेजे गए',
-          value: '156',
-          trend: '+5% पिछले महीने से',
-          icon: Icons.campaign_outlined,
-        ),
-        const SizedBox(height: 28),
-        _QuickActions(onOpenInbox: onOpenInbox),
-        const SizedBox(height: 28),
-        SectionHeader(
-          title: 'हाल की बातचीत',
-          actionLabel: 'सभी देखें',
-          onAction: onOpenInbox,
-        ),
-        const SizedBox(height: 12),
-        _RecentChats(onOpenInbox: onOpenInbox),
-        const SizedBox(height: 28),
-        SectionHeader(
-          title: 'आगामी पोस्ट्स',
-          actionLabel: 'शेड्यूल करें',
-          onAction: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const ScheduleScreen()),
-            );
-          },
-        ),
-        const SizedBox(height: 12),
-        _UpcomingPosts(),
-      ],
+            ],
+          ),
+          const SizedBox(height: 28),
+          _QuickActions(onOpenInbox: widget.onOpenInbox),
+          const SizedBox(height: 28),
+          SectionHeader(
+            title: 'हाल की बातचीत',
+            actionLabel: 'सभी देखें',
+            onAction: widget.onOpenInbox,
+          ),
+          const SizedBox(height: 12),
+          _RecentChats(conversations: _recentChats, onOpenInbox: widget.onOpenInbox),
+        ],
+      ),
     );
   }
 }
@@ -190,18 +212,18 @@ class _QuickActionCard extends StatelessWidget {
 }
 
 class _RecentChats extends StatelessWidget {
+  final List<Conversation> conversations;
   final VoidCallback onOpenInbox;
 
-  const _RecentChats({required this.onOpenInbox});
+  const _RecentChats({required this.conversations, required this.onOpenInbox});
 
   @override
   Widget build(BuildContext context) {
-    final recent = mockConversations.take(3).toList();
-    if (recent.isEmpty) {
+    if (conversations.isEmpty) {
       return const EmptyState(
         icon: Icons.forum_outlined,
         title: 'कोई सक्रिय बातचीत नहीं मिली।',
-        subtitle: 'अपना API सिंक करें या संदेश प्राप्त करें।',
+        subtitle: 'जब ग्राहक संदेश भेजेंगे तो यहाँ दिखेगा।',
       );
     }
     return Container(
@@ -212,14 +234,14 @@ class _RecentChats extends StatelessWidget {
       ),
       child: Column(
         children: [
-          for (var i = 0; i < recent.length; i++) ...[
+          for (var i = 0; i < conversations.length; i++) ...[
             if (i > 0) const Divider(height: 1, indent: 76),
             _RecentChatTile(
-              conversation: recent[i],
+              conversation: conversations[i],
               onTap: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (_) => ChatScreen(conversation: recent[i]),
+                    builder: (_) => ChatScreen(conversation: conversations[i]),
                   ),
                 );
               },
@@ -286,97 +308,6 @@ class _RecentChatTile extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _UpcomingPosts extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final posts = mockScheduledPosts.take(2).toList();
-    if (posts.isEmpty) {
-      return const EmptyState(
-        icon: Icons.event_outlined,
-        title: 'कोई पोस्ट शेड्यूल नहीं है।',
-        subtitle: 'शेड्यूलिंग टैब पर जाकर नई पोस्ट बनाएं।',
-      );
-    }
-    return Column(
-      children: [
-        for (final post in posts) ...[
-          _ScheduledPostTile(post: post),
-          const SizedBox(height: 10),
-        ],
-      ],
-    );
-  }
-}
-
-class _ScheduledPostTile extends StatelessWidget {
-  final ScheduledPost post;
-
-  const _ScheduledPostTile({required this.post});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: post.channelIcon == 'whatsapp'
-                  ? AppColors.whatsapp.withValues(alpha: 0.12)
-                  : AppColors.accent.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              post.channelIcon == 'whatsapp' ? Icons.chat_rounded : Icons.mail_outline_rounded,
-              color: post.channelIcon == 'whatsapp' ? AppColors.whatsapp : AppColors.accent,
-              size: 19,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  post.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${post.channel} • ${post.audience}',
-                  style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            timeLabel(post.scheduledAt),
-            style: const TextStyle(
-              color: AppColors.accent,
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
       ),
     );
   }

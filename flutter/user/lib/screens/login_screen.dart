@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 import 'home_shell.dart';
 import 'register_screen.dart';
+
+import '../widgets/responsive_layout.dart';
 
 class LoginScreen extends StatefulWidget {
   static const routeName = '/login';
@@ -15,164 +18,264 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
-  bool _obscure = true;
+  final _otpControllers = List.generate(6, (_) => TextEditingController());
+  final _otpFocusNodes = List.generate(6, (_) => FocusNode());
   bool _loading = false;
+  String _step = 'email'; // 'email' or 'otp'
+  String? _message;
+  bool _isError = false;
 
   @override
   void dispose() {
     _emailController.dispose();
-    _passwordController.dispose();
+    for (final c in _otpControllers) {
+      c.dispose();
+    }
+    for (final f in _otpFocusNodes) {
+      f.dispose();
+    }
     super.dispose();
   }
 
-  void _login() {
+  Future<void> _sendOtp() async {
     FocusScope.of(context).unfocus();
-    if (_emailController.text.trim().isEmpty || _passwordController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('कृपया ईमेल और पासवर्ड दर्ज करें')),
-      );
+    final email = _emailController.text.trim();
+    if (email.isEmpty) {
+      _showMessage('कृपया ईमेल दर्ज करें', true);
       return;
     }
+
     setState(() => _loading = true);
-    Future.delayed(const Duration(milliseconds: 900), () {
-      if (!mounted) return;
-      setState(() => _loading = false);
+    final result = await ApiService().sendOtp(email);
+    if (!mounted) return;
+    setState(() => _loading = false);
+
+    if (result['error'] != null) {
+      _showMessage(result['error'], true);
+    } else {
+      setState(() => _step = 'otp');
+      _showMessage('OTP आपके ईमेल पर भेजा गया', false);
+      Future.delayed(const Duration(milliseconds: 100), () {
+        if (mounted) _otpFocusNodes[0].requestFocus();
+      });
+    }
+  }
+
+  Future<void> _verifyOtp() async {
+    FocusScope.of(context).unfocus();
+    final otp = _otpControllers.map((c) => c.text).join();
+    if (otp.length != 6) {
+      _showMessage('कृपया 6 अंक का OTP दर्ज करें', true);
+      return;
+    }
+
+    setState(() => _loading = true);
+    final result = await ApiService().verifyOtp(_emailController.text.trim(), otp);
+    if (!mounted) return;
+    setState(() => _loading = false);
+
+    if (result['error'] != null) {
+      _showMessage(result['error'], true);
+      for (final c in _otpControllers) {
+        c.clear();
+      }
+      _otpFocusNodes[0].requestFocus();
+    } else {
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (_) => const HomeShell()),
         (route) => false,
       );
+    }
+  }
+
+  void _showMessage(String msg, bool error) {
+    setState(() {
+      _message = msg;
+      _isError = error;
     });
+  }
+
+  void _onOtpChanged(int index, String value) {
+    if (value.length == 1 && index < 5) {
+      _otpFocusNodes[index + 1].requestFocus();
+    }
+    if (value.isEmpty && index > 0) {
+      _otpFocusNodes[index - 1].requestFocus();
+    }
+    // Auto-submit when all 6 digits are entered
+    if (index == 5 && value.isNotEmpty) {
+      final otp = _otpControllers.map((c) => c.text).join();
+      if (otp.length == 6) {
+        _verifyOtp();
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Container(
-                  width: 72,
-                  height: 72,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    gradient: AppColors.brandGradient,
-                    borderRadius: BorderRadius.circular(22),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.accent.withValues(alpha: 0.3),
-                        blurRadius: 28,
-                        offset: const Offset(0, 8),
+      body: ResponsiveLayout(
+        child: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Container(
+                    width: 72,
+                    height: 72,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      gradient: AppColors.brandGradient,
+                      borderRadius: BorderRadius.circular(22),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.accent.withValues(alpha: 0.3),
+                          blurRadius: 28,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(Icons.forum_rounded, color: Colors.white, size: 34),
+                  ),
+                  const SizedBox(height: 24),
+                  const Text(
+                    'वापसी पर स्वागत है!',
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.3,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    _step == 'email'
+                        ? 'अपने DheeTantra अकाउंट में लॉगिन करने के लिए अपना ईमेल दर्ज करें।'
+                        : '${_emailController.text.trim()} पर भेजा गया कोड दर्ज करें',
+                    style: const TextStyle(color: AppColors.textMuted, fontSize: 13, height: 1.5),
+                  ),
+                  const SizedBox(height: 28),
+                  if (_step == 'email') ...[
+                    TextField(
+                      controller: _emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      onSubmitted: (_) => _sendOtp(),
+                      decoration: const InputDecoration(
+                        labelText: 'ईमेल',
+                        prefixIcon: Icon(Icons.mail_outline_rounded, color: AppColors.textMuted),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    FilledButton(
+                      onPressed: _loading ? null : _sendOtp,
+                      child: _loading
+                          ? const SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+                            )
+                          : const Text('OTP भेजें'),
+                    ),
+                  ] else ...[
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(6, (i) {
+                        return Container(
+                          width: 46,
+                          height: 54,
+                          margin: EdgeInsets.only(right: i < 5 ? 8 : 0),
+                          child: TextField(
+                            controller: _otpControllers[i],
+                            focusNode: _otpFocusNodes[i],
+                            keyboardType: TextInputType.number,
+                            textAlign: TextAlign.center,
+                            maxLength: 1,
+                            onChanged: (v) => _onOtpChanged(i, v),
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.textPrimary,
+                            ),
+                            decoration: const InputDecoration(
+                              counterText: '',
+                              contentPadding: EdgeInsets.symmetric(vertical: 14),
+                            ),
+                          ),
+                        );
+                      }),
+                    ),
+                    const SizedBox(height: 24),
+                    FilledButton(
+                      onPressed: _loading ? null : _verifyOtp,
+                      child: _loading
+                          ? const SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+                            )
+                          : const Text('लॉगिन करें'),
+                    ),
+                    const SizedBox(height: 12),
+                    Center(
+                      child: TextButton(
+                        onPressed: () {
+                          setState(() {
+                            _step = 'email';
+                            _message = null;
+                            for (final c in _otpControllers) {
+                              c.clear();
+                            }
+                          });
+                        },
+                        style: TextButton.styleFrom(foregroundColor: AppColors.accent),
+                        child: const Text('ईमेल बदलें', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                      ),
+                    ),
+                  ],
+                  if (_message != null) ...[
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: _isError
+                            ? AppColors.danger.withValues(alpha: 0.1)
+                            : AppColors.success.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        _message!,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: _isError ? AppColors.danger : AppColors.success,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 18),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text(
+                        'खाता नहीं है?',
+                        style: TextStyle(color: AppColors.textMuted, fontSize: 13),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => const RegisterScreen()),
+                          );
+                        },
+                        style: TextButton.styleFrom(foregroundColor: AppColors.accent),
+                        child: const Text('नया बनाएं', style: TextStyle(fontWeight: FontWeight.w700)),
                       ),
                     ],
                   ),
-                  child: const Icon(Icons.forum_rounded, color: Colors.white, size: 34),
-                ),
-                const SizedBox(height: 24),
-                const Text(
-                  'फिर से स्वागत है!',
-                  style: TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 24,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.4,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                const Text(
-                  'अपने वर्कस्पेस में लॉगिन करें',
-                  style: TextStyle(color: AppColors.textMuted, fontSize: 14),
-                ),
-                const SizedBox(height: 36),
-                TextField(
-                  controller: _emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
-                    labelText: 'ईमेल',
-                    hintText: 'aap@example.com',
-                    prefixIcon: Icon(Icons.mail_outline_rounded, color: AppColors.textMuted),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: _passwordController,
-                  obscureText: _obscure,
-                  onSubmitted: (_) => _login(),
-                  decoration: InputDecoration(
-                    labelText: 'पासवर्ड',
-                    prefixIcon: const Icon(Icons.lock_outline_rounded, color: AppColors.textMuted),
-                    suffixIcon: IconButton(
-                      onPressed: () => setState(() => _obscure = !_obscure),
-                      icon: Icon(
-                        _obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                        color: AppColors.textMuted,
-                        size: 20,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                    onPressed: () {},
-                    style: TextButton.styleFrom(foregroundColor: AppColors.accent),
-                    child: const Text('पासवर्ड भूल गए?', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                FilledButton(
-                  onPressed: _loading ? null : _login,
-                  child: _loading
-                      ? const SizedBox(
-                          width: 22,
-                          height: 22,
-                          child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
-                        )
-                      : const Text('लॉगिन करें'),
-                ),
-                const SizedBox(height: 28),
-                Row(
-                  children: [
-                    const Expanded(child: Divider()),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 14),
-                      child: Text('या', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
-                    ),
-                    const Expanded(child: Divider()),
-                  ],
-                ),
-                const SizedBox(height: 28),
-                OutlinedButton.icon(
-                  onPressed: _loading ? null : () {},
-                  icon: const Icon(Icons.g_mobiledata_rounded, color: AppColors.textPrimary, size: 26),
-                  label: const Text('Google से जारी रखें'),
-                ),
-                const SizedBox(height: 24),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Text(
-                      'नया खाता बनाएं?',
-                      style: TextStyle(color: AppColors.textMuted, fontSize: 13),
-                    ),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(builder: (_) => const RegisterScreen()),
-                        );
-                      },
-                      style: TextButton.styleFrom(foregroundColor: AppColors.accent),
-                      child: const Text('रजिस्टर करें', style: TextStyle(fontWeight: FontWeight.w700)),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-              ],
+                ],
+              ),
             ),
           ),
         ),

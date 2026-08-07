@@ -174,8 +174,8 @@ router.post('/api/inbox/conversations/:conversationId/status', async (c) => {
 
   // Broadcast status change via Durable Object
   try {
-    const doId = c.env.CHAT_DO.idFromName(conversationId);
-    const stub = c.env.CHAT_DO.get(doId);
+    const globalDoId = c.env.CHAT_DO.idFromName(`global-${workspaceId}`);
+    const stub = c.env.CHAT_DO.get(globalDoId);
     await stub.fetch(new Request('http://do/broadcast', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -208,8 +208,8 @@ router.delete('/api/inbox/conversations/:conversationId', async (c) => {
 
   // Broadcast deletion via Durable Object
   try {
-    const doId = c.env.CHAT_DO.idFromName(conversationId);
-    const stub = c.env.CHAT_DO.get(doId);
+    const globalDoId = c.env.CHAT_DO.idFromName(`global-${workspaceId}`);
+    const stub = c.env.CHAT_DO.get(globalDoId);
     await stub.fetch(new Request('http://do/broadcast', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

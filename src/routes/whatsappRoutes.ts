@@ -716,10 +716,10 @@ router.post('/api/whatsapp/templates/send', requireRole('owner', 'admin'), async
     await c.env.DB.prepare('INSERT INTO messages (id, conversation_id, sender_type, message_type, content, platform_message_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
       .bind(msgId, convId, 'agent', 'text', content, platformMsgId, templateMsgNow).run();
 
-    // Broadcast template message via Durable Object
+    // Broadcast template message via global Durable Object
     try {
-      const doId = c.env.CHAT_DO.idFromName(convId);
-      const stub = c.env.CHAT_DO.get(doId);
+      const globalDoId = c.env.CHAT_DO.idFromName(`global-${workspaceId}`);
+      const stub = c.env.CHAT_DO.get(globalDoId);
       await stub.fetch(new Request('http://do/broadcast', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -983,10 +983,10 @@ router.post('/api/whatsapp/send', async (c) => {
     await c.env.DB.prepare('UPDATE conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = ?')
       .bind(conversationId).run();
 
-    // Broadcast message via Durable Object
+    // Broadcast message via global Durable Object
     try {
-      const doId = c.env.CHAT_DO.idFromName(conversationId);
-      const stub = c.env.CHAT_DO.get(doId);
+      const globalDoId = c.env.CHAT_DO.idFromName(`global-${workspaceId}`);
+      const stub = c.env.CHAT_DO.get(globalDoId);
       await stub.fetch(new Request('http://do/broadcast', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

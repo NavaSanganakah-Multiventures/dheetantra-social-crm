@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../services/api_service.dart';
 import '../theme/app_theme.dart';
+import 'home_shell.dart';
 import 'login_screen.dart';
+
+import '../widgets/responsive_layout.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -13,232 +17,263 @@ class RegisterScreen extends StatefulWidget {
 class _RegisterScreenState extends State<RegisterScreen> {
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
-  final _phoneController = TextEditingController();
-  final _passwordController = TextEditingController();
-  bool _obscure = true;
+  final _otpControllers = List.generate(6, (_) => TextEditingController());
+  final _otpFocusNodes = List.generate(6, (_) => FocusNode());
   bool _loading = false;
-  String? _workspaceType = 'व्यक्तिगत';
+  String _step = 'form'; // 'form' or 'otp'
+  String? _message;
+  bool _isError = false;
 
   @override
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
-    _phoneController.dispose();
-    _passwordController.dispose();
+    for (final c in _otpControllers) {
+      c.dispose();
+    }
+    for (final f in _otpFocusNodes) {
+      f.dispose();
+    }
     super.dispose();
   }
 
-  void _register() {
+  Future<void> _sendOtp() async {
     FocusScope.of(context).unfocus();
-    if (_nameController.text.trim().isEmpty ||
-        _emailController.text.trim().isEmpty ||
-        _phoneController.text.trim().isEmpty ||
-        _passwordController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('कृपया सभी फ़ील्ड भरें')),
-      );
+    if (_nameController.text.trim().isEmpty || _emailController.text.trim().isEmpty) {
+      _showMessage('कृपया सभी फ़ील्ड भरें', true);
       return;
     }
+
     setState(() => _loading = true);
-    Future.delayed(const Duration(milliseconds: 900), () {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('खाता सफलतापूर्वक बना! अब लॉगिन करें')),
+    final result = await ApiService().sendOtp(
+      _emailController.text.trim(),
+      type: 'register',
+      name: _nameController.text.trim(),
+    );
+    if (!mounted) return;
+    setState(() => _loading = false);
+
+    if (result['error'] != null) {
+      _showMessage(result['error'], true);
+    } else {
+      setState(() => _step = 'otp');
+      _showMessage('OTP आपके ईमेल पर भेजा गया', false);
+      Future.delayed(const Duration(milliseconds: 100), () {
+        if (mounted) _otpFocusNodes[0].requestFocus();
+      });
+    }
+  }
+
+  Future<void> _verifyOtp() async {
+    FocusScope.of(context).unfocus();
+    final otp = _otpControllers.map((c) => c.text).join();
+    if (otp.length != 6) {
+      _showMessage('कृपया 6 अंक का OTP दर्ज करें', true);
+      return;
+    }
+
+    setState(() => _loading = true);
+    final result = await ApiService().verifyOtp(_emailController.text.trim(), otp);
+    if (!mounted) return;
+    setState(() => _loading = false);
+
+    if (result['error'] != null) {
+      _showMessage(result['error'], true);
+      for (final c in _otpControllers) {
+        c.clear();
+      }
+      _otpFocusNodes[0].requestFocus();
+    } else {
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const HomeShell()),
+        (route) => false,
       );
-      Navigator.of(context).popUntil((route) => route.isFirst);
+    }
+  }
+
+  void _showMessage(String msg, bool error) {
+    setState(() {
+      _message = msg;
+      _isError = error;
     });
+  }
+
+  void _onOtpChanged(int index, String value) {
+    if (value.length == 1 && index < 5) {
+      _otpFocusNodes[index + 1].requestFocus();
+    }
+    if (value.isEmpty && index > 0) {
+      _otpFocusNodes[index - 1].requestFocus();
+    }
+    if (index == 5 && value.isNotEmpty) {
+      final otp = _otpControllers.map((c) => c.text).join();
+      if (otp.length == 6) _verifyOtp();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('खाता बनाएं')),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text(
-                'DheeTantra में शामिल हों',
-                style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.3,
+      body: ResponsiveLayout(
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  'DheeTantra में शामिल हों',
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.3,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 6),
-              const Text(
-                'अपना CRM वर्कस्पेस बनाएं और ग्राहकों से WhatsApp, ईमेल और कॉल के ज़रिए जुड़ें।',
-                style: TextStyle(color: AppColors.textMuted, fontSize: 13, height: 1.5),
-              ),
-              const SizedBox(height: 28),
-              TextField(
-                controller: _nameController,
-                textCapitalization: TextCapitalization.words,
-                decoration: const InputDecoration(
-                  labelText: 'पूरा नाम',
-                  prefixIcon: Icon(Icons.person_outline_rounded, color: AppColors.textMuted),
+                const SizedBox(height: 6),
+                Text(
+                  _step == 'form'
+                      ? 'अपना CRM वर्कस्पेस बनाएं और ग्राहकों से WhatsApp, ईमेल और कॉल के ज़रिए जुड़ें।'
+                      : '${_emailController.text.trim()} पर भेजा गया कोड दर्ज करें',
+                  style: const TextStyle(color: AppColors.textMuted, fontSize: 13, height: 1.5),
                 ),
-              ),
-              const SizedBox(height: 14),
-              TextField(
-                controller: _emailController,
-                keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(
-                  labelText: 'ईमेल',
-                  prefixIcon: Icon(Icons.mail_outline_rounded, color: AppColors.textMuted),
-                ),
-              ),
-              const SizedBox(height: 14),
-              TextField(
-                controller: _phoneController,
-                keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(
-                  labelText: 'फ़ोन नंबर',
-                  hintText: '+91 98765 43210',
-                  prefixIcon: Icon(Icons.phone_outlined, color: AppColors.textMuted),
-                ),
-              ),
-              const SizedBox(height: 14),
-              TextField(
-                controller: _passwordController,
-                obscureText: _obscure,
-                decoration: InputDecoration(
-                  labelText: 'पासवर्ड',
-                  prefixIcon: const Icon(Icons.lock_outline_rounded, color: AppColors.textMuted),
-                  suffixIcon: IconButton(
-                    onPressed: () => setState(() => _obscure = !_obscure),
-                    icon: Icon(
-                      _obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                      color: AppColors.textMuted,
-                      size: 20,
+                const SizedBox(height: 28),
+                if (_step == 'form') ...[
+                  TextField(
+                    controller: _nameController,
+                    textCapitalization: TextCapitalization.words,
+                    decoration: const InputDecoration(
+                      labelText: 'पूरा नाम',
+                      prefixIcon: Icon(Icons.person_outline_rounded, color: AppColors.textMuted),
                     ),
                   ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              const Text(
-                'वर्कस्पेस प्रकार',
-                style: TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: _WorkspaceTypeCard(
-                      icon: Icons.person_outline_rounded,
-                      label: 'व्यक्तिगत',
-                      selected: _workspaceType == 'व्यक्तिगत',
-                      onTap: () => setState(() => _workspaceType = 'व्यक्तिगत'),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: _emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: const InputDecoration(
+                      labelText: 'ईमेल',
+                      prefixIcon: Icon(Icons.mail_outline_rounded, color: AppColors.textMuted),
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _WorkspaceTypeCard(
-                      icon: Icons.business_center_outlined,
-                      label: 'व्यवसाय',
-                      selected: _workspaceType == 'व्यवसाय',
-                      onTap: () => setState(() => _workspaceType = 'व्यवसाय'),
-                    ),
+                  const SizedBox(height: 24),
+                  FilledButton(
+                    onPressed: _loading ? null : _sendOtp,
+                    child: _loading
+                        ? const SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+                          )
+                        : const Text('OTP भेजें'),
                   ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              FilledButton(
-                onPressed: _loading ? null : _register,
-                child: _loading
-                    ? const SizedBox(
-                        width: 22,
-                        height: 22,
-                        child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
-                      )
-                    : const Text('खाता बनाएं'),
-              ),
-              const SizedBox(height: 18),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text(
-                    'पहले से खाता है?',
-                    style: TextStyle(color: AppColors.textMuted, fontSize: 13),
-                  ),
-                  TextButton(
-                    onPressed: () {
-                      Navigator.of(context).pushAndRemoveUntil(
-                        MaterialPageRoute(builder: (_) => const LoginScreen()),
-                        (route) => false,
+                ] else ...[
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(6, (i) {
+                      return Container(
+                        width: 46,
+                        height: 54,
+                        margin: EdgeInsets.only(right: i < 5 ? 8 : 0),
+                        child: TextField(
+                          controller: _otpControllers[i],
+                          focusNode: _otpFocusNodes[i],
+                          keyboardType: TextInputType.number,
+                          textAlign: TextAlign.center,
+                          maxLength: 1,
+                          onChanged: (v) => _onOtpChanged(i, v),
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.textPrimary,
+                          ),
+                          decoration: const InputDecoration(
+                            counterText: '',
+                            contentPadding: EdgeInsets.symmetric(vertical: 14),
+                          ),
+                        ),
                       );
-                    },
-                    style: TextButton.styleFrom(foregroundColor: AppColors.accent),
-                    child: const Text('लॉगिन करें', style: TextStyle(fontWeight: FontWeight.w700)),
+                    }),
+                  ),
+                  const SizedBox(height: 24),
+                  FilledButton(
+                    onPressed: _loading ? null : _verifyOtp,
+                    child: _loading
+                        ? const SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+                          )
+                        : const Text('खाता बनाएं'),
+                  ),
+                  const SizedBox(height: 12),
+                  Center(
+                    child: TextButton(
+                      onPressed: () {
+                        setState(() {
+                          _step = 'form';
+                          _message = null;
+                          for (final c in _otpControllers) {
+                            c.clear();
+                          }
+                        });
+                      },
+                      style: TextButton.styleFrom(foregroundColor: AppColors.accent),
+                      child: const Text('वापस जाएं', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                    ),
                   ),
                 ],
-              ),
-              const SizedBox(height: 20),
-              const Text(
-                'रजिस्टर करके आप हमारी सेवा की शर्तों और गोपनीयता नीति से सहमत होते हैं।',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: AppColors.textMuted, fontSize: 11, height: 1.5),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _WorkspaceTypeCard extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _WorkspaceTypeCard({
-    required this.icon,
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        decoration: BoxDecoration(
-          color: selected ? AppColors.accent.withValues(alpha: 0.12) : AppColors.surface,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: selected ? AppColors.accent : AppColors.border,
-            width: selected ? 1.5 : 1,
-          ),
-        ),
-        child: Column(
-          children: [
-            Icon(
-              icon,
-              color: selected ? AppColors.accent : AppColors.textMuted,
-              size: 26,
+                if (_message != null) ...[
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: _isError
+                          ? AppColors.danger.withValues(alpha: 0.1)
+                          : AppColors.success.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      _message!,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: _isError ? AppColors.danger : AppColors.success,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 18),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text(
+                      'पहले से खाता है?',
+                      style: TextStyle(color: AppColors.textMuted, fontSize: 13),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.of(context).pushAndRemoveUntil(
+                          MaterialPageRoute(builder: (_) => const LoginScreen()),
+                          (route) => false,
+                        );
+                      },
+                      style: TextButton.styleFrom(foregroundColor: AppColors.accent),
+                      child: const Text('लॉगिन करें', style: TextStyle(fontWeight: FontWeight.w700)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  'रजिस्टर करके आप हमारी सेवा की शर्तों और गोपनीयता नीति से सहमत होते हैं।',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: AppColors.textMuted, fontSize: 11, height: 1.5),
+                ),
+              ],
             ),
-            const SizedBox(height: 8),
-            Text(
-              label,
-              style: TextStyle(
-                color: selected ? AppColors.accent : AppColors.textSecondary,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );

@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../models/models.dart';
+import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
+import '../services/websocket_service.dart';
+import 'dart:async';
 
 class ChatScreen extends StatefulWidget {
   final Conversation conversation;
@@ -15,43 +18,154 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> {
   final _inputController = TextEditingController();
-  late final List<Message> _messages = List.of(widget.conversation.messages);
+  List<Message> _messages = [];
+  bool _loading = true;
+  String _contactName = '';
+  String _contactPhone = '';
+  StreamSubscription? _newMessageSub;
+  StreamSubscription? _statusSub;
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _contactName = widget.conversation.contact.name;
+    _contactPhone = widget.conversation.contact.phone;
+    _loadMessages();
+
+    _newMessageSub = WebSocketService().onNewMessage.listen((data) {
+      if (!mounted) return;
+      final msgData = data['message'];
+      if (msgData['conversation_id'] == widget.conversation.id) {
+        setState(() {
+          final newMsg = Message.fromJson(msgData);
+          final existingIdx = _messages.indexWhere((m) => m.id == newMsg.id);
+          if (existingIdx != -1) {
+            _messages[existingIdx] = newMsg;
+          } else {
+            final localIdx = _messages.indexWhere((m) => m.id.startsWith('local_') && m.text == newMsg.text);
+            if (localIdx != -1) {
+              _messages[localIdx] = newMsg;
+            } else {
+              _messages.add(newMsg);
+            }
+          }
+        });
+        _scrollToBottom();
+      }
+    });
+
+    _statusSub = WebSocketService().onMessageStatusUpdated.listen((data) {
+      if (!mounted) return;
+      if (data['conversation_id'] == widget.conversation.id) {
+        setState(() {
+          final idx = _messages.indexWhere((m) => m.id == data['message_id']);
+          if (idx != -1) {
+            _messages[idx] = _messages[idx].copyWith(
+              isRead: data['status'] == 'read',
+              status: data['status'],
+            );
+          }
+        });
+      }
+    });
+  }
+
+  void _scrollToBottom() {
+    if (_scrollController.hasClients) {
+      Future.delayed(const Duration(milliseconds: 100), () {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      });
+    }
+  }
 
   @override
   void dispose() {
+    _newMessageSub?.cancel();
+    _statusSub?.cancel();
     _inputController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
-  void _send() {
+  Future<void> _loadMessages() async {
+    if (widget.conversation.id.isEmpty) {
+      setState(() {
+        _messages = [];
+        _loading = false;
+      });
+      return;
+    }
+
+    setState(() => _loading = true);
+    final result = await ApiService().getMessages(widget.conversation.id);
+    if (!mounted) return;
+
+    final msgList = (result['messages'] as List?)
+            ?.map((j) => Message.fromJson(j))
+            .toList() ??
+        [];
+
+    // Update contact info from conversation data if available
+    if (result['conversation'] != null) {
+      final conv = result['conversation'];
+      if (conv['contact_name'] != null) _contactName = conv['contact_name'];
+      if (conv['phone'] != null) _contactPhone = conv['phone'];
+    }
+
+    setState(() {
+      _messages = msgList;
+      _loading = false;
+    });
+    _scrollToBottom();
+  }
+
+  Future<void> _send() async {
     final text = _inputController.text.trim();
     if (text.isEmpty) return;
+
+    final tempMsgId = 'local_${DateTime.now().millisecondsSinceEpoch}';
     setState(() {
       _messages.add(Message(
-        id: 'm${_messages.length + 1}',
+        id: tempMsgId,
         text: text,
         time: DateTime.now(),
         isMine: true,
-        isRead: true,
+        isRead: false,
       ));
       _inputController.clear();
     });
-    Future.delayed(const Duration(seconds: 1), () {
-      if (!mounted) return;
+    _scrollToBottom();
+
+    final res = await ApiService().sendMessage(
+      to: _contactPhone,
+      text: text,
+      conversationId: widget.conversation.id,
+    );
+
+    if (res['error'] != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: ${res['error']}')),
+      );
       setState(() {
-        _messages.add(Message(
-          id: 'm${_messages.length + 1}',
-          text: 'धन्यवाद! मैं जल्द ही जवाब दूँगा।',
-          time: DateTime.now(),
-          isMine: false,
-        ));
+        _messages.removeWhere((m) => m.id == tempMsgId);
       });
-    });
+    } else if (res['data'] != null && mounted) {
+      setState(() {
+        final idx = _messages.indexWhere((m) => m.id == tempMsgId);
+        if (idx != -1) {
+          _messages[idx] = _messages[idx].copyWith(id: res['data']['id'], status: 'sent');
+        }
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final contact = widget.conversation.contact;
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -61,22 +175,22 @@ class _ChatScreenState extends State<ChatScreen> {
         titleSpacing: 0,
         title: Row(
           children: [
-            Avatar(name: contact.name, size: 38),
+            Avatar(name: _contactName, size: 38),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    contact.name,
+                    _contactName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
                   ),
                   Text(
-                    widget.conversation.isActive ? 'ऑनलाइन' : 'आखिरी बार ${timeLabel(contact.lastActive ?? DateTime.now())}',
-                    style: TextStyle(
-                      color: widget.conversation.isActive ? AppColors.success : AppColors.textMuted,
+                    _contactPhone,
+                    style: const TextStyle(
+                      color: AppColors.textMuted,
                       fontSize: 11,
                       fontWeight: FontWeight.w500,
                     ),
@@ -92,22 +206,33 @@ class _ChatScreenState extends State<ChatScreen> {
             icon: const Icon(Icons.call_outlined, color: AppColors.success, size: 21),
           ),
           IconButton(
-            onPressed: () {},
-            icon: const Icon(Icons.more_vert_rounded),
+            onPressed: _loadMessages,
+            icon: const Icon(Icons.refresh_rounded, size: 21),
           ),
         ],
       ),
       body: Column(
         children: [
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              itemCount: _messages.length,
-              itemBuilder: (context, i) {
-                final m = _messages[i];
-                return _MessageBubble(message: m);
-              },
-            ),
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : _messages.isEmpty
+                    ? const Center(
+                        child: EmptyState(
+                          icon: Icons.chat_outlined,
+                          title: 'कोई संदेश नहीं',
+                          subtitle: 'बातचीत शुरू करें।',
+                        ),
+                      )
+                    : ListView.builder(
+                        controller: _scrollController,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                        itemCount: _messages.length,
+                        itemBuilder: (context, i) {
+                          final m = _messages[i];
+                          return _MessageBubble(message: m);
+                        },
+                      ),
           ),
           _buildInputBar(),
         ],
@@ -214,9 +339,13 @@ class _MessageBubble extends StatelessWidget {
                 if (mine) ...[
                   const SizedBox(width: 4),
                   Icon(
-                    message.isRead ? Icons.done_all_rounded : Icons.done_rounded,
-                    size: 13,
-                    color: Colors.white.withValues(alpha: 0.85),
+                    message.status == 'read' || message.status == 'delivered'
+                        ? Icons.done_all_rounded
+                        : Icons.done_rounded,
+                    size: 14,
+                    color: message.status == 'read'
+                        ? const Color(0xFF60A5FA) // Blue color for read
+                        : Colors.white.withValues(alpha: 0.7), // Grey/White for sent/delivered
                   ),
                 ],
               ],

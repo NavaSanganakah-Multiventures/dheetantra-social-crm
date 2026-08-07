@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../data/mock_data.dart';
 import '../models/models.dart';
+import '../services/api_service.dart';
 import '../theme/app_theme.dart';
-import '../widgets/common.dart';
+
 
 class BroadcastScreen extends StatefulWidget {
   const BroadcastScreen({super.key});
@@ -15,9 +15,17 @@ class BroadcastScreen extends StatefulWidget {
 class _BroadcastScreenState extends State<BroadcastScreen> {
   int _step = 0;
   final _messageController = TextEditingController();
-  String _audience = 'सभी संपर्क (1,240)';
-  bool _schedule = false;
-  int _scheduleMinutes = 60;
+  bool _loading = false;
+  bool _sending = false;
+  List<Contact> _contacts = [];
+  String _audience = 'सभी संपर्क';
+  int _audienceCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadContacts();
+  }
 
   @override
   void dispose() {
@@ -25,30 +33,57 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
     super.dispose();
   }
 
-  void _sendBroadcast() {
+  Future<void> _loadContacts() async {
+    setState(() => _loading = true);
+    final data = await ApiService().getContacts();
+    if (!mounted) return;
+    setState(() {
+      _contacts = data.map((j) => Contact.fromJson(j)).toList();
+      _audienceCount = _contacts.length;
+      _loading = false;
+    });
+  }
+
+  void _sendBroadcast() async {
     if (_messageController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('कृपया संदेश लिखें')),
       );
       return;
     }
+
+    setState(() => _sending = true);
+    final result = await ApiService().sendBroadcast({
+      'message': _messageController.text.trim(),
+      'audience': _audience,
+    });
+    if (!mounted) return;
+    setState(() => _sending = false);
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          _schedule ? 'ब्रॉडकास्ट शेड्यूल हो गया!' : 'ब्रॉडकास्ट भेजा जा रहा है...',
+          result['error'] != null
+              ? 'त्रुटि: ${result['error']}'
+              : 'ब्रॉडकास्ट भेजा जा रहा है...',
         ),
       ),
     );
     setState(() {
       _step = 0;
       _messageController.clear();
-      _audience = 'सभी संपर्क (1,240)';
-      _schedule = false;
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    final leadsCount = _contacts.where((c) => c.isLead).length;
+    final customersCount = _contacts.where((c) => !c.isLead).length;
+
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
       children: [
@@ -57,8 +92,6 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
             _StepIndicator(active: true, label: '1', title: 'संदेश'),
             const Expanded(child: Divider(color: AppColors.border)),
             _StepIndicator(active: _step >= 1, label: '2', title: 'ऑडियंस'),
-            const Expanded(child: Divider(color: AppColors.border)),
-            _StepIndicator(active: _step >= 2, label: '3', title: 'शेड्यूल'),
           ],
         ),
         const SizedBox(height: 24),
@@ -108,7 +141,7 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
               ),
             ],
           ),
-        ] else if (_step == 1) ...[
+        ] else ...[
           const Text(
             'ऑडियंस चुनें',
             style: TextStyle(
@@ -126,113 +159,55 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
           _AudienceOption(
             icon: Icons.people_alt_outlined,
             title: 'सभी संपर्क',
-            subtitle: '1,240 संपर्क',
-            selected: _audience == 'सभी संपर्क (1,240)',
-            onTap: () => setState(() => _audience = 'सभी संपर्क (1,240)'),
+            subtitle: '${_contacts.length} संपर्क',
+            selected: _audience == 'सभी संपर्क',
+            onTap: () => setState(() {
+              _audience = 'सभी संपर्क';
+              _audienceCount = _contacts.length;
+            }),
           ),
           const SizedBox(height: 10),
           _AudienceOption(
             icon: Icons.bolt_outlined,
             title: 'लीड्स',
-            subtitle: '312 लीड्स',
-            selected: _audience == 'लीड्स (312)',
-            onTap: () => setState(() => _audience = 'लीड्स (312)'),
+            subtitle: '$leadsCount लीड्स',
+            selected: _audience == 'लीड्स',
+            onTap: () => setState(() {
+              _audience = 'लीड्स';
+              _audienceCount = leadsCount;
+            }),
           ),
           const SizedBox(height: 10),
           _AudienceOption(
             icon: Icons.star_outline_rounded,
-            title: 'VIP ग्राहक',
-            subtitle: '86 ग्राहक',
-            selected: _audience == 'VIP ग्राहक (86)',
-            onTap: () => setState(() => _audience = 'VIP ग्राहक (86)'),
+            title: 'ग्राहक',
+            subtitle: '$customersCount ग्राहक',
+            selected: _audience == 'ग्राहक',
+            onTap: () => setState(() {
+              _audience = 'ग्राहक';
+              _audienceCount = customersCount;
+            }),
           ),
-        ] else ...[
-          const Text(
-            'शेड्यूल सेटिंग्स',
-            style: TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            'अभी भेजें या बाद के लिए शेड्यूल करें।',
-            style: TextStyle(color: AppColors.textMuted, fontSize: 12.5),
-          ),
-          const SizedBox(height: 14),
-          Container(
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.border),
-            ),
-            child: SwitchListTile(
-              value: _schedule,
-              onChanged: (v) => setState(() => _schedule = v),
-              activeTrackColor: AppColors.accent,
-              title: const Text(
-                'बाद के लिए शेड्यूल करें',
-                style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              subtitle: Text(
-                _schedule ? 'शेड्यूल समय सेट करें' : 'अभी तुरंत भेजें',
-                style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
-              ),
-            ),
-          ),
-          if (_schedule) ...[
-            const SizedBox(height: 14),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.border),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'कितने समय में भेजें?',
-                    style: TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  DropdownButtonFormField<int>(
-                    initialValue: _scheduleMinutes,
-                    dropdownColor: AppColors.surfaceAlt,
-                    items: const [
-                      DropdownMenuItem(value: 60, child: Text('1 घंटे में')),
-                      DropdownMenuItem(value: 180, child: Text('3 घंटे में')),
-                      DropdownMenuItem(value: 1440, child: Text('कल (24 घंटे)')),
-                      DropdownMenuItem(value: 4320, child: Text('3 दिन में')),
-                    ],
-                    onChanged: (v) => setState(() => _scheduleMinutes = v ?? 60),
-                  ),
-                ],
-              ),
-            ),
-          ],
         ],
         const SizedBox(height: 24),
         FilledButton.icon(
-          onPressed: () {
-            if (_step < 2) {
-              setState(() => _step++);
-            } else {
-              _sendBroadcast();
-            }
-          },
-          icon: Icon(_step == 2 ? Icons.send_rounded : Icons.arrow_forward_rounded, size: 18),
-          label: Text(_step == 2 ? (_schedule ? 'शेड्यूल करें' : 'ब्रॉडकास्ट भेजें') : 'आगे बढ़ें'),
+          onPressed: _sending
+              ? null
+              : () {
+                  if (_step < 1) {
+                    setState(() => _step++);
+                  } else {
+                    _sendBroadcast();
+                  }
+                },
+          icon: Icon(_step == 1 ? Icons.send_rounded : Icons.arrow_forward_rounded, size: 18),
+          label: Text(
+            _sending
+                ? 'भेज रहे हैं...'
+                : _step == 1
+                    ? 'ब्रॉडकास्ट भेजें ($_audienceCount)'
+                    : 'आगे बढ़ें',
+          ),
         ),
         if (_step > 0) ...[
           const SizedBox(height: 10),
@@ -240,13 +215,6 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
             onPressed: () => setState(() => _step--),
             child: const Text('वापस'),
           ),
-        ],
-        const SizedBox(height: 28),
-        const SectionHeader(title: 'हाल के ब्रॉडकास्ट'),
-        const SizedBox(height: 12),
-        for (final b in mockBroadcasts) ...[
-          _BroadcastTile(broadcast: b),
-          const SizedBox(height: 10),
         ],
       ],
     );
@@ -360,97 +328,6 @@ class _AudienceOption extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _BroadcastTile extends StatelessWidget {
-  final Broadcast broadcast;
-
-  const _BroadcastTile({required this.broadcast});
-
-  @override
-  Widget build(BuildContext context) {
-    final deliveredPct = (broadcast.delivered / broadcast.recipients * 100).round();
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: broadcast.channel == 'WhatsApp'
-                      ? AppColors.whatsapp.withValues(alpha: 0.12)
-                      : AppColors.accent.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(
-                  broadcast.channel == 'WhatsApp'
-                      ? Icons.chat_rounded
-                      : Icons.mail_outline_rounded,
-                  color: broadcast.channel == 'WhatsApp'
-                      ? AppColors.whatsapp
-                      : AppColors.accent,
-                  size: 17,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  broadcast.message,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 13,
-                    height: 1.35,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: LinearProgressIndicator(
-              value: deliveredPct / 100,
-              minHeight: 6,
-              backgroundColor: AppColors.surfaceAlt,
-              valueColor: const AlwaysStoppedAnimation(AppColors.success),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Text(
-                '${broadcast.recipients} प्राप्तकर्ता',
-                style: const TextStyle(color: AppColors.textMuted, fontSize: 11.5),
-              ),
-              const Spacer(),
-              const Icon(Icons.done_all_rounded, color: AppColors.success, size: 14),
-              const SizedBox(width: 4),
-              Text(
-                '${broadcast.delivered} डिलीवर्ड',
-                style: const TextStyle(color: AppColors.textMuted, fontSize: 11.5),
-              ),
-              const SizedBox(width: 10),
-              Text(
-                timeLabel(broadcast.sentAt),
-                style: const TextStyle(color: AppColors.textMuted, fontSize: 11.5),
-              ),
-            ],
-          ),
-        ],
       ),
     );
   }

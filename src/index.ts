@@ -625,22 +625,24 @@ app.post('/api/whatsapp/webhook', async (c) => {
             const status = statusObj.status; // 'sent', 'delivered', 'read'
 
             try {
-              const msg = await c.env.DB.prepare('SELECT id, conversation_id FROM messages WHERE platform_message_id = ?').bind(platformMsgId).first<{ id: string, conversation_id: string }>();
+              const result = await c.env.DB.prepare(
+                'SELECT m.id, m.conversation_id, c.workspace_id FROM messages m JOIN conversations c ON m.conversation_id = c.id WHERE m.platform_message_id = ?'
+              ).bind(platformMsgId).first<{ id: string, conversation_id: string, workspace_id: string }>();
 
-              if (msg) {
+              if (result) {
                 await c.env.DB.prepare('UPDATE messages SET status = ? WHERE id = ?')
-                  .bind(status, msg.id).run();
+                  .bind(status, result.id).run();
 
-                // Broadcast to conversation DO
-                const doId = c.env.CHAT_DO.idFromName(msg.conversation_id);
-                const stub = c.env.CHAT_DO.get(doId);
+                // Broadcast to global workspace DO
+                const globalDoId = c.env.CHAT_DO.idFromName(`global-${result.workspace_id}`);
+                const stub = c.env.CHAT_DO.get(globalDoId);
                 await stub.fetch(new Request('http://do/broadcast', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({
                     type: 'message_status_updated',
-                    message_id: msg.id,
-                    conversation_id: msg.conversation_id,
+                    message_id: result.id,
+                    conversation_id: result.conversation_id,
                     status: status,
                     platformMessageId: platformMsgId
                   })
