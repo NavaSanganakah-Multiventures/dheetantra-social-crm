@@ -107,7 +107,8 @@ router.post('/api/billing/subscribe', async (c) => {
     if (e instanceof RazorpayConfigError) {
       return c.json({ error: e.message }, 503);
     }
-    console.error('[Billing] Checkout creation failed:', e);
+    console.error('[Billing] Checkout creation failed:', e?.message || e?.name || 'unknown error',
+      e instanceof RazorpayApiError ? JSON.stringify(e.details) : '');
     return c.json({ error: e instanceof RazorpayApiError ? e.message : 'Payment setup failed. Please try again.' }, 502);
   }
 

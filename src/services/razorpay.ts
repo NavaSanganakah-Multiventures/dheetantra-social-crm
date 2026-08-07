@@ -69,15 +69,19 @@ async function razorpayRequest(env: any, path: string, method = 'GET', body?: an
   });
 
   let data: any = null;
+  let raw = '';
   try {
-    data = await res.json();
+    raw = await res.text();
+    try { data = JSON.parse(raw); } catch { data = null; }
   } catch (e) {
-    data = null;
+    raw = '';
   }
 
   if (!res.ok) {
-    const message = data?.error?.description || data?.error?.message || `Razorpay request failed (${res.status})`;
-    throw new RazorpayApiError(message, res.status, data);
+    const message = data?.error?.description
+      || data?.error?.message
+      || (raw ? `Razorpay request failed (${res.status}): ${raw.slice(0, 300)}` : `Razorpay request failed (${res.status})`);
+    throw new RazorpayApiError(message, res.status, data || raw);
   }
   return data;
 }
@@ -213,14 +217,26 @@ export async function createRazorpayOrder(env: any, plan: any, receipt: string):
   });
 }
 
+// Billing cycles that cover the maximum subscription duration Razorpay
+// supports (100 years). Used instead of total_count: 0, which Razorpay
+// rejects ("The total count must be at least 1"). Cancellation is handled
+// by the cancel endpoint, so a 100-year horizon is effectively "billed
+// until cancelled".
+function cyclesForHorizon(period: string, interval: number): number {
+  const i = Math.max(1, Number(interval) || 1);
+  switch (period) {
+    case 'daily': return Math.max(1, Math.floor((100 * 365) / i));
+    case 'weekly': return Math.max(1, Math.floor((100 * 52) / i));
+    case 'yearly': return Math.max(1, Math.floor(100 / i));
+    case 'monthly':
+    default: return Math.max(1, Math.floor((100 * 12) / i));
+  }
+}
+
 export async function createRazorpaySubscription(env: any, plan: any, notes: Record<string, string>): Promise<any> {
-  // Billed until cancelled: Razorpay rejects total_count: 0 (must be >= 1),
-  // so bound the subscription with end_at at the max supported duration
-  // (100 years) instead of a fixed cycle count.
-  const endAt = Math.floor(Date.now() / 1000) + 100 * 365 * 24 * 60 * 60;
   return razorpayRequest(env, '/subscriptions', 'POST', {
     plan_id: plan.razorpay_plan_id,
-    end_at: endAt,
+    total_count: cyclesForHorizon(plan.billing_period, plan.billing_interval),
     customer_notify: 1,
     notes,
   });
