@@ -599,7 +599,7 @@ export function ContactsView({
             </div>
 
             {/* Form */}
-            <form onSubmit={saveContact} className="p-5 overflow-y-auto space-y-4 flex-1">
+            <form onSubmit={saveContact} className="p-5 min-h-0 overflow-y-auto space-y-4 flex-1">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Name */}
                 <div className="sm:col-span-2">

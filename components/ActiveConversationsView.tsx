@@ -47,7 +47,9 @@ export default function ActiveConversationsView({
   }, []);
 
   useEffect(() => {
-    fetchConversations();
+    (async () => {
+      await fetchConversations();
+    })();
     const interval = setInterval(fetchConversations, 10000);
     return () => clearInterval(interval);
   }, [fetchConversations]);

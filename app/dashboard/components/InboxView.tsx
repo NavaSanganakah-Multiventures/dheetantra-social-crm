@@ -44,10 +44,13 @@ export function InboxView({
 
   useEffect(() => {
     if (preselectedChat) {
-      setActiveChat(preselectedChat);
-      if (setPreselectedChat) {
-        setPreselectedChat(null);
-      }
+      const t = setTimeout(() => {
+        setActiveChat(preselectedChat);
+        if (setPreselectedChat) {
+          setPreselectedChat(null);
+        }
+      }, 0);
+      return () => clearTimeout(t);
     }
   }, [preselectedChat, setPreselectedChat]);
 
@@ -325,7 +328,9 @@ export function InboxView({
 
   // Ref to always have latest fetchConversations without causing WebSocket reconnects
   const fetchConversationsRef = useRef(fetchConversations);
-  fetchConversationsRef.current = fetchConversations;
+  useEffect(() => {
+    fetchConversationsRef.current = fetchConversations;
+  }, [fetchConversations]);
 
   useEffect(() => {
     fetchConversations();

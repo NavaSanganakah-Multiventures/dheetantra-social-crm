@@ -264,7 +264,7 @@ export function BroadcastView() {
                   </button>
                 </div>
               </div>
-              <div className="flex-1 overflow-y-auto">
+              <div className="flex-1 min-h-0 overflow-y-auto">
                 {filteredContacts.length === 0 ? (
                   <div className="p-8 text-center text-sm text-surface-400">कोई संपर्क नहीं मिला</div>
                 ) : (

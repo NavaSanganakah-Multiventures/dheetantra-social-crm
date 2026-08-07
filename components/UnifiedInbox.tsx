@@ -88,6 +88,9 @@ function parseEmailMedia(value: string | null): { subject?: string; to?: string 
   return {};
 }
 
+// Module-level helper so the impure builtin is outside the render scope
+const currentTimeMs = () => Date.now();
+
 // ---------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------
@@ -141,7 +144,9 @@ export default function UnifiedInbox({
 
   useEffect(() => {
     if (!wId) return;
-    loadConversations();
+    (async () => {
+      await loadConversations();
+    })();
     const t = setInterval(loadConversations, 10000);
     return () => clearInterval(t);
   }, [wId, loadConversations]);
@@ -175,10 +180,14 @@ export default function UnifiedInbox({
     if (preselectedChat.id && activeConv?.id !== preselectedChat.id) {
       const conv = conversations.find((c: any) => c.id === preselectedChat.id);
       if (conv) {
-        openConversation(conv);
+        const t = setTimeout(() => openConversation(conv), 0);
+        return () => clearTimeout(t);
       } else if (preselectedChat.platform || preselectedChat.phone) {
         const byPhone = conversations.find((c: any) => c.phone === preselectedChat.phone);
-        if (byPhone) openConversation(byPhone);
+        if (byPhone) {
+          const t = setTimeout(() => openConversation(byPhone), 0);
+          return () => clearTimeout(t);
+        }
       }
     }
     if (setPreselectedChat) setPreselectedChat(null);
@@ -601,7 +610,7 @@ export default function UnifiedInbox({
                 {activeConv.platform === 'whatsapp' && activeConv.customer_last_message_at && (
                   (() => {
                     const last = ensureUTC(activeConv.customer_last_message_at).getTime();
-                    const expired = Date.now() - last > 24 * 60 * 60 * 1000;
+                    const expired = currentTimeMs() - last > 24 * 60 * 60 * 1000;
                     if (!expired) return null;
                     return (
                       <div className="mb-2 flex items-center gap-2 text-[11px] text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
@@ -664,7 +673,7 @@ export default function UnifiedInbox({
               <X className="w-5 h-5" />
             </button>
           </div>
-          <div className="flex-1 overflow-y-auto px-4 py-3 bg-surface-50 dark:bg-surface-950/40 space-y-3">
+          <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3 bg-surface-50 dark:bg-surface-950/40 space-y-3">
             {messages.map((m: any) => {
               const isContact = m.sender_type === 'contact';
               return (

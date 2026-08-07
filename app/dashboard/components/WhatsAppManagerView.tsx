@@ -1548,7 +1548,7 @@ export function WhatsAppManagerView() {
                       </div>
 
                       {/* Chat / Flow Form Screen area */}
-                      <div className="flex-1 bg-[#efeae2] dark:bg-surface-900/40 p-4 space-y-4 overflow-y-auto relative">
+                      <div className="flex-1 min-h-0 bg-[#efeae2] dark:bg-surface-900/40 p-4 space-y-4 overflow-y-auto relative">
                         {/* Custom background pattern simulation */}
                         <div className="absolute inset-0 opacity-5 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle, #000 10%, transparent 11%)', backgroundSize: '12px 12px' }}></div>
                         
