@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Bot, MessageSquare, Megaphone, Settings, User, Phone, PhoneCall, Trash2, Edit, Instagram, Facebook, CreditCard, CalendarClock, RefreshCw, ExternalLink } from 'lucide-react';
+import { Bot, MessageSquare, Megaphone, Settings, User, Phone, PhoneCall, Trash2, Edit, Instagram, Facebook, CreditCard, CalendarClock, RefreshCw, Sparkles } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { formatUserDateOnly } from '../lib/dates';
+import { SubscriptionModal } from './SubscriptionModal';
 
 export function SettingsView() {
     const { toast } = useToast();
@@ -52,6 +53,7 @@ export function SettingsView() {
     const [payments, setPayments] = useState<any[]>([]);
     const [billingLoading, setBillingLoading] = useState(true);
     const [cancelling, setCancelling] = useState(false);
+    const [showSubscription, setShowSubscription] = useState(false);
 
     const loadBilling = () => {
       const wId = localStorage.getItem('workspaceId');
@@ -329,6 +331,7 @@ export function SettingsView() {
     if (loading) return <div className="p-8">लोड हो रहा है...</div>;
 
     return (
+        <>
         <div className="p-6 md:p-8 w-full max-w-4xl mx-auto space-y-6">
              <h2 className="text-2xl font-bold tracking-tight text-surface-900 dark:text-white font-display">वर्कस्पेस सेटिंग्स</h2>
 
@@ -379,13 +382,13 @@ export function SettingsView() {
                                )}
                              </div>
                            </div>
-                           <div className="flex gap-2">
-                             <a
-                               href="/pricing"
-                               className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-xs font-semibold transition-colors"
-                             >
-                                <ExternalLink className="w-3.5 h-3.5" /> अपग्रेड करें
-                             </a>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => setShowSubscription(true)}
+                                className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-xs font-semibold transition-colors"
+                              >
+                                 <Sparkles className="w-3.5 h-3.5" /> अपग्रेड करें
+                              </button>
                              {billing?.subscription && ['active', 'past_due', 'paused'].includes(billing.subscription.status) && billing.subscription.cancel_at_period_end !== 1 && (
                                <button
                                  onClick={cancelSubscription}
@@ -683,6 +686,18 @@ export function SettingsView() {
                  </div>
              </div>
         </div>
+
+        {/* Subscription / Upgrade Popup */}
+        <SubscriptionModal
+          open={showSubscription}
+          onClose={() => setShowSubscription(false)}
+          onSuccess={() => {
+            setShowSubscription(false);
+            loadBilling();
+            toast('success', 'सब्सक्रिप्शन सफलतापूर्वक एक्टिव हो गया!');
+          }}
+        />
+        </>
     )
 }
 

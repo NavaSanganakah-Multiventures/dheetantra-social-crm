@@ -192,6 +192,7 @@ export const dict: Record<string, { en: string; hi: string }> = {
   'pricing.errorPayment': { en: 'Payment setup failed. Please try again.', hi: 'पेमेंट सेटअप विफल हुआ। कृपया पुनः प्रयास करें।' },
   'pricing.errorGateway': { en: 'Payment gateway failed to load. Please try again.', hi: 'पेमेंट गेटवे लोड करने में विफल। कृपया पुनः प्रयास करें।' },
   'pricing.errorStart': { en: 'Something went wrong while starting the payment. Please try again.', hi: 'पेमेंट शुरू करते समय कुछ गलत हो गया। कृपया पुनः प्रयास करें।' },
+  'pricing.errorVerify': { en: 'Payment could not be verified. If money was deducted, please contact support.', hi: 'भुगतान वेरिफाई नहीं हो पाया। अगर पैसे कट गए हैं तो सपोर्ट से संपर्क करें।' },
 
   // ---------- About page ----------
   'about.badge': { en: 'About', hi: 'हमारे बारे में' },
