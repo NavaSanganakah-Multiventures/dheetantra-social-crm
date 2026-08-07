@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { motion, AnimatePresence } from 'motion/react';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { ThemeToggle } from '../../components/ui/ThemeToggle';
 import { useLang, LangSwitcher } from '../../lib/i18n';
 
 export default function LoginPage() {
@@ -102,8 +103,9 @@ export default function LoginPage() {
       <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-primary-500/10 dark:bg-primary-500/20 rounded-full blur-3xl pointer-events-none animate-float" />
       <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-cyan-500/10 dark:bg-cyan-500/20 rounded-full blur-3xl pointer-events-none animate-float-delayed" />
 
-      <div className="absolute top-4 right-4 z-20">
+      <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
         <LangSwitcher />
+        <ThemeToggle />
       </div>
 
       <motion.div
@@ -113,9 +115,9 @@ export default function LoginPage() {
       >
         <Link
           href="/"
-          className="flex items-center justify-center w-12 h-12 rounded-2xl bg-surface-900 dark:bg-white mb-6 mx-auto hover:scale-105 transition-transform"
+          className="flex items-center justify-center w-12 h-12 rounded-2xl bg-primary-600 shadow-lg shadow-primary-500/30 mb-6 mx-auto hover:scale-105 transition-transform"
         >
-          <MessageSquare className="w-6 h-6 text-white dark:text-surface-900" />
+          <MessageSquare className="w-6 h-6 text-white" />
         </Link>
 
         <h1 className="text-3xl font-bold text-center mb-2 tracking-tight font-['Inter']">

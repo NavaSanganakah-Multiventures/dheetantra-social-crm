@@ -18,30 +18,15 @@ import {
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
+import { ThemeToggle } from '../components/ui/ThemeToggle';
 import { useLang, LangSwitcher } from '../lib/i18n';
-
-function useScrollProgress() {
-  const { scrollY } = useScroll();
-  const navBg = useTransform(
-    scrollY,
-    [0, 80],
-    ['rgba(255,255,255,0)', 'rgba(255,255,255,0.85)']
-  );
-  const navBorder = useTransform(
-    scrollY,
-    [0, 80],
-    ['rgba(0,0,0,0)', 'rgba(0,0,0,0.08)']
-  );
-  return { navBg, navBorder };
-}
 
 export default function LandingPage() {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { navBg, navBorder } = useScrollProgress();
 
   return (
     <div className="min-h-screen bg-surface-50 dark:bg-surface-950 overflow-hidden">
-      <NavBar mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} navBg={navBg} navBorder={navBorder} />
+      <NavBar mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
 
       <HeroSection />
       <BrandStrip />
@@ -60,15 +45,47 @@ export default function LandingPage() {
 function NavBar({
   mobileOpen,
   setMobileOpen,
-  navBg,
-  navBorder,
 }: {
   mobileOpen: boolean;
   setMobileOpen: (v: boolean) => void;
-  navBg: any;
-  navBorder: any;
 }) {
   const { t } = useLang();
+  const { scrollY } = useScroll();
+  const [isDark, setIsDark] = useState(false);
+
+  useEffect(() => {
+    const el = document.documentElement;
+    const update = () => setIsDark(el.classList.contains('dark'));
+    update();
+    // System scheme changes (head script + ThemeToggle both apply via matchMedia)
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const onMq = () => update();
+    if (mq.addEventListener) mq.addEventListener('change', onMq);
+    else if (mq.addListener) mq.addListener(onMq);
+    // Manual toggle on this page (dispatched by ThemeToggle when the class changes)
+    window.addEventListener('dheetantra-themechange', update);
+    return () => {
+      if (mq.removeEventListener) mq.removeEventListener('change', onMq);
+      else if (mq.removeListener) mq.removeListener(onMq);
+      window.removeEventListener('dheetantra-themechange', update);
+    };
+  }, []);
+
+  const navBg = useTransform(
+    scrollY,
+    [0, 80],
+    isDark
+      ? ['rgba(9,9,11,0)', 'rgba(9,9,11,0.85)']
+      : ['rgba(255,255,255,0)', 'rgba(255,255,255,0.85)']
+  );
+  const navBorder = useTransform(
+    scrollY,
+    [0, 80],
+    isDark
+      ? ['rgba(255,255,255,0)', 'rgba(255,255,255,0.08)']
+      : ['rgba(0,0,0,0)', 'rgba(0,0,0,0.08)']
+  );
+
   return (
     <motion.nav
       style={{ background: navBg, borderBottomColor: navBorder }}
@@ -93,6 +110,7 @@ function NavBar({
 
         <div className="hidden md:flex items-center gap-4">
           <LangSwitcher />
+          <ThemeToggle />
           <Link
             href="/login"
             className="text-sm font-medium text-surface-600 dark:text-surface-300 hover:text-surface-900 dark:hover:text-white transition-colors"
@@ -315,7 +333,7 @@ function FeaturesSection() {
       icon: <MessageSquare className="w-6 h-6" />,
       title: t('home.features.inbox.title'),
       description: t('home.features.inbox.desc'),
-      color: 'from-primary-500 to-indigo-600',
+      color: 'from-primary-500 to-primary-600',
     },
     {
       icon: <Megaphone className="w-6 h-6" />,
@@ -779,6 +797,7 @@ function MobileMenu({ onClose }: { onClose: () => void }) {
           {t('nav.contact')}
         </Link>
         <LangSwitcher />
+        <ThemeToggle />
         <div className="flex flex-col gap-3 w-full max-w-xs mt-4">
           <Link
             href="/login"

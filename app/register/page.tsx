@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Badge } from '../../components/ui/Badge';
+import { ThemeToggle } from '../../components/ui/ThemeToggle';
 import { useLang, LangSwitcher } from '../../lib/i18n';
 
 export default function RegisterPage() {
@@ -102,11 +103,12 @@ export default function RegisterPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-surface-50 dark:bg-surface-950 p-4 font-sans relative overflow-hidden">
-      <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-emerald-500/10 dark:bg-emerald-500/15 rounded-full blur-3xl pointer-events-none animate-float-delayed" />
-      <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-blue-500/10 dark:bg-blue-500/15 rounded-full blur-3xl pointer-events-none animate-float" />
+      <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-primary-500/10 dark:bg-primary-500/20 rounded-full blur-3xl pointer-events-none animate-float-delayed" />
+      <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-cyan-500/10 dark:bg-cyan-500/20 rounded-full blur-3xl pointer-events-none animate-float" />
 
-      <div className="absolute top-4 right-4 z-20">
+      <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
         <LangSwitcher />
+        <ThemeToggle />
       </div>
 
       <motion.div

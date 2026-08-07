@@ -533,10 +533,10 @@ export default function AdminDashboard() {
 
   if (loadingAuth) {
     return (
-      <div className="flex h-screen items-center justify-center bg-zinc-950 text-white">
+      <div className="flex h-screen items-center justify-center bg-surface-950 text-white">
         <div className="text-center space-y-4">
-          <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="text-sm text-zinc-400 font-mono tracking-wide">प्रशासक क्रेडेंशियल्स की जाँच की जा रही है...</p>
+          <div className="w-10 h-10 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="text-sm text-surface-400 font-mono tracking-wide">प्रशासक क्रेडेंशियल्स की जाँच की जा रही है...</p>
         </div>
       </div>
     );
@@ -544,31 +544,31 @@ export default function AdminDashboard() {
 
   if (authorized === false) {
     return (
-      <div className="flex h-screen items-center justify-center bg-zinc-950 text-white px-4">
+      <div className="flex h-screen items-center justify-center bg-surface-950 text-white px-4">
         <motion.div 
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="max-w-md w-full bg-zinc-900 border border-zinc-800 rounded-3xl p-8 text-center shadow-2xl relative overflow-hidden"
+          className="max-w-md w-full bg-surface-900 border border-surface-800 rounded-3xl p-8 text-center shadow-2xl relative overflow-hidden"
         >
           <div className="absolute inset-0 bg-gradient-to-b from-rose-500/5 to-transparent pointer-events-none"></div>
           <div className="w-16 h-16 bg-rose-500/10 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-6">
             <ShieldAlert className="w-8 h-8" />
           </div>
           <h2 className="text-xl font-bold mb-2 font-display">अस्वीकृत प्रवेश (Access Denied)</h2>
-          <p className="text-zinc-400 text-sm mb-6 leading-relaxed">
+          <p className="text-surface-400 text-sm mb-6 leading-relaxed">
             आपके पास इस व्यवस्थापक कंसोल को एक्सेस करने का अधिकार नहीं है। यह पृष्ठ केवल अधिकृत सिस्टम प्रशासकों के लिए आरक्षित है।
           </p>
           <div className="flex flex-col gap-3">
             <button 
               onClick={() => router.push('/dashboard/')} 
-              className="w-full bg-indigo-600 hover:bg-indigo-500 py-3 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/25"
+              className="w-full bg-primary-600 hover:bg-primary-500 py-3 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2 shadow-lg shadow-primary-600/25"
             >
               <ArrowLeft className="w-4 h-4" />
               क्लाइंट डैशबोर्ड पर वापस जाएं
             </button>
             <button 
               onClick={() => router.push('/login/')} 
-              className="w-full bg-zinc-800 hover:bg-zinc-700 py-3 rounded-xl text-sm font-semibold transition-colors"
+              className="w-full bg-surface-800 hover:bg-surface-700 py-3 rounded-xl text-sm font-semibold transition-colors"
             >
               दूसरे खाते से लॉग इन करें
             </button>
@@ -579,7 +579,7 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-zinc-950 text-zinc-100 font-sans">
+    <div className="flex h-screen overflow-hidden bg-surface-950 text-surface-100 font-sans">
       {/* Toast Notification Box */}
       <div className="fixed top-6 right-6 z-50 flex flex-col gap-2 max-w-sm pointer-events-none">
         <AnimatePresence>
@@ -592,7 +592,7 @@ export default function AdminDashboard() {
               className={`p-4 rounded-2xl border text-xs font-semibold shadow-2xl flex items-center gap-3 backdrop-blur-md pointer-events-auto ${
                 n.type === 'error' 
                   ? 'bg-rose-950/90 border-rose-800 text-rose-300' 
-                  : 'bg-zinc-900/90 border-zinc-800 text-emerald-400'
+                  : 'bg-surface-900/90 border-surface-800 text-emerald-400'
               }`}
             >
               {n.type === 'error' ? <ShieldAlert className="w-4 h-4" /> : <Check className="w-4 h-4" />}
@@ -603,19 +603,19 @@ export default function AdminDashboard() {
       </div>
 
       {/* Admin Sidebar */}
-      <aside className="w-72 bg-zinc-900 border-r border-zinc-800 flex flex-col flex-shrink-0">
-        <div className="p-6 border-b border-zinc-800 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-600/35">
+      <aside className="w-72 bg-surface-900 border-r border-surface-800 flex flex-col flex-shrink-0">
+        <div className="p-6 border-b border-surface-800 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-primary-600 flex items-center justify-center shadow-lg shadow-primary-600/35">
             <ShieldCheck className="w-5 h-5 text-white" />
           </div>
           <div>
             <h1 className="font-bold text-base tracking-tight text-white font-display">प्रशासक कंसोल</h1>
-            <p className="text-[10px] text-zinc-500 font-mono">DHEETANTRA PLATFORM</p>
+            <p className="text-[10px] text-surface-500 font-mono">DHEETANTRA PLATFORM</p>
           </div>
         </div>
 
         <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
-          <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-4 px-3">कंट्रोल सेंटर</div>
+          <div className="text-[10px] font-bold text-surface-500 uppercase tracking-widest mb-4 px-3">कंट्रोल सेंटर</div>
           
           <SidebarButton 
             icon={<LayoutDashboard className="w-4 h-4" />} 
@@ -661,30 +661,30 @@ export default function AdminDashboard() {
           />
         </nav>
 
-        <div className="p-4 border-t border-zinc-800 bg-zinc-950/40">
+        <div className="p-4 border-t border-surface-800 bg-surface-950/40">
           <button 
             onClick={() => router.push('/dashboard/')}
-            className="w-full py-2.5 px-4 bg-zinc-800 hover:bg-zinc-700 rounded-xl text-xs font-semibold text-zinc-300 transition-colors flex items-center justify-center gap-2"
+            className="w-full py-2.5 px-4 bg-surface-800 hover:bg-surface-700 rounded-xl text-xs font-semibold text-surface-300 transition-colors flex items-center justify-center gap-2"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             क्लाइंट डैशबोर्ड पर लौटें
           </button>
           
           <div className="mt-4 flex items-center gap-3 px-2">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-violet-500 flex items-center justify-center text-white text-xs font-bold">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-primary-500 to-violet-500 flex items-center justify-center text-white text-xs font-bold">
               {adminUser?.name?.[0]?.toUpperCase() || adminUser?.email?.[0]?.toUpperCase() || 'A'}
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-xs font-semibold text-white truncate">{adminUser?.name || 'Administrator'}</p>
-              <p className="text-[10px] text-zinc-500 truncate">{adminUser?.email}</p>
+              <p className="text-[10px] text-surface-500 truncate">{adminUser?.email}</p>
             </div>
           </div>
         </div>
       </aside>
 
       {/* Main Panel Content Area */}
-      <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-zinc-950">
-        <header className="h-16 border-b border-zinc-800 bg-zinc-900/60 flex items-center justify-between px-8">
+      <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-surface-950">
+        <header className="h-16 border-b border-surface-800 bg-surface-900/60 flex items-center justify-between px-8">
           <div className="flex items-center gap-3">
             <h2 className="text-lg font-bold text-white capitalize font-display">
               {activeTab === 'overview' && 'सिस्टम अवलोकन'}
@@ -695,7 +695,7 @@ export default function AdminDashboard() {
               {activeTab === 'kv' && 'KV क्लाउड सीक्रेट्स'}
               {activeTab === 'database' && 'डेटाबेस (Database)'}
             </h2>
-            <div className="px-2 py-0.5 bg-indigo-500/15 text-indigo-400 rounded-full text-[10px] font-mono border border-indigo-500/20 uppercase">
+            <div className="px-2 py-0.5 bg-primary-500/15 text-primary-400 rounded-full text-[10px] font-mono border border-primary-500/20 uppercase">
               Admin Mode
             </div>
           </div>
@@ -712,7 +712,7 @@ export default function AdminDashboard() {
                 if (activeTab === 'database') loadSchemaDiff();
                 addNotification('डाटा रिफ्रेश किया गया');
               }}
-              className="p-2 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+              className="p-2 rounded-xl text-surface-400 hover:text-white hover:bg-surface-800 transition-colors"
               title="रिफ्रेश करें"
             >
               <RefreshCw className="w-4 h-4" />
@@ -734,12 +734,12 @@ export default function AdminDashboard() {
                 {loadingStats ? (
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                     {[1, 2, 3, 4].map(i => (
-                      <div key={i} className="h-28 bg-zinc-900/50 border border-zinc-800/80 rounded-2xl animate-pulse"></div>
+                      <div key={i} className="h-28 bg-surface-900/50 border border-surface-800/80 rounded-2xl animate-pulse"></div>
                     ))}
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                    <StatCard title="कुल उपयोगकर्ता (Users)" value={stats?.users || '0'} icon={<Users className="w-5 h-5 text-indigo-400" />} subtitle="CRM और स्टाफ सदस्य" />
+                    <StatCard title="कुल उपयोगकर्ता (Users)" value={stats?.users || '0'} icon={<Users className="w-5 h-5 text-primary-400" />} subtitle="CRM और स्टाफ सदस्य" />
                     <StatCard title="सक्रिय वर्कस्पेस" value={stats?.workspaces || '0'} icon={<Building2 className="w-5 h-5 text-violet-400" />} subtitle="विभागीय संगठन" />
                     <StatCard title="WABA फोन नंबर" value={stats?.whatsapp || '0'} icon={<Database className="w-5 h-5 text-emerald-400" />} subtitle="Meta APIs कनेक्टेड" />
                     <StatCard title="व्हाट्सएप संदेश" value={stats?.messages || '0'} icon={<Activity className="w-5 h-5 text-sky-400" />} subtitle="सिस्टम थ्रूपुट वॉल्यूम" />
@@ -748,12 +748,12 @@ export default function AdminDashboard() {
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                   {/* Health Status Dashboard */}
-                  <div className="lg:col-span-2 bg-zinc-900 border border-zinc-800 rounded-3xl p-6 relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 rounded-full blur-3xl"></div>
-                    <h3 className="text-sm font-semibold tracking-wide uppercase text-zinc-400 mb-6">सिस्टम स्वास्थ्य और बुनियादी ढांचा</h3>
+                  <div className="lg:col-span-2 bg-surface-900 border border-surface-800 rounded-3xl p-6 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-primary-500/5 rounded-full blur-3xl"></div>
+                    <h3 className="text-sm font-semibold tracking-wide uppercase text-surface-400 mb-6">सिस्टम स्वास्थ्य और बुनियादी ढांचा</h3>
                     
                     <div className="space-y-4">
-                      <div className="flex items-center justify-between p-4 bg-zinc-950/60 rounded-2xl border border-zinc-800/40">
+                      <div className="flex items-center justify-between p-4 bg-surface-950/60 rounded-2xl border border-surface-800/40">
                         <div className="flex items-center gap-3">
                           <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse"></span>
                           <span className="text-xs font-semibold">Cloudflare Workers Gateway</span>
@@ -761,7 +761,7 @@ export default function AdminDashboard() {
                         <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/30 px-2 py-0.5 rounded border border-emerald-900">OPERATIONAL</span>
                       </div>
 
-                      <div className="flex items-center justify-between p-4 bg-zinc-950/60 rounded-2xl border border-zinc-800/40">
+                      <div className="flex items-center justify-between p-4 bg-surface-950/60 rounded-2xl border border-surface-800/40">
                         <div className="flex items-center gap-3">
                           <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse"></span>
                           <span className="text-xs font-semibold">SQLite D1 Database</span>
@@ -769,7 +769,7 @@ export default function AdminDashboard() {
                         <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/30 px-2 py-0.5 rounded border border-emerald-900">ACTIVE</span>
                       </div>
 
-                      <div className="flex items-center justify-between p-4 bg-zinc-950/60 rounded-2xl border border-zinc-800/40">
+                      <div className="flex items-center justify-between p-4 bg-surface-950/60 rounded-2xl border border-surface-800/40">
                         <div className="flex items-center gap-3">
                           <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse"></span>
                           <span className="text-xs font-semibold">SECRETS_KV Store</span>
@@ -778,25 +778,25 @@ export default function AdminDashboard() {
                       </div>
                     </div>
 
-                    <div className="mt-6 flex gap-4 pt-6 border-t border-zinc-800/60">
-                      <div className="text-center p-3 bg-zinc-950/30 rounded-xl border border-zinc-800/40 flex-1">
-                        <p className="text-[10px] text-zinc-500">संपर्क लीड्स</p>
+                    <div className="mt-6 flex gap-4 pt-6 border-t border-surface-800/60">
+                      <div className="text-center p-3 bg-surface-950/30 rounded-xl border border-surface-800/40 flex-1">
+                        <p className="text-[10px] text-surface-500">संपर्क लीड्स</p>
                         <p className="text-lg font-bold text-white mt-1">{stats?.contacts || '0'}</p>
                       </div>
-                      <div className="text-center p-3 bg-zinc-950/30 rounded-xl border border-zinc-800/40 flex-1">
-                        <p className="text-[10px] text-zinc-500">ब्रॉडकास्ट कैंपेन</p>
+                      <div className="text-center p-3 bg-surface-950/30 rounded-xl border border-surface-800/40 flex-1">
+                        <p className="text-[10px] text-surface-500">ब्रॉडकास्ट कैंपेन</p>
                         <p className="text-lg font-bold text-white mt-1">{stats?.campaigns || '0'}</p>
                       </div>
-                      <div className="text-center p-3 bg-zinc-950/30 rounded-xl border border-zinc-800/40 flex-1">
-                        <p className="text-[10px] text-zinc-500">कॉल रिकॉर्ड्स</p>
+                      <div className="text-center p-3 bg-surface-950/30 rounded-xl border border-surface-800/40 flex-1">
+                        <p className="text-[10px] text-surface-500">कॉल रिकॉर्ड्स</p>
                         <p className="text-lg font-bold text-white mt-1">{stats?.calls || '0'}</p>
                       </div>
                     </div>
                   </div>
 
                   {/* Administrative Quick Actions */}
-                  <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
-                    <h3 className="text-sm font-semibold tracking-wide uppercase text-zinc-400 mb-6">त्वरित प्रशासनिक क्रियाएं</h3>
+                  <div className="bg-surface-900 border border-surface-800 rounded-3xl p-6">
+                    <h3 className="text-sm font-semibold tracking-wide uppercase text-surface-400 mb-6">त्वरित प्रशासनिक क्रियाएं</h3>
                     <div className="space-y-3">
                       <QuickActionButton label="नया उपयोगकर्ता पंजीकृत करें" onClick={() => { setUserModal({ open: true, mode: 'create' }); setUserForm({ name: '', email: '', is_registered: true }); setActiveTab('users'); }} />
                       <QuickActionButton label="नया वर्कस्पेस बनाएं" onClick={() => { setWorkspaceModal({ open: true, mode: 'create' }); setWorkspaceForm({ name: '', plan_id: '', owner_id: '' }); setActiveTab('workspaces'); }} />
@@ -819,13 +819,13 @@ export default function AdminDashboard() {
                 {/* Search & Registration Action Row */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div className="relative flex-1 max-w-md">
-                    <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" />
+                    <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-surface-500" />
                     <input 
                       type="text" 
                       placeholder="नाम या ईमेल द्वारा उपयोगकर्ता खोजें..." 
                       value={userSearch}
                       onChange={e => setUserSearch(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2.5 bg-zinc-900 border border-zinc-800 rounded-2xl text-xs text-white focus:outline-none focus:border-indigo-500 placeholder-zinc-500 transition-colors"
+                      className="w-full pl-10 pr-4 py-2.5 bg-surface-900 border border-surface-800 rounded-2xl text-xs text-white focus:outline-none focus:border-primary-500 placeholder-surface-500 transition-colors"
                     />
                   </div>
                   <button 
@@ -833,7 +833,7 @@ export default function AdminDashboard() {
                       setUserForm({ email: '', name: '', is_registered: true });
                       setUserModal({ open: true, mode: 'create' });
                     }}
-                    className="py-2.5 px-4 bg-indigo-600 hover:bg-indigo-500 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition-colors shadow-lg shadow-indigo-600/20"
+                    className="py-2.5 px-4 bg-primary-600 hover:bg-primary-500 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition-colors shadow-lg shadow-primary-600/20"
                   >
                     <Plus className="w-4 h-4" />
                     उपयोगकर्ता पंजीकृत करें
@@ -841,19 +841,19 @@ export default function AdminDashboard() {
                 </div>
 
                 {/* Users Table */}
-                <div className="bg-zinc-900 border border-zinc-800 rounded-3xl overflow-hidden shadow-sm">
+                <div className="bg-surface-900 border border-surface-800 rounded-3xl overflow-hidden shadow-sm">
                   {loadingUsers ? (
-                    <div className="p-8 text-center text-zinc-500 text-xs">लोड हो रहा है...</div>
+                    <div className="p-8 text-center text-surface-500 text-xs">लोड हो रहा है...</div>
                   ) : filteredUsers.length === 0 ? (
-                    <div className="p-12 text-center text-zinc-500 space-y-2">
-                      <Users className="w-10 h-10 text-zinc-700 mx-auto" />
+                    <div className="p-12 text-center text-surface-500 space-y-2">
+                      <Users className="w-10 h-10 text-surface-700 mx-auto" />
                       <p className="text-xs">कोई उपयोगकर्ता नहीं मिला</p>
                     </div>
                   ) : (
                     <div className="overflow-x-auto">
                       <table className="w-full text-left border-collapse">
                         <thead>
-                          <tr className="border-b border-zinc-800 bg-zinc-950/30 text-[10px] font-bold tracking-wider text-zinc-400 uppercase">
+                          <tr className="border-b border-surface-800 bg-surface-950/30 text-[10px] font-bold tracking-wider text-surface-400 uppercase">
                             <th className="px-6 py-4">नाम (Name)</th>
                             <th className="px-6 py-4">ईमेल (Email)</th>
                             <th className="px-6 py-4">पंजीकरण स्थिति</th>
@@ -861,9 +861,9 @@ export default function AdminDashboard() {
                             <th className="px-6 py-4 text-right">कार्य</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-zinc-800/60 text-xs text-zinc-300">
+                        <tbody className="divide-y divide-surface-800/60 text-xs text-surface-300">
                           {filteredUsers.map(u => (
-                            <tr key={u.id} className="hover:bg-zinc-800/20 transition-colors">
+                            <tr key={u.id} className="hover:bg-surface-800/20 transition-colors">
                               <td className="px-6 py-4 font-semibold text-white">{u.name || 'Anonymous User'}</td>
                               <td className="px-6 py-4 font-mono">{u.email}</td>
                               <td className="px-6 py-4">
@@ -875,7 +875,7 @@ export default function AdminDashboard() {
                                   {u.is_registered ? 'पंजीकृत (Active)' : 'लंबित (Pending)'}
                                 </span>
                               </td>
-                              <td className="px-6 py-4 text-zinc-500 font-mono text-[10px]">
+                              <td className="px-6 py-4 text-surface-500 font-mono text-[10px]">
                                 {u.created_at ? formatAdminDate(u.created_at) : 'N/A'}
                               </td>
                               <td className="px-6 py-4 text-right">
@@ -885,13 +885,13 @@ export default function AdminDashboard() {
                                       setUserForm({ email: u.email || '', name: u.name || '', is_registered: u.is_registered === 1 || u.is_registered === true });
                                       setUserModal({ open: true, mode: 'edit', data: u });
                                     }}
-                                    className="p-1.5 hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-white transition-colors"
+                                    className="p-1.5 hover:bg-surface-800 rounded-lg text-surface-400 hover:text-white transition-colors"
                                   >
                                     <Edit className="w-3.5 h-3.5" />
                                   </button>
                                   <button 
                                     onClick={() => deleteUser(u.id)}
-                                    className="p-1.5 hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-rose-400 transition-colors"
+                                    className="p-1.5 hover:bg-surface-800 rounded-lg text-surface-400 hover:text-rose-400 transition-colors"
                                   >
                                     <Trash2 className="w-3.5 h-3.5" />
                                   </button>
@@ -918,13 +918,13 @@ export default function AdminDashboard() {
                 {/* Search & Actions Area */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div className="relative flex-1 max-w-md">
-                    <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" />
+                    <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-surface-500" />
                     <input 
                       type="text" 
                       placeholder="वर्कस्पेस या सदस्यों द्वारा खोजें..." 
                       value={workspaceSearch}
                       onChange={e => setWorkspaceSearch(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2.5 bg-zinc-900 border border-zinc-800 rounded-2xl text-xs text-white focus:outline-none focus:border-indigo-500 placeholder-zinc-500 transition-colors"
+                      className="w-full pl-10 pr-4 py-2.5 bg-surface-900 border border-surface-800 rounded-2xl text-xs text-white focus:outline-none focus:border-primary-500 placeholder-surface-500 transition-colors"
                     />
                   </div>
                   <button 
@@ -932,7 +932,7 @@ export default function AdminDashboard() {
                       setWorkspaceForm({ name: '', plan_id: '', owner_id: '' });
                       setWorkspaceModal({ open: true, mode: 'create' });
                     }}
-                    className="py-2.5 px-4 bg-indigo-600 hover:bg-indigo-500 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition-colors shadow-lg shadow-indigo-600/20"
+                    className="py-2.5 px-4 bg-primary-600 hover:bg-primary-500 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition-colors shadow-lg shadow-primary-600/20"
                   >
                     <Plus className="w-4 h-4" />
                     वर्कस्पेस बनाएं
@@ -940,19 +940,19 @@ export default function AdminDashboard() {
                 </div>
 
                 {/* Workspaces Table */}
-                <div className="bg-zinc-900 border border-zinc-800 rounded-3xl overflow-hidden shadow-sm">
+                <div className="bg-surface-900 border border-surface-800 rounded-3xl overflow-hidden shadow-sm">
                   {loadingWorkspaces ? (
-                    <div className="p-8 text-center text-zinc-500 text-xs">लोड हो रहा है...</div>
+                    <div className="p-8 text-center text-surface-500 text-xs">लोड हो रहा है...</div>
                   ) : filteredWorkspaces.length === 0 ? (
-                    <div className="p-12 text-center text-zinc-500 space-y-2">
-                      <Building2 className="w-10 h-10 text-zinc-700 mx-auto" />
+                    <div className="p-12 text-center text-surface-500 space-y-2">
+                      <Building2 className="w-10 h-10 text-surface-700 mx-auto" />
                       <p className="text-xs">कोई वर्कस्पेस नहीं मिला</p>
                     </div>
                   ) : (
                     <div className="overflow-x-auto">
                       <table className="w-full text-left border-collapse">
                         <thead>
-                          <tr className="border-b border-zinc-800 bg-zinc-950/30 text-[10px] font-bold tracking-wider text-zinc-400 uppercase">
+                          <tr className="border-b border-surface-800 bg-surface-950/30 text-[10px] font-bold tracking-wider text-surface-400 uppercase">
                             <th className="px-6 py-4">वर्कस्पेस का नाम (Workspace Name)</th>
                             <th className="px-6 py-4">ID</th>
                             <th className="px-6 py-4">संबद्ध प्लान (Plan)</th>
@@ -960,17 +960,17 @@ export default function AdminDashboard() {
                             <th className="px-6 py-4 text-right">कार्य</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-zinc-800/60 text-xs text-zinc-300">
+                        <tbody className="divide-y divide-surface-800/60 text-xs text-surface-300">
                           {filteredWorkspaces.map(w => (
-                            <tr key={w.id} className="hover:bg-zinc-800/20 transition-colors">
+                            <tr key={w.id} className="hover:bg-surface-800/20 transition-colors">
                               <td className="px-6 py-4 font-semibold text-white">{w.name}</td>
-                              <td className="px-6 py-4 font-mono text-[10px] text-zinc-500">{w.id}</td>
+                              <td className="px-6 py-4 font-mono text-[10px] text-surface-500">{w.id}</td>
                               <td className="px-6 py-4">
-                                <span className="px-2.5 py-1 bg-indigo-500/10 text-indigo-400 border border-indigo-500/15 rounded-full text-[10px] font-semibold">
+                                <span className="px-2.5 py-1 bg-primary-500/10 text-primary-400 border border-primary-500/15 rounded-full text-[10px] font-semibold">
                                   {w.plan_name || 'No Plan'}
                                 </span>
                               </td>
-                              <td className="px-6 py-4 text-zinc-400 truncate max-w-xs" title={w.member_emails}>
+                              <td className="px-6 py-4 text-surface-400 truncate max-w-xs" title={w.member_emails}>
                                 {w.member_emails ? w.member_emails.split(',').join(', ') : 'No members'}
                               </td>
                               <td className="px-6 py-4 text-right">
@@ -980,13 +980,13 @@ export default function AdminDashboard() {
                                       setWorkspaceForm({ name: w.name || '', plan_id: w.plan_id || '', owner_id: '' });
                                       setWorkspaceModal({ open: true, mode: 'edit', data: w });
                                     }}
-                                    className="p-1.5 hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-white transition-colors"
+                                    className="p-1.5 hover:bg-surface-800 rounded-lg text-surface-400 hover:text-white transition-colors"
                                   >
                                     <Edit className="w-3.5 h-3.5" />
                                   </button>
                                   <button 
                                     onClick={() => deleteWorkspace(w.id)}
-                                    className="p-1.5 hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-rose-400 transition-colors"
+                                    className="p-1.5 hover:bg-surface-800 rounded-lg text-surface-400 hover:text-rose-400 transition-colors"
                                   >
                                     <Trash2 className="w-3.5 h-3.5" />
                                   </button>
@@ -1012,13 +1012,13 @@ export default function AdminDashboard() {
               >
                 {/* Actions Row */}
                 <div className="flex justify-between items-center">
-                  <p className="text-xs text-zinc-400">प्लेटफ़ॉर्म पर उपलब्ध विभिन्न सदस्यता योजनाओं को प्रबंधित करें।</p>
+                  <p className="text-xs text-surface-400">प्लेटफ़ॉर्म पर उपलब्ध विभिन्न सदस्यता योजनाओं को प्रबंधित करें।</p>
                   <button 
                     onClick={() => {
                       setPlanForm(defaultPlanForm);
                       setPlanModal({ open: true, mode: 'create' });
                     }}
-                    className="py-2.5 px-4 bg-indigo-600 hover:bg-indigo-500 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition-colors shadow-lg shadow-indigo-600/20"
+                    className="py-2.5 px-4 bg-primary-600 hover:bg-primary-500 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition-colors shadow-lg shadow-primary-600/20"
                   >
                     <Plus className="w-4 h-4" />
                     प्लान जोड़ें (Add Plan)
@@ -1028,11 +1028,11 @@ export default function AdminDashboard() {
                 {/* Plans List Cards */}
                 {loadingPlans ? (
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-pulse">
-                    {[1, 2, 3].map(i => <div key={i} className="h-64 bg-zinc-900 rounded-3xl border border-zinc-850"></div>)}
+                    {[1, 2, 3].map(i => <div key={i} className="h-64 bg-surface-900 rounded-3xl border border-surface-800"></div>)}
                   </div>
                 ) : plans.length === 0 ? (
-                  <div className="p-12 text-center bg-zinc-900 border border-zinc-800 rounded-3xl text-zinc-500">
-                    <CreditCard className="w-10 h-10 mx-auto mb-2 text-zinc-700" />
+                  <div className="p-12 text-center bg-surface-900 border border-surface-800 rounded-3xl text-surface-500">
+                    <CreditCard className="w-10 h-10 mx-auto mb-2 text-surface-700" />
                     <p className="text-xs">कोई सदस्यता प्लान नहीं मिला</p>
                   </div>
                 ) : (
@@ -1050,14 +1050,14 @@ export default function AdminDashboard() {
                       } catch { /* ignore */ }
 
                       return (
-                        <div key={p.id} className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 flex flex-col justify-between hover:border-indigo-500/30 transition-all relative overflow-hidden group">
-                          <div className="absolute inset-0 bg-gradient-to-tr from-indigo-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+                        <div key={p.id} className="bg-surface-900 border border-surface-800 rounded-3xl p-6 flex flex-col justify-between hover:border-primary-500/30 transition-all relative overflow-hidden group">
+                          <div className="absolute inset-0 bg-gradient-to-tr from-primary-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
                           
                           <div>
                             <div className="flex justify-between items-start mb-4">
                               <div>
                                 <h3 className="text-lg font-bold text-white font-display">{p.name}</h3>
-                                <p className="text-[10px] text-zinc-500 font-mono mt-0.5">{p.id}</p>
+                                <p className="text-[10px] text-surface-500 font-mono mt-0.5">{p.id}</p>
                               </div>
                               <div className="flex gap-1">
                                 <button 
@@ -1091,26 +1091,26 @@ export default function AdminDashboard() {
                                     });
                                     setPlanModal({ open: true, mode: 'edit', data: p });
                                   }}
-                                  className="p-1.5 hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-white transition-colors"
+                                  className="p-1.5 hover:bg-surface-800 rounded-lg text-surface-400 hover:text-white transition-colors"
                                 >
                                   <Edit className="w-3.5 h-3.5" />
                                 </button>
                                 <button 
                                   onClick={() => deletePlan(p.id)}
-                                  className="p-1.5 hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-rose-400 transition-colors"
+                                  className="p-1.5 hover:bg-surface-800 rounded-lg text-surface-400 hover:text-rose-400 transition-colors"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
                                 </button>
                               </div>
                             </div>
 
-                            <p className="text-xs text-zinc-400 mb-6">{p.description || 'कोई विवरण उपलब्ध नहीं है।'}</p>
+                            <p className="text-xs text-surface-400 mb-6">{p.description || 'कोई विवरण उपलब्ध नहीं है।'}</p>
 
                             <div className="flex flex-wrap gap-1.5 mb-4">
-                              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-lg border ${p.is_free === 1 ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : p.billing_type === 'recurring' ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' : 'bg-zinc-800 text-zinc-300 border-zinc-700/30'}`}>
+                              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-lg border ${p.is_free === 1 ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : p.billing_type === 'recurring' ? 'bg-primary-500/10 text-primary-400 border-primary-500/20' : 'bg-surface-800 text-surface-300 border-surface-700/30'}`}>
                                 {p.is_free === 1 ? 'FREE' : p.billing_type === 'recurring' ? 'RECURRING' : 'ONE-TIME'}
                               </span>
-                              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-lg bg-zinc-800 text-zinc-300 border border-zinc-700/30 font-mono">
+                              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-lg bg-surface-800 text-surface-300 border border-surface-700/30 font-mono">
                                 {p.currency || 'INR'} · {p.billing_period || 'monthly'} ({p.billing_interval || 1})
                               </span>
                               {p.is_active !== 1 && (
@@ -1121,20 +1121,20 @@ export default function AdminDashboard() {
                             </div>
 
                             <div className="space-y-4 mb-6">
-                              <div className="flex items-baseline gap-1 bg-zinc-950/40 p-3 rounded-2xl border border-zinc-800/40">
+                              <div className="flex items-baseline gap-1 bg-surface-950/40 p-3 rounded-2xl border border-surface-800/40">
                                 <span className="text-2xl font-bold text-white font-display">₹{p.upfront_price}</span>
-                                <span className="text-[10px] text-zinc-500">{p.billing_type === 'recurring' ? '/ महीना' : 'one-time'}</span>
+                                <span className="text-[10px] text-surface-500">{p.billing_type === 'recurring' ? '/ महीना' : 'one-time'}</span>
                               </div>
-                              <div className="text-xs text-indigo-400 bg-indigo-500/5 py-1.5 px-3 rounded-xl inline-block border border-indigo-500/10 font-mono text-[10px]">
+                              <div className="text-xs text-primary-400 bg-primary-500/5 py-1.5 px-3 rounded-xl inline-block border border-primary-500/10 font-mono text-[10px]">
                                 PAYG दर: ₹{p.pay_as_you_go_rate} / संदेश
                               </div>
                             </div>
 
                             <div className="space-y-2">
-                              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">शामिल विशेषताएं (Features):</p>
+                              <p className="text-[10px] font-bold text-surface-500 uppercase tracking-widest">शामिल विशेषताएं (Features):</p>
                               <div className="flex flex-wrap gap-1.5 pt-1">
                                 {parsedFeatures.map((f: string, idx: number) => (
-                                  <span key={idx} className="text-[10px] bg-zinc-800 text-zinc-300 py-0.5 px-2 rounded-lg font-medium border border-zinc-700/30">
+                                  <span key={idx} className="text-[10px] bg-surface-800 text-surface-300 py-0.5 px-2 rounded-lg font-medium border border-surface-700/30">
                                     {f}
                                   </span>
                                 ))}
@@ -1142,22 +1142,22 @@ export default function AdminDashboard() {
                             </div>
 
                             {Object.keys(parsedLimits).length > 0 && (
-                              <div className="mt-4 pt-4 border-t border-zinc-800/60 space-y-2">
-                                <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Limits:</p>
+                              <div className="mt-4 pt-4 border-t border-surface-800/60 space-y-2">
+                                <p className="text-[10px] font-bold text-surface-500 uppercase tracking-widest">Limits:</p>
                                 <div className="grid grid-cols-2 gap-2 text-[10px]">
                                   {parsedLimits.email_monthly_limit !== undefined && (
-                                    <div className="bg-zinc-950/40 p-2 rounded-lg border border-zinc-800/40">
-                                      <span className="text-zinc-500">Email/month:</span> <span className="text-white font-mono">{parsedLimits.email_monthly_limit}</span>
+                                    <div className="bg-surface-950/40 p-2 rounded-lg border border-surface-800/40">
+                                      <span className="text-surface-500">Email/month:</span> <span className="text-white font-mono">{parsedLimits.email_monthly_limit}</span>
                                     </div>
                                   )}
                                   {parsedLimits.max_domains !== undefined && (
-                                    <div className="bg-zinc-950/40 p-2 rounded-lg border border-zinc-800/40">
-                                      <span className="text-zinc-500">Max domains:</span> <span className="text-white font-mono">{parsedLimits.max_domains}</span>
+                                    <div className="bg-surface-950/40 p-2 rounded-lg border border-surface-800/40">
+                                      <span className="text-surface-500">Max domains:</span> <span className="text-white font-mono">{parsedLimits.max_domains}</span>
                                     </div>
                                   )}
                                   {parsedLimits.max_mailboxes_per_domain !== undefined && (
-                                    <div className="bg-zinc-950/40 p-2 rounded-lg border border-zinc-800/40">
-                                      <span className="text-zinc-500">Mailboxes/domain:</span> <span className="text-white font-mono">{parsedLimits.max_mailboxes_per_domain}</span>
+                                    <div className="bg-surface-950/40 p-2 rounded-lg border border-surface-800/40">
+                                      <span className="text-surface-500">Mailboxes/domain:</span> <span className="text-white font-mono">{parsedLimits.max_mailboxes_per_domain}</span>
                                     </div>
                                   )}
                                 </div>
@@ -1181,18 +1181,18 @@ export default function AdminDashboard() {
                 className="space-y-6"
               >
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <p className="text-xs text-zinc-400">
+                  <p className="text-xs text-surface-400">
                     Customer के द्वारा जोड़े गए custom domains admin approve करने के बाद ही Cloudflare पर onboard होंगे।
                   </p>
-                  <div className="flex rounded-xl border border-zinc-800 overflow-hidden">
+                  <div className="flex rounded-xl border border-surface-800 overflow-hidden">
                     {(['pending', 'all'] as const).map(f => (
                       <button
                         key={f}
                         onClick={() => setDomainFilter(f)}
                         className={`px-3 py-2 text-xs font-semibold transition-colors ${
                           domainFilter === f
-                            ? 'bg-indigo-600 text-white'
-                            : 'bg-zinc-900 text-zinc-400 hover:bg-zinc-800'
+                            ? 'bg-primary-600 text-white'
+                            : 'bg-surface-900 text-surface-400 hover:bg-surface-800'
                         }`}
                       >
                         {f === 'pending' ? 'Pending Review' : 'All Domains'}
@@ -1202,18 +1202,18 @@ export default function AdminDashboard() {
                 </div>
 
                 {loadingAdminDomains ? (
-                  <div className="p-8 text-center text-zinc-500 text-xs">लोड हो रहा है...</div>
+                  <div className="p-8 text-center text-surface-500 text-xs">लोड हो रहा है...</div>
                 ) : adminDomains.length === 0 ? (
-                  <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-12 text-center text-zinc-500">
-                    <Globe className="w-10 h-10 mx-auto mb-3 text-zinc-700" />
+                  <div className="bg-surface-900 border border-surface-800 rounded-3xl p-12 text-center text-surface-500">
+                    <Globe className="w-10 h-10 mx-auto mb-3 text-surface-700" />
                     <p className="text-xs">कोई domain नहीं मिला</p>
                   </div>
                 ) : (
-                  <div className="bg-zinc-900 border border-zinc-800 rounded-3xl overflow-hidden">
+                  <div className="bg-surface-900 border border-surface-800 rounded-3xl overflow-hidden">
                     <div className="overflow-x-auto">
                       <table className="w-full text-left text-xs">
                         <thead>
-                          <tr className="border-b border-zinc-800 bg-zinc-950/30 text-[10px] font-bold tracking-wider text-zinc-400 uppercase">
+                          <tr className="border-b border-surface-800 bg-surface-950/30 text-[10px] font-bold tracking-wider text-surface-400 uppercase">
                             <th className="px-6 py-4">Domain</th>
                             <th className="px-6 py-4">Workspace</th>
                             <th className="px-6 py-4">Setup</th>
@@ -1223,13 +1223,13 @@ export default function AdminDashboard() {
                             <th className="px-6 py-4 text-right">Actions</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-zinc-800/60 text-zinc-300">
+                        <tbody className="divide-y divide-surface-800/60 text-surface-300">
                           {adminDomains.map((d: any) => (
-                            <tr key={d.id} className="hover:bg-zinc-800/20 transition-colors">
+                            <tr key={d.id} className="hover:bg-surface-800/20 transition-colors">
                               <td className="px-6 py-4 font-semibold text-white">{d.domain_name}</td>
                               <td className="px-6 py-4">
                                 <div>{d.workspace_name || d.workspace_id}</div>
-                                <div className="text-[10px] text-zinc-500">{d.owner_emails || ''}</div>
+                                <div className="text-[10px] text-surface-500">{d.owner_emails || ''}</div>
                               </td>
                               <td className="px-6 py-4 uppercase">{d.setup_mode}</td>
                               <td className="px-6 py-4">
@@ -1250,7 +1250,7 @@ export default function AdminDashboard() {
                                   {d.review_status}
                                 </span>
                               </td>
-                              <td className="px-6 py-4 text-zinc-500">{formatAdminDate(d.created_at)}</td>
+                              <td className="px-6 py-4 text-surface-500">{formatAdminDate(d.created_at)}</td>
                               <td className="px-6 py-4 text-right">
                                 {d.review_status === 'pending_review' ? (
                                   <div className="flex items-center justify-end gap-2">
@@ -1278,7 +1278,7 @@ export default function AdminDashboard() {
                                     <RefreshCw className="w-3 h-3" /> Unsuspend
                                   </button>
                                 ) : (
-                                  <span className="text-[10px] text-zinc-500">
+                                  <span className="text-[10px] text-surface-500">
                                     {d.review_status === 'approved' ? 'Onboarding started' : d.error_message || 'Rejected'}
                                   </span>
                                 )}
@@ -1304,13 +1304,13 @@ export default function AdminDashboard() {
                 {/* Actions & Filters */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div className="relative flex-1 max-w-md">
-                    <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" />
+                    <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-surface-500" />
                     <input 
                       type="text" 
                       placeholder="सीक्रेट कुंजी या मूल्य द्वारा खोजें..." 
                       value={kvSearch}
                       onChange={e => setKvSearch(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2.5 bg-zinc-900 border border-zinc-800 rounded-2xl text-xs text-white focus:outline-none focus:border-indigo-500 placeholder-zinc-500 transition-colors"
+                      className="w-full pl-10 pr-4 py-2.5 bg-surface-900 border border-surface-800 rounded-2xl text-xs text-white focus:outline-none focus:border-primary-500 placeholder-surface-500 transition-colors"
                     />
                   </div>
                   <button 
@@ -1318,7 +1318,7 @@ export default function AdminDashboard() {
                       setKvForm({ name: '', value: '' });
                       setKvModal({ open: true });
                     }}
-                    className="py-2.5 px-4 bg-indigo-600 hover:bg-indigo-500 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition-colors shadow-lg shadow-indigo-600/20"
+                    className="py-2.5 px-4 bg-primary-600 hover:bg-primary-500 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition-colors shadow-lg shadow-primary-600/20"
                   >
                     <Plus className="w-4 h-4" />
                     KV की-वैल्यू जोड़ें
@@ -1326,33 +1326,33 @@ export default function AdminDashboard() {
                 </div>
 
                 {/* KV Secrets List Table */}
-                <div className="bg-zinc-900 border border-zinc-800 rounded-3xl overflow-hidden shadow-sm">
+                <div className="bg-surface-900 border border-surface-800 rounded-3xl overflow-hidden shadow-sm">
                   {loadingKv ? (
-                    <div className="p-8 text-center text-zinc-500 text-xs">लोड हो रहा है...</div>
+                    <div className="p-8 text-center text-surface-500 text-xs">लोड हो रहा है...</div>
                   ) : filteredKvKeys.length === 0 ? (
-                    <div className="p-12 text-center text-zinc-500 space-y-2">
-                      <Key className="w-10 h-10 text-zinc-700 mx-auto" />
+                    <div className="p-12 text-center text-surface-500 space-y-2">
+                      <Key className="w-10 h-10 text-surface-700 mx-auto" />
                       <p className="text-xs">कोई सीक्रेट कुंजी नहीं मिली</p>
                     </div>
                   ) : (
                     <div className="overflow-x-auto">
                       <table className="w-full text-left border-collapse">
                         <thead>
-                          <tr className="border-b border-zinc-800 bg-zinc-950/30 text-[10px] font-bold tracking-wider text-zinc-400 uppercase">
+                          <tr className="border-b border-surface-800 bg-surface-950/30 text-[10px] font-bold tracking-wider text-surface-400 uppercase">
                             <th className="px-6 py-4">कुंजी नाम (Key Name)</th>
                             <th className="px-6 py-4">मूल्य (Secret Value)</th>
                             <th className="px-6 py-4 text-right">कार्य</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-zinc-800/60 text-xs text-zinc-300">
+                        <tbody className="divide-y divide-surface-800/60 text-xs text-surface-300">
                           {filteredKvKeys.map(k => {
                             const isRevealed = revealedKvKeys[k.name] || k.value.startsWith('[');
                             const displayVal = isRevealed ? k.value : '••••••••••••••••••••••••';
 
                             return (
-                              <tr key={k.name} className="hover:bg-zinc-800/20 transition-colors">
+                              <tr key={k.name} className="hover:bg-surface-800/20 transition-colors">
                                 <td className="px-6 py-4 font-bold text-white font-mono">{k.name}</td>
-                                <td className="px-6 py-4 font-mono text-zinc-400 select-all max-w-lg truncate">
+                                <td className="px-6 py-4 font-mono text-surface-400 select-all max-w-lg truncate">
                                   {displayVal}
                                 </td>
                                 <td className="px-6 py-4 text-right">
@@ -1360,7 +1360,7 @@ export default function AdminDashboard() {
                                     {!k.value.startsWith('[') && (
                                       <button 
                                         onClick={() => toggleKvReveal(k.name)}
-                                        className="p-1.5 hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-white transition-colors"
+                                        className="p-1.5 hover:bg-surface-800 rounded-lg text-surface-400 hover:text-white transition-colors"
                                         title={isRevealed ? "छिपाएं" : "देखें"}
                                       >
                                         {isRevealed ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
@@ -1371,13 +1371,13 @@ export default function AdminDashboard() {
                                         setKvForm({ name: k.name, value: k.value.startsWith('[') ? '' : k.value });
                                         setKvModal({ open: true, data: k });
                                       }}
-                                      className="p-1.5 hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-white transition-colors"
+                                      className="p-1.5 hover:bg-surface-800 rounded-lg text-surface-400 hover:text-white transition-colors"
                                     >
                                       <Edit className="w-3.5 h-3.5" />
                                     </button>
                                     <button 
                                       onClick={() => deleteKvSecret(k.name)}
-                                      className="p-1.5 hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-rose-400 transition-colors"
+                                      className="p-1.5 hover:bg-surface-800 rounded-lg text-surface-400 hover:text-rose-400 transition-colors"
                                     >
                                       <Trash2 className="w-3.5 h-3.5" />
                                     </button>
@@ -1405,16 +1405,16 @@ export default function AdminDashboard() {
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div>
                     <h2 className="text-xl font-bold text-white mb-1">डेटाबेस माइग्रेशन (Database Migration)</h2>
-                    <p className="text-sm text-zinc-400">स्कीमा की जांच करें और सुरक्षित रूप से डेटाबेस अपडेट करें</p>
+                    <p className="text-sm text-surface-400">स्कीमा की जांच करें और सुरक्षित रूप से डेटाबेस अपडेट करें</p>
                   </div>
                   <div className="flex items-center gap-3">
                     <button 
                       onClick={loadSchemaDiff}
                       disabled={loadingDiff}
-                      className="p-2.5 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-800 rounded-xl transition-colors disabled:opacity-50"
+                      className="p-2.5 bg-surface-900 border border-surface-800 hover:border-surface-700 hover:bg-surface-800 rounded-xl transition-colors disabled:opacity-50"
                       title="स्थिति रीफ्रेश करें"
                     >
-                      <RefreshCw className={`w-4 h-4 text-zinc-400 ${loadingDiff ? 'animate-spin' : ''}`} />
+                      <RefreshCw className={`w-4 h-4 text-surface-400 ${loadingDiff ? 'animate-spin' : ''}`} />
                     </button>
                     {schemaDiff?.status === 'needs_migration' && (
                       <button 
@@ -1437,7 +1437,7 @@ export default function AdminDashboard() {
                             }
                           }
                         }}
-                        className="py-2.5 px-6 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-xs font-semibold text-white transition-colors shadow-lg shadow-indigo-600/20 flex items-center gap-2"
+                        className="py-2.5 px-6 bg-primary-600 hover:bg-primary-500 rounded-xl text-xs font-semibold text-white transition-colors shadow-lg shadow-primary-600/20 flex items-center gap-2"
                       >
                         <Save className="w-4 h-4" />
                         स्कीमा अपडेट लागू करें
@@ -1446,13 +1446,13 @@ export default function AdminDashboard() {
                   </div>
                 </div>
 
-                <div className="bg-zinc-900 border border-zinc-800 rounded-3xl overflow-hidden shadow-sm p-8">
+                <div className="bg-surface-900 border border-surface-800 rounded-3xl overflow-hidden shadow-sm p-8">
                   {loadingDiff ? (
                     <div className="flex justify-center items-center py-12">
-                      <div className="w-8 h-8 border-2 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin"></div>
+                      <div className="w-8 h-8 border-2 border-primary-500/30 border-t-primary-500 rounded-full animate-spin"></div>
                     </div>
                   ) : !schemaDiff ? (
-                    <div className="text-center py-12 text-zinc-500">डेटा लोड नहीं हो पाया</div>
+                    <div className="text-center py-12 text-surface-500">डेटा लोड नहीं हो पाया</div>
                   ) : schemaDiff.status === 'up_to_date' ? (
                     <div className="flex flex-col items-center justify-center py-12 space-y-4">
                       <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20">
@@ -1460,7 +1460,7 @@ export default function AdminDashboard() {
                       </div>
                       <div className="text-center">
                         <h3 className="text-lg font-bold text-white mb-1">डेटाबेस स्कीमा पूरी तरह अपडेट है</h3>
-                        <p className="text-sm text-zinc-500">सभी टेबल्स और कॉलम्स source of truth (schema.sql) के साथ sync में हैं।</p>
+                        <p className="text-sm text-surface-500">सभी टेबल्स और कॉलम्स source of truth (schema.sql) के साथ sync में हैं।</p>
                       </div>
                     </div>
                   ) : (
@@ -1475,15 +1475,15 @@ export default function AdminDashboard() {
 
                       {schemaDiff.missingTables && schemaDiff.missingTables.length > 0 && (
                         <div>
-                          <h4 className="text-sm font-semibold text-zinc-300 mb-4 flex items-center gap-2">
+                          <h4 className="text-sm font-semibold text-surface-300 mb-4 flex items-center gap-2">
                             <Plus className="w-4 h-4 text-emerald-500" /> 
                             Missing Tables ({schemaDiff.missingTables.length})
                           </h4>
                           <div className="space-y-3">
                             {schemaDiff.missingTables.map((t: any, i: number) => (
-                              <div key={i} className="bg-zinc-950/50 border border-zinc-800 rounded-xl p-4">
+                              <div key={i} className="bg-surface-950/50 border border-surface-800 rounded-xl p-4">
                                 <div className="text-xs font-bold text-emerald-400 mb-2">{t.name}</div>
-                                <pre className="text-[10px] text-zinc-500 font-mono whitespace-pre-wrap">{t.sql}</pre>
+                                <pre className="text-[10px] text-surface-500 font-mono whitespace-pre-wrap">{t.sql}</pre>
                               </div>
                             ))}
                           </div>
@@ -1492,14 +1492,14 @@ export default function AdminDashboard() {
 
                       {schemaDiff.missingColumns && schemaDiff.missingColumns.length > 0 && (
                         <div>
-                          <h4 className="text-sm font-semibold text-zinc-300 mb-4 flex items-center gap-2">
+                          <h4 className="text-sm font-semibold text-surface-300 mb-4 flex items-center gap-2">
                             <Plus className="w-4 h-4 text-emerald-500" /> 
                             Missing Columns ({schemaDiff.missingColumns.length})
                           </h4>
                           <div className="overflow-x-auto">
                             <table className="w-full text-left text-xs border-collapse">
                               <thead>
-                                <tr className="border-b border-zinc-800 text-zinc-500">
+                                <tr className="border-b border-surface-800 text-surface-500">
                                   <th className="py-2 px-4">Table</th>
                                   <th className="py-2 px-4">Column</th>
                                   <th className="py-2 px-4">SQL Statement</th>
@@ -1507,10 +1507,10 @@ export default function AdminDashboard() {
                               </thead>
                               <tbody>
                                 {schemaDiff.missingColumns.map((col: any, i: number) => (
-                                  <tr key={i} className="border-b border-zinc-800/50">
+                                  <tr key={i} className="border-b border-surface-800/50">
                                     <td className="py-3 px-4 font-mono text-emerald-400">{col.table}</td>
-                                    <td className="py-3 px-4 font-mono text-indigo-400">{col.column}</td>
-                                    <td className="py-3 px-4 font-mono text-zinc-500 text-[10px]">{col.sql}</td>
+                                    <td className="py-3 px-4 font-mono text-primary-400">{col.column}</td>
+                                    <td className="py-3 px-4 font-mono text-surface-500 text-[10px]">{col.sql}</td>
                                   </tr>
                                 ))}
                               </tbody>
@@ -1521,18 +1521,18 @@ export default function AdminDashboard() {
 
                       {schemaDiff.extraTables && schemaDiff.extraTables.length > 0 && (
                         <div>
-                          <h4 className="text-sm font-semibold text-zinc-300 mb-4 flex items-center gap-2">
+                          <h4 className="text-sm font-semibold text-surface-300 mb-4 flex items-center gap-2">
                             <AlertCircle className="w-4 h-4 text-amber-500" /> 
                             Unrecognized/Extra Tables ({schemaDiff.extraTables.length})
                           </h4>
                           <div className="flex flex-wrap gap-2">
                             {schemaDiff.extraTables.map((t: string, i: number) => (
-                              <span key={i} className="px-3 py-1.5 bg-zinc-950 border border-zinc-800 rounded-lg text-xs font-mono text-zinc-400">
+                              <span key={i} className="px-3 py-1.5 bg-surface-950 border border-surface-800 rounded-lg text-xs font-mono text-surface-400">
                                 {t}
                               </span>
                             ))}
                           </div>
-                          <p className="text-[10px] text-zinc-600 mt-2">These tables exist in the database but are not in schema.sql. They will not be dropped automatically.</p>
+                          <p className="text-[10px] text-surface-600 mt-2">These tables exist in the database but are not in schema.sql. They will not be dropped automatically.</p>
                         </div>
                       )}
                       
@@ -1552,14 +1552,14 @@ export default function AdminDashboard() {
       {/* 1. User Modal */}
       {userModal.open && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl w-full max-w-md p-6 relative">
+          <div className="bg-surface-900 border border-surface-800 rounded-3xl w-full max-w-md p-6 relative">
             <h3 className="text-base font-bold text-white mb-4">
               {userModal.mode === 'create' ? 'नया उपयोगकर्ता पंजीकृत करें' : 'उपयोगकर्ता जानकारी अपडेट करें'}
             </h3>
             
             <form onSubmit={saveUser} className="space-y-4">
               <div>
-                <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-2">ईमेल एड्रेस</label>
+                <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider mb-2">ईमेल एड्रेस</label>
                 <input 
                   type="email" 
                   required
@@ -1567,18 +1567,18 @@ export default function AdminDashboard() {
                   value={userForm.email}
                   disabled={userModal.mode === 'edit'}
                   onChange={e => setUserForm(prev => ({ ...prev, email: e.target.value }))}
-                  className="w-full px-4 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50"
+                  className="w-full px-4 py-2.5 bg-surface-950 border border-surface-800 rounded-xl text-xs text-white focus:outline-none focus:border-primary-500 disabled:opacity-50"
                 />
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-2">उपयोगकर्ता का नाम</label>
+                <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider mb-2">उपयोगकर्ता का नाम</label>
                 <input 
                   type="text" 
                   placeholder="उदा. राहुल शर्मा"
                   value={userForm.name}
                   onChange={e => setUserForm(prev => ({ ...prev, name: e.target.value }))}
-                  className="w-full px-4 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500"
+                  className="w-full px-4 py-2.5 bg-surface-950 border border-surface-800 rounded-xl text-xs text-white focus:outline-none focus:border-primary-500"
                 />
               </div>
 
@@ -1588,22 +1588,22 @@ export default function AdminDashboard() {
                   id="is_registered"
                   checked={userForm.is_registered}
                   onChange={e => setUserForm(prev => ({ ...prev, is_registered: e.target.checked }))}
-                  className="rounded bg-zinc-950 border-zinc-800 text-indigo-600 focus:ring-0 w-4 h-4"
+                  className="rounded bg-surface-950 border-surface-800 text-primary-600 focus:ring-0 w-4 h-4"
                 />
-                <label htmlFor="is_registered" className="text-xs text-zinc-300 font-medium">पंजीकरण को सक्रिय रूप से सक्षम करें (Active Registration)</label>
+                <label htmlFor="is_registered" className="text-xs text-surface-300 font-medium">पंजीकरण को सक्रिय रूप से सक्षम करें (Active Registration)</label>
               </div>
 
               <div className="flex gap-3 justify-end pt-4">
                 <button 
                   type="button" 
                   onClick={() => setUserModal({ open: false, mode: 'create' })}
-                  className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-xl text-xs font-semibold text-zinc-300 transition-colors"
+                  className="px-4 py-2 bg-surface-800 hover:bg-surface-700 rounded-xl text-xs font-semibold text-surface-300 transition-colors"
                 >
                   रद्द करें
                 </button>
                 <button 
                   type="submit" 
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-xs font-semibold text-white transition-colors"
+                  className="px-4 py-2 bg-primary-600 hover:bg-primary-500 rounded-xl text-xs font-semibold text-white transition-colors"
                 >
                   सहेजें
                 </button>
@@ -1616,30 +1616,30 @@ export default function AdminDashboard() {
       {/* 2. Workspace Modal */}
       {workspaceModal.open && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl w-full max-w-md p-6 relative">
+          <div className="bg-surface-900 border border-surface-800 rounded-3xl w-full max-w-md p-6 relative">
             <h3 className="text-base font-bold text-white mb-4">
               {workspaceModal.mode === 'create' ? 'नया वर्कस्पेस बनाएं' : 'वर्कस्पेस कॉन्फ़िगर करें'}
             </h3>
             
             <form onSubmit={saveWorkspace} className="space-y-4">
               <div>
-                <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-2">वर्कस्पेस नाम</label>
+                <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider mb-2">वर्कस्पेस नाम</label>
                 <input 
                   type="text" 
                   required
                   placeholder="उदा. मार्केटिंग वर्कस्पेस"
                   value={workspaceForm.name}
                   onChange={e => setWorkspaceForm(prev => ({ ...prev, name: e.target.value }))}
-                  className="w-full px-4 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500"
+                  className="w-full px-4 py-2.5 bg-surface-950 border border-surface-800 rounded-xl text-xs text-white focus:outline-none focus:border-primary-500"
                 />
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-2">सदस्यता योजना (Plan)</label>
+                <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider mb-2">सदस्यता योजना (Plan)</label>
                 <select 
                   value={workspaceForm.plan_id}
                   onChange={e => setWorkspaceForm(prev => ({ ...prev, plan_id: e.target.value }))}
-                  className="w-full px-4 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500"
+                  className="w-full px-4 py-2.5 bg-surface-950 border border-surface-800 rounded-xl text-xs text-white focus:outline-none focus:border-primary-500"
                 >
                   <option value="">कोई सदस्यता नहीं (No Plan)</option>
                   {plans.map(p => (
@@ -1650,13 +1650,13 @@ export default function AdminDashboard() {
 
               {workspaceModal.mode === 'create' && (
                 <div>
-                  <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-2">स्वामी स्वामी (Owner) ID - वैकल्पिक</label>
+                  <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider mb-2">स्वामी स्वामी (Owner) ID - वैकल्पिक</label>
                   <input 
                     type="text" 
                     placeholder="उदा. user-uuid-1234"
                     value={workspaceForm.owner_id}
                     onChange={e => setWorkspaceForm(prev => ({ ...prev, owner_id: e.target.value }))}
-                    className="w-full px-4 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500"
+                    className="w-full px-4 py-2.5 bg-surface-950 border border-surface-800 rounded-xl text-xs text-white focus:outline-none focus:border-primary-500"
                   />
                 </div>
               )}
@@ -1665,13 +1665,13 @@ export default function AdminDashboard() {
                 <button 
                   type="button" 
                   onClick={() => setWorkspaceModal({ open: false, mode: 'create' })}
-                  className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-xl text-xs font-semibold text-zinc-300 transition-colors"
+                  className="px-4 py-2 bg-surface-800 hover:bg-surface-700 rounded-xl text-xs font-semibold text-surface-300 transition-colors"
                 >
                   रद्द करें
                 </button>
                 <button 
                   type="submit" 
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-xs font-semibold text-white transition-colors"
+                  className="px-4 py-2 bg-primary-600 hover:bg-primary-500 rounded-xl text-xs font-semibold text-white transition-colors"
                 >
                   सहेजें
                 </button>
@@ -1684,14 +1684,14 @@ export default function AdminDashboard() {
       {/* 3. Subscription Plan Modal */}
       {planModal.open && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl w-full max-w-md p-6 relative">
+          <div className="bg-surface-900 border border-surface-800 rounded-3xl w-full max-w-md p-6 relative">
             <h3 className="text-base font-bold text-white mb-4">
               {planModal.mode === 'create' ? 'नया सदस्यता प्लान जोड़ें' : 'प्लान कॉन्फ़िगरेशन विवरण'}
             </h3>
             
             <form onSubmit={savePlan} className="space-y-4">
               <div>
-                <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-2">प्लान ID (ID name)</label>
+                <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider mb-2">प्लान ID (ID name)</label>
                 <input 
                   type="text" 
                   required
@@ -1699,46 +1699,46 @@ export default function AdminDashboard() {
                   value={planForm.id}
                   disabled={planModal.mode === 'edit'}
                   onChange={e => setPlanForm(prev => ({ ...prev, id: e.target.value }))}
-                  className="w-full px-4 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50"
+                  className="w-full px-4 py-2.5 bg-surface-950 border border-surface-800 rounded-xl text-xs text-white focus:outline-none focus:border-primary-500 disabled:opacity-50"
                 />
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-2">प्लान नाम (Display Name)</label>
+                <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider mb-2">प्लान नाम (Display Name)</label>
                 <input 
                   type="text" 
                   required
                   placeholder="उदा. Pro Business, Free Starter"
                   value={planForm.name}
                   onChange={e => setPlanForm(prev => ({ ...prev, name: e.target.value }))}
-                  className="w-full px-4 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500"
+                  className="w-full px-4 py-2.5 bg-surface-950 border border-surface-800 rounded-xl text-xs text-white focus:outline-none focus:border-primary-500"
                 />
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-2">विवरण (Description)</label>
+                <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider mb-2">विवरण (Description)</label>
                 <textarea 
                   placeholder="प्लान की मुख्य बातों का संक्षेप में वर्णन करें"
                   value={planForm.description}
                   onChange={e => setPlanForm(prev => ({ ...prev, description: e.target.value }))}
-                  className="w-full px-4 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500 h-16 resize-none"
+                  className="w-full px-4 py-2.5 bg-surface-950 border border-surface-800 rounded-xl text-xs text-white focus:outline-none focus:border-primary-500 h-16 resize-none"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-2">मासिक मूल्य (₹)</label>
+                  <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider mb-2">मासिक मूल्य (₹)</label>
                   <input 
                     type="number" 
                     required
                     placeholder="0"
                     value={planForm.upfront_price}
                     onChange={e => setPlanForm(prev => ({ ...prev, upfront_price: e.target.value }))}
-                    className="w-full px-4 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500"
+                    className="w-full px-4 py-2.5 bg-surface-950 border border-surface-800 rounded-xl text-xs text-white focus:outline-none focus:border-primary-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-2">PAYG संदेश दर (₹)</label>
+                  <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider mb-2">PAYG संदेश दर (₹)</label>
                   <input 
                     type="number" 
                     step="0.01"
@@ -1746,29 +1746,29 @@ export default function AdminDashboard() {
                     placeholder="0.10"
                     value={planForm.pay_as_you_go_rate}
                     onChange={e => setPlanForm(prev => ({ ...prev, pay_as_you_go_rate: e.target.value }))}
-                    className="w-full px-4 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500"
+                    className="w-full px-4 py-2.5 bg-surface-950 border border-surface-800 rounded-xl text-xs text-white focus:outline-none focus:border-primary-500"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-2">बिलिंग प्रकार (Billing Type)</label>
+                  <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider mb-2">बिलिंग प्रकार (Billing Type)</label>
                   <select
                     value={planForm.billing_type}
                     onChange={e => setPlanForm(prev => ({ ...prev, billing_type: e.target.value }))}
-                    className="w-full px-4 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500"
+                    className="w-full px-4 py-2.5 bg-surface-950 border border-surface-800 rounded-xl text-xs text-white focus:outline-none focus:border-primary-500"
                   >
                     <option value="recurring">Recurring (Subscriptions)</option>
                     <option value="one_time">One-time (Orders)</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-2">अवधि (Period)</label>
+                  <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider mb-2">अवधि (Period)</label>
                   <select
                     value={planForm.billing_period}
                     onChange={e => setPlanForm(prev => ({ ...prev, billing_period: e.target.value }))}
-                    className="w-full px-4 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500"
+                    className="w-full px-4 py-2.5 bg-surface-950 border border-surface-800 rounded-xl text-xs text-white focus:outline-none focus:border-primary-500"
                   >
                     <option value="monthly">Monthly</option>
                     <option value="yearly">Yearly</option>
@@ -1777,21 +1777,21 @@ export default function AdminDashboard() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-2">Interval (हर N अवधि)</label>
+                  <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider mb-2">Interval (हर N अवधि)</label>
                   <input
                     type="number"
                     min="1"
                     value={planForm.billing_interval}
                     onChange={e => setPlanForm(prev => ({ ...prev, billing_interval: e.target.value }))}
-                    className="w-full px-4 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500"
+                    className="w-full px-4 py-2.5 bg-surface-950 border border-surface-800 rounded-xl text-xs text-white focus:outline-none focus:border-primary-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-2">मुद्रा (Currency)</label>
+                  <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider mb-2">मुद्रा (Currency)</label>
                   <select
                     value={planForm.currency}
                     onChange={e => setPlanForm(prev => ({ ...prev, currency: e.target.value }))}
-                    className="w-full px-4 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500"
+                    className="w-full px-4 py-2.5 bg-surface-950 border border-surface-800 rounded-xl text-xs text-white focus:outline-none focus:border-primary-500"
                   >
                     <option value="INR">INR (₹)</option>
                     <option value="USD">USD ($)</option>
@@ -1800,32 +1800,32 @@ export default function AdminDashboard() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-2">क्रम (Sort Order)</label>
+                  <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider mb-2">क्रम (Sort Order)</label>
                   <input
                     type="number"
                     value={planForm.sort_order}
                     onChange={e => setPlanForm(prev => ({ ...prev, sort_order: e.target.value }))}
-                    className="w-full px-4 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500"
+                    className="w-full px-4 py-2.5 bg-surface-950 border border-surface-800 rounded-xl text-xs text-white focus:outline-none focus:border-primary-500"
                   />
                 </div>
               </div>
 
               <div className="flex items-center gap-5 py-1">
-                <label className="flex items-center gap-2 text-xs text-zinc-300 font-medium cursor-pointer">
+                <label className="flex items-center gap-2 text-xs text-surface-300 font-medium cursor-pointer">
                   <input
                     type="checkbox"
                     checked={planForm.is_active === '1'}
                     onChange={e => setPlanForm(prev => ({ ...prev, is_active: e.target.checked ? '1' : '0' }))}
-                    className="rounded bg-zinc-950 border-zinc-800 text-indigo-600 focus:ring-0 w-4 h-4"
+                    className="rounded bg-surface-950 border-surface-800 text-primary-600 focus:ring-0 w-4 h-4"
                   />
                   Active (खरीदने योग्य)
                 </label>
-                <label className="flex items-center gap-2 text-xs text-zinc-300 font-medium cursor-pointer">
+                <label className="flex items-center gap-2 text-xs text-surface-300 font-medium cursor-pointer">
                   <input
                     type="checkbox"
                     checked={planForm.is_free === '1'}
                     onChange={e => setPlanForm(prev => ({ ...prev, is_free: e.target.checked ? '1' : '0' }))}
-                    className="rounded bg-zinc-950 border-zinc-800 text-emerald-600 focus:ring-0 w-4 h-4"
+                    className="rounded bg-surface-950 border-surface-800 text-emerald-600 focus:ring-0 w-4 h-4"
                   />
                   Free Plan (डिफ़ॉल्ट / downgrade)
                 </label>
@@ -1833,11 +1833,11 @@ export default function AdminDashboard() {
 
               <div className="space-y-2">
                 <div className="flex justify-between items-center mb-1">
-                  <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider">सुविधाएँ (Features)</label>
+                  <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider">सुविधाएँ (Features)</label>
                   <button
                     type="button"
                     onClick={() => setPlanForm(prev => ({ ...prev, features: [...prev.features, { id: Math.random().toString(36).substr(2, 9), value: '' }] }))}
-                    className="text-[10px] bg-indigo-500/10 text-indigo-400 px-2 py-0.5 rounded border border-indigo-500/20 hover:bg-indigo-500/20 transition-colors"
+                    className="text-[10px] bg-primary-500/10 text-primary-400 px-2 py-0.5 rounded border border-primary-500/20 hover:bg-primary-500/20 transition-colors"
                   >
                     + Add Feature
                   </button>
@@ -1853,7 +1853,7 @@ export default function AdminDashboard() {
                         newFeatures[i] = { ...newFeatures[i], value: e.target.value };
                         setPlanForm(prev => ({ ...prev, features: newFeatures }));
                       }}
-                      className="flex-1 px-4 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500"
+                      className="flex-1 px-4 py-2 bg-surface-950 border border-surface-800 rounded-xl text-xs text-white focus:outline-none focus:border-primary-500"
                     />
                     <button
                       type="button"
@@ -1861,50 +1861,50 @@ export default function AdminDashboard() {
                         const newFeatures = planForm.features.filter(item => item.id !== f.id);
                         setPlanForm(prev => ({ ...prev, features: newFeatures }));
                       }}
-                      className="px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-rose-400 hover:bg-rose-500/10 hover:border-rose-500/30 transition-colors"
+                      className="px-3 py-2 bg-surface-950 border border-surface-800 rounded-xl text-rose-400 hover:bg-rose-500/10 hover:border-rose-500/30 transition-colors"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
                 ))}
                 {planForm.features.length === 0 && (
-                  <div className="text-xs text-zinc-500 bg-zinc-950/50 p-3 rounded-xl border border-zinc-800/50 text-center border-dashed">
+                  <div className="text-xs text-surface-500 bg-surface-950/50 p-3 rounded-xl border border-surface-800/50 text-center border-dashed">
                     कोई सुविधा नहीं जोड़ी गई
                   </div>
                 )}
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-3">Limits (सीमाएँ)</label>
+                <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider mb-3">Limits (सीमाएँ)</label>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-[10px] text-zinc-500 mb-1">Email Monthly Limit</label>
+                    <label className="block text-[10px] text-surface-500 mb-1">Email Monthly Limit</label>
                     <input
                       type="number"
                       placeholder="उदा. 1000"
                       value={planForm.limits?.email_monthly_limit || ''}
                       onChange={e => setPlanForm(prev => ({ ...prev, limits: { ...prev.limits, email_monthly_limit: e.target.value } }))}
-                      className="w-full px-4 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500"
+                      className="w-full px-4 py-2 bg-surface-950 border border-surface-800 rounded-xl text-xs text-white focus:outline-none focus:border-primary-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] text-zinc-500 mb-1">Max Domains</label>
+                    <label className="block text-[10px] text-surface-500 mb-1">Max Domains</label>
                     <input
                       type="number"
                       placeholder="उदा. 5"
                       value={planForm.limits?.max_domains || ''}
                       onChange={e => setPlanForm(prev => ({ ...prev, limits: { ...prev.limits, max_domains: e.target.value } }))}
-                      className="w-full px-4 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500"
+                      className="w-full px-4 py-2 bg-surface-950 border border-surface-800 rounded-xl text-xs text-white focus:outline-none focus:border-primary-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] text-zinc-500 mb-1">Max Mailboxes / Domain</label>
+                    <label className="block text-[10px] text-surface-500 mb-1">Max Mailboxes / Domain</label>
                     <input
                       type="number"
                       placeholder="उदा. 10"
                       value={planForm.limits?.max_mailboxes_per_domain || ''}
                       onChange={e => setPlanForm(prev => ({ ...prev, limits: { ...prev.limits, max_mailboxes_per_domain: e.target.value } }))}
-                      className="w-full px-4 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500"
+                      className="w-full px-4 py-2 bg-surface-950 border border-surface-800 rounded-xl text-xs text-white focus:outline-none focus:border-primary-500"
                     />
                   </div>
                 </div>
@@ -1914,13 +1914,13 @@ export default function AdminDashboard() {
                 <button 
                   type="button" 
                   onClick={() => setPlanModal({ open: false, mode: 'create' })}
-                  className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-xl text-xs font-semibold text-zinc-300 transition-colors"
+                  className="px-4 py-2 bg-surface-800 hover:bg-surface-700 rounded-xl text-xs font-semibold text-surface-300 transition-colors"
                 >
                   रद्द करें
                 </button>
                 <button 
                   type="submit" 
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-xs font-semibold text-white transition-colors"
+                  className="px-4 py-2 bg-primary-600 hover:bg-primary-500 rounded-xl text-xs font-semibold text-white transition-colors"
                 >
                   सहेजें
                 </button>
@@ -1933,14 +1933,14 @@ export default function AdminDashboard() {
       {/* 4. KV Key/Value Modal */}
       {kvModal.open && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl w-full max-w-md p-6 relative">
+          <div className="bg-surface-900 border border-surface-800 rounded-3xl w-full max-w-md p-6 relative">
             <h3 className="text-base font-bold text-white mb-4">
               {kvModal.data ? 'KV सीक्रेट कुंजी अपडेट करें' : 'नया KV कुंजी-मूल्य सहेजें'}
             </h3>
             
             <form onSubmit={saveKvSecret} className="space-y-4">
               <div>
-                <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-2">कुंजी (Key Name)</label>
+                <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider mb-2">कुंजी (Key Name)</label>
                 <input 
                   type="text" 
                   required
@@ -1948,18 +1948,18 @@ export default function AdminDashboard() {
                   value={kvForm.name}
                   disabled={!!kvModal.data}
                   onChange={e => setKvForm(prev => ({ ...prev, name: e.target.value }))}
-                  className="w-full px-4 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500 font-mono text-[11px] disabled:opacity-50"
+                  className="w-full px-4 py-2.5 bg-surface-950 border border-surface-800 rounded-xl text-xs text-white focus:outline-none focus:border-primary-500 font-mono text-[11px] disabled:opacity-50"
                 />
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-2">मूल्य (Value string)</label>
+                <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider mb-2">मूल्य (Value string)</label>
                 <textarea 
                   required
                   placeholder="यहाँ सीक्रेट मूल्य दर्ज करें..."
                   value={kvForm.value}
                   onChange={e => setKvForm(prev => ({ ...prev, value: e.target.value }))}
-                  className="w-full px-4 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500 font-mono text-[11px] h-32"
+                  className="w-full px-4 py-2.5 bg-surface-950 border border-surface-800 rounded-xl text-xs text-white focus:outline-none focus:border-primary-500 font-mono text-[11px] h-32"
                 />
               </div>
 
@@ -1967,13 +1967,13 @@ export default function AdminDashboard() {
                 <button 
                   type="button" 
                   onClick={() => setKvModal({ open: false })}
-                  className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-xl text-xs font-semibold text-zinc-300 transition-colors"
+                  className="px-4 py-2 bg-surface-800 hover:bg-surface-700 rounded-xl text-xs font-semibold text-surface-300 transition-colors"
                 >
                   रद्द करें
                 </button>
                 <button 
                   type="submit" 
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-xs font-semibold text-white transition-colors"
+                  className="px-4 py-2 bg-primary-600 hover:bg-primary-500 rounded-xl text-xs font-semibold text-white transition-colors"
                 >
                   सुरक्षित सहेजें
                 </button>
@@ -1993,11 +1993,11 @@ function SidebarButton({ icon, label, active, onClick }: { icon: React.ReactNode
       onClick={onClick}
       className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl text-xs font-medium transition-all duration-150 ${
         active 
-          ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/15 font-semibold' 
-          : 'text-zinc-400 hover:bg-zinc-800/40 hover:text-white'
+          ? 'bg-primary-600 text-white shadow-md shadow-primary-600/15 font-semibold' 
+          : 'text-surface-400 hover:bg-surface-800/40 hover:text-white'
       }`}
     >
-      <span className={active ? 'text-white' : 'text-zinc-400'}>{icon}</span>
+      <span className={active ? 'text-white' : 'text-surface-400'}>{icon}</span>
       {label}
     </button>
   );
@@ -2005,14 +2005,14 @@ function SidebarButton({ icon, label, active, onClick }: { icon: React.ReactNode
 
 function StatCard({ title, value, icon, subtitle }: { title: string, value: string, icon: React.ReactNode, subtitle?: string }) {
   return (
-    <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 relative group overflow-hidden shadow-sm">
-      <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-zinc-800/20 to-transparent pointer-events-none"></div>
+    <div className="bg-surface-900 border border-surface-800 rounded-3xl p-6 relative group overflow-hidden shadow-sm">
+      <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-surface-800/20 to-transparent pointer-events-none"></div>
       <div className="flex items-center justify-between mb-4">
-        <h4 className="text-zinc-400 text-xs font-medium">{title}</h4>
-        <div className="w-8 h-8 rounded-lg bg-zinc-950 flex items-center justify-center border border-zinc-800">{icon}</div>
+        <h4 className="text-surface-400 text-xs font-medium">{title}</h4>
+        <div className="w-8 h-8 rounded-lg bg-surface-950 flex items-center justify-center border border-surface-800">{icon}</div>
       </div>
       <div className="text-3xl font-extrabold tracking-tight text-white font-display mb-1">{value}</div>
-      {subtitle && <p className="text-[10px] text-zinc-500 font-medium">{subtitle}</p>}
+      {subtitle && <p className="text-[10px] text-surface-500 font-medium">{subtitle}</p>}
     </div>
   );
 }
@@ -2021,10 +2021,10 @@ function QuickActionButton({ label, onClick }: { label: string, onClick: () => v
   return (
     <button
       onClick={onClick}
-      className="w-full py-2.5 px-4 bg-zinc-950 hover:bg-zinc-850 border border-zinc-800/80 hover:border-indigo-500/25 rounded-2xl text-xs font-medium text-left flex items-center justify-between group transition-all"
+      className="w-full py-2.5 px-4 bg-surface-950 hover:bg-surface-800 border border-surface-800/80 hover:border-primary-500/25 rounded-2xl text-xs font-medium text-left flex items-center justify-between group transition-all"
     >
-      <span className="text-zinc-300 group-hover:text-white transition-colors">{label}</span>
-      <ChevronRight className="w-4 h-4 text-zinc-600 group-hover:text-indigo-400 group-hover:translate-x-0.5 transition-all" />
+      <span className="text-surface-300 group-hover:text-white transition-colors">{label}</span>
+      <ChevronRight className="w-4 h-4 text-surface-600 group-hover:text-primary-400 group-hover:translate-x-0.5 transition-all" />
     </button>
   );
 }

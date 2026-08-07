@@ -13,6 +13,7 @@ import ActiveConversationsView from '@/components/ActiveConversationsView';
 import EmailServiceView from '@/components/EmailServiceView';
 import UnifiedInbox from '@/components/UnifiedInbox';
 import { useToast } from '@/components/ui/Toast';
+import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { activeTab } from './lib/types';
 import { NavItem } from './components/NavItem';
 import { DashboardOverview } from './components/DashboardOverview';
@@ -52,8 +53,8 @@ export default function DashboardWrapper() {
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-zinc-50 dark:bg-zinc-950">
-        <div className="w-8 h-8 border-2 border-indigo-600 dark:border-indigo-400 border-t-transparent rounded-full animate-spin"></div>
+      <div className="flex h-screen items-center justify-center bg-surface-50 dark:bg-surface-950">
+        <div className="w-8 h-8 border-2 border-primary-600 dark:border-primary-400 border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
   }
@@ -353,7 +354,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
   }, []);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-zinc-100 dark:bg-zinc-950">
+    <div className="flex h-screen overflow-hidden bg-surface-100 dark:bg-surface-950">
       {/* Sidebar Overlay for Mobile */}
       <AnimatePresence>
         {isSidebarOpen && (
@@ -375,50 +376,50 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
             animate={{ x: 0, width: 280, opacity: 1 }}
             exit={{ x: -280, width: 0, opacity: 0 }}
             transition={{ type: 'spring', bounce: 0, duration: 0.3 }}
-            className="fixed md:static inset-y-0 left-0 flex-shrink-0 bg-zinc-950 dark:bg-zinc-900 border-r border-zinc-800 flex flex-col text-zinc-300 z-30 shadow-2xl md:shadow-none"
+            className="fixed md:static inset-y-0 left-0 flex-shrink-0 bg-white dark:bg-surface-900 border-r border-surface-200 dark:border-surface-800 flex flex-col text-surface-600 dark:text-surface-300 z-30 shadow-2xl md:shadow-none"
           >
             <div className="p-6 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-xl bg-indigo-500 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                <div className="w-8 h-8 rounded-xl bg-primary-500 flex items-center justify-center shadow-lg shadow-primary-500/20">
                   <MessageSquare className="w-4 h-4 text-white" />
                 </div>
-                <span className="font-bold text-lg tracking-tight font-display text-white">DheeTantra</span>
+                <span className="font-bold text-lg tracking-tight font-display text-surface-900 dark:text-white">DheeTantra</span>
               </div>
-              <button onClick={() => setSidebarOpen(false)} className="md:hidden p-2 -mr-2 text-zinc-400 hover:text-white">
+              <button onClick={() => setSidebarOpen(false)} className="md:hidden p-2 -mr-2 text-surface-500 hover:text-surface-900 dark:hover:text-white">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
-              <div className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-4 px-3">ओवरव्यू</div>
+              <div className="text-xs font-semibold text-surface-500 uppercase tracking-wider mb-4 px-3">ओवरव्यू</div>
               <NavItem icon={<LayoutDashboard />} label="डैशबोर्ड" isActive={activeTab === 'dashboard'} onClick={() => { setActiveTab('dashboard'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
               <NavItem icon={<MessageSquare />} label="इनबॉक्स" isActive={activeTab === 'inbox'} onClick={() => { setActiveTab('inbox'); if (window.innerWidth < 768) setSidebarOpen(false); }} badge={openConversationsCount > 0 ? openConversationsCount.toString() : undefined} />
               <NavItem icon={<Activity />} label="सक्रिय चैट" isActive={activeTab === 'active-conversations'} onClick={() => { setActiveTab('active-conversations'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
               <NavItem icon={<Users />} label="संपर्क और लीड्स" isActive={activeTab === 'contacts'} onClick={() => { setActiveTab('contacts'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
               <NavItem icon={<Phone />} label="कॉल लॉग्स" isActive={activeTab === 'calls'} onClick={() => { setActiveTab('calls'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
               
-              <div className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-4 mt-8 px-3">अकाउंट्स</div>
+              <div className="text-xs font-semibold text-surface-500 uppercase tracking-wider mb-4 mt-8 px-3">अकाउंट्स</div>
               <NavItem icon={<Phone />} label="WhatsApp" isActive={activeTab === 'accounts-whatsapp'} onClick={() => { setActiveTab('accounts-whatsapp'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
 
-              <div className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-4 mt-8 px-3">मार्केटिंग</div>
+              <div className="text-xs font-semibold text-surface-500 uppercase tracking-wider mb-4 mt-8 px-3">मार्केटिंग</div>
               <NavItem icon={<Megaphone />} label="ब्रॉडकास्ट" isActive={activeTab === 'broadcast'} onClick={() => { setActiveTab('broadcast'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
               <NavItem icon={<Mail />} label="ईमेल सेवा" isActive={activeTab === 'email'} onClick={() => { setActiveTab('email'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
               <NavItem icon={<CalendarClock />} label="शेड्यूल्ड पोस्ट्स" isActive={activeTab === 'schedule'} onClick={() => { setActiveTab('schedule'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
             </nav>
 
-            <div className="p-4 bg-zinc-900/50 dark:bg-zinc-950/50 mt-auto border-t border-zinc-800">
+            <div className="p-4 bg-surface-100/60 dark:bg-surface-950/50 mt-auto border-t border-surface-200 dark:border-surface-800">
               <NavItem icon={<Blocks />} label="इंटीग्रेशन्स" isActive={activeTab === 'integrations'} onClick={() => { setActiveTab('integrations'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
               <NavItem icon={<Settings />} label="सेटिंग्स" isActive={activeTab === 'settings'} onClick={() => { setActiveTab('settings'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
               
-              <div className="mt-4 pt-4 border-t border-zinc-800 flex items-center gap-3 px-3">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-white font-bold shadow-lg shrink-0">
+              <div className="mt-4 pt-4 border-t border-surface-200 dark:border-surface-800 flex items-center gap-3 px-3">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-primary-500 to-purple-500 flex items-center justify-center text-white font-bold shadow-lg shrink-0">
                   {user?.name?.[0] || user?.email?.[0]?.toUpperCase() || 'U'}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-white truncate">{user?.name || "उपयोगकर्ता"}</p>
-                  <p className="text-xs text-zinc-500 truncate">{user?.email}</p>
+                  <p className="text-sm font-medium text-surface-900 dark:text-white truncate">{user?.name || "उपयोगकर्ता"}</p>
+                  <p className="text-xs text-surface-500 truncate">{user?.email}</p>
                 </div>
-                <button onClick={onLogout} className="p-2 hover:bg-zinc-800 rounded-xl transition-colors text-zinc-400 hover:text-white shrink-0" title="लॉगआउट">
+                <button onClick={onLogout} className="p-2 hover:bg-surface-100 dark:hover:bg-surface-800 rounded-xl transition-colors text-surface-500 hover:text-surface-900 dark:hover:text-white shrink-0" title="लॉगआउट">
                   <LogOut className="w-4 h-4" />
                 </button>
               </div>
@@ -430,41 +431,42 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
         {/* Top Header */}
-        <header className="h-16 flex-shrink-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between px-6 z-10 sticky top-0">
+        <header className="h-16 flex-shrink-0 bg-white/80 dark:bg-surface-950/80 backdrop-blur-md border-b border-surface-200 dark:border-surface-800 flex items-center justify-between px-6 z-10 sticky top-0">
           <div className="flex items-center gap-4">
-            <button onClick={() => setSidebarOpen(!isSidebarOpen)} className="p-2 -ml-2 rounded-xl text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+            <button onClick={() => setSidebarOpen(!isSidebarOpen)} className="p-2 -ml-2 rounded-xl text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors">
               <Menu className="w-5 h-5" />
             </button>
-            <h1 className="text-lg font-bold capitalize text-zinc-900 dark:text-white font-display">
+            <h1 className="text-lg font-bold capitalize text-surface-900 dark:text-white font-display">
               {activeTab === 'dashboard' ? 'डैशबोर्ड' : activeTab === 'inbox' ? 'इनबॉक्स' : activeTab === 'active-conversations' ? 'सक्रिय बातचीत' : activeTab === 'broadcast' ? 'ब्रॉडकास्ट' : activeTab === 'schedule' ? 'शेड्यूलर' : activeTab === 'contacts' ? 'संपर्क और लीड्स' : activeTab === 'accounts-whatsapp' ? 'WhatsApp अकाउंट्स' : activeTab === 'calls' ? 'कॉल लॉग्स' : activeTab === 'email' ? 'ईमेल सेवा' : 'सेटिंग्स'}
             </h1>
           </div>
           
           <div className="flex items-center gap-4">
             <div className="relative hidden md:block">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-surface-400" />
               <input 
                 type="text" 
                 placeholder="खोजें..." 
-                className="pl-9 pr-4 py-2 w-64 text-sm bg-zinc-100 dark:bg-zinc-900 border border-transparent focus:bg-white dark:focus:bg-zinc-950 focus:border-indigo-500 rounded-full outline-none transition-all shadow-sm"
+                className="pl-9 pr-4 py-2 w-64 text-sm bg-surface-100 dark:bg-surface-900 border border-transparent focus:bg-white dark:focus:bg-surface-950 focus:border-primary-500 rounded-full outline-none transition-all shadow-sm"
               />
             </div>
             {/* WebSocket Connection Status */}
             <div className="flex items-center gap-1.5 text-[10px] font-medium" title={wsStatus === 'connecting' ? 'WebSocket कनेक्ट हो रहा है...' : wsStatus === 'connected' ? 'WebSocket कनेक्टेड' : 'WebSocket डिस्कनेक्टेड - कॉल नहीं आएंगी'}>
               <span className={`w-2 h-2 rounded-full ${wsStatus === 'connected' ? 'bg-emerald-400' : wsStatus === 'connecting' ? 'bg-amber-400 animate-pulse' : 'bg-rose-400'}`}></span>
-              <span className="text-zinc-400 hidden sm:inline">
+              <span className="text-surface-400 hidden sm:inline">
                 {wsStatus === 'connecting' ? 'कनेक्ट हो रहा है...' : wsStatus === 'connected' ? 'लाइव' : 'ऑफलाइन'}
               </span>
             </div>
-            <button className="p-2 relative rounded-full text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+            <ThemeToggle />
+            <button className="p-2 relative rounded-full text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors">
               <Bell className="w-5 h-5" />
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-500 rounded-full border-2 border-white dark:border-zinc-950"></span>
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-500 rounded-full border-2 border-white dark:border-surface-950"></span>
             </button>
           </div>
         </header>
 
         {/* Dynamic View Area */}
-        <main className={`flex-1 relative bg-zinc-50 dark:bg-zinc-950/50 ${activeTab === 'inbox' ? 'h-[calc(100vh-4rem)] overflow-hidden flex flex-col' : 'overflow-y-auto'}`}>
+        <main className={`flex-1 relative bg-surface-50 dark:bg-surface-950/50 ${activeTab === 'inbox' ? 'h-[calc(100vh-4rem)] overflow-hidden flex flex-col' : 'overflow-y-auto'}`}>
           <AnimatePresence mode="wait">
             <motion.div
               key={activeTab}
@@ -517,14 +519,14 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-zinc-900 border border-zinc-800 rounded-3xl max-w-sm w-full p-8 text-center text-white shadow-2xl relative overflow-hidden"
+              className="bg-surface-900 border border-surface-800 rounded-3xl max-w-sm w-full p-8 text-center text-white shadow-2xl relative overflow-hidden"
             >
-              <div className="absolute inset-0 bg-gradient-to-b from-indigo-500/10 to-transparent pointer-events-none"></div>
+              <div className="absolute inset-0 bg-gradient-to-b from-primary-500/10 to-transparent pointer-events-none"></div>
 
               <div className="relative w-24 h-24 mx-auto mb-6 flex items-center justify-center">
                 <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-20 animate-ping"></span>
-                <span className="absolute inline-flex h-20 w-20 rounded-full bg-indigo-500 opacity-15 animate-pulse"></span>
-                <div className="w-16 h-16 rounded-full bg-indigo-600 flex items-center justify-center text-2xl font-bold shadow-lg shadow-indigo-500/30">
+                <span className="absolute inline-flex h-20 w-20 rounded-full bg-primary-500 opacity-15 animate-pulse"></span>
+                <div className="w-16 h-16 rounded-full bg-primary-600 flex items-center justify-center text-2xl font-bold shadow-lg shadow-primary-500/30">
                   {incomingCall.contact_name?.[0] || '?'}
                 </div>
               </div>
@@ -539,7 +541,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
               </div>
 
               <h3 className="text-xl font-bold font-display tracking-tight text-white truncate">{incomingCall.contact_name || 'अज्ञात'}</h3>
-              <p className="text-xs text-zinc-400 font-mono mt-1">+{incomingCall.phone}</p>
+              <p className="text-xs text-surface-400 font-mono mt-1">+{incomingCall.phone}</p>
 
               <div className="flex gap-4 mt-8">
                 <button
@@ -628,7 +630,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
               initial={{ y: 50, scale: 0.95, opacity: 0 }}
               animate={{ y: 0, scale: 1, opacity: 1 }}
               exit={{ y: 50, scale: 0.95, opacity: 0 }}
-              className="bg-zinc-950 border border-zinc-800/80 rounded-2xl p-5 shadow-2xl w-full text-white flex flex-col relative overflow-hidden backdrop-blur-xl animate-slide-up"
+              className="bg-surface-950 border border-surface-800/80 rounded-2xl p-5 shadow-2xl w-full text-white flex flex-col relative overflow-hidden backdrop-blur-xl animate-slide-up"
             >
               <ActiveCallManager 
                 activeCall={activeCall} 
@@ -657,14 +659,14 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
               initial={{ x: 100, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: 100, opacity: 0 }}
-              className="bg-zinc-950 border border-zinc-800/80 rounded-2xl p-4 shadow-2xl text-white flex items-start gap-3"
+              className="bg-surface-950 border border-surface-800/80 rounded-2xl p-4 shadow-2xl text-white flex items-start gap-3"
             >
               <div className="w-10 h-10 rounded-full bg-rose-500/20 flex items-center justify-center flex-shrink-0">
                 <Phone className="w-5 h-5 text-rose-400" />
               </div>
               <div className="flex-1 min-w-0">
                 <h4 className="text-sm font-bold text-white">मिस्ड कॉल</h4>
-                <p className="text-xs text-zinc-400 mt-0.5 truncate">
+                <p className="text-xs text-surface-400 mt-0.5 truncate">
                   {incomingCallNoSdp.contact_name || 'अज्ञात'} ({incomingCallNoSdp.phone || 'अज्ञात'})
                 </p>
                 <div className="flex gap-2 mt-2">
@@ -675,7 +677,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                   </span>
                 </div>
               </div>
-              <button onClick={() => setIncomingCallNoSdp(null)} className="text-zinc-500 hover:text-white flex-shrink-0">
+              <button onClick={() => setIncomingCallNoSdp(null)} className="text-surface-500 hover:text-white flex-shrink-0">
                 <X className="w-4 h-4" />
               </button>
             </motion.div>

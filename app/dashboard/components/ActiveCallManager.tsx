@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
 import { useWhatsAppWebRTC } from '@/lib/hooks/useWhatsAppWebRTC';
 
@@ -66,12 +66,12 @@ export function ActiveCallManager({ activeCall, setActiveCall, onHangup, remoteS
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center font-bold text-sm text-indigo-400 shadow-inner">
+        <div className="w-10 h-10 rounded-full bg-surface-800 flex items-center justify-center font-bold text-sm text-primary-400 shadow-inner">
           {activeCall.contact_name?.[0] || '?'}
         </div>
         <div className="flex-1 min-w-0">
           <h4 className="text-xs font-bold text-white truncate">{activeCall.contact_name || 'अज्ञात'}</h4>
-          <p className="text-[10px] text-zinc-400 truncate mt-0.5">
+          <p className="text-[10px] text-surface-400 truncate mt-0.5">
             {activeCall.status === 'ringing' 
               ? (activeCall.direction === 'incoming' ? 'कॉल आ रही है...' : 'डायल हो रहा है...') 
               : 'कॉल कनेक्टेड'}
@@ -84,12 +84,12 @@ export function ActiveCallManager({ activeCall, setActiveCall, onHangup, remoteS
         </div>
       </div>
 
-      <div className="flex items-center justify-between pt-2 border-t border-zinc-800/60">
+      <div className="flex items-center justify-between pt-2 border-t border-surface-800/60">
         <div className="flex gap-2">
           {/* Mute toggle button */}
           <button 
             onClick={() => setIsMuted(!isMuted)}
-            className="p-1.5 px-2.5 rounded-lg text-[10px] font-bold transition-all bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white"
+            className="p-1.5 px-2.5 rounded-lg text-[10px] font-bold transition-all bg-surface-800 text-surface-400 hover:bg-surface-700 hover:text-white"
             title={isMuted ? 'अनम्यूट' : 'म्यूट'}
           >
             {isMuted ? 'अनम्यूट' : 'म्यूट'}
@@ -98,7 +98,7 @@ export function ActiveCallManager({ activeCall, setActiveCall, onHangup, remoteS
           {/* Speaker toggle button */}
           <button 
             onClick={() => setIsSpeaker(!isSpeaker)}
-            className="p-1.5 px-2.5 rounded-lg text-[10px] font-bold transition-all bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white"
+            className="p-1.5 px-2.5 rounded-lg text-[10px] font-bold transition-all bg-surface-800 text-surface-400 hover:bg-surface-700 hover:text-white"
             title="स्पीकर"
           >
             स्पीकर

@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Download, AlertTriangle, Upload, Bot, MessageSquare, Send, Paperclip, User, AlertCircle, Phone, X, History, MapPin, Building2, Tag, ChevronDown, ChevronRight, Activity, Check, CheckCheck, FileText, Trash2, Archive } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import PhoneInput, { isValidPhoneNumber } from 'react-phone-number-input';
@@ -596,21 +596,21 @@ export function InboxView({
   };
 
   return (
-    <div className="flex h-full bg-white dark:bg-zinc-900 overflow-hidden relative">
+    <div className="flex h-full bg-white dark:bg-surface-900 overflow-hidden relative">
       {/* Contact List */}
-      <div className={`w-full md:w-80 border-r border-zinc-200 dark:border-zinc-800 flex flex-col bg-zinc-50/50 dark:bg-zinc-900 z-10 ${activeChat ? 'hidden md:flex' : 'flex'}`}>
-        <div className="p-4 border-b border-zinc-200 dark:border-zinc-800 flex-shrink-0 bg-zinc-50 dark:bg-zinc-900">
+      <div className={`w-full md:w-80 border-r border-surface-200 dark:border-surface-800 flex flex-col bg-surface-50/50 dark:bg-surface-900 z-10 ${activeChat ? 'hidden md:flex' : 'flex'}`}>
+        <div className="p-4 border-b border-surface-200 dark:border-surface-800 flex-shrink-0 bg-surface-50 dark:bg-surface-900">
             <div className="flex items-center justify-between mb-3">
               <h2 className="font-medium">सक्रिय बातचीत</h2>
               {configs.length > 0 && (
-                <span className="text-[10px] bg-indigo-50 text-indigo-700 dark:bg-indigo-950/30 dark:text-indigo-400 font-bold px-1.5 py-0.5 rounded">
+                <span className="text-[10px] bg-primary-50 text-primary-700 dark:bg-primary-950/30 dark:text-primary-400 font-bold px-1.5 py-0.5 rounded">
                   {configs.length} WABAs
                 </span>
               )}
             </div>
 
             <div className="mb-3">
-              <label className="block text-[9px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-1">WhatsApp लाइन</label>
+              <label className="block text-[9px] font-bold text-surface-400 dark:text-surface-500 uppercase tracking-wider mb-1">WhatsApp लाइन</label>
               <div className="relative">
                 <select 
                   value={selectedWaba ? (configs.some(c => c.id === selectedWaba.id) ? selectedWaba.id : 'all') : ''} 
@@ -626,7 +626,7 @@ export function InboxView({
                       }
                     }
                   }}
-                  className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 appearance-none cursor-pointer"
+                  className="w-full bg-white dark:bg-surface-950 border border-surface-200 dark:border-surface-800 rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 appearance-none cursor-pointer"
                 >
                   <option value="all">🌐 सभी लाइनें</option>
                   {configs.map((cfg) => (
@@ -635,12 +635,12 @@ export function InboxView({
                     </option>
                   ))}
                 </select>
-                <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-zinc-400">
+                <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-surface-400">
                   <ChevronDown className="w-3.5 h-3.5" />
                 </div>
               </div>
             </div>
-            <div className="flex gap-2 text-xs items-center justify-between mt-3 pt-2 border-t border-zinc-100 dark:border-zinc-800">
+            <div className="flex gap-2 text-xs items-center justify-between mt-3 pt-2 border-t border-surface-100 dark:border-surface-800">
                 <button 
                   onClick={() => {
                     setSelectedWaba({ id: 'all', phone_number_id: 'all' });
@@ -648,20 +648,20 @@ export function InboxView({
                   }}
                   className={`px-3 py-1 rounded-full font-medium transition-all ${
                     selectedWaba && selectedWaba.id === 'all'
-                      ? 'bg-indigo-600 text-white border-transparent'
-                      : 'bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300'
+                      ? 'bg-primary-600 text-white border-transparent'
+                      : 'bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 hover:bg-surface-50 dark:hover:bg-surface-700 text-surface-700 dark:text-surface-300'
                   }`}
                 >
                   सभी दिखाएं
                 </button>
 
-                <div className="flex bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-lg border border-zinc-200/50 dark:border-zinc-700/50">
+                <div className="flex bg-surface-100 dark:bg-surface-800 p-0.5 rounded-lg border border-surface-200/50 dark:border-surface-700/50">
                   <button
                     onClick={() => { setFilterStatus('open'); setActiveChat(null); }}
                     className={`px-2.5 py-1 text-[11px] rounded-md font-semibold transition-all ${
                       filterStatus === 'open'
-                        ? 'bg-white dark:bg-zinc-700 text-indigo-600 dark:text-indigo-400 shadow-xs'
-                        : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'
+                        ? 'bg-white dark:bg-surface-700 text-primary-600 dark:text-primary-400 shadow-xs'
+                        : 'text-surface-500 hover:text-surface-800 dark:hover:text-surface-300'
                     }`}
                   >
                     सक्रिय
@@ -670,8 +670,8 @@ export function InboxView({
                     onClick={() => { setFilterStatus('closed'); setActiveChat(null); }}
                     className={`px-2.5 py-1 text-[11px] rounded-md font-semibold transition-all ${
                       filterStatus === 'closed'
-                        ? 'bg-white dark:bg-zinc-700 text-indigo-600 dark:text-indigo-400 shadow-xs'
-                        : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'
+                        ? 'bg-white dark:bg-surface-700 text-primary-600 dark:text-primary-400 shadow-xs'
+                        : 'text-surface-500 hover:text-surface-800 dark:hover:text-surface-300'
                     }`}
                   >
                     बंद
@@ -681,11 +681,11 @@ export function InboxView({
         </div>
         <div className="flex-1 overflow-y-auto">
             {loading ? (
-                <div className="p-4 text-sm text-zinc-500">इनबॉक्स लोड हो रहा है...</div>
+                <div className="p-4 text-sm text-surface-500">इनबॉक्स लोड हो रहा है...</div>
             ) : conversations.length === 0 ? (
-                 <div className="p-4 text-sm text-zinc-500 border-b border-zinc-100 dark:border-zinc-800/50">कोई बातचीत नहीं है। WhatsApp API से कनेक्ट करें।</div>
+                 <div className="p-4 text-sm text-surface-500 border-b border-surface-100 dark:border-surface-800/50">कोई बातचीत नहीं है। WhatsApp API से कनेक्ट करें।</div>
             ) : conversations.filter(chat => (chat.status || 'open') === filterStatus).length === 0 ? (
-                 <div className="p-4 text-xs text-zinc-400 text-center mt-6">इस श्रेणी में कोई बातचीत नहीं है।</div>
+                 <div className="p-4 text-xs text-surface-400 text-center mt-6">इस श्रेणी में कोई बातचीत नहीं है।</div>
             ) : (
                 conversations
                   .filter(chat => (chat.status || 'open') === filterStatus)
@@ -693,15 +693,15 @@ export function InboxView({
                     <button 
                       key={chat.id} 
                       onClick={() => { setActiveChat(chat); setIsContactPanelOpen(false); }}
-                      className={`w-full text-left p-4 border-b border-zinc-100 dark:border-zinc-800/50 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors ${activeChat?.id === chat.id ? 'bg-zinc-100 dark:bg-zinc-800' : ''}`}
+                      className={`w-full text-left p-4 border-b border-surface-100 dark:border-surface-800/50 hover:bg-surface-100 dark:hover:bg-surface-800/50 transition-colors ${activeChat?.id === chat.id ? 'bg-surface-100 dark:bg-surface-800' : ''}`}
                     >
                         <div className="flex justify-between items-start mb-1">
-                          <span className="font-medium text-sm text-zinc-900 dark:text-zinc-100">{chat.contact_name || chat.phone || "अमार्ग निर्देशित"}</span>
-                          <span className="text-[10px] text-zinc-500">{formatUserTimeOnly(chat.updated_at, { hour: '2-digit', minute: '2-digit' })}</span>
+                          <span className="font-medium text-sm text-surface-900 dark:text-surface-100">{chat.contact_name || chat.phone || "अमार्ग निर्देशित"}</span>
+                          <span className="text-[10px] text-surface-500">{formatUserTimeOnly(chat.updated_at, { hour: '2-digit', minute: '2-digit' })}</span>
                         </div>
                         <div className="flex justify-between items-center">
-                          <span className="text-xs text-zinc-500 truncate pr-4">{chat.phone}</span>
-                          <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase ${chat.status === 'closed' ? 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400' : 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400'}`}>
+                          <span className="text-xs text-surface-500 truncate pr-4">{chat.phone}</span>
+                          <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase ${chat.status === 'closed' ? 'bg-surface-100 text-surface-500 dark:bg-surface-800 dark:text-surface-400' : 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400'}`}>
                             {chat.status === 'closed' ? 'बंद' : 'सक्रिय'}
                           </span>
                         </div>
@@ -712,30 +712,30 @@ export function InboxView({
       </div>
 
       {/* Chat Area */}
-      <div className={`flex-1 flex flex-col bg-zinc-50 dark:bg-zinc-950/50 relative z-0 ${!activeChat ? 'hidden md:flex' : 'flex'}`}>
+      <div className={`flex-1 flex flex-col bg-surface-50 dark:bg-surface-950/50 relative z-0 ${!activeChat ? 'hidden md:flex' : 'flex'}`}>
           {!activeChat ? (
-            <div className="flex-1 flex items-center justify-center text-zinc-500 flex-col">
-              <MessageSquare className="w-12 h-12 mb-4 text-zinc-300 dark:text-zinc-700" />
+            <div className="flex-1 flex items-center justify-center text-surface-500 flex-col">
+              <MessageSquare className="w-12 h-12 mb-4 text-surface-300 dark:text-surface-700" />
               <p>आपका इनबॉक्स खाली है</p>
-              <p className="text-xs mt-2 text-zinc-400">संदेश भेजने के लिए बाईं ओर से एक बातचीत चुनें</p>
+              <p className="text-xs mt-2 text-surface-400">संदेश भेजने के लिए बाईं ओर से एक बातचीत चुनें</p>
             </div>
           ) : (
             <>
               {/* Chat Header */}
-              <div className="h-16 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex items-center justify-between px-4 md:px-6 flex-shrink-0">
+              <div className="h-16 border-b border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 flex items-center justify-between px-4 md:px-6 flex-shrink-0">
                 <div className="flex items-center gap-2 md:gap-3">
                   <button 
                     onClick={() => setActiveChat(null)}
-                    className="md:hidden p-2 -ml-2 rounded-xl text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                    className="md:hidden p-2 -ml-2 rounded-xl text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800"
                   >
                     <ChevronRight className="w-5 h-5 rotate-180" />
                   </button>
-                  <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-medium text-sm">
+                  <div className="w-8 h-8 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center font-medium text-sm">
                     {activeChat.contact_name ? activeChat.contact_name[0] : <User className="w-4 h-4" />}
                   </div>
                   <div>
                     <h3 className="font-medium text-sm">{activeChat.contact_name || "अज्ञात"}</h3>
-                    <p className="text-xs text-zinc-500">{activeChat.phone}</p>
+                    <p className="text-xs text-surface-500">{activeChat.phone}</p>
                   </div>
                 </div>
 
@@ -757,7 +757,7 @@ export function InboxView({
                         });
                       }
                     }}
-                    className="p-2 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400 dark:hover:bg-indigo-500/20 transition-colors flex items-center gap-1.5"
+                    className="p-2 rounded-lg bg-primary-50 hover:bg-primary-100 text-primary-600 dark:bg-primary-500/10 dark:text-primary-400 dark:hover:bg-primary-500/20 transition-colors flex items-center gap-1.5"
                     title="कॉल करें"
                   >
                     <Phone className="w-4 h-4" />
@@ -766,7 +766,7 @@ export function InboxView({
 
                   <button 
                     onClick={toggleAI}
-                    className={`p-2 rounded-lg transition-colors flex items-center gap-1.5 ${currentReplyMode === 'ai' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400' : 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'}`}
+                    className={`p-2 rounded-lg transition-colors flex items-center gap-1.5 ${currentReplyMode === 'ai' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400' : 'bg-surface-100 text-surface-500 dark:bg-surface-800 dark:text-surface-400 hover:bg-surface-200 dark:hover:bg-surface-700'}`}
                     title="AI चैटबॉट टॉगल करें"
                   >
                     <Bot className="w-4 h-4" />
@@ -775,7 +775,7 @@ export function InboxView({
 
                   <button 
                     onClick={() => updateConversationStatus(activeChat.id, activeChat.status === 'closed' ? 'open' : 'closed')}
-                    className={`p-2 rounded-lg transition-colors flex items-center gap-1.5 ${activeChat.status === 'closed' ? 'bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400 hover:bg-amber-100' : 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'}`}
+                    className={`p-2 rounded-lg transition-colors flex items-center gap-1.5 ${activeChat.status === 'closed' ? 'bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400 hover:bg-amber-100' : 'bg-surface-100 text-surface-600 dark:bg-surface-800 dark:text-surface-400 hover:bg-surface-200 dark:hover:bg-surface-700'}`}
                     title={activeChat.status === 'closed' ? 'बातचीत फिर से खोलें' : 'बातचीत बंद करें'}
                   >
                     <Archive className="w-4 h-4" />
@@ -795,7 +795,7 @@ export function InboxView({
 
                   <button 
                     onClick={() => setIsContactPanelOpen(!isContactPanelOpen)}
-                    className={`p-2 rounded-lg transition-colors ${isContactPanelOpen ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400' : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}
+                    className={`p-2 rounded-lg transition-colors ${isContactPanelOpen ? 'bg-primary-50 text-primary-600 dark:bg-primary-500/10 dark:text-primary-400' : 'text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800'}`}
                     title="संपर्क विवरण"
                   >
                     <User className="w-5 h-5" />
@@ -817,7 +817,7 @@ export function InboxView({
                 }}
                 className="flex-1 overflow-y-auto p-6 space-y-6 flex flex-col">
                  {messages.length === 0 ? (
-                    <p className="text-center text-zinc-500 text-sm mt-10">कोई संदेश नहीं</p>
+                    <p className="text-center text-surface-500 text-sm mt-10">कोई संदेश नहीं</p>
                   ) : (
                     messages.map(msg => {
                       let displayMediaUrl = msg.media_url;
@@ -831,11 +831,11 @@ export function InboxView({
                       
                       return (
                         <div key={msg.id} className={`flex flex-col gap-1 ${isAgent ? 'items-end' : 'items-start'}`}>
-                           <div className={`px-4 py-3 rounded-2xl max-w-[85%] text-sm ${isAgent ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-tl-none'}`}>
+                           <div className={`px-4 py-3 rounded-2xl max-w-[85%] text-sm ${isAgent ? 'bg-primary-600 text-white rounded-tr-none' : 'bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 rounded-tl-none'}`}>
                              {mType === 'image' && (
                                <div className="flex flex-col gap-2">
                                  {displayMediaUrl && (
-                                   <div className="group relative rounded-lg overflow-hidden border border-zinc-100/10 max-w-sm max-h-60 bg-zinc-950/20">
+                                   <div className="group relative rounded-lg overflow-hidden border border-surface-100/10 max-w-sm max-h-60 bg-surface-950/20">
                                      <img 
                                        src={displayMediaUrl} 
                                        alt="WhatsApp अटैचमेंट"
@@ -874,8 +874,8 @@ export function InboxView({
                              )}
 
                              {mType === 'document' && (
-                               <div className="flex items-center gap-3 bg-zinc-50/10 p-3 rounded-xl border border-zinc-100/10 min-w-[200px] text-zinc-900 dark:text-zinc-100">
-                                 <div className="w-10 h-10 bg-indigo-500/10 text-indigo-400 rounded-lg flex items-center justify-center shrink-0">
+                               <div className="flex items-center gap-3 bg-surface-50/10 p-3 rounded-xl border border-surface-100/10 min-w-[200px] text-surface-900 dark:text-surface-100">
+                                 <div className="w-10 h-10 bg-primary-500/10 text-primary-400 rounded-lg flex items-center justify-center shrink-0">
                                    <FileText className="w-5 h-5" />
                                  </div>
                                  <div className="min-w-0 flex-1">
@@ -885,7 +885,7 @@ export function InboxView({
                                        href={displayMediaUrl} 
                                        target="_blank" 
                                        rel="noopener noreferrer" 
-                                       className="text-[10px] text-indigo-400 dark:text-indigo-300 hover:underline mt-1 block font-medium"
+                                       className="text-[10px] text-primary-400 dark:text-primary-300 hover:underline mt-1 block font-medium"
                                      >
                                        डाउनलोड करें
                                      </a>
@@ -901,14 +901,14 @@ export function InboxView({
                                    : null;
                                  
                                  return (
-                                   <div className="flex flex-col gap-2 min-w-[200px] text-zinc-900 dark:text-zinc-100">
-                                     <div className="flex items-center gap-3 bg-zinc-50/10 p-3 rounded-xl border border-zinc-100/10">
+                                   <div className="flex flex-col gap-2 min-w-[200px] text-surface-900 dark:text-surface-100">
+                                     <div className="flex items-center gap-3 bg-surface-50/10 p-3 rounded-xl border border-surface-100/10">
                                        <div className="w-10 h-10 bg-rose-500/10 text-rose-500 rounded-lg flex items-center justify-center shrink-0">
                                          <MapPin className="w-5 h-5" />
                                        </div>
                                        <div className="min-w-0 flex-1 text-xs">
                                          <p className="font-semibold truncate">{loc?.name || 'लोकेशन'}</p>
-                                         <p className="text-[10px] text-zinc-500 truncate">{loc?.address || 'नक्शा देखें'}</p>
+                                         <p className="text-[10px] text-surface-500 truncate">{loc?.address || 'नक्शा देखें'}</p>
                                        </div>
                                      </div>
                                      {loc?.latitude && loc?.longitude && (
@@ -916,7 +916,7 @@ export function InboxView({
                                          href={`https://www.google.com/maps?q=${loc.latitude},${loc.longitude}`}
                                          target="_blank" 
                                          rel="noopener noreferrer" 
-                                         className="text-center text-xs font-semibold py-1.5 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition-colors block mt-1"
+                                         className="text-center text-xs font-semibold py-1.5 px-3 rounded-lg bg-primary-600 hover:bg-primary-500 text-white transition-colors block mt-1"
                                        >
                                          Google Maps पर खोलें 🗺️
                                        </a>
@@ -924,7 +924,7 @@ export function InboxView({
                                    </div>
                                  );
                                } catch (e) {
-                                 return <p className="italic text-xs text-zinc-400">लोकेशन: {msg.content}</p>;
+                                 return <p className="italic text-xs text-surface-400">लोकेशन: {msg.content}</p>;
                                }
                              })()}
 
@@ -937,19 +937,19 @@ export function InboxView({
                                  const cPhone = contactsData?.[0]?.phones?.[0]?.phone || '';
                                  
                                  return (
-                                   <div className="flex items-center gap-3 bg-zinc-50/10 p-3 rounded-xl border border-zinc-100/10 min-w-[200px] text-zinc-900 dark:text-zinc-100">
+                                   <div className="flex items-center gap-3 bg-surface-50/10 p-3 rounded-xl border border-surface-100/10 min-w-[200px] text-surface-900 dark:text-surface-100">
                                      <div className="w-10 h-10 bg-emerald-500/10 text-emerald-500 rounded-lg flex items-center justify-center shrink-0">
                                        <User className="w-5 h-5" />
                                      </div>
                                      <div className="min-w-0 flex-1 text-xs">
                                        <p className="font-semibold truncate">{cName}</p>
-                                       <p className="text-[10px] text-zinc-500 truncate">{cPhone}</p>
+                                       <p className="text-[10px] text-surface-500 truncate">{cPhone}</p>
                                        {cPhone && (
                                          <a 
                                            href={`https://wa.me/${cPhone.replace(/\D/g, '')}`}
                                            target="_blank" 
                                            rel="noopener noreferrer" 
-                                           className="text-[10px] text-indigo-400 dark:text-indigo-300 hover:underline mt-1 block font-medium"
+                                           className="text-[10px] text-primary-400 dark:text-primary-300 hover:underline mt-1 block font-medium"
                                          >
                                            WhatsApp पर चैट करें ↗
                                          </a>
@@ -958,7 +958,7 @@ export function InboxView({
                                    </div>
                                  );
                                } catch (e) {
-                                 return <p className="italic text-xs text-zinc-400">संपर्क: {msg.content}</p>;
+                                 return <p className="italic text-xs text-surface-400">संपर्क: {msg.content}</p>;
                                }
                              })()}
 
@@ -971,7 +971,7 @@ export function InboxView({
                                return (
                                  <div className="flex flex-col gap-2">
                                    {emailMeta?.subject && (
-                                     <p className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-300 uppercase tracking-wide">📧 {emailMeta.subject}</p>
+                                     <p className="text-[11px] font-semibold text-surface-500 dark:text-surface-300 uppercase tracking-wide">📧 {emailMeta.subject}</p>
                                    )}
                                    {emailMeta?.unverified && (
                                      <p className="text-[10px] font-medium text-amber-600 dark:text-amber-400 flex items-center gap-1">
@@ -987,7 +987,7 @@ export function InboxView({
                                            href={a.url}
                                            target="_blank"
                                            rel="noopener noreferrer"
-                                           className="inline-flex items-center gap-2 text-[11px] font-medium text-indigo-500 dark:text-indigo-400 bg-zinc-50/10 px-3 py-1.5 rounded-lg border border-zinc-100/10 hover:bg-zinc-50/20 transition-colors"
+                                           className="inline-flex items-center gap-2 text-[11px] font-medium text-primary-500 dark:text-primary-400 bg-surface-50/10 px-3 py-1.5 rounded-lg border border-surface-100/10 hover:bg-surface-50/20 transition-colors"
                                          >
                                            <FileText className="w-3.5 h-3.5" /> {a.name}
                                          </a>
@@ -1002,30 +1002,30 @@ export function InboxView({
                                <p className="leading-relaxed whitespace-pre-wrap">{msg.content}</p>
                              )}
                              {mType === 'reaction' && (
-                               <div className="flex items-center gap-2 text-zinc-900 dark:text-zinc-100">
+                               <div className="flex items-center gap-2 text-surface-900 dark:text-surface-100">
                                  <span className="text-2xl">{msg.content}</span>
-                                  <span className="text-xs text-zinc-400 italic">(रिएक्शन)</span>
+                                  <span className="text-xs text-surface-400 italic">(रिएक्शन)</span>
                                </div>
                              )}
                              {mType === 'system' && (
-                               <div className="flex items-center gap-2 text-zinc-900 dark:text-zinc-100">
-                                 <span className="text-sm font-semibold italic text-zinc-500">[{msg.content}]</span>
+                               <div className="flex items-center gap-2 text-surface-900 dark:text-surface-100">
+                                 <span className="text-sm font-semibold italic text-surface-500">[{msg.content}]</span>
                                </div>
                              )}
                              {mType === 'unknown' && (
-                               <div className="flex items-center gap-2 text-zinc-900 dark:text-zinc-100">
+                               <div className="flex items-center gap-2 text-surface-900 dark:text-surface-100">
                                  <span className="text-sm italic">({msg.content})</span>
                                </div>
                              )}
                            </div>
                            <div className={`flex items-center gap-1 mt-0.5 ${isAgent ? 'mr-1' : 'ml-1'}`}>
-                             <span className="text-[10px] text-zinc-400">{formatUserTimeOnly(msg.created_at, { hour: '2-digit', minute: '2-digit' })}</span>
+                             <span className="text-[10px] text-surface-400">{formatUserTimeOnly(msg.created_at, { hour: '2-digit', minute: '2-digit' })}</span>
                              {isAgent && (
                                msg.status === 'failed' ? <AlertCircle className="w-3.5 h-3.5 text-rose-500" /> :
-                               msg.status === 'read' ? <CheckCheck className="w-3.5 h-3.5 text-indigo-500" /> :
-                               msg.status === 'delivered' ? <CheckCheck className="w-3.5 h-3.5 text-zinc-400" /> :
-                               msg.status === 'pending' ? <div className="w-3 h-3 border-2 border-zinc-400 dark:border-zinc-500 border-t-transparent rounded-full animate-spin"></div> :
-                               <Check className="w-3.5 h-3.5 text-zinc-400" />
+                               msg.status === 'read' ? <CheckCheck className="w-3.5 h-3.5 text-primary-500" /> :
+                               msg.status === 'delivered' ? <CheckCheck className="w-3.5 h-3.5 text-surface-400" /> :
+                               msg.status === 'pending' ? <div className="w-3 h-3 border-2 border-surface-400 dark:border-surface-500 border-t-transparent rounded-full animate-spin"></div> :
+                               <Check className="w-3.5 h-3.5 text-surface-400" />
                              )}
                            </div>
                         </div>
@@ -1037,9 +1037,9 @@ export function InboxView({
 
               {/* Message Input Drawer and Input field */}
               {attachmentType && (
-                <div className="p-4 bg-zinc-50 dark:bg-zinc-950 border-t border-zinc-200 dark:border-zinc-800 flex flex-col gap-3">
-                  <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-2">
-                    <span className="text-sm font-semibold capitalize text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
+                <div className="p-4 bg-surface-50 dark:bg-surface-950 border-t border-surface-200 dark:border-surface-800 flex flex-col gap-3">
+                  <div className="flex items-center justify-between border-b border-surface-200 dark:border-surface-800 pb-2">
+                    <span className="text-sm font-semibold capitalize text-primary-600 dark:text-primary-400 flex items-center gap-2">
                       {attachmentType === 'image' && '📸 इमेज संदेश भेजें'}
                       {attachmentType === 'video' && '🎥 वीडियो संदेश भेजें'}
                       {attachmentType === 'document' && '📄 दस्तावेज़ भेजें'}
@@ -1062,7 +1062,7 @@ export function InboxView({
                         setLocNameInput('Dhitantra Headquarters');
                         setLocAddressInput('');
                       }}
-                      className="p-1 rounded-full text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                      className="p-1 rounded-full text-surface-400 hover:text-surface-600 dark:hover:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-800"
                     >
                       <X className="w-4 h-4" />
                     </button>
@@ -1071,7 +1071,7 @@ export function InboxView({
                   {(attachmentType === 'image' || attachmentType === 'video' || attachmentType === 'document') && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       <div>
-                        <label className="text-xs text-zinc-500 font-medium block mb-1">फ़ाइल चुनें*</label>
+                        <label className="text-xs text-surface-500 font-medium block mb-1">फ़ाइल चुनें*</label>
                         <input 
                           type="file" 
                           accept={
@@ -1079,7 +1079,7 @@ export function InboxView({
                             attachmentType === 'video' ? "video/*" :
                             "application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                           }
-                          className="w-full text-xs p-1.5 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 outline-none focus:border-indigo-500 text-zinc-800 dark:text-zinc-100 file:mr-3 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+                          className="w-full text-xs p-1.5 rounded-lg bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 outline-none focus:border-primary-500 text-surface-800 dark:text-surface-100 file:mr-3 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100"
                           onChange={async (e) => {
                              const file = e.target.files?.[0];
                              if (file) {
@@ -1090,22 +1090,22 @@ export function InboxView({
                       </div>
                       {attachmentType === 'document' ? (
                         <div>
-                          <label className="text-xs text-zinc-500 font-medium block mb-1">फ़ाइल नाम*</label>
+                          <label className="text-xs text-surface-500 font-medium block mb-1">फ़ाइल नाम*</label>
                           <input 
                             type="text" 
                             placeholder="Invoice.pdf" 
-                            className="w-full text-xs p-2 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 outline-none focus:border-indigo-500 text-zinc-800 dark:text-zinc-100"
+                            className="w-full text-xs p-2 rounded-lg bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 outline-none focus:border-primary-500 text-surface-800 dark:text-surface-100"
                             value={docFilenameInput}
                             onChange={(e) => setDocFilenameInput(e.target.value)}
                           />
                         </div>
                       ) : (
                         <div>
-                          <label className="text-xs text-zinc-500 font-medium block mb-1">कैप्शन (वैकल्पिक)</label>
+                          <label className="text-xs text-surface-500 font-medium block mb-1">कैप्शन (वैकल्पिक)</label>
                           <input 
                             type="text" 
                             placeholder="कैप्शन लिखें..." 
-                            className="w-full text-xs p-2 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 outline-none focus:border-indigo-500 text-zinc-800 dark:text-zinc-100"
+                            className="w-full text-xs p-2 rounded-lg bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 outline-none focus:border-primary-500 text-surface-800 dark:text-surface-100"
                             value={captionInput}
                             onChange={(e) => setCaptionInput(e.target.value)}
                           />
@@ -1117,37 +1117,37 @@ export function InboxView({
                   {attachmentType === 'location' && (
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                       <div>
-                        <label className="text-xs text-zinc-500 font-medium block mb-1">अक्षांश*</label>
+                        <label className="text-xs text-surface-500 font-medium block mb-1">अक्षांश*</label>
                         <input 
                           type="text" 
-                          className="w-full text-xs p-2 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 outline-none focus:border-indigo-500 text-zinc-800 dark:text-zinc-100"
+                          className="w-full text-xs p-2 rounded-lg bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 outline-none focus:border-primary-500 text-surface-800 dark:text-surface-100"
                           value={latInput}
                           onChange={(e) => setLatInput(e.target.value)}
                         />
                       </div>
                       <div>
-                        <label className="text-xs text-zinc-500 font-medium block mb-1">देशांतर*</label>
+                        <label className="text-xs text-surface-500 font-medium block mb-1">देशांतर*</label>
                         <input 
                           type="text" 
-                          className="w-full text-xs p-2 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 outline-none focus:border-indigo-500 text-zinc-800 dark:text-zinc-100"
+                          className="w-full text-xs p-2 rounded-lg bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 outline-none focus:border-primary-500 text-surface-800 dark:text-surface-100"
                           value={lngInput}
                           onChange={(e) => setLngInput(e.target.value)}
                         />
                       </div>
                       <div>
-                        <label className="text-xs text-zinc-500 font-medium block mb-1">लोकेशन का नाम*</label>
+                        <label className="text-xs text-surface-500 font-medium block mb-1">लोकेशन का नाम*</label>
                         <input 
                           type="text" 
-                          className="w-full text-xs p-2 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 outline-none focus:border-indigo-500 text-zinc-800 dark:text-zinc-100"
+                          className="w-full text-xs p-2 rounded-lg bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 outline-none focus:border-primary-500 text-surface-800 dark:text-surface-100"
                           value={locNameInput}
                           onChange={(e) => setLocNameInput(e.target.value)}
                         />
                       </div>
                       <div>
-                        <label className="text-xs text-zinc-500 font-medium block mb-1">लोकेशन का पता</label>
+                        <label className="text-xs text-surface-500 font-medium block mb-1">लोकेशन का पता</label>
                         <input 
                           type="text" 
-                          className="w-full text-xs p-2 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 outline-none focus:border-indigo-500 text-zinc-800 dark:text-zinc-100"
+                          className="w-full text-xs p-2 rounded-lg bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 outline-none focus:border-primary-500 text-surface-800 dark:text-surface-100"
                           value={locAddressInput}
                           onChange={(e) => setLocAddressInput(e.target.value)}
                         />
@@ -1158,22 +1158,22 @@ export function InboxView({
                   {attachmentType === 'contacts' && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       <div>
-                        <label className="text-xs text-zinc-500 font-medium block mb-1">संपर्क नाम*</label>
+                        <label className="text-xs text-surface-500 font-medium block mb-1">संपर्क नाम*</label>
                         <input 
                           type="text" 
                           placeholder="राम शर्मा" 
-                          className="w-full text-xs p-2 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 outline-none focus:border-indigo-500 text-zinc-800 dark:text-zinc-100"
+                          className="w-full text-xs p-2 rounded-lg bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 outline-none focus:border-primary-500 text-surface-800 dark:text-surface-100"
                           value={contactNameInput}
                           onChange={(e) => setContactNameInput(e.target.value)}
                         />
                       </div>
                       <div>
-                        <label className="text-xs text-zinc-500 font-medium block mb-1">फ़ोन नंबर (कंट्री कोड के साथ)*</label>
+                        <label className="text-xs text-surface-500 font-medium block mb-1">फ़ोन नंबर (कंट्री कोड के साथ)*</label>
                         <PhoneInput 
                           international
                           defaultCountry="IN"
                           placeholder="फ़ोन नंबर दर्ज करें" 
-                          className="w-full text-xs p-2 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 outline-none focus:border-indigo-500 text-zinc-800 dark:text-zinc-100"
+                          className="w-full text-xs p-2 rounded-lg bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 outline-none focus:border-primary-500 text-surface-800 dark:text-surface-100"
                           value={contactPhoneInput}
                           onChange={(val) => setContactPhoneInput(val || '')}
                         />
@@ -1198,14 +1198,14 @@ export function InboxView({
                         setLocNameInput('Dhitantra Headquarters');
                         setLocAddressInput('');
                       }}
-                      className="px-3 py-1.5 text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300 transition-colors"
+                      className="px-3 py-1.5 text-xs rounded-lg border border-surface-200 dark:border-surface-800 hover:bg-surface-100 dark:hover:bg-surface-800 text-surface-600 dark:text-surface-300 transition-colors"
                     >
                       रद्द करें
                     </button>
                     <button 
                       onClick={sendRichMessage}
                       disabled={sending}
-                      className="px-4 py-1.5 text-xs rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium transition-colors"
+                      className="px-4 py-1.5 text-xs rounded-lg bg-primary-600 hover:bg-primary-700 text-white font-medium transition-colors"
                     >
                       {sending ? 'भेज रहे हैं...' : 'संदेश भेजें'}
                     </button>
@@ -1213,7 +1213,7 @@ export function InboxView({
                 </div>
               )}
 
-             <div className="p-4 bg-white dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-800 relative flex flex-col gap-2">
+             <div className="p-4 bg-white dark:bg-surface-900 border-t border-surface-200 dark:border-surface-800 relative flex flex-col gap-2">
                {isTemplateRequired && !selectedInboxTemplate && (
                  <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg text-amber-800 dark:text-amber-200 text-xs font-medium space-y-2">
                    <p className="text-center">{!lastCustomerMessageAt ? "ग्राहक के रिप्लाई का इंतज़ार है।" : "24-घंटे की सर्विस विंडो समाप्त हो चुकी है।"} टेम्पलेट भेजकर बातचीत शुरू करें।</p>
@@ -1228,7 +1228,7 @@ export function InboxView({
                           setSelectedInboxTemplate(null);
                           setInboxTemplateParams([]);
                         }
-                      }} value={selectedInboxTemplate?.name || ''} className="flex-1 bg-white dark:bg-zinc-950 border border-amber-300 dark:border-amber-700 rounded-lg px-3 py-2 text-xs outline-none font-mono">
+                      }} value={selectedInboxTemplate?.name || ''} className="flex-1 bg-white dark:bg-surface-950 border border-amber-300 dark:border-amber-700 rounded-lg px-3 py-2 text-xs outline-none font-mono">
                        <option value="" disabled>टेम्पलेट चुनें...</option>
                        {inboxTemplates.map(t => <option key={t.name} value={t.name}>{t.name}</option>)}
                      </select>
@@ -1236,22 +1236,22 @@ export function InboxView({
                  </div>
                )}
                {isTemplateRequired && selectedInboxTemplate && (
-                 <div className="p-3 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg text-xs space-y-2">
+                 <div className="p-3 bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 rounded-lg text-xs space-y-2">
                    <div className="flex items-center justify-between">
-                     <span className="font-mono font-semibold text-indigo-700 dark:text-indigo-300">{selectedInboxTemplate.name}</span>
-                     <button onClick={() => { setSelectedInboxTemplate(null); setInboxTemplateParams([]); }} className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"><X className="w-3.5 h-3.5" /></button>
+                     <span className="font-mono font-semibold text-primary-700 dark:text-primary-300">{selectedInboxTemplate.name}</span>
+                     <button onClick={() => { setSelectedInboxTemplate(null); setInboxTemplateParams([]); }} className="text-surface-400 hover:text-surface-600 dark:hover:text-surface-200"><X className="w-3.5 h-3.5" /></button>
                    </div>
                    {inboxTemplateParams.length > 0 && (
                      <div className="flex flex-wrap gap-2">
                        {inboxTemplateParams.map((val, idx) => (
                          <div key={idx} className="flex items-center gap-1">
-                           <span className="font-mono text-indigo-500 text-[10px]">{'{{' + (idx + 1) + '}}'}</span>
-                           <input type="text" value={val} onChange={e => { const c = [...inboxTemplateParams]; c[idx] = e.target.value; setInboxTemplateParams(c); }} placeholder={`मान ${idx + 1}`} className="w-24 bg-white dark:bg-zinc-950 border border-indigo-200 dark:border-indigo-700 rounded px-2 py-1 text-xs outline-none" />
+                           <span className="font-mono text-primary-500 text-[10px]">{'{{' + (idx + 1) + '}}'}</span>
+                           <input type="text" value={val} onChange={e => { const c = [...inboxTemplateParams]; c[idx] = e.target.value; setInboxTemplateParams(c); }} placeholder={`मान ${idx + 1}`} className="w-24 bg-white dark:bg-surface-950 border border-primary-200 dark:border-primary-700 rounded px-2 py-1 text-xs outline-none" />
                          </div>
                        ))}
                      </div>
                    )}
-                   <button onClick={sendInboxTemplate} disabled={inboxTemplateSending} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-lg text-xs font-semibold transition-all disabled:opacity-50 flex items-center justify-center gap-1.5">
+                   <button onClick={sendInboxTemplate} disabled={inboxTemplateSending} className="w-full bg-primary-600 hover:bg-primary-700 text-white py-2 rounded-lg text-xs font-semibold transition-all disabled:opacity-50 flex items-center justify-center gap-1.5">
                      {inboxTemplateSending ? <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : <Send className="w-3 h-3" />}
                      टेम्पलेट भेजें
                    </button>
@@ -1262,45 +1262,45 @@ export function InboxView({
                    initial={{ opacity: 0, y: 10 }}
                    animate={{ opacity: 1, y: 0 }}
                    exit={{ opacity: 0, y: 10 }}
-                   className="absolute bottom-16 left-6 p-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-xl flex flex-col gap-1 z-50 text-xs font-medium w-48"
+                   className="absolute bottom-16 left-6 p-2 bg-white dark:bg-surface-950 border border-surface-200 dark:border-surface-800 rounded-2xl shadow-xl flex flex-col gap-1 z-50 text-xs font-medium w-48"
                  >
                    <button 
                      onClick={() => { setAttachmentType('image'); setAttachmentMenuOpen(false); }}
-                     className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-900 text-zinc-700 dark:text-zinc-200 w-full text-left"
+                     className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-surface-50 dark:hover:bg-surface-900 text-surface-700 dark:text-surface-200 w-full text-left"
                    >
                       📸 इमेज
                    </button>
                    <button 
                      onClick={() => { setAttachmentType('video'); setAttachmentMenuOpen(false); }}
-                     className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-900 text-zinc-700 dark:text-zinc-200 w-full text-left"
+                     className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-surface-50 dark:hover:bg-surface-900 text-surface-700 dark:text-surface-200 w-full text-left"
                    >
                       🎥 वीडियो
                    </button>
                    <button 
                      onClick={() => { setAttachmentType('document'); setAttachmentMenuOpen(false); }}
-                     className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-900 text-zinc-700 dark:text-zinc-200 w-full text-left"
+                     className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-surface-50 dark:hover:bg-surface-900 text-surface-700 dark:text-surface-200 w-full text-left"
                    >
                       📄 दस्तावेज़
                    </button>
                    <button 
                      onClick={() => { setAttachmentType('location'); setAttachmentMenuOpen(false); }}
-                     className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-900 text-zinc-700 dark:text-zinc-200 w-full text-left"
+                     className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-surface-50 dark:hover:bg-surface-900 text-surface-700 dark:text-surface-200 w-full text-left"
                    >
                       📍 लोकेशन
                    </button>
                    <button 
                      onClick={() => { setAttachmentType('contacts'); setAttachmentMenuOpen(false); }}
-                     className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-900 text-zinc-700 dark:text-zinc-200 w-full text-left"
+                     className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-surface-50 dark:hover:bg-surface-900 text-surface-700 dark:text-surface-200 w-full text-left"
                    >
                       👤 संपर्क
                    </button>
                  </motion.div>
                )}
 
-               <div className="flex items-center gap-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-full pl-3 pr-1 py-1 focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-500 transition-all">
+               <div className="flex items-center gap-2 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-surface-800 rounded-full pl-3 pr-1 py-1 focus-within:ring-2 focus-within:ring-primary-500/20 focus-within:border-primary-500 transition-all">
                  <button 
                    onClick={() => setAttachmentMenuOpen(!attachmentMenuOpen)}
-                   className={`p-2 rounded-full transition-colors ${attachmentMenuOpen ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400' : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}
+                   className={`p-2 rounded-full transition-colors ${attachmentMenuOpen ? 'bg-primary-50 text-primary-600 dark:bg-primary-500/10 dark:text-primary-400' : 'text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800'}`}
                     title="अटैचमेंट जोड़ें"
                    disabled={isTemplateRequired}
                  >
@@ -1318,7 +1318,7 @@ export function InboxView({
                  <button 
                    onClick={sendMessage}
                    disabled={!messageInput.trim() || sending || !!attachmentType || isTemplateRequired}
-                   className={`p-2.5 rounded-full transition-colors flex items-center justify-center ${messageInput.trim() && !sending && !attachmentType && !isTemplateRequired ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-400'}`}
+                   className={`p-2.5 rounded-full transition-colors flex items-center justify-center ${messageInput.trim() && !sending && !attachmentType && !isTemplateRequired ? 'bg-primary-600 text-white hover:bg-primary-700' : 'bg-surface-200 dark:bg-surface-800 text-surface-400'}`}
                  >
                    <Send className="w-4 h-4" />
                  </button>
@@ -1327,12 +1327,12 @@ export function InboxView({
 
              {/* WhatsApp-Style Media Preview */}
              {mediaPreviewUrl && (attachmentType === 'image' || attachmentType === 'video' || attachmentType === 'document') && (
-               <div className="absolute inset-x-0 bottom-0 top-16 bg-zinc-950/95 flex flex-col z-20 transition-all animate-in fade-in-50 duration-200">
+               <div className="absolute inset-x-0 bottom-0 top-16 bg-surface-950/95 flex flex-col z-20 transition-all animate-in fade-in-50 duration-200">
                  {/* Preview Header */}
-                 <div className="h-14 border-b border-zinc-800 px-6 flex items-center justify-between text-white flex-shrink-0">
+                 <div className="h-14 border-b border-surface-800 px-6 flex items-center justify-between text-white flex-shrink-0">
                    <div className="flex items-center gap-3">
                       <span className="font-semibold text-sm">WhatsApp मीडिया प्रीव्यू</span>
-                     <span className="text-xs text-zinc-400 capitalize bg-zinc-800 px-2 py-0.5 rounded-full">{attachmentType}</span>
+                     <span className="text-xs text-surface-400 capitalize bg-surface-800 px-2 py-0.5 rounded-full">{attachmentType}</span>
                    </div>
                    <button 
                      onClick={() => {
@@ -1341,7 +1341,7 @@ export function InboxView({
                        setMediaUrlInput('');
                        setAttachmentType(null);
                      }}
-                     className="p-1.5 rounded-full hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors"
+                     className="p-1.5 rounded-full hover:bg-surface-800 text-surface-400 hover:text-white transition-colors"
                       title="रद्द करें"
                    >
                      <X className="w-5 h-5" />
@@ -1354,7 +1354,7 @@ export function InboxView({
                      <img 
                        src={mediaPreviewUrl} 
                         alt="प्रीव्यू" 
-                       className="max-h-full max-w-full object-contain rounded-lg shadow-2xl border border-zinc-800 animate-in zoom-in-95 duration-200"
+                       className="max-h-full max-w-full object-contain rounded-lg shadow-2xl border border-surface-800 animate-in zoom-in-95 duration-200"
                        onError={(e) => {
                          (e.target as HTMLElement).style.display = 'none';
                        }}
@@ -1364,40 +1364,40 @@ export function InboxView({
                      <video 
                        src={mediaPreviewUrl} 
                        controls 
-                       className="max-h-full max-w-full object-contain rounded-lg shadow-2xl border border-zinc-800 animate-in zoom-in-95 duration-200" 
+                       className="max-h-full max-w-full object-contain rounded-lg shadow-2xl border border-surface-800 animate-in zoom-in-95 duration-200" 
                      />
                    )}
                    {attachmentType === 'document' && (
-                     <div className="flex flex-col items-center justify-center p-8 bg-zinc-900 border border-zinc-800 rounded-2xl shadow-xl text-center animate-in zoom-in-95 duration-200">
-                       <FileText className="w-16 h-16 text-indigo-500 mb-3" />
-                       <span className="text-sm font-semibold text-zinc-200 truncate max-w-xs block">
+                     <div className="flex flex-col items-center justify-center p-8 bg-surface-900 border border-surface-800 rounded-2xl shadow-xl text-center animate-in zoom-in-95 duration-200">
+                       <FileText className="w-16 h-16 text-primary-500 mb-3" />
+                       <span className="text-sm font-semibold text-surface-200 truncate max-w-xs block">
                          {docFilenameInput || (mediaFileState ? mediaFileState.name : "Document.pdf")}
                        </span>
-                        <span className="text-xs text-zinc-500 mt-1">सुरक्षित R2 स्टोरेज से भेजने के लिए तैयार</span>
+                        <span className="text-xs text-surface-500 mt-1">सुरक्षित R2 स्टोरेज से भेजने के लिए तैयार</span>
                      </div>
                    )}
                  </div>
 
                  {/* WhatsApp-Style Bottom Input Area with green Send Button */}
-                 <div className="p-4 bg-zinc-900 border-t border-zinc-800 flex items-center justify-center flex-shrink-0">
+                 <div className="p-4 bg-surface-900 border-t border-surface-800 flex items-center justify-center flex-shrink-0">
                    <div className="w-full max-w-2xl flex items-center gap-3">
                      {attachmentType === 'document' ? (
-                       <div className="flex-1 bg-zinc-800/50 border border-zinc-700/50 rounded-xl px-4 py-3 text-sm text-white flex items-center gap-2">
-                          <span className="text-zinc-400 font-medium text-xs">फ़ाइल का नाम:</span>
+                       <div className="flex-1 bg-surface-800/50 border border-surface-700/50 rounded-xl px-4 py-3 text-sm text-white flex items-center gap-2">
+                          <span className="text-surface-400 font-medium text-xs">फ़ाइल का नाम:</span>
                          <input 
                            type="text" 
-                           className="bg-transparent border-none outline-none flex-1 text-white placeholder-zinc-500"
+                           className="bg-transparent border-none outline-none flex-1 text-white placeholder-surface-500"
                            placeholder="दस्तावेज़ का नाम दर्ज करें (जैसे Invoice.pdf)..."
                            value={docFilenameInput}
                            onChange={(e) => setDocFilenameInput(e.target.value)}
                          />
                        </div>
                      ) : (
-                       <div className="flex-1 bg-zinc-800/50 border border-zinc-700/50 rounded-xl px-4 py-3 text-sm text-white flex items-center gap-2">
-                          <span className="text-zinc-400 font-medium text-xs">कैप्शन:</span>
+                       <div className="flex-1 bg-surface-800/50 border border-surface-700/50 rounded-xl px-4 py-3 text-sm text-white flex items-center gap-2">
+                          <span className="text-surface-400 font-medium text-xs">कैप्शन:</span>
                          <input 
                            type="text" 
-                           className="bg-transparent border-none outline-none flex-1 text-white placeholder-zinc-500"
+                           className="bg-transparent border-none outline-none flex-1 text-white placeholder-surface-500"
                             placeholder="कैप्शन जोड़ें..."
                            value={captionInput}
                            onChange={(e) => setCaptionInput(e.target.value)}
@@ -1408,7 +1408,7 @@ export function InboxView({
                      <button 
                        onClick={sendRichMessage}
                        disabled={sending}
-                       className="w-12 h-12 rounded-full bg-emerald-500 hover:bg-emerald-600 disabled:bg-zinc-800 text-white flex items-center justify-center transition-all shadow-lg active:scale-95"
+                       className="w-12 h-12 rounded-full bg-emerald-500 hover:bg-emerald-600 disabled:bg-surface-800 text-white flex items-center justify-center transition-all shadow-lg active:scale-95"
                         title="भेजें"
                      >
                        {sending ? (
@@ -1431,13 +1431,13 @@ export function InboxView({
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: "100%", opacity: 0 }}
             transition={{ type: "spring", bounce: 0, duration: 0.3 }}
-            className="w-full md:w-80 border-l border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex flex-col absolute right-0 top-0 bottom-0 z-30 shadow-2xl"
+            className="w-full md:w-80 border-l border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 flex flex-col absolute right-0 top-0 bottom-0 z-30 shadow-2xl"
           >
-            <div className="h-16 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between px-4 flex-shrink-0">
+            <div className="h-16 border-b border-surface-200 dark:border-surface-800 flex items-center justify-between px-4 flex-shrink-0">
               <h2 className="font-medium">संपर्क विवरण</h2>
               <button 
                 onClick={() => setIsContactPanelOpen(false)}
-                className="p-1.5 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                className="p-1.5 text-surface-400 hover:text-surface-900 dark:hover:text-surface-100 rounded-lg hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1445,32 +1445,32 @@ export function InboxView({
             
             <div className="flex-1 overflow-y-auto p-6">
               <div className="flex flex-col items-center mb-8">
-                <div className="w-20 h-20 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-semibold text-2xl mb-4">
+                <div className="w-20 h-20 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center font-semibold text-2xl mb-4">
                    {activeChat.contact_name ? activeChat.contact_name[0] : <User className="w-8 h-8" />}
                 </div>
-                <h3 className="font-medium text-lg text-zinc-900 dark:text-zinc-100">{activeChat.contact_name || "अज्ञात"}</h3>
-                <span className="inline-flex items-center px-2 py-1 mt-2 rounded-md text-xs font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300">
+                <h3 className="font-medium text-lg text-surface-900 dark:text-surface-100">{activeChat.contact_name || "अज्ञात"}</h3>
+                <span className="inline-flex items-center px-2 py-1 mt-2 rounded-md text-xs font-medium bg-surface-100 dark:bg-surface-800 text-surface-600 dark:text-surface-300">
                   {activeChat.status}
                 </span>
               </div>
 
               <div className="space-y-6">
                 <div>
-                  <h4 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 uppercase tracking-wider mb-3">जानकारी</h4>
+                  <h4 className="text-xs font-semibold text-surface-900 dark:text-surface-100 uppercase tracking-wider mb-3">जानकारी</h4>
                   <div className="space-y-3">
-                    <div className="flex items-center gap-3 text-sm text-zinc-600 dark:text-zinc-400">
-                      <Phone className="w-4 h-4 text-zinc-400" />
+                    <div className="flex items-center gap-3 text-sm text-surface-600 dark:text-surface-400">
+                      <Phone className="w-4 h-4 text-surface-400" />
                       <span>{activeChat.phone}</span>
                     </div>
                     {activeChat.company && (
-                      <div className="flex items-center gap-3 text-sm text-zinc-600 dark:text-zinc-400">
-                        <Building2 className="w-4 h-4 text-zinc-400" />
+                      <div className="flex items-center gap-3 text-sm text-surface-600 dark:text-surface-400">
+                        <Building2 className="w-4 h-4 text-surface-400" />
                         <span>{activeChat.company}</span>
                       </div>
                     )}
                     {activeChat.location && (
-                      <div className="flex items-center gap-3 text-sm text-zinc-600 dark:text-zinc-400">
-                        <MapPin className="w-4 h-4 text-zinc-400" />
+                      <div className="flex items-center gap-3 text-sm text-surface-600 dark:text-surface-400">
+                        <MapPin className="w-4 h-4 text-surface-400" />
                         <span>{activeChat.location}</span>
                       </div>
                     )}
@@ -1479,16 +1479,16 @@ export function InboxView({
 
                 {activeChat.history && activeChat.history.length > 0 && (
                   <div>
-                    <h4 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 uppercase tracking-wider mb-3 flex items-center gap-2">
-                      <History className="w-4 h-4 text-zinc-400" />
+                    <h4 className="text-xs font-semibold text-surface-900 dark:text-surface-100 uppercase tracking-wider mb-3 flex items-center gap-2">
+                      <History className="w-4 h-4 text-surface-400" />
                       हाल की गतिविधि
                     </h4>
-                    <div className="relative border-l border-zinc-200 dark:border-zinc-800 ml-2 space-y-4 pb-2">
+                    <div className="relative border-l border-surface-200 dark:border-surface-800 ml-2 space-y-4 pb-2">
                       {activeChat.history.map((item: any, i: number) => (
                         <div key={i} className="relative pl-4">
-                          <div className="absolute w-2 h-2 bg-zinc-200 dark:bg-zinc-700 rounded-full -left-[4.5px] top-1.5 border border-white dark:border-zinc-900"></div>
-                          <p className="text-sm text-zinc-900 dark:text-zinc-100">{item.action}</p>
-                          <p className="text-xs text-zinc-500 mt-0.5">{item.date}</p>
+                          <div className="absolute w-2 h-2 bg-surface-200 dark:bg-surface-700 rounded-full -left-[4.5px] top-1.5 border border-white dark:border-surface-900"></div>
+                          <p className="text-sm text-surface-900 dark:text-surface-100">{item.action}</p>
+                          <p className="text-xs text-surface-500 mt-0.5">{item.date}</p>
                         </div>
                       ))}
                     </div>
@@ -1496,12 +1496,12 @@ export function InboxView({
                 )}
                 
                 <div>
-                  <h4 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 uppercase tracking-wider mb-3">टैग</h4>
+                  <h4 className="text-xs font-semibold text-surface-900 dark:text-surface-100 uppercase tracking-wider mb-3">टैग</h4>
                   <div className="flex flex-wrap gap-2">
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20">
                       <Tag className="w-3 h-3" /> WhatsApp
                     </span>
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-primary-50 text-primary-700 dark:bg-primary-500/10 dark:text-primary-400 border border-primary-200 dark:border-primary-500/20">
                       <Tag className="w-3 h-3" /> VIP
                     </span>
                   </div>

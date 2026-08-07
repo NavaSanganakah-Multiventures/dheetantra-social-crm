@@ -244,14 +244,14 @@ export default function GeminiVoiceBridge({ workspaceId }: GeminiVoiceBridgeProp
   if (!isActive) return null;
 
   return (
-    <div className="fixed bottom-4 right-4 bg-zinc-900 text-white p-4 rounded-xl shadow-2xl flex items-center gap-3 z-50 border border-zinc-700 animate-in slide-in-from-bottom-5">
+    <div className="fixed bottom-4 right-4 bg-surface-900 text-white p-4 rounded-xl shadow-2xl flex items-center gap-3 z-50 border border-surface-700 animate-in slide-in-from-bottom-5">
       <div className="relative flex h-3 w-3">
         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
         <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
       </div>
       <div>
         <h4 className="text-sm font-bold">Gemini Voice Agent</h4>
-        <p className="text-xs text-zinc-400">{status}</p>
+        <p className="text-xs text-surface-400">{status}</p>
       </div>
       <button
         onClick={() => {

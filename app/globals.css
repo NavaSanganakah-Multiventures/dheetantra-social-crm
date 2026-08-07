@@ -1,5 +1,16 @@
 @import "tailwindcss";
 
+/* Class-based dark mode: `dark` class on <html> controls all `dark:` variants */
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  color-scheme: light;
+}
+
+.dark {
+  color-scheme: dark;
+}
+
 @font-face {
   font-family: 'Inter';
   font-style: normal;

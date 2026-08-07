@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { MessageSquare, Settings, Search, Phone, X, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useToast } from '@/components/ui/Toast';
@@ -136,26 +136,26 @@ export function CallsView({
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6 w-full animate-fade-in">
       {/* Top Banner & Calling Switch */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-surface-900 p-6 rounded-2xl border border-surface-200 dark:border-surface-800 shadow-sm">
         <div>
-          <h2 className="text-xl font-bold text-zinc-900 dark:text-white font-display">कॉल प्रबंधन और इतिहास</h2>
-          <p className="text-xs text-zinc-500 mt-1">व्हाट्सएप बिजनेस क्लाउड एपीआई के माध्यम से सभी कॉल्स को सक्षम/अक्षम करें और ट्रैक करें</p>
+          <h2 className="text-xl font-bold text-surface-900 dark:text-white font-display">कॉल प्रबंधन और इतिहास</h2>
+          <p className="text-xs text-surface-500 mt-1">व्हाट्सएप बिजनेस क्लाउड एपीआई के माध्यम से सभी कॉल्स को सक्षम/अक्षम करें और ट्रैक करें</p>
         </div>
         <div className="flex items-center gap-4 shrink-0">
           <button
             onClick={() => setShowDialer(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-indigo-500/10"
+            className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-primary-500/10"
           >
             <Phone className="w-3.5 h-3.5" />
             नया कॉल डायल करें
           </button>
           
-          <div className="flex items-center gap-3 bg-zinc-50 dark:bg-zinc-950 p-2 rounded-xl border border-zinc-200/50 dark:border-zinc-800">
-            <span className="text-xs font-semibold text-zinc-600 dark:text-zinc-400">कॉलिंग सेवा</span>
+          <div className="flex items-center gap-3 bg-surface-50 dark:bg-surface-950 p-2 rounded-xl border border-surface-200/50 dark:border-surface-800">
+            <span className="text-xs font-semibold text-surface-600 dark:text-surface-400">कॉलिंग सेवा</span>
             <button
               onClick={toggleCalling}
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-300 outline-none ${
-                callingEnabled ? 'bg-emerald-500' : 'bg-zinc-300 dark:bg-zinc-800'
+                callingEnabled ? 'bg-emerald-500' : 'bg-surface-300 dark:bg-surface-800'
               }`}
             >
               <span
@@ -164,7 +164,7 @@ export function CallsView({
                 }`}
               />
             </button>
-            <span className={`text-[10px] font-bold uppercase tracking-wider ${callingEnabled ? 'text-emerald-500' : 'text-zinc-400'}`}>
+            <span className={`text-[10px] font-bold uppercase tracking-wider ${callingEnabled ? 'text-emerald-500' : 'text-surface-400'}`}>
               {callingEnabled ? 'सक्रिय' : 'बंद'}
             </span>
           </div>
@@ -184,7 +184,7 @@ export function CallsView({
           </div>
           <button
             onClick={() => fetchCallsAndConfigs()}
-            className="px-2 py-1 rounded-md bg-white dark:bg-zinc-900 border border-current opacity-80 hover:opacity-100"
+            className="px-2 py-1 rounded-md bg-white dark:bg-surface-900 border border-current opacity-80 hover:opacity-100"
           >
             रिफ्रेश
           </button>
@@ -193,61 +193,61 @@ export function CallsView({
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white dark:bg-zinc-900 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm flex items-center gap-4">
-          <div className="p-3 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 rounded-xl">
+        <div className="bg-white dark:bg-surface-900 p-4 rounded-xl border border-surface-200 dark:border-surface-800 shadow-sm flex items-center gap-4">
+          <div className="p-3 bg-primary-50 dark:bg-primary-950/40 text-primary-600 dark:text-primary-400 rounded-xl">
             <Phone className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">कुल कॉल्स</p>
-            <p className="text-xl font-bold text-zinc-900 dark:text-white mt-0.5">{totalCalls}</p>
+            <p className="text-[10px] text-surface-500 uppercase font-bold tracking-wider">कुल कॉल्स</p>
+            <p className="text-xl font-bold text-surface-900 dark:text-white mt-0.5">{totalCalls}</p>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-zinc-900 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm flex items-center gap-4">
+        <div className="bg-white dark:bg-surface-900 p-4 rounded-xl border border-surface-200 dark:border-surface-800 shadow-sm flex items-center gap-4">
           <div className="p-3 bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 rounded-xl">
             <X className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">मिस्ड कॉल्स</p>
-            <p className="text-xl font-bold text-zinc-900 dark:text-white mt-0.5">{missedCalls}</p>
+            <p className="text-[10px] text-surface-500 uppercase font-bold tracking-wider">मिस्ड कॉल्स</p>
+            <p className="text-xl font-bold text-surface-900 dark:text-white mt-0.5">{missedCalls}</p>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-zinc-900 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm flex items-center gap-4">
+        <div className="bg-white dark:bg-surface-900 p-4 rounded-xl border border-surface-200 dark:border-surface-800 shadow-sm flex items-center gap-4">
           <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 rounded-xl">
             <Check className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">सफल उत्तर</p>
-            <p className="text-xl font-bold text-zinc-900 dark:text-white mt-0.5">{completedCalls}</p>
+            <p className="text-[10px] text-surface-500 uppercase font-bold tracking-wider">सफल उत्तर</p>
+            <p className="text-xl font-bold text-surface-900 dark:text-white mt-0.5">{completedCalls}</p>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-zinc-900 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm flex items-center gap-4">
+        <div className="bg-white dark:bg-surface-900 p-4 rounded-xl border border-surface-200 dark:border-surface-800 shadow-sm flex items-center gap-4">
           <div className="p-3 bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 rounded-xl">
             <Phone className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">आउटगोइंग</p>
-            <p className="text-xl font-bold text-zinc-900 dark:text-white mt-0.5">{outgoingCalls}</p>
+            <p className="text-[10px] text-surface-500 uppercase font-bold tracking-wider">आउटगोइंग</p>
+            <p className="text-xl font-bold text-surface-900 dark:text-white mt-0.5">{outgoingCalls}</p>
           </div>
         </div>
       </div>
 
       
       {/* Main Table Container */}
-      <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden">
+      <div className="bg-white dark:bg-surface-900 rounded-2xl border border-surface-200 dark:border-surface-800 shadow-sm overflow-hidden">
         {/* Filters and Search */}
-        <div className="p-4 border-b border-zinc-200 dark:border-zinc-800 flex flex-col sm:flex-row justify-between items-center gap-4">
-          <div className="flex bg-zinc-50 dark:bg-zinc-950 p-1 rounded-xl border border-zinc-200/50 dark:border-zinc-800 w-full sm:w-auto">
+        <div className="p-4 border-b border-surface-200 dark:border-surface-800 flex flex-col sm:flex-row justify-between items-center gap-4">
+          <div className="flex bg-surface-50 dark:bg-surface-950 p-1 rounded-xl border border-surface-200/50 dark:border-surface-800 w-full sm:w-auto">
             {(["all", "incoming", "outgoing", "missed"] as const).map(type => (
               <button
                 key={type}
                 onClick={() => setFilter(type)}
                 className={`flex-1 sm:flex-initial px-4 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all ${
                   filter === type 
-                    ? 'bg-white dark:bg-zinc-800 text-indigo-600 dark:text-indigo-400 shadow-sm border border-zinc-200/50 dark:border-zinc-700/50' 
-                    : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
+                    ? 'bg-white dark:bg-surface-800 text-primary-600 dark:text-primary-400 shadow-sm border border-surface-200/50 dark:border-surface-700/50' 
+                    : 'text-surface-500 hover:text-surface-900 dark:hover:text-white'
                 }`}
               >
                 {type === 'all' ? 'सभी' : type === 'incoming' ? 'इनकमिंग' : type === 'outgoing' ? 'आउटगोइंग' : 'मिस्ड'}
@@ -256,13 +256,13 @@ export function CallsView({
           </div>
 
           <div className="relative w-full sm:w-64">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-surface-400" />
             <input
               type="text"
               placeholder="नाम या नंबर से खोजें..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 text-xs bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 focus:bg-white dark:focus:bg-zinc-900 focus:border-indigo-500 rounded-xl outline-none transition-all"
+              className="w-full pl-9 pr-4 py-2 text-xs bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-surface-800 focus:bg-white dark:focus:bg-surface-900 focus:border-primary-500 rounded-xl outline-none transition-all"
             />
           </div>
         </div>
@@ -270,20 +270,20 @@ export function CallsView({
         {/* Call Logs List */}
         {loading ? (
           <div className="p-12 text-center">
-            <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-            <p className="text-xs text-zinc-500">कॉल लॉग्स लोड हो रहे हैं...</p>
+            <div className="w-6 h-6 border-2 border-primary-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+            <p className="text-xs text-surface-500">कॉल लॉग्स लोड हो रहे हैं...</p>
           </div>
         ) : filteredCalls.length === 0 ? (
           <div className="p-16 text-center">
-            <Phone className="w-10 h-10 text-zinc-300 dark:text-zinc-700 mx-auto mb-3" />
-            <p className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">कोई कॉल लॉग नहीं मिला</p>
-            <p className="text-xs text-zinc-400 mt-1">इस फ़िल्टर के साथ कोई रिकॉर्ड नहीं है।</p>
+            <Phone className="w-10 h-10 text-surface-300 dark:text-surface-700 mx-auto mb-3" />
+            <p className="text-sm font-semibold text-surface-700 dark:text-surface-300">कोई कॉल लॉग नहीं मिला</p>
+            <p className="text-xs text-surface-400 mt-1">इस फ़िल्टर के साथ कोई रिकॉर्ड नहीं है।</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-zinc-50 dark:bg-zinc-950 text-[10px] font-bold text-zinc-500 uppercase tracking-wider border-b border-zinc-200 dark:border-zinc-800">
+                <tr className="bg-surface-50 dark:bg-surface-950 text-[10px] font-bold text-surface-500 uppercase tracking-wider border-b border-surface-200 dark:border-surface-800">
                   <th className="px-6 py-3">सम्पर्क</th>
                   <th className="px-6 py-3">दिशा/प्रकार</th>
                   <th className="px-6 py-3">स्थिति</th>
@@ -292,7 +292,7 @@ export function CallsView({
                   <th className="px-6 py-3 text-right">कार्रवाई</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800 text-xs">
+              <tbody className="divide-y divide-surface-200 dark:divide-surface-800 text-xs">
                 {filteredCalls.map((call) => {
                   const dateStr = formatUserDateTime(call.created_at, 'hi-IN', {
                     day: 'numeric', month: 'short', year: 'numeric',
@@ -300,15 +300,15 @@ export function CallsView({
                   });
 
                   return (
-                    <tr key={call.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-950/20 transition-colors">
+                    <tr key={call.id} className="hover:bg-surface-50/50 dark:hover:bg-surface-950/20 transition-colors">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center font-bold text-zinc-700 dark:text-zinc-300">
+                          <div className="w-8 h-8 rounded-full bg-surface-100 dark:bg-surface-800 flex items-center justify-center font-bold text-surface-700 dark:text-surface-300">
                             {call.contact_name?.[0] || '?'}
                           </div>
                           <div>
-                            <p className="font-semibold text-zinc-800 dark:text-zinc-200">{call.contact_name || 'अज्ञात संपर्क'}</p>
-                            <p className="text-[10px] text-zinc-400">+{call.phone}</p>
+                            <p className="font-semibold text-surface-800 dark:text-surface-200">{call.contact_name || 'अज्ञात संपर्क'}</p>
+                            <p className="text-[10px] text-surface-400">+{call.phone}</p>
                           </div>
                         </div>
                       </td>
@@ -325,7 +325,7 @@ export function CallsView({
                               आउटगोइंग
                             </span>
                           )}
-                          <span className="text-[10px] text-zinc-500 dark:text-zinc-400 capitalize">
+                          <span className="text-[10px] text-surface-500 dark:text-surface-400 capitalize">
                             {call.type === 'voice' ? 'वॉयस कॉल' : 'वीडियो कॉल'}
                           </span>
                         </div>
@@ -336,13 +336,13 @@ export function CallsView({
                             ? 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600'
                             : call.status === 'missed'
                             ? 'bg-rose-50 dark:bg-rose-950/20 text-rose-600'
-                            : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500'
+                            : 'bg-surface-100 dark:bg-surface-800 text-surface-500'
                         }`}>
                           {call.status === 'completed' || call.status === 'answered' ? 'सफल' : call.status === 'missed' ? 'छूट गया' : 'अस्वीकृत'}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-zinc-500 dark:text-zinc-400">{dateStr}</td>
-                      <td className="px-6 py-4 font-mono text-[11px] text-zinc-600 dark:text-zinc-400">
+                      <td className="px-6 py-4 text-surface-500 dark:text-surface-400">{dateStr}</td>
+                      <td className="px-6 py-4 font-mono text-[11px] text-surface-600 dark:text-surface-400">
                         {call.status === 'missed' ? '-' : `${Math.floor(call.duration / 60)}m ${call.duration % 60}s`}
                       </td>
                       <td className="px-6 py-4 text-right">
@@ -365,14 +365,14 @@ export function CallsView({
                                 }
                               });
                             }}
-                            className="p-1.5 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
+                            className="p-1.5 text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800 rounded-lg transition-colors"
                             title="इनबॉक्स चैट खोलें"
                           >
                             <MessageSquare className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => startOutgoingCall({ id: call.contact_id, name: call.contact_name, phone: call.phone })}
-                            className="p-1.5 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 rounded-lg transition-colors"
+                            className="p-1.5 text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-950/40 rounded-lg transition-colors"
                             title="कॉल बैक करें"
                           >
                             <Phone className="w-4 h-4" />
@@ -396,42 +396,42 @@ export function CallsView({
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 max-w-sm w-full p-6 shadow-2xl relative"
+              className="bg-white dark:bg-surface-900 rounded-2xl border border-surface-200 dark:border-surface-800 max-w-sm w-full p-6 shadow-2xl relative"
             >
               <button
                 onClick={() => setShowDialer(false)}
-                className="absolute top-4 right-4 p-1.5 text-zinc-400 hover:text-zinc-600 dark:hover:text-white rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                className="absolute top-4 right-4 p-1.5 text-surface-400 hover:text-surface-600 dark:hover:text-white rounded-lg hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
 
               <div className="text-center mb-6">
-                <div className="w-12 h-12 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 rounded-full flex items-center justify-center mx-auto mb-3">
+                <div className="w-12 h-12 bg-primary-50 dark:bg-primary-950/40 text-primary-600 dark:text-primary-400 rounded-full flex items-center justify-center mx-auto mb-3">
                   <Phone className="w-6 h-6" />
                 </div>
-                <h3 className="font-bold text-zinc-950 dark:text-white">नया कॉल शुरू करें</h3>
-                <p className="text-[10px] text-zinc-400 mt-1">अपने किसी भी व्हाट्सएप कांटेक्ट को डायल करें</p>
+                <h3 className="font-bold text-surface-950 dark:text-white">नया कॉल शुरू करें</h3>
+                <p className="text-[10px] text-surface-400 mt-1">अपने किसी भी व्हाट्सएप कांटेक्ट को डायल करें</p>
               </div>
 
               {/* Contact List */}
               <div className="max-h-60 overflow-y-auto space-y-2 pr-1">
                 {contacts.length === 0 ? (
-                  <p className="text-center text-xs text-zinc-400 py-6">कोई भी व्हाट्सएप कांटेक्ट उपलब्ध नहीं है।</p>
+                  <p className="text-center text-xs text-surface-400 py-6">कोई भी व्हाट्सएप कांटेक्ट उपलब्ध नहीं है।</p>
                 ) : (
                   contacts.map(c => (
                     <button
                       key={c.id}
                       onClick={() => startOutgoingCall(c)}
-                      className="w-full flex items-center gap-3 p-2.5 rounded-xl border border-zinc-100 dark:border-zinc-800/50 hover:bg-zinc-50 dark:hover:bg-zinc-800/40 transition-colors text-left"
+                      className="w-full flex items-center gap-3 p-2.5 rounded-xl border border-surface-100 dark:border-surface-800/50 hover:bg-surface-50 dark:hover:bg-surface-800/40 transition-colors text-left"
                     >
-                      <div className="w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center font-bold text-xs text-zinc-700 dark:text-zinc-300 shrink-0">
+                      <div className="w-8 h-8 rounded-full bg-surface-100 dark:bg-surface-800 flex items-center justify-center font-bold text-xs text-surface-700 dark:text-surface-300 shrink-0">
                         {c.name?.[0] || '?'}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold text-zinc-900 dark:text-white truncate">{c.name}</p>
-                        <p className="text-[10px] text-zinc-400 font-mono">+{c.phone || c.platform_contact_id}</p>
+                        <p className="text-xs font-bold text-surface-900 dark:text-white truncate">{c.name}</p>
+                        <p className="text-[10px] text-surface-400 font-mono">+{c.phone || c.platform_contact_id}</p>
                       </div>
-                      <Phone className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                      <Phone className="w-3.5 h-3.5 text-primary-600 shrink-0" />
                     </button>
                   ))
                 )}

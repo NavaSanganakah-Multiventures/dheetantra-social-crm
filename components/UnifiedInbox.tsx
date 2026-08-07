@@ -45,11 +45,11 @@ const fmtDay = (dateStr: string | Date | number) => {
 type Platform = 'all' | 'whatsapp' | 'instagram' | 'facebook' | 'email';
 
 const PLATFORMS: { key: Platform; label: string; icon: React.ReactNode; color: string }[] = [
-  { key: 'all', label: 'सभी', icon: <Inbox className="w-3.5 h-3.5" />, color: 'text-zinc-400' },
+  { key: 'all', label: 'सभी', icon: <Inbox className="w-3.5 h-3.5" />, color: 'text-surface-400' },
   { key: 'whatsapp', label: 'WhatsApp', icon: <MessageCircle className="w-3.5 h-3.5" />, color: 'text-emerald-500' },
   { key: 'instagram', label: 'Instagram', icon: <Instagram className="w-3.5 h-3.5" />, color: 'text-pink-500' },
   { key: 'facebook', label: 'Facebook', icon: <Facebook className="w-3.5 h-3.5" />, color: 'text-blue-500' },
-  { key: 'email', label: 'ईमेल', icon: <Mail className="w-3.5 h-3.5" />, color: 'text-indigo-500' },
+  { key: 'email', label: 'ईमेल', icon: <Mail className="w-3.5 h-3.5" />, color: 'text-primary-500' },
 ];
 
 // AI filter categories (match src/services/inboxAI.ts)
@@ -71,7 +71,7 @@ const AI_LABEL_STYLE: Record<string, string> = {
   inquiry: 'bg-sky-500/10 text-sky-400 border-sky-500/20',
   support: 'bg-violet-500/10 text-violet-400 border-violet-500/20',
   follow_up: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
-  spam: 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20',
+  spam: 'bg-surface-500/10 text-surface-400 border-surface-500/20',
 };
 
 const AI_LABEL_TEXT: Record<string, string> = {
@@ -309,7 +309,7 @@ export default function UnifiedInbox({
 
   // ---------- Render ----------
   return (
-    <div className="h-full flex bg-white dark:bg-zinc-950 relative">
+    <div className="h-full flex bg-white dark:bg-surface-950 relative">
       {/* Toast */}
       {toast && (
         <div className={`absolute top-4 right-4 z-50 px-4 py-2.5 rounded-xl text-sm font-medium shadow-xl border ${
@@ -322,17 +322,17 @@ export default function UnifiedInbox({
       )}
 
       {/* ================= LEFT: Conversation List ================= */}
-      <div className="w-full md:w-[380px] lg:w-[400px] shrink-0 border-r border-zinc-200 dark:border-zinc-800 flex flex-col min-h-0">
+      <div className="w-full md:w-[380px] lg:w-[400px] shrink-0 border-r border-surface-200 dark:border-surface-800 flex flex-col min-h-0">
         {/* Header / Search */}
-        <div className="p-4 border-b border-zinc-200 dark:border-zinc-800 space-y-3">
+        <div className="p-4 border-b border-surface-200 dark:border-surface-800 space-y-3">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-400" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="नाम, नंबर या ईमेल से खोजें..."
-              className="w-full pl-9 pr-3 py-2 text-sm rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 focus:border-indigo-500 outline-none transition-colors"
+              className="w-full pl-9 pr-3 py-2 text-sm rounded-xl border border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-900 focus:border-primary-500 outline-none transition-colors"
             />
           </div>
 
@@ -344,14 +344,14 @@ export default function UnifiedInbox({
                 onClick={() => setPlatform(p.key)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap border transition-all ${
                   platform === p.key
-                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                    : 'bg-zinc-50 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800 hover:border-indigo-400'
+                    ? 'bg-primary-600 text-white border-primary-600 shadow-sm'
+                    : 'bg-surface-50 dark:bg-surface-900 text-surface-600 dark:text-surface-300 border-surface-200 dark:border-surface-800 hover:border-primary-400'
                 }`}
               >
                 <span className={platform === p.key ? 'text-white' : p.color}>{p.icon}</span>
                 {p.label}
                 <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${
-                  platform === p.key ? 'bg-white/20' : 'bg-zinc-100 dark:bg-zinc-800'
+                  platform === p.key ? 'bg-white/20' : 'bg-surface-100 dark:bg-surface-800'
                 }`}>
                   {counts(p.key)}
                 </span>
@@ -361,15 +361,15 @@ export default function UnifiedInbox({
 
           {/* Filters row */}
           <div className="flex items-center gap-2">
-            <div className="flex rounded-lg border border-zinc-200 dark:border-zinc-800 overflow-hidden">
+            <div className="flex rounded-lg border border-surface-200 dark:border-surface-800 overflow-hidden">
               {(['open', 'all', 'closed'] as const).map(s => (
                 <button
                   key={s}
                   onClick={() => setStatusFilter(s)}
                   className={`px-2.5 py-1.5 text-[11px] font-semibold transition-all ${
                     statusFilter === s
-                      ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900'
-                      : 'bg-zinc-50 dark:bg-zinc-900 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
+                      ? 'bg-surface-900 text-white dark:bg-white dark:text-surface-900'
+                      : 'bg-surface-50 dark:bg-surface-900 text-surface-500 hover:text-surface-800 dark:hover:text-surface-200'
                   }`}
                 >
                   {s === 'open' ? 'सक्रिय' : s === 'closed' ? 'बंद' : 'सभी'}
@@ -380,7 +380,7 @@ export default function UnifiedInbox({
             <select
               value={aiFilter}
               onChange={(e) => setAiFilter(e.target.value)}
-              className="flex-1 min-w-0 text-[11px] font-medium px-2.5 py-2 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 outline-none cursor-pointer"
+              className="flex-1 min-w-0 text-[11px] font-medium px-2.5 py-2 rounded-lg border border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-900 outline-none cursor-pointer"
             >
               {AI_FILTERS.map(f => <option key={f.key} value={f.key}>{f.label}</option>)}
             </select>
@@ -389,7 +389,7 @@ export default function UnifiedInbox({
               onClick={runAIClassify}
               disabled={aiClassifying}
               title="Gemini से सभी बातचीत को ऑटो-लेबल करें"
-              className="shrink-0 flex items-center gap-1 px-2.5 py-2 rounded-lg text-[11px] font-semibold bg-gradient-to-r from-indigo-600 to-violet-600 text-white hover:opacity-90 disabled:opacity-50 transition-all"
+              className="shrink-0 flex items-center gap-1 px-2.5 py-2 rounded-lg text-[11px] font-semibold bg-gradient-to-r from-primary-600 to-violet-600 text-white hover:opacity-90 disabled:opacity-50 transition-all"
             >
               {aiClassifying ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
               <span className="hidden sm:inline">AI लेबल</span>
@@ -401,24 +401,24 @@ export default function UnifiedInbox({
         <div className="flex-1 overflow-y-auto min-h-0">
           {loading ? (
             <div className="flex items-center justify-center h-40">
-              <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+              <div className="w-6 h-6 border-2 border-primary-600 border-t-transparent rounded-full animate-spin" />
             </div>
           ) : filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-48 text-zinc-400 px-6 text-center">
+            <div className="flex flex-col items-center justify-center h-48 text-surface-400 px-6 text-center">
               <Inbox className="w-10 h-10 mb-2 opacity-40" />
-              <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">कोई बातचीत नहीं मिली</p>
+              <p className="text-sm font-medium text-surface-500 dark:text-surface-400">कोई बातचीत नहीं मिली</p>
               <p className="text-xs mt-1">फ़िल्टर बदलकर देखें या नया संदेश आने का इंतज़ार करें</p>
               {platform === 'instagram' || platform === 'facebook' ? (
                 <button
                   onClick={onGoIntegrations}
-                  className="mt-3 px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-500 transition-all"
+                  className="mt-3 px-4 py-2 rounded-xl bg-primary-600 text-white text-xs font-semibold hover:bg-primary-500 transition-all"
                 >
                   🔗 Integrations से जोड़ें
                 </button>
               ) : null}
             </div>
           ) : (
-            <div className="divide-y divide-zinc-100 dark:divide-zinc-800/70">
+            <div className="divide-y divide-surface-100 dark:divide-surface-800/70">
               {filtered.map(conv => {
                 const isActive = activeConv?.id === conv.id;
                 const pMeta = PLATFORMS.find(p => p.key === conv.platform) || PLATFORMS[0];
@@ -429,29 +429,29 @@ export default function UnifiedInbox({
                     onClick={() => openConversation(conv)}
                     className={`flex items-start gap-3 p-3.5 cursor-pointer transition-colors ${
                       isActive
-                        ? 'bg-indigo-50 dark:bg-indigo-500/10 border-l-2 border-indigo-600'
-                        : 'hover:bg-zinc-50 dark:hover:bg-zinc-900/50 border-l-2 border-transparent'
+                        ? 'bg-primary-50 dark:bg-primary-500/10 border-l-2 border-primary-600'
+                        : 'hover:bg-surface-50 dark:hover:bg-surface-900/50 border-l-2 border-transparent'
                     }`}
                   >
                     <div className="relative shrink-0">
-                      <div className="w-11 h-11 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-base shadow-sm">
+                      <div className="w-11 h-11 rounded-full bg-gradient-to-br from-primary-500 to-purple-600 flex items-center justify-center text-white font-bold text-base shadow-sm">
                         {(conv.contact_name || conv.phone || '?')[0]?.toUpperCase()}
                       </div>
-                      <span className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-zinc-900 dark:bg-zinc-800 border border-zinc-700 flex items-center justify-center ${pMeta.color}`}>
+                      <span className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-surface-900 dark:bg-surface-800 border border-surface-700 flex items-center justify-center ${pMeta.color}`}>
                         {pMeta.icon}
                       </span>
                     </div>
 
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
-                        <h4 className="font-semibold text-sm text-zinc-900 dark:text-white truncate">
+                        <h4 className="font-semibold text-sm text-surface-900 dark:text-white truncate">
                           {conv.contact_name || conv.phone || 'अज्ञात'}
                         </h4>
-                        <span className="text-[10px] text-zinc-400 whitespace-nowrap shrink-0">
+                        <span className="text-[10px] text-surface-400 whitespace-nowrap shrink-0">
                           {conv.customer_last_message_at ? fmtDay(conv.customer_last_message_at) : fmtDay(conv.updated_at)}
                         </span>
                       </div>
-                      <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate mt-0.5">
+                      <p className="text-xs text-surface-500 dark:text-surface-400 truncate mt-0.5">
                         {conv.platform === 'email' ? (subject || conv.phone) : (conv.last_message || conv.phone || 'कोई संदेश नहीं')}
                       </p>
                       <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
@@ -463,7 +463,7 @@ export default function UnifiedInbox({
                             सक्रिय
                           </span>
                         ) : (
-                          <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-zinc-500/10 text-zinc-500 font-semibold">
+                          <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-surface-500/10 text-surface-500 font-semibold">
                             बंद
                           </span>
                         )}
@@ -485,11 +485,11 @@ export default function UnifiedInbox({
       {/* ================= RIGHT: Chat / Reply Pane ================= */}
       <div className="flex-1 hidden md:flex flex-col min-w-0 min-h-0">
         {!activeConv ? (
-          <div className="flex-1 flex flex-col items-center justify-center text-zinc-400">
-            <div className="w-16 h-16 rounded-2xl bg-indigo-500/10 flex items-center justify-center mb-4">
-              <Inbox className="w-8 h-8 text-indigo-500" />
+          <div className="flex-1 flex flex-col items-center justify-center text-surface-400">
+            <div className="w-16 h-16 rounded-2xl bg-primary-500/10 flex items-center justify-center mb-4">
+              <Inbox className="w-8 h-8 text-primary-500" />
             </div>
-            <p className="text-lg font-semibold text-zinc-600 dark:text-zinc-300">यूनिफाइड इनबॉक्स</p>
+            <p className="text-lg font-semibold text-surface-600 dark:text-surface-300">यूनिफाइड इनबॉक्स</p>
             <p className="text-sm mt-1 max-w-xs text-center">
               WhatsApp, Email और आने वाले Instagram/Facebook संदेश — सब एक ही जगह
             </p>
@@ -497,34 +497,34 @@ export default function UnifiedInbox({
         ) : (
           <>
             {/* Pane header */}
-            <div className="px-5 py-4 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between gap-3 bg-white dark:bg-zinc-950 shrink-0">
+            <div className="px-5 py-4 border-b border-surface-200 dark:border-surface-800 flex items-center justify-between gap-3 bg-white dark:bg-surface-950 shrink-0">
               <div className="flex items-center gap-3 min-w-0">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold shrink-0">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-500 to-purple-600 flex items-center justify-center text-white font-bold shrink-0">
                   {(activeConv.contact_name || activeConv.phone || '?')[0]?.toUpperCase()}
                 </div>
                 <div className="min-w-0">
-                  <h3 className="font-bold text-zinc-900 dark:text-white truncate">
+                  <h3 className="font-bold text-surface-900 dark:text-white truncate">
                     {activeConv.contact_name || 'अज्ञात'}
                   </h3>
-                  <p className="text-xs text-zinc-500 truncate flex items-center gap-1">
+                  <p className="text-xs text-surface-500 truncate flex items-center gap-1">
                     {activeConv.phone}
-                    {activeConv.platform === 'email' && <span className="text-zinc-400">• ईमेल</span>}
+                    {activeConv.platform === 'email' && <span className="text-surface-400">• ईमेल</span>}
                     {activeConv.platform === 'whatsapp' && activeConv.phone_number_id && (
-                      <span className="text-zinc-400">• {activeConv.phone_number_id.slice(0, 8)}...</span>
+                      <span className="text-surface-400">• {activeConv.phone_number_id.slice(0, 8)}...</span>
                     )}
                   </p>
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <span className={`hidden sm:flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-full border font-semibold ${
-                  PLATFORMS.find(p => p.key === activeConv.platform)?.color || 'text-zinc-400'
-                } bg-zinc-50 dark:bg-zinc-900`}>
+                  PLATFORMS.find(p => p.key === activeConv.platform)?.color || 'text-surface-400'
+                } bg-surface-50 dark:bg-surface-900`}>
                   {PLATFORMS.find(p => p.key === activeConv.platform)?.icon}
                   {PLATFORMS.find(p => p.key === activeConv.platform)?.label}
                 </span>
                 {activeConv.ai_summary && (
-                  <div className="hidden lg:block max-w-[220px] text-[10px] text-zinc-500 dark:text-zinc-400 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg px-2.5 py-1.5">
-                    <span className="font-semibold text-indigo-500">AI:</span> {activeConv.ai_summary}
+                  <div className="hidden lg:block max-w-[220px] text-[10px] text-surface-500 dark:text-surface-400 bg-surface-50 dark:bg-surface-900 border border-surface-200 dark:border-surface-800 rounded-lg px-2.5 py-1.5">
+                    <span className="font-semibold text-primary-500">AI:</span> {activeConv.ai_summary}
                   </div>
                 )}
               </div>
@@ -533,17 +533,17 @@ export default function UnifiedInbox({
             {/* IG/FB not-yet-supported state */}
             {(activeConv.platform === 'instagram' || activeConv.platform === 'facebook') && (
               <div className="flex-1 flex flex-col items-center justify-center text-center px-8">
-                <div className="w-14 h-14 rounded-2xl bg-zinc-100 dark:bg-zinc-900 flex items-center justify-center mb-3">
+                <div className="w-14 h-14 rounded-2xl bg-surface-100 dark:bg-surface-900 flex items-center justify-center mb-3">
                   {activeConv.platform === 'instagram' ? <Instagram className="w-7 h-7 text-pink-500" /> : <Facebook className="w-7 h-7 text-blue-500" />}
                 </div>
-                <h4 className="font-bold text-zinc-800 dark:text-zinc-200">
+                <h4 className="font-bold text-surface-800 dark:text-surface-200">
                   {activeConv.platform === 'instagram' ? 'Instagram DM' : 'Facebook Messenger'} इंटीग्रेशन जल्द आ रहा है
                 </h4>
-                <p className="text-sm text-zinc-500 mt-1 max-w-sm">
+                <p className="text-sm text-surface-500 mt-1 max-w-sm">
                   Meta की messaging permissions + webhook सेटअप के बाद यहाँ DMs आएंगे। तब तक आप WhatsApp और Email का इस्तेमाल कर सकते हैं।
                 </p>
                 {onGoIntegrations && (
-                  <button onClick={onGoIntegrations} className="mt-4 px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-500 transition-all">
+                  <button onClick={onGoIntegrations} className="mt-4 px-4 py-2 rounded-xl bg-primary-600 text-white text-xs font-semibold hover:bg-primary-500 transition-all">
                     Integrations देखें
                   </button>
                 )}
@@ -552,13 +552,13 @@ export default function UnifiedInbox({
 
             {/* Messages */}
             {activeConv.platform !== 'instagram' && activeConv.platform !== 'facebook' && (
-              <div className="flex-1 overflow-y-auto px-5 py-4 bg-zinc-50 dark:bg-zinc-950/40 min-h-0">
+              <div className="flex-1 overflow-y-auto px-5 py-4 bg-surface-50 dark:bg-surface-950/40 min-h-0">
                 {convLoading ? (
                   <div className="flex items-center justify-center h-full">
-                    <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                    <div className="w-6 h-6 border-2 border-primary-600 border-t-transparent rounded-full animate-spin" />
                   </div>
                 ) : messages.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-full text-zinc-400">
+                  <div className="flex flex-col items-center justify-center h-full text-surface-400">
                     <MessageCircle className="w-10 h-10 mb-2 opacity-40" />
                     <p className="text-sm">अभी कोई संदेश नहीं</p>
                   </div>
@@ -571,8 +571,8 @@ export default function UnifiedInbox({
                         <div key={m.id} className={`flex ${isContact ? 'justify-start' : 'justify-end'}`}>
                           <div className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-sm shadow-sm ${
                             isContact
-                              ? 'bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-tl-sm text-zinc-800 dark:text-zinc-200'
-                              : 'bg-indigo-600 text-white rounded-tr-sm'
+                              ? 'bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 rounded-tl-sm text-surface-800 dark:text-surface-200'
+                              : 'bg-primary-600 text-white rounded-tr-sm'
                           }`}>
                             {m.message_type === 'email' && emailMeta.subject && (
                               <p className="text-xs font-bold mb-1 opacity-80">📧 {emailMeta.subject}</p>
@@ -581,7 +581,7 @@ export default function UnifiedInbox({
                             {m.message_type !== 'text' && m.message_type !== 'email' && m.message_type !== 'agent' && (
                               <p className="text-xs mt-1 opacity-70">📎 {m.message_type}</p>
                             )}
-                            <p className={`text-[9px] mt-1 ${isContact ? 'text-zinc-400' : 'text-white/70'}`}>
+                            <p className={`text-[9px] mt-1 ${isContact ? 'text-surface-400' : 'text-white/70'}`}>
                               {fmtTime(m.created_at)}
                               {m.status === 'read' && !isContact && <span className="ml-1">✓✓</span>}
                             </p>
@@ -597,7 +597,7 @@ export default function UnifiedInbox({
 
             {/* Composer */}
             {activeConv.platform !== 'instagram' && activeConv.platform !== 'facebook' && (
-              <div className="border-t border-zinc-200 dark:border-zinc-800 p-4 bg-white dark:bg-zinc-950 shrink-0">
+              <div className="border-t border-surface-200 dark:border-surface-800 p-4 bg-white dark:bg-surface-950 shrink-0">
                 {activeConv.platform === 'whatsapp' && activeConv.customer_last_message_at && (
                   (() => {
                     const last = ensureUTC(activeConv.customer_last_message_at).getTime();
@@ -619,7 +619,7 @@ export default function UnifiedInbox({
                     onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendReply(); } }}
                     placeholder={activeConv.platform === 'email' ? 'ईमेल का जवाब लिखें...' : 'संदेश लिखें...'}
                     rows={2}
-                    className="flex-1 resize-none px-4 py-2.5 text-sm rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 focus:border-indigo-500 outline-none transition-colors min-h-[46px]"
+                    className="flex-1 resize-none px-4 py-2.5 text-sm rounded-2xl border border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-900 focus:border-primary-500 outline-none transition-colors min-h-[46px]"
                   />
                   {isAiCapable && (
                     <button
@@ -635,7 +635,7 @@ export default function UnifiedInbox({
                   <button
                     onClick={sendReply}
                     disabled={sending || !composer.trim()}
-                    className="shrink-0 flex items-center gap-1.5 px-4 py-2.5 rounded-2xl text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-500 disabled:opacity-40 transition-all"
+                    className="shrink-0 flex items-center gap-1.5 px-4 py-2.5 rounded-2xl text-xs font-semibold bg-primary-600 text-white hover:bg-primary-500 disabled:opacity-40 transition-all"
                   >
                     {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                     भेजें
@@ -649,48 +649,48 @@ export default function UnifiedInbox({
 
       {/* Mobile: chat pane as overlay */}
       {activeConv && (
-        <div className="md:hidden fixed inset-0 z-40 bg-white dark:bg-zinc-950 flex flex-col">
-          <div className="px-4 py-3 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
+        <div className="md:hidden fixed inset-0 z-40 bg-white dark:bg-surface-950 flex flex-col">
+          <div className="px-4 py-3 border-b border-surface-200 dark:border-surface-800 flex items-center justify-between">
             <div className="flex items-center gap-2 min-w-0">
-              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm shrink-0">
+              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm shrink-0">
                 {(activeConv.contact_name || '?')[0]?.toUpperCase()}
               </div>
               <div className="min-w-0">
-                <h4 className="font-bold text-sm text-zinc-900 dark:text-white truncate">{activeConv.contact_name || 'अज्ञात'}</h4>
-                <p className="text-[10px] text-zinc-500 truncate">{activeConv.phone}</p>
+                <h4 className="font-bold text-sm text-surface-900 dark:text-white truncate">{activeConv.contact_name || 'अज्ञात'}</h4>
+                <p className="text-[10px] text-surface-500 truncate">{activeConv.phone}</p>
               </div>
             </div>
-            <button onClick={() => setActiveConv(null)} className="p-2 text-zinc-500">
+            <button onClick={() => setActiveConv(null)} className="p-2 text-surface-500">
               <X className="w-5 h-5" />
             </button>
           </div>
-          <div className="flex-1 overflow-y-auto px-4 py-3 bg-zinc-50 dark:bg-zinc-950/40 space-y-3">
+          <div className="flex-1 overflow-y-auto px-4 py-3 bg-surface-50 dark:bg-surface-950/40 space-y-3">
             {messages.map((m: any) => {
               const isContact = m.sender_type === 'contact';
               return (
                 <div key={m.id} className={`flex ${isContact ? 'justify-start' : 'justify-end'}`}>
                   <div className={`max-w-[80%] rounded-2xl px-3.5 py-2 text-sm ${
-                    isContact ? 'bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800' : 'bg-indigo-600 text-white'
+                    isContact ? 'bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800' : 'bg-primary-600 text-white'
                   }`}>
                     {m.content && <p className="whitespace-pre-wrap break-words">{m.content}</p>}
-                    <p className={`text-[9px] mt-1 ${isContact ? 'text-zinc-400' : 'text-white/70'}`}>{fmtTime(m.created_at)}</p>
+                    <p className={`text-[9px] mt-1 ${isContact ? 'text-surface-400' : 'text-white/70'}`}>{fmtTime(m.created_at)}</p>
                   </div>
                 </div>
               );
             })}
           </div>
-          <div className="border-t border-zinc-200 dark:border-zinc-800 p-3 flex items-end gap-2">
+          <div className="border-t border-surface-200 dark:border-surface-800 p-3 flex items-end gap-2">
             <textarea
               value={composer}
               onChange={(e) => setComposer(e.target.value)}
               rows={1}
               placeholder="संदेश लिखें..."
-              className="flex-1 resize-none px-3.5 py-2.5 text-sm rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 outline-none"
+              className="flex-1 resize-none px-3.5 py-2.5 text-sm rounded-2xl border border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-900 outline-none"
             />
             <button
               onClick={sendReply}
               disabled={sending || !composer.trim()}
-              className="shrink-0 p-3 rounded-2xl bg-indigo-600 text-white disabled:opacity-40"
+              className="shrink-0 p-3 rounded-2xl bg-primary-600 text-white disabled:opacity-40"
             >
               {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
             </button>
