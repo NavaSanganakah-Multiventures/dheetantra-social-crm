@@ -58,7 +58,7 @@ class _InboxScreenState extends State<InboxScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
             scrollDirection: Axis.horizontal,
             itemCount: _filters.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 8),
+            separatorBuilder: (__, ___) => const SizedBox(width: 8),
             itemBuilder: (context, i) {
               final f = _filters[i];
               final selected = _filter == f;
@@ -83,7 +83,7 @@ class _InboxScreenState extends State<InboxScreen> {
               : ListView.separated(
                   padding: const EdgeInsets.fromLTRB(20, 6, 20, 20),
                   itemCount: conversations.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 8),
+                  separatorBuilder: (__, ___) => const SizedBox(height: 8),
                   itemBuilder: (context, i) {
                     final c = conversations[i];
                     return _ConversationTile(

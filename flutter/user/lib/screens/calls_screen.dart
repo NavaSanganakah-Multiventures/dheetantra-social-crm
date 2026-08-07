@@ -52,7 +52,7 @@ class _CallsScreenState extends State<CallsScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
               scrollDirection: Axis.horizontal,
               itemCount: _filters.length,
-              separatorBuilder: (_, _) => const SizedBox(width: 8),
+              separatorBuilder: (__, ___) => const SizedBox(width: 8),
               itemBuilder: (context, i) {
                 final f = _filters[i];
                 return ChoiceChip(
@@ -76,7 +76,7 @@ class _CallsScreenState extends State<CallsScreen> {
                 : ListView.separated(
                     padding: const EdgeInsets.fromLTRB(20, 6, 20, 20),
                     itemCount: calls.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 8),
+                    separatorBuilder: (__, ___) => const SizedBox(height: 8),
                     itemBuilder: (context, i) => _CallTile(call: calls[i]),
                   ),
           ),
