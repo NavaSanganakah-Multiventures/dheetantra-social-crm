@@ -214,9 +214,13 @@ export async function createRazorpayOrder(env: any, plan: any, receipt: string):
 }
 
 export async function createRazorpaySubscription(env: any, plan: any, notes: Record<string, string>): Promise<any> {
+  // Billed until cancelled: Razorpay rejects total_count: 0 (must be >= 1),
+  // so bound the subscription with end_at at the max supported duration
+  // (100 years) instead of a fixed cycle count.
+  const endAt = Math.floor(Date.now() / 1000) + 100 * 365 * 24 * 60 * 60;
   return razorpayRequest(env, '/subscriptions', 'POST', {
     plan_id: plan.razorpay_plan_id,
-    total_count: 0, // 0 = billed until cancelled
+    end_at: endAt,
     customer_notify: 1,
     notes,
   });
