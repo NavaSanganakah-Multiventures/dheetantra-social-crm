@@ -4,10 +4,12 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { 
   ShieldCheck, ShieldAlert, Users, Building2, CreditCard, Key, Globe,
   Activity, Plus, Trash2, Edit, RefreshCw, Search, Check, X, 
-  Database, Save, Eye, EyeOff, LayoutDashboard, Sliders, ArrowLeft, Mail, ChevronRight, AlertCircle
+  Database, Save, Eye, EyeOff, LayoutDashboard, Sliders, ArrowLeft, Mail, ChevronRight, AlertCircle, Menu
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useRouter } from 'next/navigation';
+
+const makeNotificationId = () => Math.random().toString();
 
 const ensureUTC = (dateStr: string | Date | number) => {
   if (typeof dateStr === 'string') {
@@ -58,6 +60,7 @@ export default function AdminDashboard() {
   const [adminUser, setAdminUser] = useState<any>(null);
   const [loadingAuth, setLoadingAuth] = useState(true);
   const [activeTab, setActiveTab] = useState<AdminTab>('overview');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   
   // Stats State
   const [stats, setStats] = useState<any>(null);
@@ -108,7 +111,7 @@ export default function AdminDashboard() {
   const [notifications, setNotifications] = useState<{ id: string, message: string, type: 'success' | 'error' }[]>([]);
 
   const addNotification = (message: string, type: 'success' | 'error' = 'success') => {
-    const id = Math.random().toString();
+    const id = makeNotificationId();
     setNotifications(prev => [...prev, { id, message, type }]);
     setTimeout(() => {
       setNotifications(prev => prev.filter(n => n.id !== id));
@@ -348,10 +351,15 @@ export default function AdminDashboard() {
     const method = workspaceModal.mode === 'create' ? 'POST' : 'PUT';
 
     try {
+      const payload: any = { name: workspaceForm.name, plan_id: workspaceForm.plan_id };
+      // Only send owner_id when provided — prevents wiping the workspace owner on edit
+      if (workspaceForm.owner_id) {
+        payload.owner_id = workspaceForm.owner_id;
+      }
       const res = await fetch(endpoint, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(workspaceForm)
+        body: JSON.stringify(payload)
       });
       const data: any = await res.json();
       if (res.ok) {
@@ -471,10 +479,16 @@ export default function AdminDashboard() {
   const saveKvSecret = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      // Preserve existing JSON array values when the admin leaves the value blank on edit
+      // (array values are config lists, not secrets, and are intentionally not shown in the form)
+      let valueToSave = kvForm.value;
+      if (valueToSave === '' && kvModal.data && typeof kvModal.data.value === 'string' && kvModal.data.value.startsWith('[')) {
+        valueToSave = kvModal.data.value;
+      }
       const res = await fetch('/api/admin/kv', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(kvForm)
+        body: JSON.stringify({ name: kvForm.name, value: valueToSave })
       });
       const data: any = await res.json();
       if (res.ok) {
@@ -492,7 +506,7 @@ export default function AdminDashboard() {
   const deleteKvSecret = async (keyName: string) => {
     if (!confirm(`क्या आप वाकई KV की "${keyName}" को हटाना चाहते हैं?`)) return;
     try {
-      const res = await fetch(`/api/admin/kv/${keyName}`, { method: 'DELETE' });
+      const res = await fetch(`/api/admin/kv/${encodeURIComponent(keyName)}`, { method: 'DELETE' });
       if (res.ok) {
         addNotification('KV की सफलतापूर्वक हटाई गई');
         loadKvSecrets();
@@ -602,8 +616,13 @@ export default function AdminDashboard() {
         </AnimatePresence>
       </div>
 
+      {/* Mobile Sidebar Overlay */}
+      {sidebarOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden" onClick={() => setSidebarOpen(false)} />
+      )}
+
       {/* Admin Sidebar */}
-      <aside className="w-72 bg-surface-900 border-r border-surface-800 flex flex-col flex-shrink-0">
+      <aside className={`w-72 bg-surface-900 border-r border-surface-800 flex flex-col flex-shrink-0 fixed md:static inset-y-0 left-0 z-50 transition-transform duration-200 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
         <div className="p-6 border-b border-surface-800 flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-primary-600 flex items-center justify-center shadow-lg shadow-primary-600/35">
             <ShieldCheck className="w-5 h-5 text-white" />
@@ -621,43 +640,43 @@ export default function AdminDashboard() {
             icon={<LayoutDashboard className="w-4 h-4" />} 
             label="अवलोकन (Overview)" 
             active={activeTab === 'overview'} 
-            onClick={() => setActiveTab('overview')} 
+            onClick={() => { setActiveTab('overview'); setSidebarOpen(false); }} 
           />
           <SidebarButton 
             icon={<Users className="w-4 h-4" />} 
             label="उपयोगकर्ता (Users)" 
             active={activeTab === 'users'} 
-            onClick={() => setActiveTab('users')} 
+            onClick={() => { setActiveTab('users'); setSidebarOpen(false); }} 
           />
           <SidebarButton 
             icon={<Building2 className="w-4 h-4" />} 
             label="वर्कस्पेस (Workspaces)" 
             active={activeTab === 'workspaces'} 
-            onClick={() => setActiveTab('workspaces')} 
+            onClick={() => { setActiveTab('workspaces'); setSidebarOpen(false); }} 
           />
           <SidebarButton 
             icon={<CreditCard className="w-4 h-4" />} 
             label="सब्सक्रिप्शन प्लान्स" 
             active={activeTab === 'plans'} 
-            onClick={() => setActiveTab('plans')} 
+            onClick={() => { setActiveTab('plans'); setSidebarOpen(false); }} 
           />
           <SidebarButton 
             icon={<Globe className="w-4 h-4" />} 
             label="डोमेन रिव्यू (Email)" 
             active={activeTab === 'domains'} 
-            onClick={() => setActiveTab('domains')} 
+            onClick={() => { setActiveTab('domains'); setSidebarOpen(false); }} 
           />
           <SidebarButton 
             icon={<Key className="w-4 h-4" />} 
             label="KV सिस्टम सीक्रेट्स" 
             active={activeTab === 'kv'} 
-            onClick={() => setActiveTab('kv')} 
+            onClick={() => { setActiveTab('kv'); setSidebarOpen(false); }} 
           />
           <SidebarButton 
             icon={<Database className="w-4 h-4" />} 
             label="डेटाबेस (Database)" 
             active={activeTab === 'database'} 
-            onClick={() => setActiveTab('database')} 
+            onClick={() => { setActiveTab('database'); setSidebarOpen(false); }} 
           />
         </nav>
 
@@ -684,8 +703,15 @@ export default function AdminDashboard() {
 
       {/* Main Panel Content Area */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-surface-950">
-        <header className="h-16 border-b border-surface-800 bg-surface-900/60 flex items-center justify-between px-8">
+        <header className="h-16 border-b border-surface-800 bg-surface-900/60 flex items-center justify-between px-4 md:px-8">
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="md:hidden p-2 rounded-xl text-surface-400 hover:text-white hover:bg-surface-800 transition-colors"
+              title="मेनू खोलें"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
             <h2 className="text-lg font-bold text-white capitalize font-display">
               {activeTab === 'overview' && 'सिस्टम अवलोकन'}
               {activeTab === 'users' && 'उपयोगकर्ता प्रबंधन'}
@@ -720,7 +746,7 @@ export default function AdminDashboard() {
           </div>
         </header>
 
-        <div className="flex-1 min-h-0 overflow-y-auto p-8 max-w-7xl w-full mx-auto">
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-8 max-w-7xl w-full mx-auto">
           <AnimatePresence mode="wait">
             {activeTab === 'overview' && (
               <motion.div
@@ -977,7 +1003,7 @@ export default function AdminDashboard() {
                                 <div className="flex items-center justify-end gap-2">
                                   <button 
                                     onClick={() => {
-                                      setWorkspaceForm({ name: w.name || '', plan_id: w.plan_id || '', owner_id: '' });
+                                      setWorkspaceForm({ name: w.name || '', plan_id: w.plan_id || '', owner_id: w.owner_id || '' });
                                       setWorkspaceModal({ open: true, mode: 'edit', data: w });
                                     }}
                                     className="p-1.5 hover:bg-surface-800 rounded-lg text-surface-400 hover:text-white transition-colors"
@@ -1346,8 +1372,8 @@ export default function AdminDashboard() {
                         </thead>
                         <tbody className="divide-y divide-surface-800/60 text-xs text-surface-300">
                           {filteredKvKeys.map(k => {
-                            const isRevealed = revealedKvKeys[k.name] || k.value.startsWith('[');
-                            const displayVal = isRevealed ? k.value : '••••••••••••••••••••••••';
+                            const isRevealed = revealedKvKeys[k.name] || (k.value || '').startsWith('[');
+                            const displayVal = isRevealed ? (k.value ?? '') : '••••••••••••••••••••••••';
 
                             return (
                               <tr key={k.name} className="hover:bg-surface-800/20 transition-colors">
@@ -1357,7 +1383,7 @@ export default function AdminDashboard() {
                                 </td>
                                 <td className="px-6 py-4 text-right">
                                   <div className="flex items-center justify-end gap-2">
-                                    {!k.value.startsWith('[') && (
+                                    {!(k.value || '').startsWith('[') && (
                                       <button 
                                         onClick={() => toggleKvReveal(k.name)}
                                         className="p-1.5 hover:bg-surface-800 rounded-lg text-surface-400 hover:text-white transition-colors"
@@ -1368,7 +1394,7 @@ export default function AdminDashboard() {
                                     )}
                                     <button 
                                       onClick={() => {
-                                        setKvForm({ name: k.name, value: k.value.startsWith('[') ? '' : k.value });
+                                        setKvForm({ name: k.name, value: (k.value || '').startsWith('[') ? '' : k.value ?? '' });
                                         setKvModal({ open: true, data: k });
                                       }}
                                       className="p-1.5 hover:bg-surface-800 rounded-lg text-surface-400 hover:text-white transition-colors"
@@ -1552,7 +1578,7 @@ export default function AdminDashboard() {
       {/* 1. User Modal */}
       {userModal.open && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-surface-900 border border-surface-800 rounded-3xl w-full max-w-md p-6 relative">
+          <div className="bg-surface-900 border border-surface-800 rounded-3xl w-full max-w-md p-6 relative max-h-[90vh] overflow-y-auto">
             <h3 className="text-base font-bold text-white mb-4">
               {userModal.mode === 'create' ? 'नया उपयोगकर्ता पंजीकृत करें' : 'उपयोगकर्ता जानकारी अपडेट करें'}
             </h3>
@@ -1616,7 +1642,7 @@ export default function AdminDashboard() {
       {/* 2. Workspace Modal */}
       {workspaceModal.open && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-surface-900 border border-surface-800 rounded-3xl w-full max-w-md p-6 relative">
+          <div className="bg-surface-900 border border-surface-800 rounded-3xl w-full max-w-md p-6 relative max-h-[90vh] overflow-y-auto">
             <h3 className="text-base font-bold text-white mb-4">
               {workspaceModal.mode === 'create' ? 'नया वर्कस्पेस बनाएं' : 'वर्कस्पेस कॉन्फ़िगर करें'}
             </h3>
@@ -1648,18 +1674,19 @@ export default function AdminDashboard() {
                 </select>
               </div>
 
-              {workspaceModal.mode === 'create' && (
-                <div>
-                  <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider mb-2">स्वामी स्वामी (Owner) ID - वैकल्पिक</label>
-                  <input 
-                    type="text" 
-                    placeholder="उदा. user-uuid-1234"
-                    value={workspaceForm.owner_id}
-                    onChange={e => setWorkspaceForm(prev => ({ ...prev, owner_id: e.target.value }))}
-                    className="w-full px-4 py-2.5 bg-surface-950 border border-surface-800 rounded-xl text-xs text-white focus:outline-none focus:border-primary-500"
-                  />
-                </div>
-              )}
+              <div>
+                <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider mb-2">स्वामी (Owner) ID {workspaceModal.mode === 'create' && '- वैकल्पिक'}</label>
+                <input 
+                  type="text" 
+                  placeholder="उदा. user-uuid-1234"
+                  value={workspaceForm.owner_id}
+                  onChange={e => setWorkspaceForm(prev => ({ ...prev, owner_id: e.target.value }))}
+                  className="w-full px-4 py-2.5 bg-surface-950 border border-surface-800 rounded-xl text-xs text-white focus:outline-none focus:border-primary-500"
+                />
+                {workspaceModal.mode === 'edit' && (
+                  <p className="text-[10px] text-surface-500 mt-1">खाली रखने पर मौजूदा owner बना रहेगा।</p>
+                )}
+              </div>
 
               <div className="flex gap-3 justify-end pt-4">
                 <button 
@@ -1684,7 +1711,7 @@ export default function AdminDashboard() {
       {/* 3. Subscription Plan Modal */}
       {planModal.open && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-surface-900 border border-surface-800 rounded-3xl w-full max-w-md p-6 relative">
+          <div className="bg-surface-900 border border-surface-800 rounded-3xl w-full max-w-md p-6 relative max-h-[90vh] overflow-y-auto">
             <h3 className="text-base font-bold text-white mb-4">
               {planModal.mode === 'create' ? 'नया सदस्यता प्लान जोड़ें' : 'प्लान कॉन्फ़िगरेशन विवरण'}
             </h3>
@@ -1933,7 +1960,7 @@ export default function AdminDashboard() {
       {/* 4. KV Key/Value Modal */}
       {kvModal.open && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-surface-900 border border-surface-800 rounded-3xl w-full max-w-md p-6 relative">
+          <div className="bg-surface-900 border border-surface-800 rounded-3xl w-full max-w-md p-6 relative max-h-[90vh] overflow-y-auto">
             <h3 className="text-base font-bold text-white mb-4">
               {kvModal.data ? 'KV सीक्रेट कुंजी अपडेट करें' : 'नया KV कुंजी-मूल्य सहेजें'}
             </h3>
