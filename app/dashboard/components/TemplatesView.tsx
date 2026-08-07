@@ -327,7 +327,7 @@ export function TemplatesView({ selectedWaba }: { selectedWaba?: any }) {
       {/* CREATE TEMPLATE MODAL */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-white dark:bg-surface-900 rounded-3xl w-full max-w-lg overflow-hidden border border-surface-200 dark:border-surface-800 shadow-2xl">
+          <div className="bg-white dark:bg-surface-900 rounded-3xl w-full max-w-lg max-h-[90vh] overflow-y-auto border border-surface-200 dark:border-surface-800 shadow-2xl">
             <div className="p-6 border-b border-surface-100 dark:border-surface-800 flex justify-between items-center bg-surface-50 dark:bg-surface-900">
               <div>
                 <h3 className="font-bold text-lg text-surface-900 dark:text-white">नया टेम्पलेट बनाएं</h3>
@@ -387,7 +387,7 @@ export function TemplatesView({ selectedWaba }: { selectedWaba?: any }) {
       {/* SEND TEMPLATE MODAL */}
       {showSendModal && selectedTemplate && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-white dark:bg-surface-900 rounded-3xl w-full max-w-lg overflow-hidden border border-surface-200 dark:border-surface-800 shadow-2xl">
+          <div className="bg-white dark:bg-surface-900 rounded-3xl w-full max-w-lg max-h-[90vh] overflow-y-auto border border-surface-200 dark:border-surface-800 shadow-2xl">
             <div className="p-6 border-b border-surface-100 dark:border-surface-800 flex justify-between items-center bg-surface-50 dark:bg-surface-900">
               <div>
                 <h3 className="font-bold text-lg text-surface-900 dark:text-white">टेम्पलेट संदेश भेजें</h3>

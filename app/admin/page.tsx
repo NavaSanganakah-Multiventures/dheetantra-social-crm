@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   ShieldCheck, ShieldAlert, Users, Building2, CreditCard, Key, Globe,
   Activity, Plus, Trash2, Edit, RefreshCw, Search, Check, X, 
@@ -109,13 +109,21 @@ export default function AdminDashboard() {
 
   // Notifications State
   const [notifications, setNotifications] = useState<{ id: string, message: string, type: 'success' | 'error' }[]>([]);
+  const notificationTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  useEffect(() => {
+    return () => {
+      notificationTimersRef.current.forEach(clearTimeout);
+    };
+  }, []);
 
   const addNotification = (message: string, type: 'success' | 'error' = 'success') => {
     const id = makeNotificationId();
     setNotifications(prev => [...prev, { id, message, type }]);
-    setTimeout(() => {
+    const timer = setTimeout(() => {
       setNotifications(prev => prev.filter(n => n.id !== id));
     }, 4000);
+    notificationTimersRef.current.push(timer);
   };
 
   // Fetch Stats
