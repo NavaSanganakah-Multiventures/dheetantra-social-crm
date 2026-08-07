@@ -390,7 +390,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
               </button>
             </div>
 
-            <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
+            <nav className="flex-1 min-h-0 px-4 py-6 space-y-2 overflow-y-auto">
               <div className="text-xs font-semibold text-surface-500 uppercase tracking-wider mb-4 px-3">ओवरव्यू</div>
               <NavItem icon={<LayoutDashboard />} label="डैशबोर्ड" isActive={activeTab === 'dashboard'} onClick={() => { setActiveTab('dashboard'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
               <NavItem icon={<MessageSquare />} label="इनबॉक्स" isActive={activeTab === 'inbox'} onClick={() => { setActiveTab('inbox'); if (window.innerWidth < 768) setSidebarOpen(false); }} badge={openConversationsCount > 0 ? openConversationsCount.toString() : undefined} />
@@ -466,7 +466,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
         </header>
 
         {/* Dynamic View Area */}
-        <main className={`flex-1 relative bg-surface-50 dark:bg-surface-950/50 ${activeTab === 'inbox' ? 'h-[calc(100vh-4rem)] overflow-hidden flex flex-col' : 'overflow-y-auto'}`}>
+        <main className={`flex-1 relative bg-surface-50 dark:bg-surface-950/50 ${activeTab === 'inbox' ? 'h-[calc(100vh-4rem)] overflow-hidden flex flex-col' : 'min-h-0 overflow-y-auto'}`}>
           <AnimatePresence mode="wait">
             <motion.div
               key={activeTab}
