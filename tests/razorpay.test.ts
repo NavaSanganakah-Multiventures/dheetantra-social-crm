@@ -146,7 +146,7 @@ describe('webhook idempotency', () => {
 
   it('processes a subscription.charged once and drops duplicates', async () => {
     const db = new FakeD1({
-      'SELECT id, workspace_id, plan_id FROM subscriptions WHERE razorpay_subscription_id = ?': { id: 'sub_db_1', workspace_id: 'ws_1', plan_id: 'plan_pro' },
+      'SELECT id, workspace_id, plan_id, status FROM subscriptions WHERE razorpay_subscription_id = ?': { id: 'sub_db_1', workspace_id: 'ws_1', plan_id: 'plan_pro' },
       // First idempotency insert returns an id; repeats return null
       'INSERT INTO webhook_events (id, razorpay_event_id, event_type, payload_json, processed, received_at) VALUES (?, ?, ?, ?, 1, CURRENT_TIMESTAMP) ON CONFLICT(razorpay_event_id) DO NOTHING RETURNING id': (c: number) => (c === 0 ? { id: 'evt_1' } : null),
     });
@@ -163,7 +163,7 @@ describe('webhook idempotency', () => {
 
   it('processes every renewal cycle (payment-bound idempotency key)', async () => {
     const db = new FakeD1({
-      'SELECT id, workspace_id, plan_id FROM subscriptions WHERE razorpay_subscription_id = ?': { id: 'sub_db_1', workspace_id: 'ws_1', plan_id: 'plan_pro' },
+      'SELECT id, workspace_id, plan_id, status FROM subscriptions WHERE razorpay_subscription_id = ?': { id: 'sub_db_1', workspace_id: 'ws_1', plan_id: 'plan_pro' },
       'INSERT INTO webhook_events (id, razorpay_event_id, event_type, payload_json, processed, received_at) VALUES (?, ?, ?, ?, 1, CURRENT_TIMESTAMP) ON CONFLICT(razorpay_event_id) DO NOTHING RETURNING id': (c: number) => (c === 0 ? { id: 'evt_1' } : null),
     });
     const env = makeEnv(db);
@@ -188,7 +188,7 @@ describe('webhook idempotency', () => {
 
   it('activates a one-time subscription when payment.captured arrives without verify', async () => {
     const db = new FakeD1({
-      'SELECT id, workspace_id, plan_id, billing_type, status FROM subscriptions WHERE razorpay_order_id = ?': { id: 'sub_ot_1', workspace_id: 'ws_1', plan_id: 'plan_pro', billing_type: 'one_time', status: 'created' },
+      'SELECT id, workspace_id, plan_id, billing_type, status, razorpay_subscription_id FROM subscriptions WHERE razorpay_order_id = ?': { id: 'sub_ot_1', workspace_id: 'ws_1', plan_id: 'plan_pro', billing_type: 'one_time', status: 'created' },
       'SELECT billing_period, billing_interval FROM plans WHERE id = ?': { billing_period: 'monthly', billing_interval: 1 },
       'SELECT workspace_id, plan_id FROM subscriptions WHERE id = ?': { workspace_id: 'ws_1', plan_id: 'plan_pro' },
       'INSERT INTO webhook_events (id, razorpay_event_id, event_type, payload_json, processed, received_at) VALUES (?, ?, ?, ?, 1, CURRENT_TIMESTAMP) ON CONFLICT(razorpay_event_id) DO NOTHING RETURNING id': (c: number) => (c === 0 ? { id: 'evt_1' } : null),
@@ -209,7 +209,7 @@ describe('webhook idempotency', () => {
 
   it('downgrades the workspace on subscription.cancelled', async () => {
     const db = new FakeD1({
-      'SELECT id, workspace_id, plan_id FROM subscriptions WHERE razorpay_subscription_id = ?': { id: 'sub_db_1', workspace_id: 'ws_1', plan_id: 'plan_pro' },
+      'SELECT id, workspace_id, plan_id, status FROM subscriptions WHERE razorpay_subscription_id = ?': { id: 'sub_db_1', workspace_id: 'ws_1', plan_id: 'plan_pro' },
       'SELECT id FROM plans WHERE is_free = 1 LIMIT 1': { id: 'plan_free' },
       'INSERT INTO webhook_events (id, razorpay_event_id, event_type, payload_json, processed, received_at) VALUES (?, ?, ?, ?, 1, CURRENT_TIMESTAMP) ON CONFLICT(razorpay_event_id) DO NOTHING RETURNING id': { id: 'evt_2' },
     });
@@ -225,6 +225,39 @@ describe('webhook idempotency', () => {
     const db = new FakeD1({});
     const result = await handleRazorpayWebhook(makeEnv(db), { event: 'payment.authorized', payload: {} });
     expect(result.processed).toBe(false);
+  });
+
+  it('marks a subscription past_due when its renewal payment fails', async () => {
+    const db = new FakeD1({
+      'SELECT id, workspace_id, plan_id, billing_type, status, razorpay_subscription_id FROM subscriptions WHERE razorpay_subscription_id = ?': { id: 'sub_db_2', workspace_id: 'ws_1', plan_id: 'plan_pro', billing_type: 'recurring', status: 'active', razorpay_subscription_id: 'sub_rzp_2' },
+      'INSERT INTO webhook_events (id, razorpay_event_id, event_type, payload_json, processed, received_at) VALUES (?, ?, ?, ?, 1, CURRENT_TIMESTAMP) ON CONFLICT(razorpay_event_id) DO NOTHING RETURNING id': (c: number) => (c === 0 ? { id: 'evt_3' } : null),
+    });
+    const env = makeEnv(db);
+
+    // The payment.failed payload has no subscription entity — only payment.subscription_id
+    const result = await handleRazorpayWebhook(env, {
+      event: 'payment.failed',
+      payload: { payment: { entity: { id: 'pay_fail_1', subscription_id: 'sub_rzp_2', amount: 9900, currency: 'INR', status: 'failed', method: 'card' } } },
+    });
+    expect(result.processed).toBe(true);
+    const calls = db.calls.join('\n');
+    expect(calls).toContain("status = 'past_due'");
+  });
+
+  it('does not regress an active subscription to authenticated', async () => {
+    const db = new FakeD1({
+      'SELECT id, workspace_id, plan_id, status FROM subscriptions WHERE razorpay_subscription_id = ?': { id: 'sub_db_3', workspace_id: 'ws_1', plan_id: 'plan_pro', status: 'active' },
+      'INSERT INTO webhook_events (id, razorpay_event_id, event_type, payload_json, processed, received_at) VALUES (?, ?, ?, ?, 1, CURRENT_TIMESTAMP) ON CONFLICT(razorpay_event_id) DO NOTHING RETURNING id': { id: 'evt_4' },
+    });
+    const env = makeEnv(db);
+
+    const result = await handleRazorpayWebhook(env, {
+      event: 'subscription.authenticated',
+      payload: { subscription: { entity: { id: 'sub_rzp_3', status: 'authenticated', plan_id: 'rzp_plan_1' } } },
+    });
+    expect(result.processed).toBe(true);
+    const calls = db.calls.join('\n');
+    expect(calls).not.toContain('UPDATE subscriptions SET status');
   });
 });
 

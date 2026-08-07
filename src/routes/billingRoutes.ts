@@ -74,6 +74,16 @@ router.post('/api/billing/subscribe', async (c) => {
       return c.json({ error: e instanceof RazorpayConfigError ? e.message : 'Payment gateway temporarily unavailable. Try again later.' }, e instanceof RazorpayConfigError ? 503 : 502);
     }
   }
+  if (plan.billing_type === 'recurring' && !plan.razorpay_plan_id) {
+    console.error('[Billing] Recurring plan has no razorpay_plan_id after sync:', plan.id);
+    return c.json({ error: 'Payment gateway could not set up this plan. Please try again later.' }, 502);
+  }
+
+  const keyId = await getRazorpayKeyId(c.env) || '';
+  if (!keyId) {
+    console.error('[Billing] RAZORPAY_KEY_ID is not configured in SECRETS_KV');
+    return c.json({ error: 'Payment gateway is not configured. Please contact support.' }, 503);
+  }
 
   const subId = crypto.randomUUID();
   await c.env.DB.prepare(
@@ -112,7 +122,6 @@ router.post('/api/billing/subscribe', async (c) => {
     return c.json({ error: e instanceof RazorpayApiError ? e.message : 'Payment setup failed. Please try again.' }, 502);
   }
 
-  const keyId = await getRazorpayKeyId(c.env) || '';
   return c.json({
     success: true,
     key_id: keyId,
@@ -179,6 +188,8 @@ router.post('/api/billing/verify', async (c) => {
     : `${razorpay_order_id}|${razorpay_payment_id}`;
   const valid = await verifyPaymentSignature(keySecret, payload, razorpay_signature);
   if (!valid) {
+    console.warn(`[Billing] Verify signature mismatch for subscription ${subscription_id} ` +
+      `(recurring=${isRecurring}, payload=${payload}, sig=${razorpay_signature?.slice(0, 12)}...)`);
     return c.json({ error: 'Payment verification failed. Please contact support.' }, 400);
   }
 
@@ -349,6 +360,7 @@ router.post('/api/billing/webhook', async (c) => {
   }
 
   const result = await handleRazorpayWebhook(c.env, body);
+  console.log(`[Billing] Webhook ${body.event || 'unknown'} -> processed=${result.processed} duplicate=${result.duplicate}`);
   return c.json({ success: result.processed, duplicate: result.duplicate, event: result.event });
 });
 

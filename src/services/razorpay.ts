@@ -237,7 +237,9 @@ export async function createRazorpaySubscription(env: any, plan: any, notes: Rec
   return razorpayRequest(env, '/subscriptions', 'POST', {
     plan_id: plan.razorpay_plan_id,
     total_count: cyclesForHorizon(plan.billing_period, plan.billing_interval),
-    customer_notify: 1,
+    // Razorpay validates this as a strict boolean ("must be true or false");
+    // passing the integer 1 is rejected with a 400 on some accounts.
+    customer_notify: true,
     notes,
   });
 }

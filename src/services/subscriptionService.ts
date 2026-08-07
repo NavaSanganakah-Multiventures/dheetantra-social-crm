@@ -115,6 +115,10 @@ export async function recordPayment(
     method?: string;
   }
 ): Promise<boolean> {
+  if (!payment.workspaceId) {
+    console.warn('[Billing] Payment not recorded (no workspace link):', payment.razorpayPaymentId);
+    return false;
+  }
   try {
     await env.DB.prepare(
       `INSERT OR IGNORE INTO payments
@@ -238,6 +242,7 @@ export async function handleRazorpayWebhook(env: any, body: any): Promise<Webhoo
     return { processed: false, duplicate: false, event };
   }
   const idemKey = `${event}:${entityId}`;
+  console.log(`[Billing] Webhook received: ${event} (idemKey=${idemKey}, hasPayment=${!!paymentEntity}, hasSubscription=${!!subEntity})`);
 
   try {
     // Idempotency: record the event first; on conflict it was already handled
@@ -268,8 +273,10 @@ export async function handleRazorpayWebhook(env: any, body: any): Promise<Webhoo
     } else if (event === 'payment.captured') {
       await applyPaymentEntity(env, paymentEntity, subEntity);
     } else if (event === 'payment.failed') {
-      await applyPaymentEntity(env, paymentEntity, subEntity);
-      if (subEntity) await markPastDue(env, subEntity.id);
+      const failedSub: any = await applyPaymentEntity(env, paymentEntity, subEntity);
+      // The payload has no subscription entity, so use the payment's
+      // subscription_id lookup result to mark the renewal as past due.
+      if (failedSub?.razorpay_subscription_id) await markPastDue(env, failedSub.razorpay_subscription_id);
     } else if (event === 'payment.refunded') {
       await applyPaymentEntity(env, paymentEntity, subEntity);
     }
@@ -284,11 +291,17 @@ async function applySubscriptionEntity(env: any, subEntity: any, forceDowngrade 
   if (!subEntity?.id) return null;
   const status = WEBHOOK_STATUS_MAP[subEntity.status] || subEntity.status;
   const sub: any = await env.DB.prepare(
-    'SELECT id, workspace_id, plan_id FROM subscriptions WHERE razorpay_subscription_id = ?'
+    'SELECT id, workspace_id, plan_id, status FROM subscriptions WHERE razorpay_subscription_id = ?'
   ).bind(subEntity.id).first();
   if (!sub) {
-    console.warn(`[Billing] Webhook for unknown Razorpay subscription ${subEntity.id}`);
+    console.warn(`[Billing] Webhook for unknown Razorpay subscription ${subEntity.id} (status=${subEntity.status}). ` +
+      `Check that /api/billing/subscribe stored the razorpay_subscription_id.`);
     return null;
+  }
+
+  // Don't let a late-arriving authenticated event regress an active row.
+  if (sub.status === 'active' && status === 'authenticated') {
+    return sub;
   }
 
   const periodStart = subEntity.current_start ? Number(subEntity.current_start) : undefined;
@@ -313,15 +326,24 @@ async function applySubscriptionEntity(env: any, subEntity: any, forceDowngrade 
   return sub;
 }
 
-async function applyPaymentEntity(env: any, paymentEntity: any, subEntity: any, preloadedSub: any = null): Promise<void> {
-  if (!paymentEntity?.id) return;
+async function applyPaymentEntity(env: any, paymentEntity: any, subEntity: any, preloadedSub: any = null): Promise<any | null> {
+  if (!paymentEntity?.id) return null;
   let sub = preloadedSub;
   if (!sub) {
+    // Subscriptions aren't linked by order_id (the auth order is never
+    // stored), so also try the payment's subscription_id when present.
     sub = subEntity?.id
-      ? await env.DB.prepare('SELECT id, workspace_id, plan_id, billing_type, status FROM subscriptions WHERE razorpay_subscription_id = ?')
+      ? await env.DB.prepare('SELECT id, workspace_id, plan_id, billing_type, status, razorpay_subscription_id FROM subscriptions WHERE razorpay_subscription_id = ?')
           .bind(subEntity.id).first()
-      : await env.DB.prepare('SELECT id, workspace_id, plan_id, billing_type, status FROM subscriptions WHERE razorpay_order_id = ?')
-          .bind(paymentEntity.order_id || '').first();
+      : paymentEntity?.subscription_id
+        ? await env.DB.prepare('SELECT id, workspace_id, plan_id, billing_type, status, razorpay_subscription_id FROM subscriptions WHERE razorpay_subscription_id = ?')
+            .bind(paymentEntity.subscription_id).first()
+        : await env.DB.prepare('SELECT id, workspace_id, plan_id, billing_type, status, razorpay_subscription_id FROM subscriptions WHERE razorpay_order_id = ?')
+            .bind(paymentEntity.order_id || '').first();
+    if (!sub) {
+      console.warn(`[Billing] payment.${paymentEntity.status || 'event'} for payment ${paymentEntity.id} could not be linked to a subscription ` +
+        `(order_id=${paymentEntity.order_id || 'none'}, subscription_id=${paymentEntity.subscription_id || 'none'})`);
+    }
   }
 
   await recordPayment(env, {
@@ -352,6 +374,7 @@ async function applyPaymentEntity(env: any, paymentEntity: any, subEntity: any, 
       currentPeriodEnd: plan ? now + periodDays(plan.billing_period, plan.billing_interval) * 86400 : undefined,
     });
   }
+  return sub;
 }
 
 async function markPastDue(env: any, razorpaySubscriptionId: string): Promise<void> {

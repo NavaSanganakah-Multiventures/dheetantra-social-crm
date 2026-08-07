@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Check, Loader2, AlertTriangle, CreditCard, Sparkles } from 'lucide-react';
 import { useLang } from '@/lib/i18n';
@@ -203,11 +204,19 @@ export function SubscriptionModal({ open, onClose, onSuccess }: SubscriptionModa
   const nonFreePlans = activePlans.filter(p => p.is_free !== 1);
   const popularPlanId = nonFreePlans[1]?.id || activePlans[1]?.id;
 
-  return (
+  // Render via a portal directly on <body>: the dashboard mounts this modal
+  // inside a transformed (motion) + overflow-auto container, where position:
+  // fixed breaks. That also keeps the overlay's stacking clean under the
+  // Razorpay checkout iframe (which mounts on <body> with z-index 2147483647).
+  // Guard for static export: document is undefined during server prerender
+  // (currently only reached client-side, but a future default-tab/deep-link
+  // change would otherwise crash `next build`).
+  if (typeof document === 'undefined') return null;
+  return createPortal(
     <AnimatePresence>
       {open && (
         <div
-          className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
+          className="fixed inset-0 z-[60] bg-black/70 flex items-center justify-center p-4"
           onClick={handleClose}
         >
           <motion.div
@@ -359,6 +368,7 @@ export function SubscriptionModal({ open, onClose, onSuccess }: SubscriptionModa
           </motion.div>
         </div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 }
