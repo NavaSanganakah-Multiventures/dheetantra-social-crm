@@ -46,8 +46,14 @@ class FcmService {
     _initialized = true;
 
     try {
-      await Firebase.initializeApp();
-      _available = true;
+      // Firebase is already initialized in main() with correct options.
+      // Just verify it's available.
+      if (Firebase.apps.isNotEmpty) {
+        _available = true;
+      } else {
+        debugPrint('Firebase not initialized — push disabled');
+        return;
+      }
     } catch (e) {
       // google-services.json missing/placeholder — push disabled, app continues.
       debugPrint('Firebase init skipped: $e');
@@ -137,10 +143,16 @@ class FcmService {
   /// Requests permission and registers the token with the backend.
   /// Call after login (or from splash once authenticated).
   Future<void> setupForUser() async {
-    if (!_available) return;
+    if (!_available) {
+      debugPrint('[FCM] setupForUser: Firebase not available, skipping');
+      return;
+    }
 
     final enabled = await isEnabled();
-    if (!enabled) return;
+    if (!enabled) {
+      debugPrint('[FCM] setupForUser: notifications disabled by user');
+      return;
+    }
 
     try {
       final settings = await _messaging.requestPermission(
@@ -148,20 +160,25 @@ class FcmService {
         badge: true,
         sound: true,
       );
+      debugPrint('[FCM] Permission status: ${settings.authorizationStatus}');
       if (settings.authorizationStatus != AuthorizationStatus.authorized &&
           settings.authorizationStatus != AuthorizationStatus.provisional) {
-        debugPrint('FCM permission denied');
+        debugPrint('[FCM] Permission denied');
         return;
       }
     } catch (e) {
-      debugPrint('FCM permission error: $e');
+      debugPrint('[FCM] Permission error: $e');
     }
 
     try {
       _token = await _messaging.getToken();
-      if (_token != null) await _registerToken(_token!);
+      debugPrint('[FCM] Token obtained: ${_token?.substring(0, 20)}...');
+      if (_token != null) {
+        final success = await _registerToken(_token!);
+        debugPrint('[FCM] Token registration result: $success');
+      }
     } catch (e) {
-      debugPrint('FCM getToken error: $e');
+      debugPrint('[FCM] getToken error: $e');
     }
   }
 
