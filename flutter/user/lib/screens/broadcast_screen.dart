@@ -49,10 +49,15 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
     if (!mounted) return;
     setState(() {
       _contacts = data.map((j) => Contact.fromJson(j)).toList();
-      _audienceCount = _contacts.length;
+      _audienceCount = _waContacts.length;
       _loading = false;
     });
   }
+
+  /// Broadcasts go out over WhatsApp only — email contacts (platform
+  /// 'email', platform_contact_id = email address) must not be counted.
+  List<Contact> get _waContacts =>
+      _contacts.where((c) => c.platform == null || c.platform == 'whatsapp').toList();
 
   Future<void> _loadHistory({bool silent = false}) async {
     final data = await ApiService().getBroadcasts();
@@ -101,8 +106,9 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
       return const Center(child: CircularProgressIndicator());
     }
 
-    final leadsCount = _contacts.where((c) => c.isLead).length;
-    final customersCount = _contacts.where((c) => !c.isLead).length;
+    final waContacts = _waContacts;
+    final leadsCount = waContacts.where((c) => c.isLead).length;
+    final customersCount = waContacts.where((c) => !c.isLead).length;
 
     return RefreshIndicator(
       onRefresh: () async {
@@ -196,11 +202,11 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
             _AudienceOption(
               icon: Icons.people_alt_outlined,
               title: 'सभी संपर्क',
-              subtitle: '${_contacts.length} संपर्क',
+              subtitle: '${_waContacts.length} संपर्क',
               selected: _audience == 'all',
               onTap: () => setState(() {
                 _audience = 'all';
-                _audienceCount = _contacts.length;
+                _audienceCount = _waContacts.length;
               }),
             ),
             const SizedBox(height: 10),

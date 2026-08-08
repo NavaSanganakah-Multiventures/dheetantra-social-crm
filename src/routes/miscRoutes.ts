@@ -214,7 +214,9 @@ router.post('/api/broadcast', requireRole('owner', 'admin'), async (c) => {
   // Resolve contact IDs for text mode when audience is given instead of explicit IDs
   let resolvedContactIds: string[] = Array.isArray(contactIds) ? contactIds : [];
   if (resolvedContactIds.length === 0 && !templateName && message) {
-    let where = 'workspace_id = ?';
+    // Text-mode broadcasts go out over WhatsApp only — email contacts have an
+    // email address as platform_contact_id and would fail (or worse) at Meta.
+    let where = 'workspace_id = ? AND platform = \'whatsapp\'';
     const binds: any[] = [workspaceId];
     if (audience === 'leads') {
       where += ' AND is_lead = 1';

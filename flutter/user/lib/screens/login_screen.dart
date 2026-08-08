@@ -46,7 +46,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _startResendCooldown() {
     _resendTimer?.cancel();
-    setState(() => _resendCooldown = 30);
+    // Backend cooldown is 60s (authRoutes.ts) — UI must match or resends get 429.
+    setState(() => _resendCooldown = 60);
     _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) return;
       if (_resendCooldown <= 1) {

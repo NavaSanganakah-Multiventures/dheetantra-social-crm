@@ -719,25 +719,63 @@ router.post('/api/email/inbox/conversations/:id/reply', async (c) => {
     await incrementEmailUsage(c.env, workspaceId, quota.isOverage);
 
     // 3. Store the reply in messages for a complete thread view
+    const replyId = crypto.randomUUID();
+    const replyNow = new Date().toISOString();
+    const replyContent = text || stripHtmlTags(html || '');
+    const replyMediaJson = JSON.stringify({ html: html || '', subject, to: toEmail, attachments: [] });
     await c.env.DB.prepare(
       `INSERT INTO messages (id, conversation_id, sender_type, content, media_url, status, message_type, created_at)
-       VALUES (?, ?, 'agent', ?, ?, 'sent', 'email', CURRENT_TIMESTAMP)`
+       VALUES (?, ?, 'agent', ?, ?, 'sent', 'email', ?)`
     ).bind(
-      crypto.randomUUID(),
+      replyId,
       conversationId,
-      text || stripHtmlTags(html || ''),
-      JSON.stringify({ html: html || '', subject, to: toEmail, attachments: [] })
+      replyContent,
+      replyMediaJson,
+      replyNow
     ).run();
 
     await c.env.DB.prepare(
       `UPDATE conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = ?`
     ).bind(conversationId).run();
 
+    // Broadcast the reply over the workspace WebSocket (same `new_message`
+    // shape as WhatsApp) so other devices see it live, not just the sender's
+    // optimistic bubble.
+    try {
+      const globalDoId = c.env.CHAT_DO.idFromName(`global-${workspaceId}`);
+      const stub = c.env.CHAT_DO.get(globalDoId);
+      await stub.fetch(new Request('http://do/broadcast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'new_message',
+          customer_last_message_at: replyNow,
+          message: {
+            id: replyId,
+            conversation_id: conversationId,
+            sender_type: 'agent',
+            message_type: 'email',
+            content: replyContent,
+            media_url: replyMediaJson,
+            status: 'sent',
+            created_at: replyNow,
+          },
+        }),
+      }));
+    } catch (doErr) {
+      console.error('[Email Reply] Failed to broadcast reply to DO:', doErr);
+    }
+
     return c.json({
       success: true,
       monthlyLimit: quota.monthlyLimit,
       remaining: Math.max(0, quota.remaining - 1),
       overage: quota.isOverage,
+      data: {
+        id: replyId,
+        status: 'sent',
+        created_at: replyNow,
+      },
     });
   } catch (e: any) {
     console.error('[Email Inbox] Reply failed:', e);

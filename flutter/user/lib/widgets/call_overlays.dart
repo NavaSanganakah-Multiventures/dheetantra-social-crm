@@ -36,6 +36,11 @@ class _GlobalCallOverlayState extends State<GlobalCallOverlay> {
     WebSocketService().connect();
 
     _wsIncomingSub = WebSocketService().onIncomingCall.listen((callData) {
+      // Outgoing calls we start ourselves also come back over the same channel
+      // (callRoutes broadcasts `incoming_call` to every socket) — never show
+      // an "incoming" overlay for a call this device initiated.
+      final direction = callData['direction'] ?? 'incoming';
+      if (direction == 'outgoing' || direction == 'BUSINESS_INITIATED') return;
       if (_callStatus == 'idle') {
         setState(() {
           _incomingCall = callData;

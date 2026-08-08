@@ -119,6 +119,10 @@ export class ChatDurableObject extends DurableObject {
         // Bridge with Meta Cloud API Voice (SIP or WebRTC Beta)
       }
 
+      // Keepalive pings/pongs are client-side heartbeats — never relay them to
+      // other sockets (with 2+ devices each ping would fan out to everyone).
+      if (event === 'ping' || event === 'pong') return;
+
       // Relay the event and payload to other clients in the room
       const sockets = this.ctx.getWebSockets();
       for (const socket of sockets) {
@@ -643,6 +647,23 @@ app.post('/api/whatsapp/webhook', async (c) => {
                   try {
                     const config = await c.env.DB.prepare('SELECT workspace_id FROM whatsapp_configs WHERE phone_number_id = ?').bind(phoneNumberId).first<{ workspace_id: string }>();
                     if (config && config.workspace_id) {
+                      // Resolve the conversation id so notification taps can
+                      // deep-link straight into the chat (chatbot.ts resolves
+                      // the same contact/conversation a moment later).
+                      let pushConvId = '';
+                      try {
+                        const contactRow = await c.env.DB.prepare(
+                          "SELECT id FROM contacts WHERE workspace_id = ? AND platform = 'whatsapp' AND platform_contact_id = ?"
+                        ).bind(config.workspace_id, message.from || '').first<{ id: string }>();
+                        if (contactRow) {
+                          const convRow = await c.env.DB.prepare(
+                            "SELECT id FROM conversations WHERE contact_id = ? AND platform = 'whatsapp' AND phone_number_id = ? ORDER BY created_at DESC LIMIT 1"
+                          ).bind(contactRow.id, phoneNumberId).first<{ id: string }>();
+                          pushConvId = convRow?.id || '';
+                        }
+                      } catch (e) {
+                        console.error('[Webhook] Conversation lookup for push failed:', e);
+                      }
                       const members = await c.env.DB.prepare('SELECT user_id FROM workspace_members WHERE workspace_id = ?').bind(config.workspace_id).all<{ user_id: string }>();
                       if (members.results && members.results.length > 0) {
                         const userIds = members.results.map(m => m.user_id);
@@ -673,6 +694,7 @@ app.post('/api/whatsapp/webhook', async (c) => {
                                   type: 'new_message',
                                   from: message.from || '',
                                   messageId: message.id || '',
+                                  conversation_id: pushConvId,
                                 })
                               )
                             );

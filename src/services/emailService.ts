@@ -849,24 +849,81 @@ export async function handleIncomingEmail(message: any, env: any, ctx: any) {
        VALUES (?, ?, 'contact', ?, ?, 'delivered', 'email', CURRENT_TIMESTAMP)`
     ).bind(messageId, conversation.id, parsed.text || parsed.subject || '(no content)', mediaJson).run();
 
-    // Real-time broadcast
+    // Real-time broadcast — same `new_message` shape as WhatsApp so Flutter
+    // chat/inbox/notification listeners work identically for email threads.
+    const emailInNow = new Date().toISOString();
     try {
       const globalDoId = env.CHAT_DO.idFromName(`global-${workspaceId}`);
       const stub = env.CHAT_DO.get(globalDoId);
       await stub.fetch(new Request('http://internal/broadcast', {
         method: 'POST',
         body: JSON.stringify({
-          type: 'email_incoming',
-          conversationId: conversation.id,
-          messageId,
-          from: senderEmail,
-          fromName: parsed.fromName || '',
-          subject: parsed.subject || '',
-          createdAt: new Date().toISOString(),
+          type: 'new_message',
+          customer_last_message_at: emailInNow,
+          message: {
+            id: messageId,
+            conversation_id: conversation.id,
+            sender_type: 'contact',
+            message_type: 'email',
+            content: parsed.text || parsed.subject || '(no content)',
+            media_url: mediaJson,
+            status: 'delivered',
+            created_at: emailInNow,
+          },
         }),
       }));
     } catch (e) {
       console.error('[Email] Broadcast failed:', e);
+    }
+
+    // Push notification for workspace members (same fan-out pattern as the
+    // WhatsApp webhook: chunked, capped, dead tokens removed).
+    try {
+      const members: any = await env.DB.prepare(
+        'SELECT user_id FROM workspace_members WHERE workspace_id = ?'
+      ).bind(workspaceId).all();
+      if (members.results && members.results.length > 0) {
+        const userIds = (members.results as Array<{ user_id: string }>).map((m) => m.user_id);
+        const placeholders = userIds.map(() => '?').join(',');
+        const tokens: any = await env.DB.prepare(
+          `SELECT token FROM fcm_tokens WHERE user_id IN (${placeholders})`
+        ).bind(...userIds).all();
+        if (tokens.results && tokens.results.length > 0) {
+          const { sendPushNotification } = await import('../../lib/fcm');
+          const title = `New email from ${parsed.fromName || senderEmail}`;
+          const emailPreview = parsed.text || parsed.subject || '(no content)';
+          const bodyPreview = emailPreview.length > 100 ? emailPreview.substring(0, 97) + '...' : emailPreview;
+          const CHUNK = 25;
+          const MAX_TOTAL_SENDS = 45;
+          const targets = (tokens.results as Array<{ token: string }>).slice(0, MAX_TOTAL_SENDS);
+          for (let start = 0; start < targets.length; start += CHUNK) {
+            const chunk = targets.slice(start, start + CHUNK);
+            const sends = await Promise.allSettled(
+              chunk.map((row) =>
+                sendPushNotification(env, row.token, title, bodyPreview, {
+                  workspaceId,
+                  type: 'new_message',
+                  from: senderEmail,
+                  conversation_id: conversation.id,
+                  messageId,
+                })
+              )
+            );
+            for (let i = 0; i < sends.length; i++) {
+              const s = sends[i];
+              if (s.status === 'fulfilled' && s.value.unregistered) {
+                try {
+                  await env.DB.prepare('DELETE FROM fcm_tokens WHERE token = ?').bind(chunk[i].token).run();
+                } catch (e) {
+                  console.error('[Email] Failed to delete unregistered FCM token:', e);
+                }
+              }
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.error('[Email] FCM push failed:', e);
     }
 
     // Forward to configured forward_to (guard against loops)
