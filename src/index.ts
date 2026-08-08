@@ -817,15 +817,9 @@ app.post('/api/whatsapp/webhook', async (c) => {
                           console.warn(`[Webhook] No FCM tokens for workspace ${config.workspace_id} — push skipped`);
                         }
 
-                        const emails = await c.env.DB.prepare(`SELECT email FROM users WHERE id IN (${placeholders})`).bind(...userIds).all<{ email: string }>();
-                        if (emails.results && c.env.EMAIL_SENDER && typeof c.env.EMAIL_SENDER.send === 'function') {
-                          const { EmailMessage } = await import('cloudflare:email');
-                          for (const row of emails.results) {
-                            const senderEmail = c.env.EMAIL_SENDER_ADDRESS || 'dheetantra@navasanganakah.com';
-                            const rawEmail = `From: DheeTantra <${senderEmail}>\r\nTo: ${row.email}\r\nSubject: [DheeTantra] ${title}\r\n\r\nYou have a new message:\n\n${bodyPreview}\n\nReply in the CRM dashboard.`;
-                            await c.env.EMAIL_SENDER.send(new EmailMessage(senderEmail, row.email, rawEmail));
-                          }
-                        }
+                        // NOTE: Email notifications for incoming WhatsApp messages are
+                        // intentionally disabled. Use FCM push notifications for real-time
+                        // alerts; email is reserved for system notifications only.
                       }
                     }
                   } catch (e) {
