@@ -654,6 +654,7 @@ app.post('/api/whatsapp/webhook', async (c) => {
                   try {
                     const config = await c.env.DB.prepare('SELECT workspace_id FROM whatsapp_configs WHERE phone_number_id = ?').bind(phoneNumberId).first<{ workspace_id: string }>();
                     if (config && config.workspace_id) {
+                      const senderName = contact?.profile?.name ?? message.from ?? 'Unknown';
                       // Resolve the conversation id so notification taps can
                       // deep-link straight into the chat (chatbot.ts resolves
                       // the same contact/conversation a moment later).
@@ -678,7 +679,7 @@ app.post('/api/whatsapp/webhook', async (c) => {
                         const tokens = await c.env.DB.prepare(`SELECT token FROM fcm_tokens WHERE user_id IN (${placeholders})`).bind(...userIds).all<{ token: string }>();
 
                         const { sendPushNotification } = await import('../lib/fcm');
-                        const title = `New message from ${contact.profile.name}`;
+                        const title = `New message from ${senderName}`;
                         const bodyPreview = messageText.length > 100 ? messageText.substring(0, 97) + '...' : messageText;
 
                         if (tokens.results && tokens.results.length > 0) {
@@ -691,13 +692,14 @@ app.post('/api/whatsapp/webhook', async (c) => {
                           if (tokens.results.length > MAX_TOTAL_SENDS) {
                             console.warn(`[Webhook] New-message push truncated: ${tokens.results.length} tokens, sending to ${MAX_TOTAL_SENDS}`);
                           }
+                          console.log(`[Webhook] Sending new-message push to ${targets.length} token(s) for workspace ${config.workspace_id}`);
                           for (let start = 0; start < targets.length; start += CHUNK) {
                             const chunk = targets.slice(start, start + CHUNK);
                             const sends = await Promise.allSettled(
                               chunk.map((row) =>
                                 sendPushNotification(c.env, row.token, title, bodyPreview, {
                                   workspaceId: config.workspace_id,
-                                  contactName: contact?.profile?.name ?? 'Unknown',
+                                  contactName: senderName,
                                   type: 'new_message',
                                   from: message.from || '',
                                   messageId: message.id || '',
@@ -715,8 +717,15 @@ app.post('/api/whatsapp/webhook', async (c) => {
                                   console.error('Failed to delete unregistered FCM token:', e);
                                 }
                               }
+                              if (s.status === 'rejected') {
+                                console.error('[Webhook] New-message push rejected:', s.reason);
+                              } else if (s.status === 'fulfilled' && !s.value.success) {
+                                console.error('[Webhook] New-message push failed:', s.value.error);
+                              }
                             }
                           }
+                        } else {
+                          console.warn(`[Webhook] No FCM tokens for workspace ${config.workspace_id} — push skipped`);
                         }
 
                         const emails = await c.env.DB.prepare(`SELECT email FROM users WHERE id IN (${placeholders})`).bind(...userIds).all<{ email: string }>();
