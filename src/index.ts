@@ -93,10 +93,19 @@ export class ChatDurableObject extends DurableObject {
       const pair = new WebSocketPair();
       const [client, server] = Object.values(pair);
 
-      // Accept the server end of the WebSocket
-      this.ctx.acceptWebSocket(server);
+      // Auth metadata is supplied by the main Worker before it forwards the
+      // upgrade request to the DO. These tags let us identify the owner of a
+      // socket in logs and allow targeted broadcasts later.
+      const userId = request.headers.get('x-auth-user-id');
+      const workspaceId = request.headers.get('x-auth-workspace-id');
+      const tags: string[] = [];
+      if (userId) tags.push(`user:${userId}`);
+      if (workspaceId) tags.push(`workspace:${workspaceId}`);
 
-      console.log(`[DO] WebSocket connected. Total sockets after accept: ${this.ctx.getWebSockets().length}`);
+      // Accept the server end of the WebSocket
+      this.ctx.acceptWebSocket(server, tags);
+
+      console.log(`[DO] WebSocket connected for workspace=${workspaceId ?? 'unknown'} user=${userId ?? 'unknown'}. Total sockets after accept: ${this.ctx.getWebSockets().length}`);
 
       return new Response(null, {
         status: 101,
@@ -124,7 +133,7 @@ export class ChatDurableObject extends DurableObject {
       // sockets (with 2+ devices each ping would fan out to everyone).
       if (event === 'ping') {
         try {
-          ws.send(JSON.stringify({ event: 'pong' }));
+          ws.send(JSON.stringify({ type: 'pong' }));
         } catch (e) {
           console.error('[DO] Failed to send pong:', e);
         }
@@ -148,15 +157,24 @@ export class ChatDurableObject extends DurableObject {
 
   async webSocketClose(ws: WebSocket, code: number, reason: string, wasClean: boolean) {
     try {
-      const validCode = (code === 1005 || code === 1006) ? 1000 : code;
-      console.log(`[DO] WebSocket closed: code=${validCode}, reason=${reason}`);
+      const tags = this.ctx.getWebSocketTags(ws) || [];
+      // Log the REAL close code. 1005/1006 are valid client-side indicators
+      // (no close frame / abnormal termination) and should not be masked.
+      console.log(`[DO] WebSocket closed: code=${code}, reason=${reason || '(empty)'}, clean=${wasClean}, tags=${tags.join(',') || 'none'}`);
     } catch (e) {
       console.error("Error in websocket close handler:", e);
     }
   }
 
   async webSocketError(ws: WebSocket, error: any) {
-    console.error("WebSocket error:", error);
+    const tags = this.ctx.getWebSocketTags(ws) || [];
+    console.error(`[DO] WebSocket error tags=${tags.join(',') || 'none'}:`, error);
+    // Forcefully close the socket so the DO can reclaim it cleanly.
+    try {
+      ws.close(1011, 'Server encountered a WebSocket error');
+    } catch (e) {
+      // Socket may already be closed; ignore.
+    }
   }
 }
 
@@ -792,7 +810,9 @@ app.post('/api/whatsapp/webhook', async (c) => {
                                   messageId: message.id || '',
                                   conversation_id: pushConvId,
                                 },
-                                { ttlSeconds: 0 }
+                                // Default TTL (4 weeks) ensures the message is
+                                // delivered even if the device is offline/dozing.
+                                {}
                               )
                               )
                             );
@@ -893,12 +913,76 @@ app.post('/api/whatsapp/webhook', async (c) => {
 // ==========================================
 // B2C & B2B API ROUTES (API Domains)
 // ==========================================
+// ---------------------------------------------------------------------------
+// WebSocket auth helper — validates the auth_session cookie or a ?sid=...
+// query parameter and verifies workspace membership before allowing an
+// upgrade to the global workspace Durable Object.
+// ---------------------------------------------------------------------------
+async function getAuthenticatedUserForWs(c: any): Promise<{ user: any; workspaceId: string } | null> {
+  const roomId = c.req.param('roomId');
+  if (!roomId || !roomId.startsWith('global-')) {
+    return null;
+  }
+  const workspaceId = roomId.slice('global-'.length);
+  if (!workspaceId) {
+    return null;
+  }
+
+  // Mobile apps cannot easily send httpOnly cookies over WebSocket, so they
+  // pass the session id as a query param. Browsers send the cookie normally.
+  const sessionId = c.req.query('sid') || getCookie(c, 'auth_session');
+  if (!sessionId || !c.env.SECRETS_KV) {
+    return null;
+  }
+
+  const userDataStr = await c.env.SECRETS_KV.get(`SESSION:${sessionId}`);
+  if (!userDataStr) {
+    return null;
+  }
+
+  let user: any = null;
+  try {
+    user = JSON.parse(userDataStr);
+  } catch (e) {
+    return null;
+  }
+  if (!user || !user.id) {
+    return null;
+  }
+
+  if (!c.env.DB) {
+    // Local development fallback — still require a known room shape but skip DB.
+    return { user, workspaceId };
+  }
+
+  const member = await c.env.DB.prepare(
+    'SELECT role FROM workspace_members WHERE workspace_id = ? AND user_id = ?'
+  ).bind(workspaceId, user.id).first<{ role: string }>();
+  if (!member) {
+    return null;
+  }
+
+  return { user, workspaceId };
+}
+
 app.get('/api/chat/connect/:roomId', async (c) => {
   const roomId = c.req.param('roomId');
-  // Route WebSocket upgrade request to the Durable Object
+  const auth = await getAuthenticatedUserForWs(c);
+  if (!auth) {
+    return c.text('Unauthorized', 401);
+  }
+
+  // Route WebSocket upgrade request to the Durable Object, tagging it with
+  // auth metadata so the DO can identify the socket owner.
   const id = c.env.CHAT_DO.idFromName(roomId);
   const stub = c.env.CHAT_DO.get(id);
-  const resp = await stub.fetch(c.req.raw);
+
+  const headers = new Headers(c.req.raw.headers);
+  headers.set('x-auth-user-id', auth.user.id);
+  headers.set('x-auth-workspace-id', auth.workspaceId);
+  const req = new Request(c.req.raw, { headers });
+
+  const resp = await stub.fetch(req);
   return resp;
 });
 

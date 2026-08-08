@@ -917,7 +917,9 @@ export async function handleIncomingEmail(message: any, env: any, ctx: any) {
                   conversation_id: conversation.id,
                   messageId,
                 },
-                { ttlSeconds: 0 }
+                // Default TTL (4 weeks) ensures the message is delivered even
+                // if the device is offline/dozing.
+                {}
               )
               )
             );

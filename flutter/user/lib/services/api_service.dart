@@ -14,10 +14,12 @@ class ApiService {
   late final Dio _dio;
   late final PersistCookieJar _cookieJar;
   String? _workspaceId;
+  String? _sessionId;
   Map<String, dynamic>? _currentUser;
 
   Dio get dio => _dio;
   String? get workspaceId => _workspaceId;
+  String? get sessionId => _sessionId;
   Map<String, dynamic>? get currentUser => _currentUser;
 
   ApiService._internal() {
@@ -48,6 +50,7 @@ class ApiService {
 
     final prefs = await SharedPreferences.getInstance();
     _workspaceId = prefs.getString('workspaceId');
+    _sessionId = prefs.getString('sessionId');
   }
 
   Future<void> _saveWorkspaceId(String id) async {
@@ -56,12 +59,20 @@ class ApiService {
     await prefs.setString('workspaceId', id);
   }
 
+  Future<void> _saveSessionId(String id) async {
+    _sessionId = id;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('sessionId', id);
+  }
+
   Future<void> clearSession() async {
     _workspaceId = null;
+    _sessionId = null;
     _currentUser = null;
     _cookieJar.deleteAll();
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('workspaceId');
+    await prefs.remove('sessionId');
   }
 
   // ========== AUTH ==========
@@ -89,6 +100,9 @@ class ApiService {
       if (data['workspaceId'] != null) {
         await _saveWorkspaceId(data['workspaceId']);
       }
+      if (data['sessionId'] != null) {
+        await _saveSessionId(data['sessionId']);
+      }
       if (data['user'] != null) {
         _currentUser = data['user'];
       }
@@ -108,6 +122,24 @@ class ApiService {
       }
       return null;
     } on DioException {
+      return null;
+    }
+  }
+
+  /// Fetches the session id from the server. Mobile apps cannot read the
+  /// httpOnly cookie directly, so this endpoint returns the active session id
+  /// for use as a WebSocket auth query parameter.
+  Future<String?> fetchSessionToken() async {
+    try {
+      final res = await _dio.get('/api/auth/session-token');
+      final data = res.data as Map<String, dynamic>;
+      final token = data['sessionId'] as String?;
+      if (token != null && token.isNotEmpty) {
+        await _saveSessionId(token);
+      }
+      return token;
+    } on DioException catch (e) {
+      debugPrint('fetchSessionToken error: $e');
       return null;
     }
   }

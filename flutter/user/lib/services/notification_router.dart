@@ -9,12 +9,31 @@ import 'dart:async';
 class NotificationRouter {
   static final NotificationRouter _instance = NotificationRouter._internal();
   factory NotificationRouter() => _instance;
-  NotificationRouter._internal();
 
-  final _controller = StreamController<Map<String, dynamic>>.broadcast();
+  // Agar app kill ke baad notification se khulti hai toh HomeShell abhi
+  // mounted nahi hota. Pending event ko next listener tak save rakhte hain.
+  NotificationRouter._internal() {
+    _controller = StreamController<Map<String, dynamic>>.broadcast(
+      onListen: () {
+        if (_pending != null) {
+          final data = _pending!;
+          _pending = null;
+          _controller.add(data);
+        }
+      },
+    );
+  }
+
+  late final StreamController<Map<String, dynamic>> _controller;
   Stream<Map<String, dynamic>> get onNotification => _controller.stream;
 
+  Map<String, dynamic>? _pending;
+
   void dispatch(Map<String, dynamic> data) {
-    _controller.add(data);
+    if (_controller.hasListener) {
+      _controller.add(data);
+    } else {
+      _pending = data;
+    }
   }
 }

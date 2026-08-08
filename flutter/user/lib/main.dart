@@ -27,19 +27,15 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   final type = message.data['type'] ?? '';
   debugPrint('[FCM Background] message type: $type');
 
-  // Backend notification payload ke saath bhejta hai, toh system tray pe
-  // notification Android khud dikhayega. Yahan sirf un actions ki zaroorat
-  // hai jo UI notification se nahi ho sakti (jaise incoming call screen).
+  // App kill/band hone par bhi har message ka notification aana chahiye.
+  // Notification-payload wale messages ko Android system tray dikhata hai,
+  // lekin data-only messages ya custom handling ke liye local notification
+  // khud show karte hain.
   if (type == 'incoming_call') {
     await CallKitService().showIncomingCall(message.data);
-  } else if (type == 'missed_call') {
-    // Agar future mein missed-call background notification customize karni
-    // ho toh yahan handle karein. Abhi system notification kaafi hai.
-    debugPrint('[FCM Background] missed_call recorded');
-  } else if (type == 'new_message') {
-    // Data-only background message aaye toh call kit / local notification
-    // dikhane ka logic future mein add kar sakte hain.
-    debugPrint('[FCM Background] new_message recorded');
+  } else {
+    // missed_call, new_message, ya koi bhi dusra data-only event.
+    await FcmService().showBackgroundNotification(message);
   }
 }
 

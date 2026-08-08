@@ -98,6 +98,29 @@ class FcmService {
     });
   }
 
+  /// Shows a local notification from a background/terminated data-only push.
+  /// Called by the top-level background handler running in its own isolate.
+  Future<void> showBackgroundNotification(RemoteMessage message) async {
+    if (Firebase.apps.isEmpty) return;
+
+    try {
+      await _initLocalNotifications();
+    } catch (e) {
+      debugPrint('Background local notification init failed: $e');
+      return;
+    }
+
+    final type = message.data['type'] ?? '';
+    final title = message.notification?.title ??
+        message.data['title'] ??
+        (type == 'missed_call' ? 'मिस्ड कॉल' : 'DheeTantra');
+    final body = message.notification?.body ??
+        message.data['body'] ??
+        'नया अपडेट प्राप्त हुआ';
+
+    await _showLocalNotification(title, body, message.data);
+  }
+
   Future<void> _initLocalNotifications() async {
     const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
     const darwinInit = DarwinInitializationSettings(
@@ -218,23 +241,25 @@ class FcmService {
   void _handleForegroundMessage(RemoteMessage message) {
     if (!_available) return;
 
-    if (message.data['type'] == 'incoming_call') {
+    final type = message.data['type'] ?? '';
+
+    if (type == 'incoming_call') {
       CallKitService().showIncomingCall(message.data);
       return;
     }
 
-    if (message.notification == null) {
-      // Data-only message (e.g. call events) — surface via in-app overlay.
-      _handleTap(message.data);
-      return;
-    }
+    // Har message/call ka notification dikhana chahiye — foreground mein bhi.
+    // Agar backend sirf data bhejta hai toh bhi local tray pe dikhayenge.
+    final title = message.notification?.title ??
+        message.data['title'] ??
+        (type == 'missed_call' ? 'मिस्ड कॉल' : 'DheeTantra');
+    final body = message.notification?.body ??
+        message.data['body'] ??
+        'नया अपडेट प्राप्त हुआ';
+
     isEnabled().then((enabled) {
       if (!enabled) return;
-      _showLocalNotification(
-        message.notification?.title ?? 'DheeTantra',
-        message.notification?.body ?? '',
-        message.data,
-      );
+      _showLocalNotification(title, body, message.data);
     });
   }
 

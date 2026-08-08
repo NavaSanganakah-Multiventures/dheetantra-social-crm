@@ -272,7 +272,23 @@ router.post('/api/auth/verify-otp', async (c) => {
     path: '/',
   });
 
-  return c.json({ success: true, user, workspaceId: defaultWorkspaceId });
+  return c.json({ success: true, user, workspaceId: defaultWorkspaceId, sessionId });
+});
+
+// Returns the caller's own session id. Mobile apps need this because they
+// cannot read the httpOnly auth_session cookie used by the browser dashboard.
+// The token is then passed as a query parameter on the realtime WebSocket.
+router.get('/api/auth/session-token', async (c) => {
+  const sessionId = getCookie(c, 'auth_session');
+  if (!sessionId) return c.json({ error: 'Unauthorized' }, 401);
+
+  if (c.env.SECRETS_KV) {
+    const userDataStr = await c.env.SECRETS_KV.get(`SESSION:${sessionId}`);
+    if (!userDataStr) return c.json({ error: 'Unauthorized' }, 401);
+  }
+
+  c.res.headers.set('Cache-Control', 'no-store');
+  return c.json({ sessionId });
 });
 
 router.post('/api/auth/logout', async (c) => {

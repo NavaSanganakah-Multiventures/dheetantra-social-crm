@@ -35,7 +35,7 @@ class WebSocketService with WidgetsBindingObserver {
   /// No inbound traffic (including pongs) for this long = dead network path.
   static const _staleTimeout = Duration(seconds: 75);
   /// Backgrounded longer than this → force a fresh connection on resume.
-  static const _resumeThreshold = Duration(seconds: 10);
+  static const _resumeThreshold = Duration(seconds: 60);
 
   WebSocketChannel? _channel;
   StreamSubscription? _sub;
@@ -109,7 +109,16 @@ class WebSocketService with WidgetsBindingObserver {
     }
 
     _connecting = true;
-    final url = 'wss://dheetantra.navasanganakah.com/api/chat/connect/global-$workspaceId';
+
+    // The WebSocket endpoint now requires proof of session. Browsers send the
+    // httpOnly cookie automatically; the mobile app sends the session id as a
+    // query parameter because Dart cannot read the cookie jar for WebSocket.
+    String? sessionId = ApiService().sessionId;
+    if (sessionId == null || sessionId.isEmpty) {
+      sessionId = await ApiService().fetchSessionToken();
+    }
+    final query = (sessionId != null && sessionId.isNotEmpty) ? '?sid=$sessionId' : '';
+    final url = 'wss://dheetantra.navasanganakah.com/api/chat/connect/global-$workspaceId$query';
     try {
       final channel = WebSocketChannel.connect(Uri.parse(url));
       _channel = channel;

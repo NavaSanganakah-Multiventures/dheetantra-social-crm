@@ -203,9 +203,21 @@ export async function sendPushNotification(
       }
     }
 
-    const androidNotification: Record<string, any> = { channel_id: 'dheetantra' };
+    const androidNotification: Record<string, any> = {
+      channel_id: 'dheetantra',
+      sound: 'default',
+      priority: 'high',
+      visibility: 'public',
+    };
     if (options?.category) androidNotification.category = options.category;
-    const ttl = options?.ttlSeconds === 0 ? '0s' : undefined;
+    // ttlSeconds == 0  → immediate delivery only (calls). For messages use a
+    // long TTL so the device gets every message when it comes back online.
+    const ttl =
+      options?.ttlSeconds === 0
+        ? '0s'
+        : options?.ttlSeconds
+          ? `${options.ttlSeconds}s`
+          : '2419200s';
 
     const res = await fetch(`https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`, {
       method: 'POST',
@@ -227,8 +239,10 @@ export async function sendPushNotification(
             headers: ttl ? { 'apns-priority': '10' } : undefined,
             payload: {
               aps: {
+                alert: { title, body },
                 sound: options?.sound || 'default',
                 'content-available': 1,
+                'mutable-content': 1,
               },
             },
           },
