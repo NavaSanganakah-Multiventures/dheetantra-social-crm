@@ -28,6 +28,7 @@ export function WhatsAppManagerView() {
   const [aiVoiceInstructions, setAiVoiceInstructions] = useState("");
   const [savingConfig, setSavingConfig] = useState(false);
   const [uploadingPicture, setUploadingPicture] = useState(false);
+  const [isFetchingProfile, setIsFetchingProfile] = useState(false);
   const [showMicTestModal, setShowMicTestModal] = useState(false);
   const [isMicTesting, setIsMicTesting] = useState(false);
   const [micTestStatus, setMicTestStatus] = useState("निष्क्रिय");
@@ -354,6 +355,37 @@ export function WhatsAppManagerView() {
     window.addEventListener('message', sessionInfoListener);
     return () => window.removeEventListener('message', sessionInfoListener);
   }, []);
+
+  // Fetch Profile from Meta
+  const handleFetchMetaProfile = async () => {
+    if (!phoneNumberId) {
+      setMessage("मेटा से फ़ेच करने के लिए कृपया पहले Phone Number ID भरें।");
+      return;
+    }
+    setIsFetchingProfile(true);
+    setMessage("Meta से नवीनतम प्रोफ़ाइल फ़ेच की जा रही है...");
+    try {
+      const res = await fetch(`/api/whatsapp/config/profile?phoneNumberId=${phoneNumberId}`, {
+        headers: { 'x-workspace-id': localStorage.getItem('workspaceId') || '' }
+      });
+      const data: any = await res.json();
+      if (data.profile) {
+        setProfileAbout(data.profile.about || "");
+        setProfileDescription(data.profile.description || "");
+        setProfileWebsite(data.profile.website || "");
+        setProfileEmail(data.profile.email || "");
+        setProfileAddress(data.profile.address || "");
+        if (data.profile.profile_picture_url) setProfilePictureUrl(data.profile.profile_picture_url);
+        setMessage("मेटा से प्रोफ़ाइल सफलतापूर्वक फ़ेच की गई! सुरक्षित करने के लिए 'सुरक्षित करें' दबाएँ।");
+      } else {
+        setMessage("त्रुटि: प्रोफ़ाइल फ़ेच करने में विफल (" + (data.error || "अज्ञात त्रुटि") + ")");
+      }
+    } catch (e) {
+      setMessage("सर्वर से संपर्क करने में त्रुटि।");
+    } finally {
+      setIsFetchingProfile(false);
+    }
+  };
 
   // Profile Save
   const handleSaveProfile = async () => {
@@ -1021,7 +1053,23 @@ export function WhatsAppManagerView() {
 
                   {/* Business Profile Section */}
                   <div className="border-t border-surface-100 dark:border-surface-800 pt-4 mt-2">
-                    <h4 className="text-xs font-bold text-surface-800 dark:text-surface-200 uppercase tracking-wider mb-3">WhatsApp Business Profile</h4>
+                    <div className="flex justify-between items-center mb-3">
+                      <h4 className="text-xs font-bold text-surface-800 dark:text-surface-200 uppercase tracking-wider">WhatsApp Business Profile</h4>
+                      {phoneNumberId && (
+                        <button
+                          onClick={handleFetchMetaProfile}
+                          disabled={isFetchingProfile}
+                          className="px-3 py-1.5 text-[11px] font-semibold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/50 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 rounded-lg transition-all flex items-center gap-1.5"
+                        >
+                          {isFetchingProfile ? (
+                            <span className="animate-spin w-3 h-3 border-2 border-indigo-500 border-t-transparent rounded-full" />
+                          ) : (
+                            <Facebook className="w-3.5 h-3.5" />
+                          )}
+                          {isFetchingProfile ? 'फ़ेच हो रहा है...' : 'मेटा से फ़ेच करें'}
+                        </button>
+                      )}
+                    </div>
                     <div className="space-y-3">
                       {/* Profile Picture with Upload */}
                       <div className="flex flex-col items-center mb-4">
