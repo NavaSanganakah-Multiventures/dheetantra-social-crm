@@ -119,9 +119,18 @@ export class ChatDurableObject extends DurableObject {
         // Bridge with Meta Cloud API Voice (SIP or WebRTC Beta)
       }
 
-      // Keepalive pings/pongs are client-side heartbeats — never relay them to
-      // other sockets (with 2+ devices each ping would fan out to everyone).
-      if (event === 'ping' || event === 'pong') return;
+      // Keepalive pings: answer with a pong on the SAME socket so the client
+      // can confirm liveness/handshake. Never relay pings/pongs to other
+      // sockets (with 2+ devices each ping would fan out to everyone).
+      if (event === 'ping') {
+        try {
+          ws.send(JSON.stringify({ event: 'pong' }));
+        } catch (e) {
+          console.error('[DO] Failed to send pong:', e);
+        }
+        return;
+      }
+      if (event === 'pong') return;
 
       // Relay the event and payload to other clients in the room
       const sockets = this.ctx.getWebSockets();

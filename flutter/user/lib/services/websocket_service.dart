@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'api_service.dart';
 
@@ -8,22 +8,48 @@ import 'api_service.dart';
 ///
 /// - Auto-connects once a workspace is available (login/splash).
 /// - Exponential backoff reconnect (2s -> 30s) on drop/error.
-/// - Keepalive ping every 25s so proxies don't kill the socket.
+/// - Keepalive ping every 25s; the server answers with a pong, which both
+///   confirms the handshake and feeds a liveness watchdog that recycles dead
+///   half-open sockets (network switches, zombie connections).
+/// - App-lifecycle aware: keepalive pauses in background (battery), and on
+///   resume the connection is torn down + re-established immediately instead
+///   of waiting on a backed-off timer.
 /// - Exposes typed streams for every event the backend broadcasts.
-class WebSocketService {
+class WebSocketService with WidgetsBindingObserver {
   static final WebSocketService _instance = WebSocketService._internal();
   factory WebSocketService() => _instance;
-  WebSocketService._internal();
+  WebSocketService._internal() {
+    try {
+      WidgetsBinding.instance.addObserver(this);
+    } catch (_) {
+      // No binding (unit tests) — lifecycle handling simply disabled.
+    }
+  }
+
+  static const _keepaliveInterval = Duration(seconds: 25);
+  static const _watchdogInterval = Duration(seconds: 5);
+  /// If the server hasn't sent anything (pong or real event) this long after
+  /// connecting, the handshake is assumed failed and the socket is recycled.
+  static const _confirmTimeout = Duration(seconds: 12);
+  /// No inbound traffic (including pongs) for this long = dead network path.
+  static const _staleTimeout = Duration(seconds: 75);
+  /// Backgrounded longer than this → force a fresh connection on resume.
+  static const _resumeThreshold = Duration(seconds: 10);
 
   WebSocketChannel? _channel;
   StreamSubscription? _sub;
   Timer? _keepaliveTimer;
   Timer? _reconnectTimer;
+  Timer? _watchdogTimer;
   bool _connecting = false;
   int _retryAttempt = 0;
   bool _manuallyDisconnected = false;
-  // Becomes true only after the handshake is confirmed by a real message.
+  // Becomes true only after the handshake is confirmed by a real message
+  // (the server answers pings with a pong, so this happens fast).
   bool _connectionConfirmed = false;
+  DateTime _connectedAt = DateTime.now();
+  DateTime _lastMessageAt = DateTime.now();
+  DateTime _pausedAt = DateTime.now();
 
   final _connectionController = StreamController<bool>.broadcast();
   /// Emits `true` when connected, `false` when disconnected.
@@ -94,11 +120,18 @@ class WebSocketService {
         },
         cancelOnError: false,
       );
-      // Optimistic "connected": the server sends no welcome message and never
-      // echoes pings, so an idle workspace would otherwise never confirm the
-      // connection. A failed handshake still flips the flag via onDone/onError.
+      // Optimistic "connected": the server's pong (answering the ping below)
+      // confirms the handshake, and the watchdog recycles the socket if no
+      // confirmation arrives within _confirmTimeout. A failed handshake still
+      // flips the flag via onDone/onError.
       _connectionController.add(true);
+      _connectedAt = DateTime.now();
+      _lastMessageAt = DateTime.now();
+      // Ping immediately so the server's pong confirms the handshake without
+      // waiting for the first 25s keepalive tick.
+      send({'event': 'ping'});
       _startKeepalive();
+      _startWatchdog();
     } catch (e) {
       debugPrint('WS Connection Error: $e');
       _connecting = false;
@@ -107,6 +140,8 @@ class WebSocketService {
   }
 
   void _onMessage(dynamic message) {
+    // Any inbound traffic (pong or real event) proves the socket is alive.
+    _lastMessageAt = DateTime.now();
     try {
       // A real inbound message confirms the handshake completed — only now
       // does the backoff counter reset (resetting on listen() would make a
@@ -177,6 +212,7 @@ class WebSocketService {
   }
 
   void _onDisconnected() {
+    _watchdogTimer?.cancel();
     _stopKeepalive();
     _sub?.cancel();
     _sub = null;
@@ -185,6 +221,22 @@ class WebSocketService {
     _connectionConfirmed = false;
     _connectionController.add(false);
     _scheduleReconnect();
+  }
+
+  /// Tears down the socket WITHOUT scheduling a reconnect (used by the
+  /// watchdog and the app-resume path, which then reconnect explicitly).
+  void _teardown() {
+    _watchdogTimer?.cancel();
+    _stopKeepalive();
+    _sub?.cancel();
+    _sub = null;
+    try {
+      _channel?.sink.close();
+    } catch (_) {}
+    _channel = null;
+    _connecting = false;
+    _connectionConfirmed = false;
+    _connectionController.add(false);
   }
 
   void _scheduleReconnect() {
@@ -201,7 +253,7 @@ class WebSocketService {
 
   void _startKeepalive() {
     _keepaliveTimer?.cancel();
-    _keepaliveTimer = Timer.periodic(const Duration(seconds: 25), (_) {
+    _keepaliveTimer = Timer.periodic(_keepaliveInterval, (_) {
       send({'event': 'ping'});
     });
   }
@@ -211,10 +263,73 @@ class WebSocketService {
     _keepaliveTimer = null;
   }
 
+  void _startWatchdog() {
+    _watchdogTimer?.cancel();
+    _watchdogTimer = Timer.periodic(_watchdogInterval, (_) => _checkHealth());
+  }
+
+  /// Detects zombie connections the OS can't tell us about:
+  ///  - handshake never confirmed (server unreachable mid-connect), or
+  ///  - no inbound traffic (pongs included) for too long (dead half-open
+  ///    TCP path after a network switch).
+  void _checkHealth() {
+    if (_channel == null || _manuallyDisconnected) return;
+    final now = DateTime.now();
+    if (!_connectionConfirmed && now.difference(_connectedAt) > _confirmTimeout) {
+      debugPrint('WS watchdog: handshake not confirmed, reconnecting');
+      _teardown();
+      _scheduleReconnect();
+      return;
+    }
+    if (now.difference(_lastMessageAt) > _staleTimeout) {
+      debugPrint('WS watchdog: stale connection, reconnecting');
+      _teardown();
+      _scheduleReconnect();
+    }
+  }
+
+  // ---------------------------------------------------------------------
+  // App lifecycle — the OS freezes the isolate in background, so keepalive
+  // stops and the socket dies there. On resume we must reconnect FAST instead
+  // of waiting on a backed-off timer.
+  // ---------------------------------------------------------------------
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    switch (state) {
+      case AppLifecycleState.resumed:
+        _onAppResumed();
+        break;
+      case AppLifecycleState.paused:
+      case AppLifecycleState.hidden:
+        // Battery: no point pinging a frozen isolate.
+        _pausedAt = DateTime.now();
+        _stopKeepalive();
+        break;
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.detached:
+        break;
+    }
+  }
+
+  void _onAppResumed() {
+    _reconnectTimer?.cancel();
+    _retryAttempt = 0;
+    _startKeepalive();
+    final pausedFor = DateTime.now().difference(_pausedAt);
+    if (_connecting || (isConnected && pausedFor > _resumeThreshold)) {
+      // The old socket almost certainly died while frozen (or the handshake
+      // hung) — tear it down and establish a fresh connection now.
+      debugPrint('WS resume: recycling stale connection');
+      _teardown();
+    }
+    connect();
+  }
+
   /// Stops the connection permanently (e.g. on logout).
   void disconnect() {
     _manuallyDisconnected = true;
     _reconnectTimer?.cancel();
+    _watchdogTimer?.cancel();
     _stopKeepalive();
     _sub?.cancel();
     _sub = null;
