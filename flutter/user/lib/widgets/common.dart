@@ -3,10 +3,20 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 
 String initialsOf(String name) {
-  final parts = name.trim().split(RegExp(r'\s+'));
-  if (parts.isEmpty || parts.first.isEmpty) return '?';
-  if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
-  return (parts.first.substring(0, 1) + parts.last.substring(0, 1)).toUpperCase();
+  final trimmed = name.trim();
+  final runes = trimmed.runes.toList();
+  if (runes.isEmpty) return '?';
+  if (runes.length == 1) return String.fromCharCode(runes.first);
+
+  final parts = trimmed.split(RegExp(r'\s+'));
+  if (parts.length <= 1) {
+    // Single word: pehla character le lo (emoji/surrogate safe).
+    return String.fromCharCode(runes.first);
+  }
+
+  final firstRunes = parts.first.runes.toList();
+  final lastRunes = parts.last.runes.toList();
+  return '${String.fromCharCode(firstRunes.first)}${String.fromCharCode(lastRunes.first)}';
 }
 
 String timeLabel(DateTime time) {

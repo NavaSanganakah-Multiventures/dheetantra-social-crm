@@ -95,7 +95,7 @@ class Contact {
     if (json['is_lead'] == 1 || json['is_lead'] == true) {
       tags.add('लीड');
       if (json['lead_status'] != null && json['lead_status'] != 'new') {
-        tags.add(json['lead_status']);
+        tags.add(_safeString(json['lead_status']));
       }
     } else {
       tags.add('ग्राहक');
