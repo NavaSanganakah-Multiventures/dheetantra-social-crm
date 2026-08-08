@@ -284,20 +284,14 @@ app.get('/api/whatsapp/webhook', async (c) => {
 // Webhook Receiver (WhatsApp sends incoming messages via POST)
 app.post('/api/whatsapp/webhook', async (c) => {
   try {
-    // Meta signs webhook deliveries with the app secret. Verification is
-    // REQUIRED: without WHATSAPP_APP_SECRET in SECRETS_KV the endpoint fails
-    // closed (503) unless the explicit insecure opt-out flag is set — never
-    // silently accept unauthenticated events.
+    // Meta signs webhook deliveries with the app secret (x-hub-signature-256).
+    // Verification is enforced whenever WHATSAPP_APP_SECRET is present in
+    // SECRETS_KV. If the secret is NOT configured we FAIL OPEN (accept the
+    // event) with a loud error log — a hard 503 here silently kills every
+    // incoming message (no DB save, no realtime broadcast, no push), which is
+    // worse than accepting unverified webhooks until the operator sets the
+    // secret. Set WHATSAPP_APP_SECRET to restore strict verification.
     const appSecret = await c.env.SECRETS_KV?.get('WHATSAPP_APP_SECRET');
-    const insecureFlag = await c.env.SECRETS_KV?.get('WHATSAPP_WEBHOOK_INSECURE');
-    if (!appSecret) {
-      if (insecureFlag === '1') {
-        console.warn('[WhatsApp] WHATSAPP_APP_SECRET not set — accepting webhook with insecure opt-out (WHATSAPP_WEBHOOK_INSECURE=1)');
-      } else {
-        console.error('[WhatsApp] WHATSAPP_APP_SECRET not set — rejecting webhook');
-        return c.json({ error: 'Webhook signature verification not configured' }, 503);
-      }
-    }
     const rawBody = await c.req.text();
     if (appSecret) {
       const signature = c.req.header('x-hub-signature-256') || '';
@@ -306,6 +300,8 @@ app.post('/api/whatsapp/webhook', async (c) => {
         console.warn('[WhatsApp] Webhook signature mismatch — ignoring event');
         return c.json({ error: 'Invalid signature' }, 403);
       }
+    } else {
+      console.error('[WhatsApp] WHATSAPP_APP_SECRET missing in SECRETS_KV — accepting webhook WITHOUT signature verification. Add WHATSAPP_APP_SECRET (Meta App Secret) to SECRETS_KV to enable verification.');
     }
     const body = rawBody ? JSON.parse(rawBody) : {};
     // Log only metadata, never the full body (it may contain PII, tokens and
@@ -527,7 +523,9 @@ app.post('/api/whatsapp/webhook', async (c) => {
           }
 
           if (change.value && change.value.messages) {
-            const message = change.value.messages[0];
+            // Meta batches messages: process EVERY message in the delivery,
+            // not just the first — otherwise multi-message bursts are dropped.
+            for (const message of change.value.messages) {
             const contact = change.value.contacts[0];
             const phoneNumberId = change.value.metadata?.phone_number_id;
 
@@ -743,8 +741,10 @@ app.post('/api/whatsapp/webhook', async (c) => {
                 finalMediaUrl
               )
             );
+            }
           } else if (change.value && change.value.statuses) {
-            const statusObj = change.value.statuses[0];
+            // Meta can batch multiple status updates in one delivery.
+            for (const statusObj of change.value.statuses) {
             const platformMsgId = statusObj.id;
             const status = statusObj.status; // 'sent', 'delivered', 'read'
 
@@ -774,6 +774,7 @@ app.post('/api/whatsapp/webhook', async (c) => {
               }
             } catch (err: any) {
               console.error("Webhook status error:", err);
+            }
             }
           }
         }

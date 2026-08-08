@@ -77,12 +77,19 @@ export async function handleIncomingMessage(
       if (messageId) {
         const incomingMessageId = crypto.randomUUID();
 
-
-        await env.DB.prepare(`
-          INSERT OR IGNORE INTO messages (id, conversation_id, sender_type, message_type, content, media_url, platform_message_id)
-          VALUES (?, ?, 'contact', ?, ?, ?, ?)
-        `).bind(incomingMessageId, conversationId, messageType, messageText, mediaUrl || null, messageId).run();
-        console.log(`[handleIncomingMessage] Incoming message saved. id=${incomingMessageId}`);
+        // The DB save and the realtime broadcast are independent: a transient
+        // DB failure must NOT silently kill the WebSocket broadcast (otherwise
+        // the app never sees the message in realtime and only a manual refresh
+        // would pick it up).
+        try {
+          await env.DB.prepare(`
+            INSERT OR IGNORE INTO messages (id, conversation_id, sender_type, message_type, content, media_url, platform_message_id)
+            VALUES (?, ?, 'contact', ?, ?, ?, ?)
+          `).bind(incomingMessageId, conversationId, messageType, messageText, mediaUrl || null, messageId).run();
+          console.log(`[handleIncomingMessage] Incoming message saved. id=${incomingMessageId}`);
+        } catch (saveErr) {
+          console.error('[handleIncomingMessage] Failed to save message — broadcasting anyway:', saveErr);
+        }
 
         // Check if calling is enabled for this phone number/config
         let callingEnabled = 1;
