@@ -11,14 +11,13 @@ class NotificationRouter {
   factory NotificationRouter() => _instance;
 
   // Agar app kill ke baad notification se khulti hai toh HomeShell abhi
-  // mounted nahi hota. Pending event ko next listener tak save rakhte hain.
+  // mounted nahi hota. Pending events ko queue me save rakhte hain taaki
+  // multiple notification taps overwrite na ho jayein.
   NotificationRouter._internal() {
     _controller = StreamController<Map<String, dynamic>>.broadcast(
       onListen: () {
-        if (_pending != null) {
-          final data = _pending!;
-          _pending = null;
-          _controller.add(data);
+        while (_pending.isNotEmpty) {
+          _controller.add(_pending.removeAt(0));
         }
       },
     );
@@ -27,13 +26,13 @@ class NotificationRouter {
   late final StreamController<Map<String, dynamic>> _controller;
   Stream<Map<String, dynamic>> get onNotification => _controller.stream;
 
-  Map<String, dynamic>? _pending;
+  final List<Map<String, dynamic>> _pending = [];
 
   void dispatch(Map<String, dynamic> data) {
     if (_controller.hasListener) {
       _controller.add(data);
     } else {
-      _pending = data;
+      _pending.add(data);
     }
   }
 }

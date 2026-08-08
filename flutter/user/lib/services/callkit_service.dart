@@ -23,6 +23,11 @@ class CallKitService {
 
   String? _currentCallId;
 
+  // Agar app cold start / kill ke baad user call accept kare toh navigator abhi
+  // ready nahi hota. Us event ko yahan queue karte hain aur HomeShell shuru hone
+  // par navigate kar dete hain.
+  Map<String, dynamic>? _pendingAcceptCall;
+
   Future<void> init() async {
     if (_initialized) return;
     _initialized = true;
@@ -38,11 +43,17 @@ class CallKitService {
         final callData = _activeCalls[params.id] ?? params.extra;
         if (callData != null) {
           final data = Map<String, dynamic>.from(callData);
-          // Khulte hi alag call screen dikhao.
-          _openCallScreen(data);
-          Future.delayed(const Duration(milliseconds: 300), () {
-            WebRTCService().answerCall(data);
-          });
+          // Agar navigator ready hai toh turant open karo, warna pending mein
+          // save karo taaki HomeShell shuru hone par route kar sake.
+          if (appNavigatorKey.currentState != null) {
+            _openCallScreen(data);
+            Future.delayed(const Duration(milliseconds: 300), () {
+              WebRTCService().answerCall(data);
+            });
+          } else {
+            debugPrint('CALLKIT: navigator not ready, queuing accepted call');
+            _pendingAcceptCall = data;
+          }
         }
       } else if (event is CallEventActionCallDecline) {
         debugPrint('CALLKIT: actionCallDecline');
@@ -71,6 +82,15 @@ class CallKitService {
 
   /// Request Android 13+ notification permission and Android 14+ full-screen
   /// intent permission. Call after the user is logged in.
+  /// Returns any call accepted while the app was not yet initialized/navigated
+  /// to HomeShell. The caller must then route to [CallScreen] and answer the
+  /// WebRTC call. Returns null after the first read.
+  Map<String, dynamic>? takePendingAcceptCall() {
+    final data = _pendingAcceptCall;
+    _pendingAcceptCall = null;
+    return data;
+  }
+
   Future<void> requestPermissions() async {
     try {
       await FlutterCallkitIncoming.requestNotificationPermission({
@@ -108,19 +128,37 @@ class CallKitService {
   }
 
   Future<void> showIncomingCall(Map<String, dynamic> data) async {
-    final String uuid = data['id'] ?? 'unknown-call-id';
-    final String callerName = data['callerName'] ?? 'DheeTantra Call';
-    final String callerId = data['callerNumber'] ?? 'Unknown';
-    
+    final String uuid = data['id']?.toString() ?? 'unknown-call-id';
+    final String callerName = data['callerName']?.toString().isNotEmpty == true
+        ? data['callerName'].toString()
+        : 'DheeTantra Call';
+    final String callerId = data['callerNumber']?.toString().isNotEmpty == true
+        ? data['callerNumber'].toString()
+        : (data['from']?.toString().isNotEmpty == true ? data['from'].toString() : 'Unknown');
+
+    // Push payload mein aaya email/lastMessage safe extra mein rakh lo taaki
+    // CallScreen par poora caller context dikha sakein.
+    final String email = data['contactEmail']?.toString() ?? '';
+    final String lastMessage = data['lastMessage']?.toString() ?? '';
+    final String displayName = callerName == 'DheeTantra Call' && callerId != 'Unknown' ? callerId : callerName;
+
     // Store in memory in case the extra data is lost on some platforms
     _currentCallId = uuid;
-    _activeCalls[uuid] = data;
+    _activeCalls[uuid] = {
+      ...data,
+      'contact_name': displayName,
+      'phone': callerId,
+      'callerName': displayName,
+      'callerNumber': callerId,
+      'email': email,
+      'lastMessage': lastMessage,
+    };
 
     final params = CallKitParams(
       id: uuid,
-      nameCaller: callerName,
+      nameCaller: displayName,
       appName: 'DheeTantra',
-      avatar: 'https://i.pravatar.cc/100', // You can replace with actual avatar
+      avatar: 'https://i.pravatar.cc/100', // Replace with contact avatar if available
       handle: callerId,
       type: 0,
       duration: 30000,
@@ -130,11 +168,23 @@ class CallKitService {
         subtitle: 'Missed call',
         callbackText: 'Call back',
       ),
-      extra: data, // Pass the whole payload
+      extra: {
+        ...data,
+        'contact_name': displayName,
+        'phone': callerId,
+        'callerName': displayName,
+        'callerNumber': callerId,
+        'email': email,
+        'lastMessage': lastMessage,
+      },
       headers: <String, dynamic>{'apiKey': '1234'},
       android: const AndroidParams(
-        isCustomNotification: true,
+        isCustomNotification: false,
         isShowLogo: false,
+        isShowCallID: true,
+        isShowFullLockedScreen: true,
+        isFullScreen: true,
+        isImportant: true,
         ringtonePath: 'system_ringtone_default',
         backgroundColor: '#0955fa',
         backgroundUrl: 'assets/test.png',
@@ -142,7 +192,8 @@ class CallKitService {
         textColor: '#ffffff',
         incomingCallNotificationChannelName: "Incoming Call",
         missedCallNotificationChannelName: "Missed Call",
-        isShowCallID: false,
+        textAccept: 'उठाएं',
+        textDecline: 'काटें',
       ),
       ios: const IOSParams(
         iconName: 'AppIcon',

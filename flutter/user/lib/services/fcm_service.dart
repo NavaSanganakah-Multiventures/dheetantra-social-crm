@@ -7,6 +7,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'api_service.dart';
 import 'callkit_service.dart';
+import 'notification_center.dart';
 
 /// Firebase Cloud Messaging service for the user app.
 ///
@@ -113,10 +114,14 @@ class FcmService {
     final type = message.data['type'] ?? '';
     final title = message.notification?.title ??
         message.data['title'] ??
-        (type == 'missed_call' ? 'मिस्ड कॉल' : 'DheeTantra');
+        _defaultTitle(type);
     final body = message.notification?.body ??
         message.data['body'] ??
         'नया अपडेट प्राप्त हुआ';
+
+    // Bell badge aur notification screen bhi update karo — websocket band ho toh
+    // bhi user ko missed calls/messages ka pata chale.
+    _addToNotificationCenter(title, body, type, message.data);
 
     await _showLocalNotification(title, body, message.data);
   }
@@ -221,6 +226,42 @@ class FcmService {
     }
   }
 
+  String _defaultTitle(String type) {
+    switch (type) {
+      case 'new_message':
+        return 'नया संदेश';
+      case 'missed_call':
+        return 'मिस्ड कॉल';
+      case 'incoming_call':
+        return 'इनकमिंग कॉल';
+      default:
+        return 'DheeTantra';
+    }
+  }
+
+  void _addToNotificationCenter(
+    String title,
+    String body,
+    String type,
+    Map<String, dynamic> data,
+  ) {
+    try {
+      final normalizedType = type == 'new_message'
+          ? 'message'
+          : (type == 'missed_call' || type == 'incoming_call')
+              ? 'call'
+              : 'system';
+      NotificationCenter().add(
+        title: title,
+        body: body,
+        type: normalizedType,
+        data: Map<String, dynamic>.from(data),
+      );
+    } catch (e) {
+      debugPrint('NotificationCenter add error: $e');
+    }
+  }
+
   Future<bool> isEnabled() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool(_enabledPref) ?? true;
@@ -244,6 +285,14 @@ class FcmService {
     final type = message.data['type'] ?? '';
 
     if (type == 'incoming_call') {
+      // Foreground mein bhi incoming call dikhana chahiye; CallKit native UI
+      // sabse reliable hai, aur saath mein notification center mein bhi record.
+      _addToNotificationCenter(
+        message.data['callerName'] ?? 'इनकमिंग कॉल',
+        message.data['callerNumber'] ?? '',
+        'call',
+        message.data,
+      );
       CallKitService().showIncomingCall(message.data);
       return;
     }
@@ -252,10 +301,13 @@ class FcmService {
     // Agar backend sirf data bhejta hai toh bhi local tray pe dikhayenge.
     final title = message.notification?.title ??
         message.data['title'] ??
-        (type == 'missed_call' ? 'मिस्ड कॉल' : 'DheeTantra');
+        _defaultTitle(type);
     final body = message.notification?.body ??
         message.data['body'] ??
         'नया अपडेट प्राप्त हुआ';
+
+    // Bell badge aur list hamesha update karo, chahe websocket connected ho ya na ho.
+    _addToNotificationCenter(title, body, type, message.data);
 
     isEnabled().then((enabled) {
       if (!enabled) return;

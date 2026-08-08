@@ -108,6 +108,16 @@ class _CallScreenState extends State<CallScreen> {
         '';
   }
 
+  String get _callerEmail {
+    return widget.callData['email'] ??
+        widget.callData['contactEmail'] ??
+        '';
+  }
+
+  String get _lastMessage {
+    return widget.callData['lastMessage'] ?? '';
+  }
+
   @override
   void dispose() {
     _durationTimer?.cancel();
@@ -163,6 +173,38 @@ class _CallScreenState extends State<CallScreen> {
                       fontSize: 16,
                     ),
                   ),
+                  if (_callerEmail.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        _callerEmail,
+                        style: const TextStyle(
+                          color: AppColors.textMuted,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  if (_lastMessage.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 12, left: 32, right: 32),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceAlt,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          _lastMessage,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: AppColors.textMuted,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ),
                   const SizedBox(height: 16),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,

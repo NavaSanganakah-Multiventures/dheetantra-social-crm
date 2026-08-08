@@ -7,6 +7,7 @@ import '../services/api_service.dart';
 import '../services/notification_center.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
+import 'call_screen.dart';
 import 'chat_screen.dart';
 
 class NotificationScreen extends StatefulWidget {
@@ -74,9 +75,19 @@ class _NotificationScreenState extends State<NotificationScreen> {
         }
       }
     } else if (type == 'call') {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('कॉल विवरण के लिए कॉल लॉग्स देखें।')),
-      );
+      final callId = data['id']?.toString() ?? '';
+      if (callId.isNotEmpty) {
+        // Agar call abhi active ho sakti hai (sdp present) toh call screen khol do.
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => CallScreen(callData: Map<String, dynamic>.from(data)),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('कॉल विवरण के लिए कॉल लॉग्स देखें।')),
+        );
+      }
     }
   }
 

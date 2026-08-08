@@ -25,7 +25,10 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   final type = message.data['type'] ?? '';
-  debugPrint('[FCM Background] message type: $type');
+  // Background isolate mein SchedulerBinding nahi hota, isliye debugPrint ke
+  // bajaye print use karo.
+  // ignore: avoid_print
+  print('[FCM Background] message type: $type');
 
   // App kill/band hone par bhi har message ka notification aana chahiye.
   // Notification-payload wale messages ko Android system tray dikhata hai,

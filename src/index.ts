@@ -238,9 +238,11 @@ app.use('/api/*', async (c, next) => {
   await next();
 });
 
-// Standard CORS now safely allows * because unverified origins are rejected above
+// Echo the caller origin back so credentialed requests (cookies) work for web
+// dashboard subdomains / custom domains. Wildcard '*' is rejected by browsers
+// when credentials: true is used.
 app.use('/api/*', cors({
-  origin: '*',
+  origin: (origin) => origin,
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization', 'x-workspace-id'],
   exposeHeaders: ['Content-Length'],
@@ -269,6 +271,7 @@ app.use('/api/email/*', authMiddleware);
 app.use('/api/domain-emails/*', authMiddleware);
 app.use('/api/whatsapp/upload', authMiddleware);
 app.use('/api/whatsapp/media', authMiddleware);
+app.use('/api/fcm/*', authMiddleware);
 
 // Billing endpoints are authenticated except the Razorpay webhook
 app.use('/api/billing/*', async (c, next) => {
@@ -495,6 +498,27 @@ app.post('/api/whatsapp/webhook', async (c) => {
                         if (tokens.results.length > MAX_TOTAL_SENDS) {
                           console.warn(`[Calling] Incoming-call push truncated: ${tokens.results.length} tokens, sending to ${MAX_TOTAL_SENDS}`);
                         }
+
+                        // Caller ka rich context banao — email aur last message bhi push me bhejo
+                        // taaki locked/killed phone par name/number/email/last message sab dikhe.
+                        let contactEmail = '';
+                        let lastMessage = '';
+                        let pushConvId = '';
+                        try {
+                          if (existingContact) {
+                            const contactRow = await c.env.DB.prepare('SELECT email FROM contacts WHERE id = ?').bind(existingContact.id).first<{ email?: string }>();
+                            contactEmail = contactRow?.email || '';
+                            const convRow = await c.env.DB.prepare("SELECT id FROM conversations WHERE contact_id = ? AND platform = 'whatsapp' ORDER BY updated_at DESC LIMIT 1").bind(existingContact.id).first<{ id: string }>();
+                            pushConvId = convRow?.id || '';
+                            if (pushConvId) {
+                              const msgRow = await c.env.DB.prepare("SELECT content FROM messages WHERE conversation_id = ? ORDER BY rowid DESC LIMIT 1").bind(pushConvId).first<{ content?: string }>();
+                              lastMessage = msgRow?.content || '';
+                            }
+                          }
+                        } catch (e) {
+                          console.error('[Calling] Failed to enrich incoming-call push context:', e);
+                        }
+
                         console.log(`[Calling] Sending incoming-call push to ${targets.length} token(s) for workspace ${config.workspace_id}`);
                         for (let start = 0; start < targets.length; start += CHUNK) {
                           const chunk = targets.slice(start, start + CHUNK);
@@ -511,6 +535,9 @@ app.post('/api/whatsapp/webhook', async (c) => {
                                   id: callId,
                                   callerNumber: callerNumber || '',
                                   callerName: callerName,
+                                  contactEmail: contactEmail,
+                                  lastMessage: lastMessage,
+                                  conversationId: pushConvId,
                                   phoneNumberId: phoneNumberId || '',
                                   sdp: sdp || '',
                                   sdpType: sdpType || 'offer',

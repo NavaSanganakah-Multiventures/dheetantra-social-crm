@@ -10,10 +10,12 @@ import '../services/fcm_service.dart';
 import '../services/notification_center.dart';
 import '../services/notification_router.dart';
 import '../services/websocket_service.dart';
+import '../services/webrtc_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/call_overlays.dart';
 import '../widgets/responsive_layout.dart';
 import 'broadcast_screen.dart';
+import 'call_screen.dart';
 import 'chat_screen.dart';
 import 'contacts_screen.dart';
 import 'dashboard_screen.dart';
@@ -52,6 +54,23 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
       if (mounted) setState(() => _unread = NotificationCenter().unread);
     });
     _notifRouterSub = NotificationRouter().onNotification.listen(_handlePushTap);
+    _checkPendingAcceptedCall();
+  }
+
+  void _checkPendingAcceptedCall() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final pending = CallKitService().takePendingAcceptCall();
+      if (pending != null && mounted) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => CallScreen(callData: pending),
+          ),
+        );
+        Future.delayed(const Duration(milliseconds: 300), () {
+          WebRTCService().answerCall(pending);
+        });
+      }
+    });
   }
 
   @override
@@ -61,6 +80,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       debugPrint('[HomeShell] app resumed — refresh trigger bhej rahe hain');
       DataRefreshService().trigger(RefreshReason.appResumed);
+      _checkPendingAcceptedCall();
     }
   }
 
@@ -134,6 +154,22 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
         await _openConversation(convId);
       } else if (from.isNotEmpty) {
         await _openConversationByPhone(from);
+      }
+    } else if (type == 'incoming_call') {
+      final callId = data['id']?.toString() ?? '';
+      if (callId.isEmpty) return;
+      // Notification tap par full call screen dikhayein. Agar SDP abhi bhi valid
+      // hai toh turant answer karna possible hai, nahi toh user hangup kar sakta hai.
+      final callData = Map<String, dynamic>.from(data);
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => CallScreen(callData: callData),
+        ),
+      );
+      if ((data['sdp']?.toString() ?? '').isNotEmpty) {
+        Future.delayed(const Duration(milliseconds: 300), () {
+          WebRTCService().answerCall(callData);
+        });
       }
     } else if (type == 'missed_call') {
       final phone = data['phone'] ?? '';

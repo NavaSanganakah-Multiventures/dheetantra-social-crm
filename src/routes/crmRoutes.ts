@@ -5,6 +5,20 @@ import { requireRole, pagination } from '../shared';
 
 const router = new Hono<{ Bindings: Env }>();
 
+async function resolveUserId(c: any): Promise<string | null> {
+  const user = c.get('user');
+  if (user?.id) return user.id;
+
+  const sessionId = getCookie(c, 'auth_session');
+  if (!sessionId || !c.env.SECRETS_KV) return null;
+  const userDataStr = await c.env.SECRETS_KV.get(`SESSION:${sessionId}`);
+  if (userDataStr) {
+    const parsed = JSON.parse(userDataStr);
+    return parsed.id || null;
+  }
+  return null;
+}
+
 router.get('/api/crm/api-domains', async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
@@ -62,19 +76,8 @@ router.post('/api/crm/api-domains', requireRole('owner', 'admin'), async (c) => 
 // ==========================================
 
 router.post('/api/fcm/register', async (c) => {
-  const sessionId = getCookie(c, 'auth_session');
-  if (!sessionId) return c.json({ error: 'Unauthorized' }, 401);
-
-  let userId = '';
-  if (c.env.SECRETS_KV) {
-    const userDataStr = await c.env.SECRETS_KV.get(`SESSION:${sessionId}`);
-    if (userDataStr) {
-      const user = JSON.parse(userDataStr);
-      userId = user.id;
-    }
-  }
-
-  if (!userId) return c.json({ error: 'User not found' }, 401);
+  const userId = await resolveUserId(c);
+  if (!userId) return c.json({ error: 'Unauthorized' }, 401);
 
   const { token, device_type } = await c.req.json();
   if (!token) return c.json({ error: 'Token is required' }, 400);
@@ -96,18 +99,8 @@ router.post('/api/fcm/register', async (c) => {
 
 // Unregister FCM token (logout / notifications disabled)
 router.delete('/api/fcm/register', async (c) => {
-  const sessionId = getCookie(c, 'auth_session');
-  if (!sessionId) return c.json({ error: 'Unauthorized' }, 401);
-
-  let userId = '';
-  if (c.env.SECRETS_KV) {
-    const userDataStr = await c.env.SECRETS_KV.get(`SESSION:${sessionId}`);
-    if (userDataStr) {
-      const user = JSON.parse(userDataStr);
-      userId = user.id;
-    }
-  }
-  if (!userId) return c.json({ error: 'User not found' }, 401);
+  const userId = await resolveUserId(c);
+  if (!userId) return c.json({ error: 'Unauthorized' }, 401);
 
   const { token } = await c.req.json();
   if (c.env.DB) {
@@ -126,20 +119,26 @@ router.delete('/api/fcm/register', async (c) => {
   return c.json({ error: 'DB not configured' }, 500);
 });
 
+// Public Firebase web config used by the web dashboard service worker.
+// Store the JSON string under SECRETS_KV key `FIREBASE_WEB_CONFIG`.
+router.get('/api/fcm/config', async (c) => {
+  try {
+    const raw = c.env.SECRETS_KV ? await c.env.SECRETS_KV.get('FIREBASE_WEB_CONFIG') : null;
+    if (!raw) {
+      return c.json({ error: 'Firebase web config not configured' }, 500);
+    }
+    const config = JSON.parse(raw);
+    return c.json(config);
+  } catch (e: any) {
+    console.error('[FCM Config] Failed to load:', e);
+    return c.json({ error: 'Invalid Firebase web config' }, 500);
+  }
+});
+
 // Diagnostic endpoint: send a test push to the current user's FCM tokens.
 router.post('/api/fcm/test', async (c) => {
-  const sessionId = getCookie(c, 'auth_session');
-  if (!sessionId) return c.json({ error: 'Unauthorized' }, 401);
-
-  let userId = '';
-  if (c.env.SECRETS_KV) {
-    const userDataStr = await c.env.SECRETS_KV.get(`SESSION:${sessionId}`);
-    if (userDataStr) {
-      const user = JSON.parse(userDataStr);
-      userId = user.id;
-    }
-  }
-  if (!userId) return c.json({ error: 'User not found' }, 401);
+  const userId = await resolveUserId(c);
+  if (!userId) return c.json({ error: 'Unauthorized' }, 401);
   if (!c.env.DB) return c.json({ error: 'DB not configured' }, 500);
 
   try {

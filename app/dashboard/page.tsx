@@ -25,6 +25,7 @@ import { CallsView } from './components/CallsView';
 import { ActiveCallManager } from './components/ActiveCallManager';
 import { IntegrationsView } from './components/IntegrationsView';
 import { WhatsAppManagerView } from './components/WhatsAppManagerView';
+import { unregisterFcmToken } from '@/components/FcmRegistration';
 
 export { formatUserTimeOnly, formatUserDateOnly, formatUserDateTime } from './lib/dates';
 
@@ -63,7 +64,12 @@ export default function DashboardWrapper() {
     return null;
   }
 
-  return <Dashboard user={user} onLogout={() => { setUser(null); router.push('/login'); }} />;
+  return <Dashboard user={user} onLogout={async () => {
+    // Web push token server se hatao taaki logout ke baad bhi notifications na aayein.
+    await unregisterFcmToken().catch(() => {});
+    setUser(null);
+    router.push('/login');
+  }} />;
 }
 
 function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
