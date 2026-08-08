@@ -27,36 +27,26 @@ class CallKitService {
     FlutterCallkitIncoming.onEvent.listen((CallEvent? event) {
       if (event == null) return;
       
-      final callData = _activeCalls[event.body['id']] ?? event.body['extra'];
-      
-      switch (event.event) {
-        case Event.actionCallAccept:
-          debugPrint('CALLKIT: actionCallAccept');
-          if (callData != null) {
-            // Need to wrap in Future.delayed to ensure WebRTC service has time to init 
-            // if the app was just launched from background.
-            Future.delayed(const Duration(milliseconds: 500), () {
-              WebRTCService().answerCall(Map<String, dynamic>.from(callData));
-            });
-          }
-          break;
-        case Event.actionCallDecline:
-          debugPrint('CALLKIT: actionCallDecline');
-          if (callData != null) {
-            WebRTCService().rejectCall(Map<String, dynamic>.from(callData));
-          }
-          break;
-        case Event.actionCallEnded:
-          debugPrint('CALLKIT: actionCallEnded');
-          break;
-        case Event.actionCallTimeout:
-          debugPrint('CALLKIT: actionCallTimeout');
-          if (callData != null) {
-             // Let the backend know we missed it or just ignore
-          }
-          break;
-        default:
-          break;
+      if (event is CallEventActionCallAccept) {
+        debugPrint('CALLKIT: actionCallAccept');
+        final params = event.callKitParams;
+        final callData = _activeCalls[params.id] ?? params.extra;
+        if (callData != null) {
+          Future.delayed(const Duration(milliseconds: 500), () {
+            WebRTCService().answerCall(Map<String, dynamic>.from(callData));
+          });
+        }
+      } else if (event is CallEventActionCallDecline) {
+        debugPrint('CALLKIT: actionCallDecline');
+        final params = event.callKitParams;
+        final callData = _activeCalls[params.id] ?? params.extra;
+        if (callData != null) {
+          WebRTCService().rejectCall(Map<String, dynamic>.from(callData));
+        }
+      } else if (event is CallEventActionCallEnded) {
+        debugPrint('CALLKIT: actionCallEnded');
+      } else if (event is CallEventActionCallTimeout) {
+        debugPrint('CALLKIT: actionCallTimeout');
       }
     });
   }
@@ -77,8 +67,6 @@ class CallKitService {
       handle: callerId,
       type: 0,
       duration: 30000,
-      textAccept: 'Accept',
-      textDecline: 'Decline',
       missedCallNotification: const NotificationParams(
         showNotification: true,
         isShowCallback: false,
