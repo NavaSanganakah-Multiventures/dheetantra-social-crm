@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../main.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
+import '../services/data_refresh_service.dart';
 import '../services/websocket_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
@@ -16,7 +18,7 @@ class InboxScreen extends StatefulWidget {
   State<InboxScreen> createState() => _InboxScreenState();
 }
 
-class _InboxScreenState extends State<InboxScreen> {
+class _InboxScreenState extends State<InboxScreen> with RouteAware {
   String _query = '';
   String _filter = 'सभी';
   String _platformFilter = 'all'; // 'all' | 'whatsapp' | 'email' (future: instagram/facebook)
@@ -25,6 +27,7 @@ class _InboxScreenState extends State<InboxScreen> {
   StreamSubscription? _msgSub;
   StreamSubscription? _statusSub;
   StreamSubscription? _deletedSub;
+  StreamSubscription? _refreshSub;
   Timer? _autoRefresh;
 
   static const _filters = ['सभी', 'खुली', 'बंद'];
@@ -53,6 +56,12 @@ class _InboxScreenState extends State<InboxScreen> {
       });
     });
 
+    // App resume / WebSocket reconnect par silent refresh.
+    _refreshSub = DataRefreshService().onRefresh.listen((reason) {
+      debugPrint('[Inbox] refresh trigger mila: $reason');
+      _loadConversations(silent: true);
+    });
+
     // Fallback sync if WebSocket drops: silent refresh every 45s.
     _autoRefresh = Timer.periodic(const Duration(seconds: 45), (_) {
       _loadConversations(silent: true);
@@ -60,13 +69,37 @@ class _InboxScreenState extends State<InboxScreen> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    routeObserver.subscribe(this, ModalRoute.of(context)!);
+  }
+
+  @override
   void dispose() {
+    routeObserver.unsubscribe(this);
     _msgSub?.cancel();
     _statusSub?.cancel();
     _deletedSub?.cancel();
+    _refreshSub?.cancel();
     _autoRefresh?.cancel();
     super.dispose();
   }
+
+  // Chat screen ya koi bhi screen se wapas aane par inbox refresh karo.
+  @override
+  void didPopNext() {
+    debugPrint('[Inbox] didPopNext — reloading');
+    _loadConversations(silent: true);
+  }
+
+  @override
+  void didPush() {}
+
+  @override
+  void didPop() {}
+
+  @override
+  void didPushNext() {}
 
   Future<void> _loadConversations({bool silent = false}) async {
     if (!silent) setState(() => _loading = true);

@@ -402,9 +402,14 @@ app.post('/api/whatsapp/webhook', async (c) => {
               if (event === 'connect' || event === 'offer') {
                 // Incoming call — save to DB + broadcast to frontend
                 let contactId = '';
+                let callerName = callerNumber ? `+${callerNumber}` : 'Unknown';
                 const existingContact = await c.env.DB.prepare(
-                  "SELECT id FROM contacts WHERE workspace_id = ? AND platform = 'whatsapp' AND platform_contact_id = ?"
-                ).bind(config.workspace_id, callerNumber).first<{ id: string }>();
+                  "SELECT id, name FROM contacts WHERE workspace_id = ? AND platform = 'whatsapp' AND platform_contact_id = ?"
+                ).bind(config.workspace_id, callerNumber).first<{ id: string; name: string }>();
+
+                if (existingContact && existingContact.name) {
+                  callerName = existingContact.name;
+                }
 
                 if (existingContact) {
                   contactId = existingContact.id;
@@ -444,6 +449,79 @@ app.post('/api/whatsapp/webhook', async (c) => {
                   console.log(`[Calling] ✅ Broadcast response from DO: ${broadcastBody}`);
                 } catch (e) {
                   console.error('[Calling] ❌ Failed to broadcast incoming call:', e);
+                }
+
+                // App band hone par bhi incoming call dikhane ke liye high-priority FCM push.
+                // WebSocket killed app tak nahi pahunchega, isliye push necessary hai.
+                if (direction !== 'BUSINESS_INITIATED') {
+                  c.executionCtx.waitUntil(
+                    (async () => {
+                      try {
+                        const members = await c.env.DB.prepare('SELECT user_id FROM workspace_members WHERE workspace_id = ?')
+                          .bind(config.workspace_id).all<{ user_id: string }>();
+                        if (!members.results || members.results.length === 0) return;
+                        const userIds = members.results.map(m => m.user_id);
+                        const placeholders = userIds.map(() => '?').join(',');
+                        const tokens = await c.env.DB.prepare(`SELECT token FROM fcm_tokens WHERE user_id IN (${placeholders})`)
+                          .bind(...userIds).all<{ token: string }>();
+
+                        const { sendPushNotification } = await import('../lib/fcm');
+                        if (!tokens.results || tokens.results.length === 0) {
+                          console.warn(`[Calling] No FCM tokens for workspace ${config.workspace_id} — incoming call push skipped`);
+                          return;
+                        }
+
+                        const CHUNK = 25;
+                        const MAX_TOTAL_SENDS = 45;
+                        const targets = tokens.results.slice(0, MAX_TOTAL_SENDS);
+                        if (tokens.results.length > MAX_TOTAL_SENDS) {
+                          console.warn(`[Calling] Incoming-call push truncated: ${tokens.results.length} tokens, sending to ${MAX_TOTAL_SENDS}`);
+                        }
+                        console.log(`[Calling] Sending incoming-call push to ${targets.length} token(s) for workspace ${config.workspace_id}`);
+                        for (let start = 0; start < targets.length; start += CHUNK) {
+                          const chunk = targets.slice(start, start + CHUNK);
+                          const sends = await Promise.allSettled(
+                            chunk.map((row) =>
+                              sendPushNotification(
+                                c.env,
+                                row.token,
+                                'Incoming WhatsApp call',
+                                `Call from ${callerName}`,
+                                {
+                                  workspaceId: config.workspace_id,
+                                  type: 'incoming_call',
+                                  id: callId,
+                                  callerNumber: callerNumber || '',
+                                  callerName: callerName,
+                                  phoneNumberId: phoneNumberId || '',
+                                  sdp: sdp || '',
+                                  sdpType: sdpType || 'offer',
+                                },
+                                { ttlSeconds: 0, category: 'call', sound: 'default' }
+                              )
+                            )
+                          );
+                          for (let i = 0; i < sends.length; i++) {
+                            const s = sends[i];
+                            if (s.status === 'fulfilled' && s.value.unregistered) {
+                              try {
+                                await c.env.DB.prepare('DELETE FROM fcm_tokens WHERE token = ?').bind(chunk[i].token).run();
+                              } catch (e) {
+                                console.error('Failed to delete unregistered FCM token:', e);
+                              }
+                            }
+                            if (s.status === 'rejected') {
+                              console.error('[Calling] Incoming-call push rejected:', s.reason);
+                            } else if (s.status === 'fulfilled' && !s.value.success) {
+                              console.error('[Calling] Incoming-call push failed:', s.value.error);
+                            }
+                          }
+                        }
+                      } catch (e) {
+                        console.error('[Calling] Failed to send incoming call notification:', e);
+                      }
+                    })()
+                  );
                 }
 
               } else if (event === 'terminate') {
@@ -500,10 +578,14 @@ app.post('/api/whatsapp/webhook', async (c) => {
                               const chunk = targets.slice(start, start + CHUNK);
                               const sends = await Promise.allSettled(
                                 chunk.map((row) =>
-                                  sendPushNotification(c.env, row.token,
-                                    `मिस्ड कॉल +${callerNumber}`,
-                                    'आपकी एक WhatsApp वॉयस कॉल मिस हो गई',
-                                    { workspaceId: config.workspace_id, type: 'missed_call', phone: callerNumber })
+                                  sendPushNotification(
+                                  c.env,
+                                  row.token,
+                                  `मिस्ड कॉल +${callerNumber}`,
+                                  'आपकी एक WhatsApp वॉयस कॉल मिस हो गई',
+                                  { workspaceId: config.workspace_id, type: 'missed_call', phone: callerNumber },
+                                  { ttlSeconds: 0, category: 'call' }
+                                )
                                 )
                               );
                               // Remove dead tokens so future sends don't hit FCM with them.
@@ -697,14 +779,21 @@ app.post('/api/whatsapp/webhook', async (c) => {
                             const chunk = targets.slice(start, start + CHUNK);
                             const sends = await Promise.allSettled(
                               chunk.map((row) =>
-                                sendPushNotification(c.env, row.token, title, bodyPreview, {
+                                sendPushNotification(
+                                c.env,
+                                row.token,
+                                title,
+                                bodyPreview,
+                                {
                                   workspaceId: config.workspace_id,
                                   contactName: senderName,
                                   type: 'new_message',
                                   from: message.from || '',
                                   messageId: message.id || '',
                                   conversation_id: pushConvId,
-                                })
+                                },
+                                { ttlSeconds: 0 }
+                              )
                               )
                             );
                             // Remove dead tokens so future sends don't hit FCM with them.

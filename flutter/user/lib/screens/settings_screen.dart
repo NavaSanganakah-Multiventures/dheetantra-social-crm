@@ -1,4 +1,8 @@
+import 'dart:io' show Platform;
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/api_service.dart';
@@ -76,6 +80,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() => _callsEnabled = enabled);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_callsPref, enabled);
+  }
+
+  Future<void> _requestBatteryOptimization() async {
+    if (kIsWeb || !Platform.isAndroid) return;
+    try {
+      final status = await Permission.ignoreBatteryOptimizations.status;
+      if (status.isDenied || status.isRestricted) {
+        final result = await Permission.ignoreBatteryOptimizations.request();
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              result.isGranted
+                  ? 'बैटरी ऑप्टिमाइज़ेशन बंद कर दिया गया'
+                  : 'सेटिंग्स से बैटरी ऑप्टिमाइज़ेशन बंद करें',
+            ),
+          ),
+        );
+      } else {
+        await openAppSettings();
+      }
+    } catch (e) {
+      debugPrint('Battery optimization request error: $e');
+      await openAppSettings();
+    }
   }
 
   Future<void> _logout() async {
@@ -198,6 +227,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
               subtitle: 'डार्क मोड (डिफ़ॉल्ट)',
               trailing: Icon(Icons.check_rounded, color: AppColors.accent, size: 20),
               onTap: null,
+            ),
+            const Divider(height: 1, indent: 52),
+            _SettingsTile(
+              icon: Icons.battery_saver_outlined,
+              title: 'बैटरी ऑप्टिमाइज़ेशन',
+              subtitle: 'ऐप बंद होने पर भी नोटिफिकेशन पाने के लिए',
+              trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
+              onTap: _requestBatteryOptimization,
             ),
           ],
         ),

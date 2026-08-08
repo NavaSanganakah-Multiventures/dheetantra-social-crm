@@ -905,13 +905,20 @@ export async function handleIncomingEmail(message: any, env: any, ctx: any) {
             const chunk = targets.slice(start, start + CHUNK);
             const sends = await Promise.allSettled(
               chunk.map((row) =>
-                sendPushNotification(env, row.token, title, bodyPreview, {
+                sendPushNotification(
+                env,
+                row.token,
+                title,
+                bodyPreview,
+                {
                   workspaceId,
                   type: 'new_message',
                   from: senderEmail,
                   conversation_id: conversation.id,
                   messageId,
-                })
+                },
+                { ttlSeconds: 0 }
+              )
               )
             );
             for (let i = 0; i < sends.length; i++) {

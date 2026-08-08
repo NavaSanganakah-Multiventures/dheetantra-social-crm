@@ -297,8 +297,14 @@ class ApiService {
 
   Future<Map<String, dynamic>> getDashboardStats() async {
     try {
-      final contacts = await getContacts();
-      final conversations = await getConversations(status: 'open');
+      // Dono calls parallel chalao — sequential hone se dashboard load me
+      // 2x delay aa raha tha.
+      final results = await Future.wait<dynamic>([
+        getContacts(),
+        getConversations(status: 'open'),
+      ]);
+      final contacts = results[0] as List<dynamic>;
+      final conversations = results[1] as List<dynamic>;
       return {
         'totalContacts': contacts.length,
         'openConversations': conversations.length,

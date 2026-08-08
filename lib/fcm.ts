@@ -178,13 +178,17 @@ async function getAccessToken(env: any): Promise<string> {
  * @param title    Notification title
  * @param body     Notification body
  * @param data     Optional string-key/value data payload (deep-link metadata)
+ * @param options  Optional delivery tuning (TTL, category, sound). For calls
+ *                 use `category: 'call'` and `ttlSeconds: 0` so the device
+ *                 wakes instantly even on aggressive OEM battery savers.
  */
 export async function sendPushNotification(
   env: any,
   token: string,
   title: string,
   body: string,
-  data?: Record<string, string>
+  data?: Record<string, string>,
+  options?: { ttlSeconds?: number; category?: string; sound?: string }
 ): Promise<{ success: boolean; unregistered?: boolean; error?: string }> {
   try {
     if (!token) return { success: false, error: 'Empty token' };
@@ -199,6 +203,10 @@ export async function sendPushNotification(
       }
     }
 
+    const androidNotification: Record<string, any> = { channel_id: 'dheetantra' };
+    if (options?.category) androidNotification.category = options.category;
+    const ttl = options?.ttlSeconds === 0 ? '0s' : undefined;
+
     const res = await fetch(`https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`, {
       method: 'POST',
       headers: {
@@ -210,11 +218,16 @@ export async function sendPushNotification(
           token,
           notification: { title, body },
           data: stringData,
-          android: { priority: 'high', notification: { channel_id: 'dheetantra' } },
+          android: {
+            priority: 'high',
+            ...(ttl ? { ttl } : {}),
+            notification: androidNotification,
+          },
           apns: {
+            headers: ttl ? { 'apns-priority': '10' } : undefined,
             payload: {
               aps: {
-                sound: 'default',
+                sound: options?.sound || 'default',
                 'content-available': 1,
               },
             },

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/widgets.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'api_service.dart';
+import 'data_refresh_service.dart';
 
 /// Realtime connection to the workspace Durable Object.
 ///
@@ -47,6 +48,7 @@ class WebSocketService with WidgetsBindingObserver {
   // Becomes true only after the handshake is confirmed by a real message
   // (the server answers pings with a pong, so this happens fast).
   bool _connectionConfirmed = false;
+  bool _wasConnected = false;
   DateTime _connectedAt = DateTime.now();
   DateTime _lastMessageAt = DateTime.now();
   DateTime _pausedAt = DateTime.now();
@@ -124,6 +126,12 @@ class WebSocketService with WidgetsBindingObserver {
       // confirms the handshake, and the watchdog recycles the socket if no
       // confirmation arrives within _confirmTimeout. A failed handshake still
       // flips the flag via onDone/onError.
+      if (_wasConnected) {
+        // Ye reconnect hai (pehle connected tha, disconnect hua, ab wapas).
+        debugPrint('WS reconnect detected; refresh trigger bhej rahe hain');
+        DataRefreshService().trigger(RefreshReason.websocketReconnected);
+      }
+      _wasConnected = true;
       _connectionController.add(true);
       _connectedAt = DateTime.now();
       _lastMessageAt = DateTime.now();
@@ -219,6 +227,7 @@ class WebSocketService with WidgetsBindingObserver {
     _channel = null;
     _connecting = false;
     _connectionConfirmed = false;
+    _wasConnected = false;
     _connectionController.add(false);
     _scheduleReconnect();
   }
@@ -236,6 +245,7 @@ class WebSocketService with WidgetsBindingObserver {
     _channel = null;
     _connecting = false;
     _connectionConfirmed = false;
+    _wasConnected = false;
     _connectionController.add(false);
   }
 
@@ -340,6 +350,7 @@ class WebSocketService with WidgetsBindingObserver {
     _connecting = false;
     _retryAttempt = 0;
     _connectionConfirmed = false;
+    _wasConnected = false;
     _connectionController.add(false);
   }
 }

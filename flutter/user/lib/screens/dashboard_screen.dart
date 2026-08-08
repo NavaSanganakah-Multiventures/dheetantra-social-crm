@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../main.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
+import '../services/data_refresh_service.dart';
 import '../services/websocket_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
@@ -27,13 +29,14 @@ class DashboardScreen extends StatefulWidget {
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> {
+class _DashboardScreenState extends State<DashboardScreen> with RouteAware {
   bool _loading = true;
   int _totalContacts = 0;
   int _openConversations = 0;
   List<Conversation> _recentChats = [];
   StreamSubscription? _msgSub;
   StreamSubscription? _convStatusSub;
+  StreamSubscription? _refreshSub;
   Timer? _autoRefresh;
 
   @override
@@ -46,6 +49,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _convStatusSub =
         WebSocketService().onConversationStatusUpdated.listen((_) => _loadData(silent: true));
 
+    // App resume / WebSocket reconnect par silent refresh.
+    _refreshSub = DataRefreshService().onRefresh.listen((reason) {
+      debugPrint('[Dashboard] refresh trigger mila: $reason');
+      _loadData(silent: true);
+    });
+
     // Safety net: silent refresh every 60s keeps stats in sync if WS drops.
     _autoRefresh = Timer.periodic(const Duration(seconds: 60), (_) {
       _loadData(silent: true);
@@ -53,12 +62,36 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    routeObserver.subscribe(this, ModalRoute.of(context)!);
+  }
+
+  @override
   void dispose() {
+    routeObserver.unsubscribe(this);
     _msgSub?.cancel();
     _convStatusSub?.cancel();
+    _refreshSub?.cancel();
     _autoRefresh?.cancel();
     super.dispose();
   }
+
+  // Chat screen se wapas aane par ya koi bhi screen pop hone par fresh data lo.
+  @override
+  void didPopNext() {
+    debugPrint('[Dashboard] didPopNext — reloading');
+    _loadData(silent: true);
+  }
+
+  @override
+  void didPush() {}
+
+  @override
+  void didPop() {}
+
+  @override
+  void didPushNext() {}
 
   Future<void> _loadData({bool silent = false}) async {
     if (!silent) setState(() => _loading = true);

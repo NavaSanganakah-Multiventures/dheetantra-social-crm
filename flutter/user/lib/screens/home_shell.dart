@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../models/models.dart' as models;
 import '../services/api_service.dart';
 import '../services/callkit_service.dart';
+import '../services/data_refresh_service.dart';
 import '../services/fcm_service.dart';
 import '../services/notification_center.dart';
 import '../services/notification_router.dart';
@@ -27,7 +28,7 @@ class HomeShell extends StatefulWidget {
   State<HomeShell> createState() => _HomeShellState();
 }
 
-class _HomeShellState extends State<HomeShell> {
+class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   int _index = 0;
   bool _wsConnected = false;
   bool _wsInitialized = false;
@@ -44,12 +45,23 @@ class _HomeShellState extends State<HomeShell> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _initRealtime();
     _unread = NotificationCenter().unread;
     _notifCenterSub = NotificationCenter().onChanged.listen((_) {
       if (mounted) setState(() => _unread = NotificationCenter().unread);
     });
     _notifRouterSub = NotificationRouter().onNotification.listen(_handlePushTap);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // App background se wapas aaye to realtime reconnect ke baad data refresh
+    // trigger karna chahiye. WebSocketService apne aap reconnect karta hai.
+    if (state == AppLifecycleState.resumed) {
+      debugPrint('[HomeShell] app resumed — refresh trigger bhej rahe hain');
+      DataRefreshService().trigger(RefreshReason.appResumed);
+    }
   }
 
   Future<void> _initRealtime() async {
@@ -180,6 +192,7 @@ class _HomeShellState extends State<HomeShell> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _wsConnSub?.cancel();
     _wsMsgSub?.cancel();
     _wsCallSub?.cancel();
