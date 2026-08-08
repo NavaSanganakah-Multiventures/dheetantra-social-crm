@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
+import '../screens/call_screen.dart';
 import '../services/webrtc_service.dart';
 import '../services/websocket_service.dart';
 import '../theme/app_theme.dart';
@@ -46,6 +48,12 @@ class _GlobalCallOverlayState extends State<GlobalCallOverlay> {
           _incomingCall = callData;
           _callStatus = 'ringing';
         });
+        // Ringtone bajao jab tak user accept/reject nahi karta.
+        try {
+          FlutterRingtonePlayer().playRingtone();
+        } catch (e) {
+          debugPrint('Ringtone play error: $e');
+        }
       }
     });
 
@@ -56,6 +64,7 @@ class _GlobalCallOverlayState extends State<GlobalCallOverlay> {
         }
       } else if (_incomingCall != null && _incomingCall!['id'] == data['call_id']) {
         if (data['status'] == 'completed' || data['status'] == 'ended' || data['status'] == 'declined') {
+          _stopRingtone();
           setState(() {
             _incomingCall = null;
             _callStatus = 'idle';
@@ -114,6 +123,7 @@ class _GlobalCallOverlayState extends State<GlobalCallOverlay> {
     _durationTimer?.cancel();
     _audioRenderer?.srcObject = null;
     WebRTCService().cleanup();
+    _stopRingtone();
     setState(() {
       _incomingCall = null;
       _activeCall = null;
@@ -123,14 +133,32 @@ class _GlobalCallOverlayState extends State<GlobalCallOverlay> {
     });
   }
 
+  void _stopRingtone() {
+    try {
+      FlutterRingtonePlayer().stop();
+    } catch (e) {
+      debugPrint('Ringtone stop error: $e');
+    }
+  }
+
   Future<void> _acceptCall() async {
     final callData = _incomingCall;
     if (callData == null) return;
-    
+
+    _stopRingtone();
     setState(() {
-      _activeCall = callData;
       _incomingCall = null;
+      _callStatus = 'connecting';
     });
+
+    // Alag full-screen call screen khol lo.
+    if (mounted) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => CallScreen(callData: callData),
+        ),
+      );
+    }
 
     await WebRTCService().answerCall(callData);
   }
@@ -140,6 +168,7 @@ class _GlobalCallOverlayState extends State<GlobalCallOverlay> {
     if (callData != null) {
       await WebRTCService().rejectCall(callData);
     }
+    _stopRingtone();
     setState(() {
       _incomingCall = null;
       _callStatus = 'idle';

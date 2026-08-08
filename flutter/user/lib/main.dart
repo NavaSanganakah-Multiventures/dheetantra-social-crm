@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'core/app_navigator.dart';
 import 'screens/login_screen.dart';
 import 'screens/splash_screen.dart';
 import 'services/api_service.dart';
@@ -46,6 +47,7 @@ class DheeTantraApp extends StatelessWidget {
       title: 'DheeTantra',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.dark(),
+      navigatorKey: appNavigatorKey,
       home: const SplashScreen(),
       routes: {
         LoginScreen.routeName: (_) => const LoginScreen(),

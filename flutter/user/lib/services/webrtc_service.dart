@@ -21,6 +21,9 @@ class WebRTCService {
   bool _isMuted = false;
   bool get isMuted => _isMuted;
 
+  bool _speakerOn = false;
+  bool get isSpeakerOn => _speakerOn;
+
   Future<void> requestPermissions() async {
     await [Permission.microphone].request();
   }
@@ -59,6 +62,9 @@ class WebRTCService {
       _localStream!.getTracks().forEach((track) {
         _peerConnection!.addTrack(track, _localStream!);
       });
+
+      // Default to earpiece (main speaker) when the call starts.
+      await setSpeaker(false);
 
       _peerConnection!.onAddStream = (stream) {
         _remoteStreamController.add(stream);
@@ -141,6 +147,19 @@ class WebRTCService {
     }
   }
 
+  Future<void> setSpeaker(bool on) async {
+    _speakerOn = on;
+    try {
+      await Helper.setSpeakerphoneOn(on);
+    } catch (e) {
+      debugPrint('WebRTC setSpeaker error: $e');
+    }
+  }
+
+  Future<void> toggleSpeaker() async {
+    await setSpeaker(!_speakerOn);
+  }
+
   void cleanup() {
     _localStream?.getTracks().forEach((track) => track.stop());
     _localStream?.dispose();
@@ -151,5 +170,8 @@ class WebRTCService {
 
     _remoteStreamController.add(null);
     _isMuted = false;
+    _speakerOn = false;
+    // Reset audio routing to earpiece so the next call starts normally.
+    Helper.setSpeakerphoneOn(false).catchError((_) {});
   }
 }
