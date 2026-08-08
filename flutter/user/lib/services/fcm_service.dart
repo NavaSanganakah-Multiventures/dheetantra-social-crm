@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'api_service.dart';
+import 'callkit_service.dart';
 
 /// Firebase Cloud Messaging service for the user app.
 ///
@@ -216,6 +217,12 @@ class FcmService {
 
   void _handleForegroundMessage(RemoteMessage message) {
     if (!_available) return;
+
+    if (message.data['type'] == 'incoming_call') {
+      CallKitService().showIncomingCall(message.data);
+      return;
+    }
+
     if (message.notification == null) {
       // Data-only message (e.g. call events) — surface via in-app overlay.
       _handleTap(message.data);

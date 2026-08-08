@@ -5,6 +5,7 @@ import 'screens/splash_screen.dart';
 import 'services/api_service.dart';
 import 'services/fcm_service.dart';
 import 'services/notification_router.dart';
+import 'services/callkit_service.dart';
 import 'theme/app_theme.dart';
 
 import 'package:firebase_core/firebase_core.dart';
@@ -17,8 +18,10 @@ import 'firebase_options.dart';
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  // Nothing else needed — the notification payload is automatically shown by
-  // the system tray. Data-only messages can be processed here if needed.
+  
+  if (message.data['type'] == 'incoming_call') {
+    await CallKitService().showIncomingCall(message.data);
+  }
 }
 
 Future<void> main() async {
@@ -29,6 +32,7 @@ Future<void> main() async {
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
   await ApiService().init();
   await FcmService().init();
+  await CallKitService().init();
   FcmService().onNotificationTap = (data) => NotificationRouter().dispatch(data);
   runApp(const DheeTantraApp());
 }
