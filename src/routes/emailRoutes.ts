@@ -619,7 +619,7 @@ router.get('/api/email/inbox/conversations/:id', async (c) => {
     const { results } = await c.env.DB.prepare(
       `SELECT m.* FROM messages m
        WHERE m.conversation_id = ?
-       ORDER BY m.created_at ASC`
+       ORDER BY m.created_at ASC, m.rowid ASC`
     ).bind(conversationId).all();
 
     const messages = (results || []).map((m: any) => {

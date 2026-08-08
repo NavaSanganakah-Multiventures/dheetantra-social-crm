@@ -117,10 +117,16 @@ router.get('/api/inbox/messages/:conversationId', async (c) => {
   ).bind(conversationId, workspaceId).first();
   if (!conv) return c.json({ error: 'Forbidden' }, 403);
 
-  const { limit, offset } = pagination(c, 100);
+  // Fetch the NEWEST messages first (DESC), then reverse so the client gets a
+  // chronological thread. This guarantees the latest messages are always
+  // present — the old ASC+OFFSET 0 query returned the OLDEST 100 rows, so
+  // long conversations appeared truncated and the newest messages were never
+  // retrieved. `rowid` breaks created_at ties (second-precision timestamps).
+  const { limit, offset } = pagination(c, 500);
   const { results } = await c.env.DB.prepare(
-    'SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at ASC LIMIT ? OFFSET ?'
+    'SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at DESC, rowid DESC LIMIT ? OFFSET ?'
   ).bind(conversationId, limit, offset).all();
+  results.reverse();
 
   return c.json({ messages: results, conversation: conv });
 });

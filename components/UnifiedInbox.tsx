@@ -157,7 +157,7 @@ export default function UnifiedInbox({
     setConvLoading(true);
     setComposer('');
     try {
-      const res = await fetch(`/api/inbox/messages/${conv.id}`, { headers: { 'x-workspace-id': wId } });
+      const res = await fetch(`/api/inbox/messages/${conv.id}?limit=500`, { headers: { 'x-workspace-id': wId } });
       const data: any = await res.json();
       if (data.messages) {
         setMessages(data.messages);

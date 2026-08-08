@@ -199,9 +199,9 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> getMessages(String conversationId) async {
+  Future<Map<String, dynamic>> getMessages(String conversationId, {int limit = 500}) async {
     try {
-      final res = await _dio.get('/api/inbox/messages/$conversationId');
+      final res = await _dio.get('/api/inbox/messages/$conversationId', queryParameters: {'limit': limit});
       return res.data;
     } on DioException catch (e) {
       return _handleError(e);
