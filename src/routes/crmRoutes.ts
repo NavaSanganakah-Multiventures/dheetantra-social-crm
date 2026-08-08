@@ -126,6 +126,49 @@ router.delete('/api/fcm/register', async (c) => {
   return c.json({ error: 'DB not configured' }, 500);
 });
 
+// Diagnostic endpoint: send a test push to the current user's FCM tokens.
+router.post('/api/fcm/test', async (c) => {
+  const sessionId = getCookie(c, 'auth_session');
+  if (!sessionId) return c.json({ error: 'Unauthorized' }, 401);
+
+  let userId = '';
+  if (c.env.SECRETS_KV) {
+    const userDataStr = await c.env.SECRETS_KV.get(`SESSION:${sessionId}`);
+    if (userDataStr) {
+      const user = JSON.parse(userDataStr);
+      userId = user.id;
+    }
+  }
+  if (!userId) return c.json({ error: 'User not found' }, 401);
+  if (!c.env.DB) return c.json({ error: 'DB not configured' }, 500);
+
+  try {
+    const tokens = await c.env.DB.prepare('SELECT token FROM fcm_tokens WHERE user_id = ?').bind(userId).all<{ token: string }>();
+    if (!tokens.results || tokens.results.length === 0) {
+      return c.json({ error: 'No FCM tokens registered for this user' }, 400);
+    }
+
+    const { sendPushNotification } = await import('../../lib/fcm');
+    const results = await Promise.all(
+      tokens.results.map(async (row) => {
+        const result = await sendPushNotification(
+          c.env,
+          row.token,
+          'Test push - DheeTantra',
+          'Agar yeh notification dikhta hai toh FCM push sahi kaam kar raha hai.',
+          { type: 'test_push' }
+        );
+        return { tokenPreview: row.token.slice(0, 20) + '...', ...result };
+      })
+    );
+
+    return c.json({ success: true, count: results.length, results });
+  } catch (e: any) {
+    console.error('[FCM Test] Failed:', e);
+    return c.json({ error: e.message || 'Failed to send test push' }, 500);
+  }
+});
+
 
 // 2. CRM & Social Media Data (D1 Database)
 router.get('/api/crm/contacts', async (c) => {

@@ -28,6 +28,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _callsEnabled = true;
   bool _loading = true;
   bool _savingNotifications = false;
+  bool _testingPush = false;
   String _userName = '';
   String _userEmail = '';
 
@@ -105,6 +106,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
       debugPrint('Battery optimization request error: $e');
       await openAppSettings();
     }
+  }
+
+  Future<void> _sendTestPush() async {
+    setState(() => _testingPush = true);
+    final result = await ApiService().testPushNotification();
+    if (!mounted) return;
+    setState(() => _testingPush = false);
+
+    final success = result['success'] == true;
+    final count = result['count'] ?? 0;
+    final error = result['error'];
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          success
+              ? 'टेस्ट push भेजा गया ($count token)'
+              : 'टेस्ट push failed: ${error ?? 'unknown'}',
+        ),
+      ),
+    );
   }
 
   Future<void> _logout() async {
@@ -235,6 +256,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
               subtitle: 'ऐप बंद होने पर भी नोटिफिकेशन पाने के लिए',
               trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
               onTap: _requestBatteryOptimization,
+            ),
+            const Divider(height: 1, indent: 52),
+            _SettingsTile(
+              icon: Icons.notifications_active_outlined,
+              title: 'टेस्ट पुश नोटिफिकेशन',
+              subtitle: 'FCM push instantly check करें',
+              trailing: _testingPush
+                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.send_outlined, color: AppColors.textMuted),
+              onTap: _testingPush ? null : _sendTestPush,
             ),
           ],
         ),

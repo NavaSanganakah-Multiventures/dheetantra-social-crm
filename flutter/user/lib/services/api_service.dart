@@ -176,6 +176,20 @@ class ApiService {
     }
   }
 
+  /// Diagnostic: ask the backend to send a test FCM push to this device.
+  Future<Map<String, dynamic>> testPushNotification() async {
+    try {
+      final res = await _dio.post('/api/fcm/test');
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      final data = e.response?.data;
+      if (data is Map<String, dynamic>) return data;
+      return {'error': e.message ?? 'Unknown error'};
+    } catch (e) {
+      return {'error': e.toString()};
+    }
+  }
+
   // ========== CONTACTS ==========
 
   Future<List<dynamic>> getContacts() async {
