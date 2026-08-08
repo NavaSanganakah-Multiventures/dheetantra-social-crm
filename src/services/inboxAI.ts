@@ -36,7 +36,7 @@ export async function classifyConversations(env: Env, workspaceId: string): Prom
     const { results } = await env.DB.prepare(
       `SELECT c.id, c.platform, ct.name AS contact_name, c.updated_at,
               (SELECT content FROM messages m WHERE m.conversation_id = c.id
-               ORDER BY m.created_at DESC LIMIT 1) AS last_message,
+               ORDER BY m.rowid DESC LIMIT 1) AS last_message,
               (SELECT COUNT(*) FROM messages m WHERE m.conversation_id = c.id) AS message_count
        FROM conversations c
        JOIN contacts ct ON c.contact_id = ct.id
@@ -107,7 +107,7 @@ export async function suggestReply(
 
     const { results } = await env.DB.prepare(
       `SELECT sender_type, content, created_at FROM messages
-       WHERE conversation_id = ? ORDER BY created_at ASC LIMIT 20`
+       WHERE conversation_id = ? ORDER BY rowid ASC LIMIT 20`
     ).bind(conversationId).all();
 
     const history = (results || [])

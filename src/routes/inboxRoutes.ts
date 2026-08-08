@@ -72,7 +72,7 @@ router.get('/api/inbox/conversations', async (c) => {
            c.phone_number_id, c.ai_label, c.ai_summary,
            ct.name as contact_name, ct.platform_contact_id as phone, ct.id as contact_id,
            (SELECT content FROM messages m WHERE m.conversation_id = c.id
-            ORDER BY m.created_at DESC LIMIT 1) AS last_message
+            ORDER BY m.rowid DESC LIMIT 1) AS last_message
     FROM conversations c
     JOIN contacts ct ON c.contact_id = ct.id
     WHERE c.workspace_id = ?
@@ -120,11 +120,12 @@ router.get('/api/inbox/messages/:conversationId', async (c) => {
   // Fetch the NEWEST messages first (DESC), then reverse so the client gets a
   // chronological thread. This guarantees the latest messages are always
   // present — the old ASC+OFFSET 0 query returned the OLDEST 100 rows, so
-  // long conversations appeared truncated and the newest messages were never
-  // retrieved. `rowid` breaks created_at ties (second-precision timestamps).
+  // long conversations appeared truncated. `rowid` is SQLite's monotonic
+  // insertion order — deterministic, no ties (created_at is second-precision
+  // and mixed-format, so it can never order messages reliably).
   const { limit, offset } = pagination(c, 500);
   const { results } = await c.env.DB.prepare(
-    'SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at DESC, rowid DESC LIMIT ? OFFSET ?'
+    'SELECT * FROM messages WHERE conversation_id = ? ORDER BY rowid DESC LIMIT ? OFFSET ?'
   ).bind(conversationId, limit, offset).all();
   results.reverse();
 

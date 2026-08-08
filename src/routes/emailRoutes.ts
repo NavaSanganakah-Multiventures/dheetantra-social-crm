@@ -576,10 +576,10 @@ router.get('/api/email/inbox/conversations', async (c) => {
        FROM conversations c
        JOIN contacts ct ON c.contact_id = ct.id
        LEFT JOIN messages m ON m.id = (
-         SELECT id FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1
+         SELECT id FROM messages WHERE conversation_id = c.id ORDER BY rowid DESC LIMIT 1
        )
        WHERE c.workspace_id = ? AND c.platform = 'email'
-       ORDER BY COALESCE(m.created_at, c.updated_at) DESC
+       ORDER BY COALESCE(m.created_at, c.updated_at) DESC, m.rowid DESC
        LIMIT ? OFFSET ?`
     ).bind(workspaceId, limit, offset).all();
 
@@ -619,7 +619,7 @@ router.get('/api/email/inbox/conversations/:id', async (c) => {
     const { results } = await c.env.DB.prepare(
       `SELECT m.* FROM messages m
        WHERE m.conversation_id = ?
-       ORDER BY m.created_at ASC, m.rowid ASC`
+       ORDER BY m.rowid ASC`
     ).bind(conversationId).all();
 
     const messages = (results || []).map((m: any) => {
@@ -670,7 +670,7 @@ router.post('/api/email/inbox/conversations/:id/reply', async (c) => {
     const firstIncoming: any = await c.env.DB.prepare(
       `SELECT m.media_url FROM messages m
        WHERE m.conversation_id = ? AND m.sender_type = 'contact'
-       ORDER BY m.created_at ASC LIMIT 1`
+       ORDER BY m.rowid ASC LIMIT 1`
     ).bind(conversationId).first();
     const firstMedia = parseEmailMediaJson(firstIncoming?.media_url);
     let fromEmail = firstMedia.to || '';
