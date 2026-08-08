@@ -713,8 +713,8 @@ router.post('/api/whatsapp/templates/send', requireRole('owner', 'admin'), async
     const content = `[Template Message] ${templateName}`;
     const platformMsgId = data.messages?.[0]?.id || crypto.randomUUID();
     const templateMsgNow = new Date().toISOString();
-    await c.env.DB.prepare('INSERT INTO messages (id, conversation_id, sender_type, message_type, content, platform_message_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
-      .bind(msgId, convId, 'agent', 'text', content, platformMsgId, templateMsgNow).run();
+    await c.env.DB.prepare('INSERT INTO messages (id, conversation_id, sender_type, message_type, content, platform_message_id, platform, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+      .bind(msgId, convId, 'agent', 'text', content, platformMsgId, 'whatsapp', templateMsgNow).run();
 
     // Broadcast template message via global Durable Object
     try {
@@ -732,6 +732,7 @@ router.post('/api/whatsapp/templates/send', requireRole('owner', 'admin'), async
             message_type: 'text',
             content,
             platform_message_id: platformMsgId,
+            platform: 'whatsapp',
             created_at: templateMsgNow
           }
         })
@@ -967,7 +968,7 @@ router.post('/api/whatsapp/send', async (c) => {
     const mediaUrlToSave = r2Url || mediaUrl || null;
     const agentMsgNow = new Date().toISOString();
 
-    await c.env.DB.prepare('INSERT INTO messages (id, conversation_id, sender_type, message_type, content, media_url, platform_message_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+    await c.env.DB.prepare('INSERT INTO messages (id, conversation_id, sender_type, message_type, content, media_url, platform_message_id, platform, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
       .bind(
         savedMessageId,
         conversationId,
@@ -976,6 +977,7 @@ router.post('/api/whatsapp/send', async (c) => {
         contentToSave || null,
         mediaUrlToSave,
         platformMsgId,
+        'whatsapp',
         agentMsgNow
       ).run();
 
@@ -1000,6 +1002,7 @@ router.post('/api/whatsapp/send', async (c) => {
             content: contentToSave || null,
             media_url: mediaUrlToSave,
             platform_message_id: platformMsgId,
+            platform: 'whatsapp',
             status: 'sent',
             created_at: agentMsgNow
           }

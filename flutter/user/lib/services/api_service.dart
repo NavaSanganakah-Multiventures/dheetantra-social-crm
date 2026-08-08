@@ -185,11 +185,12 @@ class ApiService {
 
   // ========== CONVERSATIONS ==========
 
-  Future<List<dynamic>> getConversations({String? status, String? phoneNumberId}) async {
+  Future<List<dynamic>> getConversations({String? status, String? phoneNumberId, String? platform}) async {
     try {
       final queryParams = <String, dynamic>{};
       if (status != null && status != 'all') queryParams['status'] = status;
       if (phoneNumberId != null) queryParams['phoneNumberId'] = phoneNumberId;
+      if (platform != null && platform != 'all') queryParams['platform'] = platform;
       final res = await _dio.get('/api/inbox/conversations', queryParameters: queryParams);
       final data = res.data as Map<String, dynamic>;
       return data['conversations'] ?? [];

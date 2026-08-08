@@ -271,3 +271,44 @@ class TagChip extends StatelessWidget {
     );
   }
 }
+
+/// Source-channel badge: shows which channel a conversation/message came from.
+/// WhatsApp + Email today, Instagram/Facebook ready for the future.
+class PlatformBadge extends StatelessWidget {
+  final String? platform;
+
+  const PlatformBadge({super.key, this.platform});
+
+  @override
+  Widget build(BuildContext context) {
+    final p = (platform ?? 'whatsapp').toLowerCase();
+    final (icon, color, label) = switch (p) {
+      'email' => (Icons.mail_outline_rounded, const Color(0xFF60A5FA), 'Email'),
+      'instagram' => (Icons.camera_alt_outlined, const Color(0xFFEC4899), 'Instagram'),
+      'facebook' => (Icons.facebook, const Color(0xFF3B82F6), 'Facebook'),
+      _ => (Icons.chat_bubble_outline_rounded, AppColors.whatsapp, 'WhatsApp'),
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: 10.5,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

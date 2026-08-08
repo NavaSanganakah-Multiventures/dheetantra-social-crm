@@ -83,8 +83,8 @@ export async function handleIncomingMessage(
         // would pick it up).
         try {
           await env.DB.prepare(`
-            INSERT OR IGNORE INTO messages (id, conversation_id, sender_type, message_type, content, media_url, platform_message_id)
-            VALUES (?, ?, 'contact', ?, ?, ?, ?)
+            INSERT OR IGNORE INTO messages (id, conversation_id, sender_type, message_type, content, media_url, platform_message_id, platform)
+            VALUES (?, ?, 'contact', ?, ?, ?, ?, 'whatsapp')
           `).bind(incomingMessageId, conversationId, messageType, messageText, mediaUrl || null, messageId).run();
           console.log(`[handleIncomingMessage] Incoming message saved. id=${incomingMessageId}`);
         } catch (saveErr) {
@@ -162,6 +162,8 @@ export async function handleIncomingMessage(
             body: JSON.stringify({
               type: 'new_message',
               customer_last_message_at: broadcastNow,
+              from: from,
+              contact_name: contactName,
               message: {
                 id: incomingMessageId,
                 conversation_id: conversationId,
@@ -170,6 +172,7 @@ export async function handleIncomingMessage(
                 content: messageText || null,
                 media_url: mediaUrl || null,
                 platform_message_id: messageId,
+                platform: 'whatsapp',
                 created_at: broadcastNow
               }
             })
@@ -378,8 +381,8 @@ export async function sendWhatsAppMessage(
 
 
           await env.DB.prepare(`
-            INSERT INTO messages (id, conversation_id, sender_type, message_type, content, media_url, platform_message_id)
-            VALUES (?, ?, 'bot', ?, ?, ?, ?)
+            INSERT INTO messages (id, conversation_id, sender_type, message_type, content, media_url, platform_message_id, platform)
+            VALUES (?, ?, 'bot', ?, ?, ?, ?, 'whatsapp')
           `).bind(sentMessageId, conversationId, messageType, message, mediaUrl || null, platformMsgId).run();
 
           // Broadcast bot reply via Durable Object
@@ -400,6 +403,7 @@ export async function sendWhatsAppMessage(
                   content: message || null,
                   media_url: mediaUrl || null,
                   platform_message_id: platformMsgId,
+                  platform: 'whatsapp',
                   created_at: botMsgNow
                 }
               })

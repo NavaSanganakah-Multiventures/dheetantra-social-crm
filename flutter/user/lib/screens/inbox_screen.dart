@@ -19,6 +19,7 @@ class InboxScreen extends StatefulWidget {
 class _InboxScreenState extends State<InboxScreen> {
   String _query = '';
   String _filter = 'सभी';
+  String _platformFilter = 'all'; // 'all' | 'whatsapp' | 'email' (future: instagram/facebook)
   bool _loading = true;
   List<Conversation> _allConversations = [];
   StreamSubscription? _msgSub;
@@ -27,6 +28,11 @@ class _InboxScreenState extends State<InboxScreen> {
   Timer? _autoRefresh;
 
   static const _filters = ['सभी', 'खुली', 'बंद'];
+  static const _platformFilters = [
+    ('सभी सोर्स', 'all'),
+    ('WhatsApp', 'whatsapp'),
+    ('Email', 'email'),
+  ];
 
   @override
   void initState() {
@@ -70,7 +76,10 @@ class _InboxScreenState extends State<InboxScreen> {
     if (_filter == 'खुली') statusFilter = 'open';
     if (_filter == 'बंद') statusFilter = 'closed';
 
-    final data = await api.getConversations(status: statusFilter);
+    final data = await api.getConversations(
+      status: statusFilter,
+      platform: _platformFilter,
+    );
     if (!mounted) return;
 
     setState(() {
@@ -119,6 +128,28 @@ class _InboxScreenState extends State<InboxScreen> {
                 selected: selected,
                 onSelected: (_) {
                   setState(() => _filter = f);
+                  _loadConversations();
+                },
+                showCheckmark: false,
+              );
+            },
+          ),
+        ),
+        SizedBox(
+          height: 48,
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            scrollDirection: Axis.horizontal,
+            itemCount: _platformFilters.length,
+            separatorBuilder: (__, ___) => const SizedBox(width: 8),
+            itemBuilder: (context, i) {
+              final (label, value) = _platformFilters[i];
+              final selected = _platformFilter == value;
+              return ChoiceChip(
+                label: Text(label),
+                selected: selected,
+                onSelected: (_) {
+                  setState(() => _platformFilter = value);
                   _loadConversations();
                 },
                 showCheckmark: false,
@@ -221,14 +252,22 @@ class _ConversationTile extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 5),
-                    Text(
-                      conversation.lastMessage,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppColors.textMuted,
-                        fontSize: 13,
-                      ),
+                    Row(
+                      children: [
+                        PlatformBadge(platform: conversation.platform),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            conversation.lastMessage,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: AppColors.textMuted,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),

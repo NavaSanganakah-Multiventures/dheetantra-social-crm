@@ -812,7 +812,9 @@ export async function handleIncomingEmail(message: any, env: any, ctx: any) {
       ).bind(conversationId, workspaceId, contact.id, 'email').run();
       conversation = { id: conversationId };
     } else {
-      await env.DB.prepare('UPDATE conversations SET customer_last_message_at = CURRENT_TIMESTAMP WHERE id = ?').bind(conversation.id).run();
+      // Also bump updated_at so an email into an existing conversation pushes
+      // it back to the top of the inbox (sorted by updated_at DESC).
+      await env.DB.prepare('UPDATE conversations SET customer_last_message_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?').bind(conversation.id).run();
     }
 
     // Attachments -> R2 (parallel uploads; content types whitelisted, forced
@@ -845,8 +847,8 @@ export async function handleIncomingEmail(message: any, env: any, ctx: any) {
 
     const messageId = crypto.randomUUID();
     await env.DB.prepare(
-      `INSERT INTO messages (id, conversation_id, sender_type, content, media_url, status, message_type, created_at)
-       VALUES (?, ?, 'contact', ?, ?, 'delivered', 'email', CURRENT_TIMESTAMP)`
+      `INSERT INTO messages (id, conversation_id, sender_type, content, media_url, status, message_type, platform, created_at)
+       VALUES (?, ?, 'contact', ?, ?, 'delivered', 'email', 'email', CURRENT_TIMESTAMP)`
     ).bind(messageId, conversation.id, parsed.text || parsed.subject || '(no content)', mediaJson).run();
 
     // Real-time broadcast — same `new_message` shape as WhatsApp so Flutter
@@ -860,6 +862,8 @@ export async function handleIncomingEmail(message: any, env: any, ctx: any) {
         body: JSON.stringify({
           type: 'new_message',
           customer_last_message_at: emailInNow,
+          from: senderEmail,
+          contact_name: parsed.fromName || senderEmail,
           message: {
             id: messageId,
             conversation_id: conversation.id,
@@ -867,6 +871,7 @@ export async function handleIncomingEmail(message: any, env: any, ctx: any) {
             message_type: 'email',
             content: parsed.text || parsed.subject || '(no content)',
             media_url: mediaJson,
+            platform: 'email',
             status: 'delivered',
             created_at: emailInNow,
           },

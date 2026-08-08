@@ -126,6 +126,7 @@ CREATE TABLE IF NOT EXISTS messages (
   platform_message_id TEXT UNIQUE, -- ID from Meta to prevent duplicates
   status TEXT DEFAULT 'sent', -- 'sent', 'delivered', 'read'
   message_type TEXT DEFAULT 'text',
+  platform TEXT NOT NULL DEFAULT 'whatsapp', -- source channel: 'whatsapp', 'email' (future: 'instagram', 'facebook')
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
 );

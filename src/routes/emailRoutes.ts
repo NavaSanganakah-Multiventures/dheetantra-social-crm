@@ -724,8 +724,8 @@ router.post('/api/email/inbox/conversations/:id/reply', async (c) => {
     const replyContent = text || stripHtmlTags(html || '');
     const replyMediaJson = JSON.stringify({ html: html || '', subject, to: toEmail, attachments: [] });
     await c.env.DB.prepare(
-      `INSERT INTO messages (id, conversation_id, sender_type, content, media_url, status, message_type, created_at)
-       VALUES (?, ?, 'agent', ?, ?, 'sent', 'email', ?)`
+      `INSERT INTO messages (id, conversation_id, sender_type, content, media_url, status, message_type, platform, created_at)
+       VALUES (?, ?, 'agent', ?, ?, 'sent', 'email', 'email', ?)`
     ).bind(
       replyId,
       conversationId,
@@ -757,6 +757,7 @@ router.post('/api/email/inbox/conversations/:id/reply', async (c) => {
             message_type: 'email',
             content: replyContent,
             media_url: replyMediaJson,
+            platform: 'email',
             status: 'sent',
             created_at: replyNow,
           },

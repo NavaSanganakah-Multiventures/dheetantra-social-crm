@@ -90,6 +90,7 @@ class Message {
   final String status;
   final String? subject;
   final String? html;
+  final String? platform;
 
   const Message({
     required this.id,
@@ -101,6 +102,7 @@ class Message {
     this.status = 'sent',
     this.subject,
     this.html,
+    this.platform,
   });
 
   factory Message.fromJson(Map<String, dynamic> json) {
@@ -133,6 +135,7 @@ class Message {
       status: json['status'] ?? 'sent',
       subject: subject,
       html: html,
+      platform: json['platform'] ?? json['source'],
     );
   }
 
@@ -146,6 +149,7 @@ class Message {
     String? status,
     String? subject,
     String? html,
+    String? platform,
   }) {
     return Message(
       id: id ?? this.id,
@@ -157,6 +161,7 @@ class Message {
       status: status ?? this.status,
       subject: subject ?? this.subject,
       html: html ?? this.html,
+      platform: platform ?? this.platform,
     );
   }
 }
