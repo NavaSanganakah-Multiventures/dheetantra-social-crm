@@ -17,7 +17,9 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace = "com.navasanganakah.dheetantra"
-    compileSdk = flutter.compileSdkVersion
+    // flutter_ringtone_player ki transitive AndroidX deps compileSdk 34+ maangti hain.
+    // Device Android 16 (API 36) hai, isliye 36 use kiya.
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
