@@ -123,6 +123,11 @@ export default function UnifiedInbox({
   const [toast, setToast] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const wsRef = useRef<WebSocket | null>(null);
+  const wsReconnectRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const wsPingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const activeConvRef = useRef<any>(null);
+  activeConvRef.current = activeConv;
 
   const showToast = (type: 'success' | 'error', msg: string) => {
     setToast({ type, msg });
@@ -151,6 +156,64 @@ export default function UnifiedInbox({
     return () => clearInterval(t);
   }, [wId, loadConversations]);
 
+  // ---------- Real-time WebSocket ----------
+  // New messages land in the OPEN conversation instantly (not just the list),
+  // and status/deletion events refresh the list without waiting for polling.
+  const connectWs = useCallback(() => {
+    if (!wId) return;
+    if (wsRef.current && (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING)) return;
+    const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    const ws = new WebSocket(`${proto}://${window.location.host}/api/chat/connect/global-${wId}`);
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      if (wsPingRef.current) clearInterval(wsPingRef.current);
+      wsPingRef.current = setInterval(() => {
+        if (wsRef.current?.readyState === WebSocket.OPEN) {
+          wsRef.current.send(JSON.stringify({ event: 'ping' }));
+        }
+      }, 25000);
+    };
+
+    ws.onmessage = (ev) => {
+      try {
+        const data = JSON.parse(ev.data);
+        const type = data.type || data.event;
+        if (type === 'new_message' && data.message) {
+          // Append live into the open conversation thread.
+          setMessages((prev) => {
+            if (data.message.conversation_id !== activeConvRef.current?.id) return prev;
+            if (prev.some((m) => m.id === data.message.id)) return prev;
+            return [...prev, data.message];
+          });
+          loadConversations(); // keep list previews + ordering fresh
+        } else if (type === 'message_status_updated' || type === 'conversation_status_updated' || type === 'conversation_deleted') {
+          loadConversations();
+        }
+      } catch (e) {
+        console.error('UnifiedInbox: WS message error', e);
+      }
+    };
+
+    ws.onclose = () => {
+      if (wsPingRef.current) { clearInterval(wsPingRef.current); wsPingRef.current = null; }
+      wsRef.current = null;
+      if (wsReconnectRef.current) clearTimeout(wsReconnectRef.current);
+      wsReconnectRef.current = setTimeout(connectWs, 3000);
+    };
+    ws.onerror = () => { try { ws.close(); } catch { /* ignore */ } };
+  }, [wId, loadConversations]);
+
+  useEffect(() => {
+    connectWs();
+    return () => {
+      if (wsReconnectRef.current) clearTimeout(wsReconnectRef.current);
+      if (wsPingRef.current) clearInterval(wsPingRef.current);
+      try { wsRef.current?.close(); } catch { /* ignore */ }
+      wsRef.current = null;
+    };
+  }, [connectWs]);
+
   // ---------- Open a conversation ----------
   const openConversation = useCallback(async (conv: any) => {
     setActiveConv(conv);
@@ -160,7 +223,18 @@ export default function UnifiedInbox({
       const res = await fetch(`/api/inbox/messages/${conv.id}?limit=500`, { headers: { 'x-workspace-id': wId } });
       const data: any = await res.json();
       if (data.messages) {
-        setMessages(data.messages);
+        // Merge instead of blind-replace: a realtime message that arrived
+        // while the fetch was in flight must not be wiped out.
+        setMessages((prev) => {
+          const incoming = data.messages as any[];
+          const merged = [...incoming];
+          for (const m of prev) {
+            if (m.conversation_id === conv.id && !incoming.some((x) => x.id === m.id)) {
+              merged.push(m);
+            }
+          }
+          return merged;
+        });
         if (data.conversation && !data.conversation.contact_name) {
           setActiveConv((prev: any) => ({ ...prev, ...data.conversation }));
         }

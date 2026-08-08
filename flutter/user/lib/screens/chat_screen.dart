@@ -37,9 +37,10 @@ class _ChatScreenState extends State<ChatScreen> {
     _newMessageSub = WebSocketService().onNewMessage.listen((data) {
       if (!mounted) return;
       final msgData = data['message'];
+      if (msgData is! Map) return;
       if (msgData['conversation_id'] == widget.conversation.id) {
         setState(() {
-          final newMsg = Message.fromJson(msgData);
+          final newMsg = Message.fromJson(Map<String, dynamic>.from(msgData));
           final existingIdx = _messages.indexWhere((m) => m.id == newMsg.id);
           if (existingIdx != -1) {
             _messages[existingIdx] = newMsg;
@@ -116,6 +117,15 @@ class _ChatScreenState extends State<ChatScreen> {
             .toList() ??
         [];
 
+    // Merge instead of blind-replace: a realtime message that arrived while
+    // this fetch was in flight (added to [_messages] by the WS listener) must
+    // not be wiped out when the fetched list replaces the state. Such messages
+    // are always newer than the fetched window, so appending them keeps the
+    // thread chronologically correct.
+    final inFlight = _messages
+        .where((m) => !msgList.any((x) => x.id == m.id))
+        .toList();
+
     // Update contact info from conversation data if available
     if (result['conversation'] != null) {
       final conv = result['conversation'];
@@ -124,7 +134,7 @@ class _ChatScreenState extends State<ChatScreen> {
     }
 
     setState(() {
-      _messages = msgList;
+      _messages = [...msgList, ...inFlight];
       _loading = false;
     });
     _scrollToBottom(animate: false);
