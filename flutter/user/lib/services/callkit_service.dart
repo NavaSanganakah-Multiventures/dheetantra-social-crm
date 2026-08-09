@@ -179,7 +179,7 @@ class CallKitService {
       },
       headers: <String, dynamic>{'apiKey': '1234'},
       android: const AndroidParams(
-        isCustomNotification: false,
+        isCustomNotification: true,
         isShowLogo: false,
         isShowCallID: true,
         isShowFullLockedScreen: true,

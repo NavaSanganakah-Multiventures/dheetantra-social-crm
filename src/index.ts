@@ -629,7 +629,7 @@ app.post('/api/whatsapp/webhook', async (c) => {
                                   `मिस्ड कॉल +${callerNumber}`,
                                   'आपकी एक WhatsApp वॉयस कॉल मिस हो गई',
                                   { workspaceId: config.workspace_id, type: 'missed_call', phone: callerNumber },
-                                  { ttlSeconds: 0, category: 'call', dataOnly: true }
+                                  { ttlSeconds: 0, category: 'call' }
                                 )
                                 )
                               );
@@ -836,10 +836,7 @@ app.post('/api/whatsapp/webhook', async (c) => {
                                   from: message.from || '',
                                   messageId: message.id || '',
                                   conversation_id: pushConvId,
-                                },
-                                // Default TTL (4 weeks) ensures the message is
-                                // delivered even if the device is offline/dozing.
-                                { dataOnly: true }
+                                }
                               )
                               )
                             );

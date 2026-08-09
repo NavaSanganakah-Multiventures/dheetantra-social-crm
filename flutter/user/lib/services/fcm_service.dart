@@ -128,7 +128,11 @@ class FcmService {
     // bhi user ko missed calls/messages ka pata chale.
     _addToNotificationCenter(title, body, type, message.data);
 
-    await _showLocalNotification(title, body, message.data);
+    // Agar message mein notification payload tha, toh OS pehle hi dikha chuka hai.
+    // Toh duplicate local notification dikhane ki zaroorat nahi hai.
+    if (message.notification == null) {
+      await _showLocalNotification(title, body, message.data);
+    }
   }
 
   Future<void> _initLocalNotifications() async {
