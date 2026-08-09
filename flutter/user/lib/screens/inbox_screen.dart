@@ -237,17 +237,18 @@ class _ConversationTile extends StatelessWidget {
     final contact = conversation.contact;
     return Material(
       color: AppColors.surface,
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(20),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(20),
         child: Container(
           padding: const EdgeInsets.all(13),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(20),
             border: Border.all(
               color: conversation.isActive ? AppColors.accent.withValues(alpha: 0.4) : AppColors.border,
             ),
+            boxShadow: AppColors.subtleShadow,
           ),
           child: Row(
             children: [

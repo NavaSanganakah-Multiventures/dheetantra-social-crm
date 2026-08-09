@@ -139,10 +139,14 @@ class _DashboardScreenState extends State<DashboardScreen> with RouteAware {
           const SizedBox(height: 24),
           LayoutBuilder(
             builder: (context, constraints) {
-              final cardWidth = (constraints.maxWidth - 12) / 2;
+              int crossAxisCount = constraints.maxWidth >= 800 ? 4 : (constraints.maxWidth >= 600 ? 3 : 2);
+              final spacing = 12.0;
+              final totalSpacing = spacing * (crossAxisCount - 1);
+              final cardWidth = (constraints.maxWidth - totalSpacing) / crossAxisCount;
+
               return Wrap(
-                spacing: 12,
-                runSpacing: 12,
+                spacing: spacing,
+                runSpacing: spacing,
                 children: [
                   SizedBox(
                     width: cardWidth,
@@ -243,7 +247,20 @@ class _QuickActions extends StatelessWidget {
         // Responsive: grid on wide screens, horizontal scroll on narrow ones.
         LayoutBuilder(
           builder: (context, constraints) {
-            if (constraints.maxWidth >= 420) {
+            if (constraints.maxWidth >= 600) {
+              // Tablet / Desktop view
+              return Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  for (final a in actions)
+                    SizedBox(
+                      width: (constraints.maxWidth - 48) / 5, // 5 items
+                      child: _QuickActionCard(icon: a.icon, label: a.label, onTap: a.onTap),
+                    ),
+                ],
+              );
+            } else if (constraints.maxWidth >= 420) {
               return Wrap(
                 spacing: 10,
                 runSpacing: 10,
@@ -261,8 +278,8 @@ class _QuickActions extends StatelessWidget {
               child: Row(
                 children: [
                   for (final a in actions) ...[
-                    SizedBox(width: 84, child: _QuickActionCard(icon: a.icon, label: a.label, onTap: a.onTap)),
-                    const SizedBox(width: 10),
+                    SizedBox(width: 90, child: _QuickActionCard(icon: a.icon, label: a.label, onTap: a.onTap)),
+                    const SizedBox(width: 12),
                   ],
                 ],
               ),
@@ -303,6 +320,7 @@ class _QuickActionCard extends StatelessWidget {
           color: AppColors.surface,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: AppColors.border),
+          boxShadow: AppColors.subtleShadow,
         ),
         child: Column(
           children: [
@@ -341,8 +359,9 @@ class _RecentChats extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
         border: Border.all(color: AppColors.border),
+        boxShadow: AppColors.subtleShadow,
       ),
       child: Column(
         children: [
@@ -375,7 +394,7 @@ class _RecentChatTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(24), // Match container border radius
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Row(
