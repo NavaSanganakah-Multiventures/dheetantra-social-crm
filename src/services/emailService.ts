@@ -910,14 +910,15 @@ export async function handleIncomingEmail(message: any, env: any, ctx: any) {
                 row.token,
                 title,
                 bodyPreview,
-                {
-                  workspaceId,
-                  type: 'new_message',
-                  from: senderEmail,
-                  conversation_id: conversation.id,
-                  messageId,
-                }
-              )
+                  {
+                    workspaceId,
+                    type: 'new_message',
+                    from: senderEmail,
+                    conversation_id: conversation.id,
+                    messageId,
+                  },
+                  { dataOnly: true }
+                )
               )
             );
             for (let i = 0; i < sends.length; i++) {
