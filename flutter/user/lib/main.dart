@@ -7,6 +7,7 @@ import 'services/api_service.dart';
 import 'services/fcm_service.dart';
 import 'services/notification_router.dart';
 import 'services/callkit_service.dart';
+import 'services/notification_center.dart';
 import 'theme/app_theme.dart';
 
 import 'package:firebase_core/firebase_core.dart';
@@ -36,9 +37,25 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   // khud show karte hain.
   if (type == 'incoming_call') {
     await CallKitService().showIncomingCall(message.data);
-  } else {
+  } else if (message.notification == null) {
     // missed_call, new_message, ya koi bhi dusra data-only event.
+    // If notification block is present, system shows it automatically so we don't duplicate.
     await FcmService().showBackgroundNotification(message);
+  } else {
+    // Bell badge aur notification screen bhi update karo — websocket band ho toh
+    // bhi user ko missed calls/messages ka pata chale.
+    try {
+      final title = message.notification?.title ?? message.data['title'] ?? 'DheeTantra';
+      final body = message.notification?.body ?? message.data['body'] ?? 'नया अपडेट प्राप्त हुआ';
+      NotificationCenter().add(
+        title: title,
+        body: body,
+        type: type == 'new_message' ? 'message' : (type == 'missed_call' ? 'call' : 'system'),
+        data: Map<String, dynamic>.from(message.data),
+      );
+    } catch (e) {
+      // Ignored for background
+    }
   }
 }
 

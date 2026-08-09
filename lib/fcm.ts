@@ -206,10 +206,10 @@ export async function sendPushNotification(
     const androidNotification: Record<string, any> = {
       channel_id: 'dheetantra',
       sound: 'default',
-      priority: 'high',
-      visibility: 'public',
+      notification_priority: 'PRIORITY_HIGH',
+      visibility: 'PUBLIC',
+      click_action: 'FLUTTER_NOTIFICATION_CLICK',
     };
-    if (options?.category) androidNotification.category = options.category;
     // ttlSeconds == 0  → immediate delivery only (calls). For messages use a
     // long TTL so the device gets every message when it comes back online.
     const ttl =

@@ -14,7 +14,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1900));
     await tester.pumpAndSettle();
 
-    expect(find.text('फिर से स्वागत है!'), findsOneWidget);
-    expect(find.text('लॉगिन करें'), findsOneWidget);
+    expect(find.text('वापसी पर स्वागत है!'), findsOneWidget);
+    expect(find.text('OTP भेजें'), findsOneWidget);
   });
 }
