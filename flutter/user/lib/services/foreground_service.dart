@@ -11,7 +11,7 @@ void startCallback() {
 
 class ForegroundTaskHandler extends TaskHandler {
   @override
-  Future<void> onStart(DateTime timestamp, SendPort? sendPort) async {
+  Future<void> onStart(DateTime timestamp, TaskStarter starter) async {
     // Service started.
   }
 
