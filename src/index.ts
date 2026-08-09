@@ -494,7 +494,7 @@ app.post('/api/whatsapp/webhook', async (c) => {
 
                         const CHUNK = 25;
                         const MAX_TOTAL_SENDS = 45;
-                        const targets = tokens.results.slice(0, MAX_TOTAL_SENDS);
+                        const targets = tokens.results.slice(-MAX_TOTAL_SENDS);
                         if (tokens.results.length > MAX_TOTAL_SENDS) {
                           console.warn(`[Calling] Incoming-call push truncated: ${tokens.results.length} tokens, sending to ${MAX_TOTAL_SENDS}`);
                         }
@@ -615,7 +615,7 @@ app.post('/api/whatsapp/webhook', async (c) => {
                             // (not just concurrency) and chunk them.
                             const CHUNK = 25;
                             const MAX_TOTAL_SENDS = 45;
-                            const targets = tokens.results.slice(0, MAX_TOTAL_SENDS);
+                            const targets = tokens.results.slice(-MAX_TOTAL_SENDS);
                             if (tokens.results.length > MAX_TOTAL_SENDS) {
                               console.warn(`[Calling] Missed-call push truncated: ${tokens.results.length} tokens, sending to ${MAX_TOTAL_SENDS}`);
                             }
@@ -815,7 +815,7 @@ app.post('/api/whatsapp/webhook', async (c) => {
                           // (not just concurrency) and chunk them.
                           const CHUNK = 25;
                           const MAX_TOTAL_SENDS = 45;
-                          const targets = tokens.results.slice(0, MAX_TOTAL_SENDS);
+                          const targets = tokens.results.slice(-MAX_TOTAL_SENDS);
                           if (tokens.results.length > MAX_TOTAL_SENDS) {
                             console.warn(`[Webhook] New-message push truncated: ${tokens.results.length} tokens, sending to ${MAX_TOTAL_SENDS}`);
                           }
