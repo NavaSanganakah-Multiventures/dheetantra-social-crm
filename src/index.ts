@@ -375,8 +375,8 @@ app.post('/api/whatsapp/webhook', async (c) => {
 
               console.log(`[Calling] Event: ${event}, Call ID: ${callId}, From: ${callerNumber}, Direction: ${direction}, HasSDP: ${!!sdp}`);
 
-              const config = await c.env.DB.prepare('SELECT workspace_id, calling_enabled, call_schedule FROM whatsapp_configs WHERE phone_number_id = ?')
-                .bind(phoneNumberId).first<{ workspace_id: string; calling_enabled: number; call_schedule: string }>();
+              const config = await c.env.DB.prepare('SELECT workspace_id, calling_enabled, call_schedule, access_token FROM whatsapp_configs WHERE phone_number_id = ?')
+                .bind(phoneNumberId).first<{ workspace_id: string; calling_enabled: number; call_schedule: string; access_token: string }>();
 
               if (!config) {
                 console.error(`[Calling] ❌ No config found for phone_number_id: ${phoneNumberId}`);
@@ -448,6 +448,56 @@ app.post('/api/whatsapp/webhook', async (c) => {
               `).bind(callId, config.workspace_id, contactId, phoneNumberId, callerNumber, 'voice',
                   direction === 'BUSINESS_INITIATED' ? 'outgoing' : 'incoming', 'ringing', 0).run();
                 console.log(`[Calling] Call saved to DB: ${callId}`);
+
+                // ==========================================
+                // LINE-BUSY CHECK (WhatsApp-style busy)
+                // Agar is workspace mein pehle se koi call active hai (ringing
+                // ya in_progress) toh nayi incoming call ko turant Meta ko
+                // reject bhej dete hain — caller ko busy tone milega, app par
+                // ring/push nahi aayegi. Ye "oldest wins" hai: do calls ek
+                // saath aayein (race) toh jo pehle insert hui wo ring karegi,
+                // baaki sab busy — dono webhooks isi same answer par converge
+                // karte hain, isliye ye deterministic hai.
+                //
+                // NOTE (default dialer): PSTN calls mein bhi yahi line-busy
+                // concept use hoga — app default dialer banne par incoming
+                // PSTN call ko TelecomManager se auto-reject karega jab ek
+                // call pehle se active ho.
+                if (direction !== 'BUSINESS_INITIATED') {
+                  const activeCall = await c.env.DB.prepare(`
+                    SELECT id FROM calls
+                    WHERE workspace_id = ? AND status IN ('ringing', 'in_progress') AND id != ?
+                      -- Stale 'ringing' rows (webhook lost, app dead) line ko
+                      -- hamesha block na karein: 10 min purani ring ko ignore
+                      AND (status = 'in_progress' OR created_at > datetime('now', '-10 minutes'))
+                    ORDER BY created_at ASC LIMIT 1
+                  `).bind(config.workspace_id, callId).first<{ id: string }>();
+
+                  if (activeCall) {
+                    console.log(`[Calling] ⛔ Line busy (active: ${activeCall.id}) — auto-rejecting call ${callId} from ${callerNumber}`);
+                    // Meta ko reject — caller ko WhatsApp jaisa busy tone milega
+                    try {
+                      const rejectUrl = `https://graph.facebook.com/v20.0/${phoneNumberId}/calls`;
+                      await fetch(rejectUrl, {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${config.access_token}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          messaging_product: 'whatsapp',
+                          call_id: callId,
+                          action: 'reject'
+                        })
+                      });
+                    } catch (e) {
+                      console.error('[Calling] Busy auto-reject to Meta failed:', e);
+                    }
+                    // Call log mein 'busy' status ke saath record — ring/push
+                    // broadcast skip (neeche continue).
+                    await c.env.DB.prepare('UPDATE calls SET status = ?, hangup_cause = ? WHERE id = ?')
+                      .bind('busy', 'busy', callId).run();
+                    console.log(`[Calling] Call ${callId} marked busy — no ring, no push`);
+                    continue;
+                  }
+                }
 
                 // Broadcast to frontend via Durable Object for Human Answering
                 try {
@@ -580,8 +630,15 @@ app.post('/api/whatsapp/webhook', async (c) => {
                 const wasMissed = existingCall && existingCall.direction === 'incoming' &&
                   existingCall.status === 'ringing' && duration === 0;
 
+                // Busy-rejected call ka terminate event baad mein aata hai —
+                // status preserve karo, warna 'busy' record 'ended' mein badal
+                // jayega aur call log galat dikhayega.
+                const finalStatus = existingCall?.status === 'busy'
+                  ? 'busy'
+                  : (wasMissed ? 'missed' : 'ended');
+
                 await c.env.DB.prepare('UPDATE calls SET status = ?, duration = ?, hangup_cause = ? WHERE id = ?')
-                  .bind(wasMissed ? 'missed' : 'ended', duration, hangupCause, callId).run();
+                  .bind(finalStatus, duration, hangupCause, callId).run();
 
                 try {
                   const globalDoId = c.env.CHAT_DO.idFromName(`global-${config.workspace_id}`);

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../services/callkit_service.dart';
 import '../services/webrtc_service.dart';
 import '../services/websocket_service.dart';
 import '../theme/app_theme.dart';
@@ -71,8 +72,21 @@ class _CallScreenState extends State<CallScreen> {
     });
   }
 
+  bool _finishCalled = false;
+
   void _finishCall() {
+    // 'ended' duplicate events (WebRTC watchdog + plugin Closed re-fire) se
+    // double pop na ho — ek hi baar teardown chalega.
+    if (_finishCalled) return;
+    _finishCalled = true;
     _durationTimer?.cancel();
+    // Registry + plugin native UI cleanup — warna same-id agli call
+    // duplicate-guard se permanently block ho jayegi.
+    CallKitService().handleCallEnded(
+      widget.callData['id']?.toString() ??
+          widget.callData['callId']?.toString() ??
+          '',
+    );
     if (mounted) {
       Navigator.of(context).pop();
     }

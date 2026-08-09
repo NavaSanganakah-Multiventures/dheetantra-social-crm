@@ -67,6 +67,11 @@ Future<void> main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+  // acceptCallHandle native callback ko sabse pehle register karo — cold-start
+  // accept (plugin ka 750ms callback window) main isolate ka method channel
+  // ready hone se pehle aa jata hai, tab event lost ho jata hai. Early
+  // register se us race ka window kafi kam ho jata hai.
+  CallKitService().registerAcceptHandleEarly();
   // CallKit background engine start karo — iske bina app killed hone par native
   // accept/decline events kisi ko nahi milte aur call attend nahi ho pati.
   try {

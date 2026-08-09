@@ -216,8 +216,10 @@ router.post('/api/whatsapp/calls/:id/reject', async (c) => {
   const data: any = await res.json();
   console.log('[Calling] reject response:', JSON.stringify(data));
 
-  await c.env.DB.prepare('UPDATE calls SET status = ? WHERE id = ? AND workspace_id = ?')
-    .bind('declined', callId, workspaceId).run();
+  // Busy-rejected calls ka status preserve karo (app-side busy guard bhi isi
+  // route par aata hai) — warna 'busy' record 'declined' se overwrite ho jayega.
+  await c.env.DB.prepare("UPDATE calls SET status = 'declined' WHERE id = ? AND workspace_id = ? AND status != 'busy'")
+    .bind(callId, workspaceId).run();
 
   return c.json({ success: true, data });
 });

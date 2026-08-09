@@ -53,6 +53,19 @@ class _GlobalCallOverlayState extends State<GlobalCallOverlay> {
         debugPrint('CallOverlay: call $callId already shown by CallKit, skipping overlay');
         return;
       }
+      // Line-busy guard (WhatsApp-style): koi call pehle se ringing/active
+      // hai toh nayi incoming call ko turant auto-reject — double ring mat
+      // dikhao aur caller ko busy tone mile. Server normal flow mein busy
+      // calls broadcast nahi karta; ye sirf defense-in-depth hai.
+      if (_callStatus != 'idle') {
+        debugPrint('CallOverlay: line busy ($_callStatus) — auto-rejecting $callId');
+        try {
+          WebRTCService().rejectCall(Map<String, dynamic>.from(callData));
+        } catch (e) {
+          debugPrint('CallOverlay: busy auto-reject error: $e');
+        }
+        return;
+      }
       if (_callStatus == 'idle') {
         setState(() {
           _incomingCall = callData;
@@ -80,6 +93,13 @@ class _GlobalCallOverlayState extends State<GlobalCallOverlay> {
       } else if (_incomingCall != null && _incomingCall!['id'] == data['call_id']) {
         if (data['status'] == 'completed' || data['status'] == 'ended' || data['status'] == 'declined') {
           _stopRingtone();
+          // Registry se bhi entry hatana zaroori hai — warna caller ne ring
+          // mein hi call kati toh stale entry agli same-id call ko block
+          // karegi (duplicate guard hamesha skip kar dega).
+          final ringingId = _incomingCall!['id']?.toString() ??
+              _incomingCall!['callId']?.toString() ??
+              '';
+          CallKitService().unregisterInAppCall(ringingId);
           setState(() {
             _incomingCall = null;
             _callStatus = 'idle';
@@ -139,8 +159,12 @@ class _GlobalCallOverlayState extends State<GlobalCallOverlay> {
     _audioRenderer?.srcObject = null;
     WebRTCService().cleanup();
     _stopRingtone();
-    final incomingId = _incomingCall?['id']?.toString() ?? '';
-    final activeId = _activeCall?['id']?.toString() ?? '';
+    final incomingId = _incomingCall?['id']?.toString() ??
+        _incomingCall?['callId']?.toString() ??
+        '';
+    final activeId = _activeCall?['id']?.toString() ??
+        _activeCall?['callId']?.toString() ??
+        '';
     CallKitService().unregisterInAppCall(incomingId);
     CallKitService().unregisterInAppCall(activeId);
     setState(() {
@@ -165,7 +189,9 @@ class _GlobalCallOverlayState extends State<GlobalCallOverlay> {
     if (callData == null) return;
 
     _stopRingtone();
-    final incomingId = callData['id']?.toString() ?? '';
+    final incomingId = callData['id']?.toString() ??
+        callData['callId']?.toString() ??
+        '';
     CallKitService().unregisterInAppCall(incomingId);
     setState(() {
       _incomingCall = null;

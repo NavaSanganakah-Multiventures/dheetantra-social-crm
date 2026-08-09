@@ -17,7 +17,7 @@ class _CallsScreenState extends State<CallsScreen> {
   bool _loading = true;
   List<CallLog> _allCalls = [];
 
-  static const _filters = ['सभी', 'आने वाली', 'जाने वाली', 'मिस्ड'];
+  static const _filters = ['सभी', 'आने वाली', 'जाने वाली', 'मिस्ड', 'व्यस्त'];
 
   @override
   void initState() {
@@ -46,6 +46,9 @@ class _CallsScreenState extends State<CallsScreen> {
         break;
       case 'मिस्ड':
         list = list.where((c) => c.status == 'missed').toList();
+        break;
+      case 'व्यस्त':
+        list = list.where((c) => c.status == 'busy').toList();
         break;
     }
     return list;
@@ -120,6 +123,7 @@ class _CallTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final missed = call.status == 'missed';
+    final busy = call.status == 'busy';
     final incoming = call.direction == 'incoming';
     final connected = call.status == 'connected';
 
@@ -128,6 +132,10 @@ class _CallTile extends StatelessWidget {
     if (missed) {
       icon = Icons.call_missed_rounded;
       iconColor = AppColors.danger;
+    } else if (busy) {
+      // Line busy (WhatsApp-style) — caller ko busy tone mila tha.
+      icon = Icons.block_rounded;
+      iconColor = AppColors.warning;
     } else if (incoming) {
       icon = Icons.call_received_rounded;
       iconColor = AppColors.success;
@@ -142,7 +150,11 @@ class _CallTile extends StatelessWidget {
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: missed ? AppColors.danger.withValues(alpha: 0.35) : AppColors.border,
+          color: missed
+              ? AppColors.danger.withValues(alpha: 0.35)
+              : busy
+                  ? AppColors.warning.withValues(alpha: 0.35)
+                  : AppColors.border,
         ),
       ),
       child: Row(
@@ -158,7 +170,7 @@ class _CallTile extends StatelessWidget {
                   style: TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 14.5,
-                    fontWeight: missed ? FontWeight.w700 : FontWeight.w600,
+                    fontWeight: missed || busy ? FontWeight.w700 : FontWeight.w600,
                   ),
                 ),
                 const SizedBox(height: 3),
@@ -189,7 +201,11 @@ class _CallTile extends StatelessWidget {
               Text(
                 connected ? durationLabel(call.durationSeconds) : _statusLabel(call.status),
                 style: TextStyle(
-                  color: missed ? AppColors.danger : AppColors.textSecondary,
+                  color: missed
+                      ? AppColors.danger
+                      : busy
+                          ? AppColors.warning
+                          : AppColors.textSecondary,
                   fontSize: 11.5,
                   fontWeight: FontWeight.w600,
                 ),
@@ -205,6 +221,8 @@ class _CallTile extends StatelessWidget {
     switch (status) {
       case 'missed':
         return 'मिस्ड';
+      case 'busy':
+        return 'व्यस्त';
       case 'declined':
         return 'अस्वीकृत';
       default:

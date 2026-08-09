@@ -18,6 +18,23 @@ class WebRTCService {
   final _callStateController = StreamController<String>.broadcast();
   Stream<String> get onCallState => _callStateController.stream;
 
+  // Network flap (Disconnected) par 12s grace — uske baad bhi connected na
+  // hua toh call ended + cleanup (dead call hamesha stuck na rahe).
+  Timer? _disconnectTimer;
+
+  // Call end hone par 'ended' event ek hi baar fire ho — cleanup() ke andar
+  // _peerConnection.close() se Closed state re-fire hota hai jo double
+  // 'ended' → double pop/cleanup banata tha. _emitEnded() se dedupe karte
+  // hain; agli call ke liye answerCall() mein reset hota hai.
+  bool _endEmitted = false;
+
+  void _emitEnded() {
+    if (_endEmitted) return;
+    _endEmitted = true;
+    _callStateController.add('ended');
+    cleanup();
+  }
+
   bool _isMuted = false;
   bool get isMuted => _isMuted;
 
@@ -44,6 +61,7 @@ class WebRTCService {
   Future<void> answerCall(Map<String, dynamic> callData) async {
     try {
       _callStateController.add('connecting');
+      _endEmitted = false;
       
       // Wait for app to become foreground (resumed) before accessing microphone.
       // On Android, accepting a call from lock screen might keep app in background briefly.
@@ -83,13 +101,24 @@ class WebRTCService {
 
       _peerConnection!.onConnectionState = (state) {
         if (state == RTCPeerConnectionState.RTCPeerConnectionStateConnected) {
+          // Reconnected — disconnect watchdog cancel.
+          _disconnectTimer?.cancel();
+          _disconnectTimer = null;
           _callStateController.add('connected');
+        } else if (state == RTCPeerConnectionState.RTCPeerConnectionStateDisconnected) {
+          // Network flap transient ho sakta hai (switch/ICE restart), isliye
+          // call turant mat kato. Par dead call bhi hamesha na phanse — 12s
+          // grace ke baad ended + cleanup.
+          _disconnectTimer ??= Timer(const Duration(seconds: 12), () {
+            _disconnectTimer = null;
+            debugPrint('WebRTC: disconnected 12s — ending call');
+            _emitEnded();
+          });
         } else if (state == RTCPeerConnectionState.RTCPeerConnectionStateFailed ||
             state == RTCPeerConnectionState.RTCPeerConnectionStateClosed) {
-          // Disconnected transient hota hai (network switch/ICE restart) —
-          // us par call mat kato; sirf failed/closed par cleanup karo.
-          _callStateController.add('ended');
-          cleanup();
+          _disconnectTimer?.cancel();
+          _disconnectTimer = null;
+          _emitEnded();
         }
       };
 
@@ -145,8 +174,7 @@ class WebRTCService {
     } catch (e) {
       debugPrint('Hangup Error: $e');
     }
-    cleanup();
-    _callStateController.add('ended');
+    _emitEnded();
   }
 
   void toggleMute() {
@@ -174,6 +202,8 @@ class WebRTCService {
   }
 
   void cleanup() {
+    _disconnectTimer?.cancel();
+    _disconnectTimer = null;
     _localStream?.getTracks().forEach((track) => track.stop());
     _localStream?.dispose();
     _localStream = null;
