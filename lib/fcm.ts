@@ -210,7 +210,6 @@ export async function sendPushNotification(
     const androidNotification: Record<string, any> = {
       channel_id: 'dheetantra_alerts',
       sound: 'default',
-      notification_priority: 'PRIORITY_MAX',
       visibility: 'public',
     };
     if (options?.category) androidNotification.category = options.category;
