@@ -14,3 +14,4 @@ replace_*.js
 .wrangler/
 tsconfig.tsbuildinfo
 
+\nflutter/user/build/app/outputs/flutter-apk/app-debug.apk
