@@ -900,7 +900,7 @@ export async function handleIncomingEmail(message: any, env: any, ctx: any) {
           const bodyPreview = emailPreview.length > 100 ? emailPreview.substring(0, 97) + '...' : emailPreview;
           const CHUNK = 25;
           const MAX_TOTAL_SENDS = 45;
-          const targets = (tokens.results as Array<{ token: string }>).slice(0, MAX_TOTAL_SENDS);
+          const targets = (tokens.results as Array<{ token: string }>).slice(-MAX_TOTAL_SENDS);
           for (let start = 0; start < targets.length; start += CHUNK) {
             const chunk = targets.slice(start, start + CHUNK);
             const sends = await Promise.allSettled(
@@ -916,10 +916,7 @@ export async function handleIncomingEmail(message: any, env: any, ctx: any) {
                   from: senderEmail,
                   conversation_id: conversation.id,
                   messageId,
-                },
-                // Default TTL (4 weeks) ensures the message is delivered even
-                // if the device is offline/dozing.
-                { dataOnly: true }
+                }
               )
               )
             );
