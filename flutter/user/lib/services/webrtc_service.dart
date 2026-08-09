@@ -81,7 +81,7 @@ class WebRTCService {
       };
 
       await _peerConnection!.setRemoteDescription(
-        RTCSessionDescription(callData['sdp'], 'offer'),
+        RTCSessionDescription(callData['sdp']?.toString().isNotEmpty == true ? callData['sdp'] : throw Exception('WebRTC SDP is missing. This might be a standard WhatsApp call, not a WebRTC call.'), 'offer'),
       );
 
       final answer = await _peerConnection!.createAnswer();
@@ -102,7 +102,7 @@ class WebRTCService {
       }
     } catch (e) {
       debugPrint('WebRTC Error: $e');
-      _callStateController.add('error');
+      _callStateController.add('error: $e');
       cleanup();
     }
   }

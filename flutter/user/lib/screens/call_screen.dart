@@ -40,8 +40,11 @@ class _CallScreenState extends State<CallScreen> {
         _startDurationTimer();
       } else if (state == 'connecting') {
         _status = 'connecting';
-      } else if (state == 'ended' || state == 'error') {
-        _status = state == 'error' ? 'error' : 'ended';
+      } else if (state.startsWith('error')) {
+        _status = state; // e.g. 'error: WebRTC SDP is missing...'
+        // Do NOT auto-pop on error immediately so user can see it!
+      } else if (state == 'ended') {
+        _status = 'ended';
         _finishCall();
       }
     });
@@ -130,10 +133,12 @@ class _CallScreenState extends State<CallScreen> {
   @override
   Widget build(BuildContext context) {
     final statusText = _status == 'connecting'
-        ? 'कनेक्ट हो रहा है...'
-        : _status == 'error'
-            ? 'कॉल में त्रुटि'
-            : _formatDuration(_duration);
+        ? 'संपर्क हो रहा है...'
+        : _status.startsWith('error')
+            ? _status.replaceFirst('error: Exception: ', 'Error: ')
+            : _status == 'ended' 
+                ? 'कॉल समाप्त'
+                : _formatDuration(_duration);
 
     return PopScope(
       canPop: false,
