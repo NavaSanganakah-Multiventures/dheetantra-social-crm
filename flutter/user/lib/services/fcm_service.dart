@@ -22,7 +22,7 @@ class FcmService {
   factory FcmService() => _instance;
   FcmService._internal();
 
-  static const _channelId = 'dheetantra_heads_up';
+  static const _channelId = 'dheetantra_critical_alerts';
   static const _channelName = 'DheeTantra Notifications';
   static const _enabledPref = 'notifications_enabled';
 

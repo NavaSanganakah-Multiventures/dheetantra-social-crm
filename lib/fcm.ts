@@ -208,7 +208,7 @@ export async function sendPushNotification(
     }
 
     const androidNotification: Record<string, any> = {
-      channelId: 'dheetantra_heads_up',
+      channel_id: 'dheetantra_critical_alerts',
       sound: 'default',
       click_action: 'FLUTTER_NOTIFICATION_CLICK',
     };
@@ -255,6 +255,7 @@ export async function sendPushNotification(
 
     if (!res.ok) {
       const errBody = await res.text();
+      console.error(`[FCM Error] Status: ${res.status}, Body: ${errBody}`);
       // 404/410 (or the FCM error codes below) mean the device token is no
       // longer valid — the caller should delete it from fcm_tokens.
       const unregistered =
@@ -263,6 +264,7 @@ export async function sendPushNotification(
         /UNREGISTERED|InvalidRegistration|NotRegistered/i.test(errBody);
       return { success: false, unregistered, error: `FCM send failed (${res.status}): ${errBody.slice(0, 300)}` };
     }
+    console.log(`[FCM Success] Delivered to ${token.substring(0, 10)}...`);
     return { success: true };
   } catch (e: any) {
     return { success: false, error: e?.message || 'Unknown FCM error' };
