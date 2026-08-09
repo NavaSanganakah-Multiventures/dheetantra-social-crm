@@ -208,9 +208,9 @@ export async function sendPushNotification(
     }
 
     const androidNotification: Record<string, any> = {
-      channelId: 'dheetantra_alerts',
+      channelId: 'dheetantra_heads_up',
       sound: 'default',
-      visibility: 'public',
+      click_action: 'FLUTTER_NOTIFICATION_CLICK',
     };
     if (options?.category) androidNotification.category = options.category;
     // ttlSeconds == 0  → immediate delivery only (calls). For messages use a
@@ -234,7 +234,7 @@ export async function sendPushNotification(
           ...(options?.dataOnly ? {} : { notification: { title, body } }),
           data: stringData,
           android: {
-            priority: 'high',
+            priority: 'HIGH',
             ...(ttl ? { ttl } : {}),
             notification: options?.dataOnly ? undefined : androidNotification,
           },
