@@ -916,8 +916,7 @@ export async function handleIncomingEmail(message: any, env: any, ctx: any) {
                     from: senderEmail,
                     conversation_id: conversation.id,
                     messageId,
-                  },
-                  { dataOnly: true }
+                  }
                 )
               )
             );
