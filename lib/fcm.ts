@@ -208,7 +208,7 @@ export async function sendPushNotification(
     }
 
     const androidNotification: Record<string, any> = {
-      channel_id: 'dheetantra_alerts',
+      channelId: 'dheetantra_alerts',
       sound: 'default',
       visibility: 'public',
     };
