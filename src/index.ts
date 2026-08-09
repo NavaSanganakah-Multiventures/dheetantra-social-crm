@@ -704,6 +704,21 @@ app.post('/api/whatsapp/webhook', async (c) => {
               messageText = message.document.caption || message.document.filename || 'Document Message';
               messageType = 'document';
               mediaUrl = message.document.id;
+            } else if (message.audio) {
+              messageText = message.audio.voice ? '🎤 Voice Note (ऑडियो संदेश)' : 'Audio Message (ऑडियो)';
+              messageType = 'audio';
+              mediaUrl = message.audio.id;
+            } else if (message.sticker) {
+              messageText = 'Sticker (स्टिकर)';
+              messageType = 'sticker';
+              mediaUrl = message.sticker.id;
+            } else if (message.button) {
+              // Legacy button reply (distinct from interactive.button_reply)
+              messageText = message.button.text || 'Button Response';
+              messageType = 'button';
+            } else if (message.template) {
+              messageText = `Template Message: ${message.template.name || 'Unknown'}`;
+              messageType = 'template';
             } else if (message.location) {
               messageText = message.location.name
                 ? `${message.location.name} (${message.location.address || ''})`
@@ -744,7 +759,7 @@ app.post('/api/whatsapp/webhook', async (c) => {
 
             // Download media to R2 if needed
             let finalMediaUrl = mediaUrl;
-            if (['image', 'video', 'document'].includes(messageType) && mediaUrl) {
+            if (['image', 'video', 'document', 'audio', 'sticker'].includes(messageType) && mediaUrl) {
               try {
                 const config = await c.env.DB.prepare('SELECT access_token FROM whatsapp_configs WHERE phone_number_id = ?').bind(phoneNumberId).first();
                 if (config && config.access_token) {
@@ -761,6 +776,12 @@ app.post('/api/whatsapp/webhook', async (c) => {
                     if (messageType === 'image') extension = 'jpg';
                     if (messageType === 'video') extension = 'mp4';
                     if (messageType === 'document') extension = 'pdf';
+                    if (messageType === 'audio') extension = 'ogg';
+                    if (messageType === 'sticker') extension = 'webp';
+                    // Prefer the actual MIME subtype so audio (mpeg/m4a/ogg/opus)
+                    // and animated stickers (webm) keep the correct extension.
+                    const sub = (binaryRes.headers.get('Content-Type') || '').split('/')[1]?.split(';')[0]?.toLowerCase();
+                    if (sub && /^[a-z0-9]{2,6}$/.test(sub)) extension = sub;
                     const key = `${crypto.randomUUID()}.${extension}`;
                     await c.env.MEDIA_BUCKET.put(key, arrayBuffer, {
                       httpMetadata: { contentType: binaryRes.headers.get('Content-Type') || 'application/octet-stream' }

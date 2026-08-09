@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../models/models.dart';
 import '../services/api_service.dart';
@@ -419,6 +421,212 @@ class _MessageBubble extends StatelessWidget {
 
   const _MessageBubble({required this.message});
 
+  // हिंदी में type label (web dashboard के MEDIA_LABELS से मेल खाता है)
+  String? get _typeLabel {
+    switch (message.messageType) {
+      case 'image': return 'फ़ोटो';
+      case 'video': return 'वीडियो';
+      case 'audio': return 'ऑडियो';
+      case 'document': return 'दस्तावेज़';
+      case 'sticker': return 'स्टिकर';
+      case 'location': return 'लोकेशन';
+      case 'contacts': return 'कॉन्टैक्ट';
+      case 'template': return 'टेम्पलेट';
+      case 'interactive': return 'इंटरैक्टिव';
+      case 'reaction': return 'रिएक्शन';
+      case 'order': return 'ऑर्डर';
+      case 'button': return 'बटन';
+      case 'system': return 'सिस्टम';
+      default: return message.messageType;
+    }
+  }
+
+  Future<void> _openUrl(String url) async {
+    final uri = Uri.tryParse(url);
+    if (uri == null) return;
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  // media_url के अनुसार media preview (image/sticker inline, बाकी
+  // types के लिए tappable tile जो बाहरी ऐप में खोलता है)
+  Widget? _buildMedia(BuildContext context) {
+    final type = message.messageType;
+    final raw = message.mediaUrl;
+    if (type == null || type == 'text' || type == 'email' || type == 'agent') return null;
+    if (raw == null || raw.isEmpty) return null;
+
+    final mine = message.isMine;
+    final fg = mine ? Colors.white : AppColors.textPrimary;
+
+    // JSON payloads (location / contacts)
+    Object? parsed;
+    try {
+      parsed = jsonDecode(raw);
+    } catch (_) {
+      parsed = null;
+    }
+
+    if (type == 'location' && parsed is Map) {
+      final lat = parsed['latitude'];
+      final lng = parsed['longitude'];
+      final name = parsed['name'];
+      final address = parsed['address'];
+      return _mediaTile(
+        icon: Icons.location_on,
+        title: (name != null && name.toString().isNotEmpty) ? name.toString() : 'लोकेशन',
+        subtitle: (address != null && address.toString().isNotEmpty)
+            ? address.toString()
+            : (lat != null && lng != null ? '$lat, $lng' : null),
+        fg: fg,
+        onTap: (lat != null && lng != null)
+            ? () => _openUrl('https://www.google.com/maps?q=$lat,$lng')
+            : null,
+      );
+    }
+
+    if (type == 'contacts' && parsed is List && parsed.isNotEmpty) {
+      final rows = parsed.map((c) {
+        final n = (c is Map && c['name'] is Map) ? c['name']['formatted_name'] : null;
+        final p = (c is Map && c['phones'] is List && (c['phones'] as List).isNotEmpty)
+            ? ((c['phones'][0] is Map) ? c['phones'][0]['phone'] : c['phones'][0])
+            : null;
+        return '👤 ${n ?? 'कॉन्टैक्ट'}${p != null ? ' — $p' : ''}';
+      }).toList();
+      return _mediaTile(icon: Icons.contacts, title: rows.join('\n'), fg: fg);
+    }
+
+    // Relative R2 paths को absolute बनाएँ
+    final url = raw.startsWith('/api/') ? '${ApiService.baseUrl}$raw' : raw;
+    final isUrl = url.startsWith('http');
+
+    if (type == 'image' && isUrl) {
+      return ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 240, maxHeight: 240),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Image.network(
+            url,
+            fit: BoxFit.contain,
+            loadingBuilder: (ctx, child, progress) => progress == null
+                ? child
+                : Container(
+                    height: 140,
+                    color: mine ? Colors.white24 : AppColors.border,
+                    child: Center(
+                      child: SizedBox(
+                        width: 22, height: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: mine ? Colors.white : AppColors.accent,
+                        ),
+                      ),
+                    ),
+                  ),
+            errorBuilder: (ctx, e, st) => Container(
+              height: 140,
+              color: mine ? Colors.white24 : AppColors.border,
+              child: Icon(Icons.broken_image, color: mine ? Colors.white70 : AppColors.textMuted),
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (type == 'sticker' && isUrl) {
+      return ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 130, maxHeight: 130),
+        child: Image.network(
+          url,
+          fit: BoxFit.contain,
+          errorBuilder: (ctx, e, st) => Text('🙂', style: const TextStyle(fontSize: 44)),
+        ),
+      );
+    }
+
+    if (type == 'video' && isUrl) {
+      return _mediaTile(
+        icon: Icons.play_circle_fill,
+        title: 'वीडियो',
+        fg: fg,
+        onTap: () => _openUrl(url),
+      );
+    }
+
+    if (type == 'audio' && isUrl) {
+      return _mediaTile(
+        icon: Icons.mic,
+        title: message.text.contains('Voice') || message.text.contains('वॉयस')
+            ? 'वॉयस नोट'
+            : 'ऑडियो',
+        fg: fg,
+        onTap: () => _openUrl(url),
+      );
+    }
+
+    if (type == 'document' && isUrl) {
+      return _mediaTile(
+        icon: Icons.description,
+        title: (message.text.isNotEmpty && message.text != 'Document Message')
+            ? message.text
+            : 'दस्तावेज़',
+        fg: fg,
+        onTap: () => _openUrl(url),
+      );
+    }
+
+    return null;
+  }
+
+  Widget _mediaTile({
+    required IconData icon,
+    required String title,
+    String? subtitle,
+    required Color fg,
+    VoidCallback? onTap,
+  }) {
+    final tile = Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: message.isMine ? Colors.white.withValues(alpha: 0.15) : AppColors.surface,
+        borderRadius: BorderRadius.circular(10),
+        border: message.isMine ? null : Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Icon(icon, size: 30, color: fg),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(color: fg, fontSize: 13, fontWeight: FontWeight.w600),
+                ),
+                if (subtitle != null && subtitle.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: TextStyle(color: fg.withValues(alpha: 0.7), fontSize: 11),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+    if (onTap == null) return tile;
+    return InkWell(onTap: onTap, borderRadius: BorderRadius.circular(10), child: tile);
+  }
+
   @override
   Widget build(BuildContext context) {
     final mine = message.isMine;
@@ -466,6 +674,9 @@ class _MessageBubble extends StatelessWidget {
               ),
               const SizedBox(height: 6),
             ],
+            // Media (image/sticker inline, video/audio/document/location/
+            // contacts tiles) — text/caption उसके नीचे
+            ...(_buildMedia(context) != null ? [_buildMedia(context)!] : const <Widget>[]),
             SizedBox(
               width: double.infinity,
               child: Text(
@@ -477,6 +688,21 @@ class _MessageBubble extends StatelessWidget {
                 ),
               ),
             ),
+            if (message.messageType != null &&
+                message.messageType != 'text' &&
+                message.messageType != 'email' &&
+                message.messageType != 'agent')
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(
+                  '📎 ${_typeLabel ?? message.messageType}',
+                  style: TextStyle(
+                    color: mine ? Colors.white.withValues(alpha: 0.7) : AppColors.textMuted,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
             const SizedBox(height: 3),
             Row(
               mainAxisSize: MainAxisSize.min,

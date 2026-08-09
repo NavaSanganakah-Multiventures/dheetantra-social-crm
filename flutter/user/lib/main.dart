@@ -11,6 +11,8 @@ import 'theme/app_theme.dart';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
+import 'package:flutter_callkit_incoming/entities/call_event.dart';
 import 'firebase_options.dart';
 
 /// Global route observer so child screens can refresh when they become
@@ -42,12 +44,36 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   }
 }
 
+/// CallKit background handler — plugin ka apna background FlutterEngine isolate
+/// ise chalata hai jab app terminated ho aur user native call UI se accept/
+/// decline kare. acceptCallHandle (CallKitService.init mein) main isolate ke
+/// MethodChannel par wahi event deta hai jab app wapas khulta hai, isliye yahan
+/// sirf event ko "consume" karna kafi hai taaki plugin ka background engine
+/// chalta rahe aur events lost na hon.
+@pragma('vm:entry-point')
+Future<void> _callkitBackgroundEventHandler(CallEvent event) async {
+  try {
+    // ignore: avoid_print
+    print('[CallKit BG] event: ${event.eventName}');
+  } catch (e) {
+    // ignore: avoid_print
+    print('[CallKit BG] error: $e');
+  }
+}
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+  // CallKit background engine start karo — iske bina app killed hone par native
+  // accept/decline events kisi ko nahi milte aur call attend nahi ho pati.
+  try {
+    await FlutterCallkitIncoming.onBackgroundMessage(_callkitBackgroundEventHandler);
+  } catch (e) {
+    debugPrint('CALLKIT background handler register error: $e');
+  }
   await ApiService().init();
   await FcmService().init();
   await CallKitService().init();

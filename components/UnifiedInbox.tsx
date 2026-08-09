@@ -88,6 +88,113 @@ function parseEmailMedia(value: string | null): { subject?: string; to?: string 
   return {};
 }
 
+// ---------------------------------------------------------------
+// Message media rendering helpers (WhatsApp: image/video/audio/
+// document/sticker/location/contacts — media_url में R2 path, Graph
+// URL या JSON payload हो सकता है)
+// ---------------------------------------------------------------
+const MEDIA_LABELS: Record<string, string> = {
+  image: 'फ़ोटो', video: 'वीडियो', audio: 'ऑडियो', document: 'दस्तावेज़',
+  sticker: 'स्टिकर', location: 'लोकेशन', contacts: 'कॉन्टैक्ट',
+  template: 'टेम्पलेट', interactive: 'इंटरैक्टिव', order: 'ऑर्डर',
+  reaction: 'रिएक्शन', system: 'सिस्टम', system_call: 'कॉल', button: 'बटन',
+};
+
+const isMediaUrl = (url: string | null | undefined): url is string =>
+  !!url && (url.startsWith('/api/') || url.startsWith('http'));
+
+function parseJsonMedia(value: string | null): any {
+  if (!value) return null;
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch { return null; }
+}
+
+function renderMessageMedia(m: any): React.ReactNode {
+  const t = m.message_type;
+  const url: string | null = m.media_url || null;
+  if (t === 'image' && isMediaUrl(url)) {
+    return (
+      <img src={url} alt="फ़ोटो" loading="lazy"
+        className="max-h-64 w-auto max-w-full rounded-xl my-1 object-cover border border-surface-200 dark:border-surface-800" />
+    );
+  }
+  if (t === 'sticker' && isMediaUrl(url)) {
+    return (
+      <img src={url} alt="स्टिकर" loading="lazy"
+        className="max-h-24 max-w-[140px] my-1 object-contain" />
+    );
+  }
+  if (t === 'video' && isMediaUrl(url)) {
+    return (
+      <video src={url} controls preload="metadata"
+        className="max-h-64 w-auto max-w-full rounded-xl my-1 border border-surface-200 dark:border-surface-800" />
+    );
+  }
+  if (t === 'audio' && isMediaUrl(url)) {
+    return (
+      <audio src={url} controls preload="metadata"
+        className="w-full max-w-[300px] my-1" />
+    );
+  }
+  if (t === 'document' && isMediaUrl(url)) {
+    const docName = m.content && m.content !== 'Document Message' ? m.content : 'दस्तावेज़';
+    return (
+      <a href={url} target="_blank" rel="noopener noreferrer"
+        className="flex items-center gap-2 my-1 text-xs font-semibold text-primary-600 dark:text-primary-400 underline break-all">
+        📄 {docName}
+      </a>
+    );
+  }
+  if (t === 'location') {
+    const loc = parseJsonMedia(url);
+    if (loc && (loc.latitude != null || loc.name)) {
+      const mapsHref = loc.latitude != null
+        ? `https://www.google.com/maps?q=${loc.latitude},${loc.longitude}`
+        : undefined;
+      const inner = (
+        <div className="my-1 rounded-xl border border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-900 p-2.5">
+          <p className="text-xs font-bold">📍 {loc.name || 'लोकेशन'}</p>
+          {loc.address && <p className="text-[11px] opacity-70">{loc.address}</p>}
+          {loc.latitude != null && <p className="text-[10px] opacity-60">{loc.latitude}, {loc.longitude}</p>}
+        </div>
+      );
+      return mapsHref
+        ? <a href={mapsHref} target="_blank" rel="noopener noreferrer" className="block">{inner}</a>
+        : inner;
+    }
+  }
+  if (t === 'contacts') {
+    const contacts = parseJsonMedia(url);
+    if (Array.isArray(contacts) && contacts.length > 0) {
+      return (
+        <div className="my-1 space-y-1">
+          {contacts.map((ct: any, i: number) => (
+            <p key={i} className="text-xs rounded-lg bg-surface-50 dark:bg-surface-900 border border-surface-200 dark:border-surface-800 px-2.5 py-1.5">
+              👤 {ct?.name?.formatted_name || 'कॉन्टैक्ट'}
+              {ct?.phones?.[0]?.phone ? ` — ${ct.phones[0].phone}` : ''}
+            </p>
+          ))}
+        </div>
+      );
+    }
+  }
+  if (t === 'reaction' && m.content) {
+    return <p className="text-lg leading-none my-1">{m.content}</p>;
+  }
+  return null;
+}
+
+function renderTypeBadge(m: any): React.ReactNode {
+  if (m.message_type === 'text' || m.message_type === 'email' || m.message_type === 'agent') return null;
+  return (
+    <p className="text-[10px] mt-1 font-semibold opacity-70 uppercase tracking-wide">
+      📎 {MEDIA_LABELS[m.message_type] || m.message_type}
+    </p>
+  );
+}
+
 // Module-level helper so the impure builtin is outside the render scope
 const currentTimeMs = () => Date.now();
 
@@ -660,10 +767,9 @@ export default function UnifiedInbox({
                             {m.message_type === 'email' && emailMeta.subject && (
                               <p className="text-xs font-bold mb-1 opacity-80">📧 {emailMeta.subject}</p>
                             )}
+                            {renderMessageMedia(m)}
                             {m.content && <p className="whitespace-pre-wrap break-words">{m.content}</p>}
-                            {m.message_type !== 'text' && m.message_type !== 'email' && m.message_type !== 'agent' && (
-                              <p className="text-xs mt-1 opacity-70">📎 {m.message_type}</p>
-                            )}
+                            {renderTypeBadge(m)}
                             <p className={`text-[9px] mt-1 ${isContact ? 'text-surface-400' : 'text-white/70'}`}>
                               {fmtTime(m.created_at)}
                               {m.status === 'read' && !isContact && <span className="ml-1">✓✓</span>}
@@ -755,7 +861,9 @@ export default function UnifiedInbox({
                   <div className={`max-w-[80%] rounded-2xl px-3.5 py-2 text-sm ${
                     isContact ? 'bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800' : 'bg-primary-600 text-white'
                   }`}>
+                    {renderMessageMedia(m)}
                     {m.content && <p className="whitespace-pre-wrap break-words">{m.content}</p>}
+                    {renderTypeBadge(m)}
                     <p className={`text-[9px] mt-1 ${isContact ? 'text-surface-400' : 'text-white/70'}`}>{fmtTime(m.created_at)}</p>
                   </div>
                 </div>

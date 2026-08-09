@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -48,14 +47,12 @@ class WebRTCService {
       
       // Wait for app to become foreground (resumed) before accessing microphone.
       // On Android, accepting a call from lock screen might keep app in background briefly.
+      // 10s ki jagah 5s — plugin accept flow mein app jaldi foreground aa jati hai
+      // aur itna wait sirf mic access ke liye hai.
       int attempts = 0;
-      while (WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed && attempts < 100) {
+      while (WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed && attempts < 50) {
         await Future.delayed(const Duration(milliseconds: 100));
         attempts++;
-      }
-      
-      if (WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
-        throw Exception('App must be in foreground to answer call. Please unlock your phone.');
       }
 
       await requestPermissions();
@@ -88,7 +85,9 @@ class WebRTCService {
         if (state == RTCPeerConnectionState.RTCPeerConnectionStateConnected) {
           _callStateController.add('connected');
         } else if (state == RTCPeerConnectionState.RTCPeerConnectionStateFailed ||
-            state == RTCPeerConnectionState.RTCPeerConnectionStateDisconnected) {
+            state == RTCPeerConnectionState.RTCPeerConnectionStateClosed) {
+          // Disconnected transient hota hai (network switch/ICE restart) —
+          // us par call mat kato; sirf failed/closed par cleanup karo.
           _callStateController.add('ended');
           cleanup();
         }

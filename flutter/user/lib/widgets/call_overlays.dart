@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import '../screens/call_screen.dart';
+import '../services/callkit_service.dart';
 import '../services/webrtc_service.dart';
 import '../services/websocket_service.dart';
 import '../theme/app_theme.dart';
@@ -43,11 +44,25 @@ class _GlobalCallOverlayState extends State<GlobalCallOverlay> {
       // an "incoming" overlay for a call this device initiated.
       final direction = callData['direction'] ?? 'incoming';
       if (direction == 'outgoing' || direction == 'BUSINESS_INITIATED') return;
+
+      final callId = callData['id']?.toString() ?? callData['callId']?.toString() ?? '';
+      // Agar FCM/plugin wali isi call ki ring pehle se chal rahi hai (CallKit
+      // registry mein) toh double ring + double UI mat dikhao — plugin wala
+      // native UI hi accept/decline karega.
+      if (callId.isNotEmpty && CallKitService().hasCall(callId)) {
+        debugPrint('CallOverlay: call $callId already shown by CallKit, skipping overlay');
+        return;
+      }
       if (_callStatus == 'idle') {
         setState(() {
           _incomingCall = callData;
           _callStatus = 'ringing';
         });
+        // Plugin ko bata do ki ye call in-app overlay dikha raha hai taaki
+        // baad mein aane wala FCM push duplicate native ring na dikhaye.
+        if (callId.isNotEmpty) {
+          CallKitService().registerInAppCall(callData);
+        }
         // Ringtone bajao jab tak user accept/reject nahi karta.
         try {
           FlutterRingtonePlayer().playRingtone();
@@ -124,6 +139,10 @@ class _GlobalCallOverlayState extends State<GlobalCallOverlay> {
     _audioRenderer?.srcObject = null;
     WebRTCService().cleanup();
     _stopRingtone();
+    final incomingId = _incomingCall?['id']?.toString() ?? '';
+    final activeId = _activeCall?['id']?.toString() ?? '';
+    CallKitService().unregisterInAppCall(incomingId);
+    CallKitService().unregisterInAppCall(activeId);
     setState(() {
       _incomingCall = null;
       _activeCall = null;
@@ -146,6 +165,8 @@ class _GlobalCallOverlayState extends State<GlobalCallOverlay> {
     if (callData == null) return;
 
     _stopRingtone();
+    final incomingId = callData['id']?.toString() ?? '';
+    CallKitService().unregisterInAppCall(incomingId);
     setState(() {
       _incomingCall = null;
       _callStatus = 'connecting';
@@ -167,6 +188,9 @@ class _GlobalCallOverlayState extends State<GlobalCallOverlay> {
     final callData = _incomingCall;
     if (callData != null) {
       await WebRTCService().rejectCall(callData);
+      CallKitService().unregisterInAppCall(
+        callData['id']?.toString() ?? callData['callId']?.toString() ?? '',
+      );
     }
     _stopRingtone();
     setState(() {

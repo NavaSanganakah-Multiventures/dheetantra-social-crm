@@ -123,6 +123,8 @@ class Message {
   final String? subject;
   final String? html;
   final String? platform;
+  final String? messageType;
+  final String? mediaUrl;
 
   const Message({
     required this.id,
@@ -135,18 +137,25 @@ class Message {
     this.subject,
     this.html,
     this.platform,
+    this.messageType,
+    this.mediaUrl,
   });
 
   factory Message.fromJson(Map<String, dynamic> json) {
     final senderType = _safeString(json['sender_type'] ?? 'customer');
+    final messageType = _safeString(json['message_type'] ?? 'text');
     String textContent = _safeString(json['content'] ?? json['text']);
     String? subject;
     String? html;
 
+    // Keep the raw media_url (R2 path / Graph URL / JSON payload) so the
+    // chat bubble can render the media inline.
+    String? mediaUrl = json['media_url'] != null ? _safeString(json['media_url']) : null;
+
     // Parse email payload if present in media_url
-    if (json['media_url'] != null) {
+    if (mediaUrl != null) {
       try {
-        final parsed = jsonDecode(_safeString(json['media_url']));
+        final parsed = jsonDecode(mediaUrl);
         if (parsed is Map) {
           if (parsed['subject'] != null) subject = _safeString(parsed['subject']);
           if (parsed['text'] != null) textContent = _safeString(parsed['text']);
@@ -168,6 +177,8 @@ class Message {
       subject: subject,
       html: html,
       platform: _safeString(json['platform'] ?? json['source']),
+      messageType: messageType,
+      mediaUrl: mediaUrl,
     );
   }
 
@@ -182,6 +193,8 @@ class Message {
     String? subject,
     String? html,
     String? platform,
+    String? messageType,
+    String? mediaUrl,
   }) {
     return Message(
       id: id ?? this.id,
@@ -194,6 +207,8 @@ class Message {
       subject: subject ?? this.subject,
       html: html ?? this.html,
       platform: platform ?? this.platform,
+      messageType: messageType ?? this.messageType,
+      mediaUrl: mediaUrl ?? this.mediaUrl,
     );
   }
 }

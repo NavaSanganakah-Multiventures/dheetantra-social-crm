@@ -281,6 +281,8 @@ export async function handleIncomingMessage(
       if (messageType === 'image') typeInHindi = 'फ़ोटो (Image)';
       else if (messageType === 'video') typeInHindi = 'वीडियो (Video)';
       else if (messageType === 'document') typeInHindi = 'दस्तावेज़ (Document)';
+      else if (messageType === 'audio') typeInHindi = 'ऑडियो (Audio)';
+      else if (messageType === 'sticker') typeInHindi = 'स्टिकर (Sticker)';
       else if (messageType === 'location') typeInHindi = 'लोकेशन (Location)';
       else if (messageType === 'contacts') typeInHindi = 'कॉन्टैक्ट (Contact)';
       

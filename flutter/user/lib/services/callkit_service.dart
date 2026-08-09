@@ -28,9 +28,66 @@ class CallKitService {
   // par navigate kar dete hain.
   Map<String, dynamic>? _pendingAcceptCall;
 
+  // Same call ka accept ek hi baar process ho (onEvent actionCallAccept aur
+  // acceptCallHandle dono ek saath fire ho sakte hain → double CallScreen +
+  // double answerCall race na ho isliye dedupe karte hain).
+  final Set<String> _handledAcceptIds = {};
+
+  /// Ek accept event ko sirf ek baar process karta hai. Returns false agar
+  /// ye call pehle hi accept ho chuki hai.
+  bool _handleAccept(String id, Map<String, dynamic> data) {
+    if (id.isEmpty || _handledAcceptIds.contains(id)) {
+      debugPrint('CALLKIT: accept for $id already handled, skipping duplicate');
+      return false;
+    }
+    _handledAcceptIds.add(id);
+    _currentCallId = id;
+    // Agar navigator ready hai toh turant open karo, warna pending mein save
+    // karo taaki HomeShell shuru hone par route kar sake.
+    if (appNavigatorKey.currentState != null) {
+      _openCallScreen(data);
+      Future.delayed(const Duration(milliseconds: 300), () {
+        WebRTCService().answerCall(data);
+      });
+    } else {
+      debugPrint('CALLKIT: navigator not ready, queuing accepted call');
+      _pendingAcceptCall = data;
+    }
+    return true;
+  }
+
   Future<void> init() async {
     if (_initialized) return;
     _initialized = true;
+
+    // IMPORTANT: App killed / terminated hone par user agar native call UI se
+    // accept karta hai toh actionCallAccept event main isolate tak tabhi
+    // pahunchega jab plugin ka background engine registered ho. acceptCallHandle
+    // native callback hai jo app wapas khulne par main isolate mein chalta hai —
+    // isi se killed-state accept ko CallScreen + WebRTC answer se jodte hain.
+    try {
+      FlutterCallkitIncoming.acceptCallHandle((dynamic rawData) {
+        debugPrint('CALLKIT: acceptCallHandle (killed-state accept)');
+        try {
+          if (rawData is! Map) return;
+          final data = Map<String, dynamic>.from(rawData);
+          if (data.isEmpty) return;
+          final id = data['id']?.toString() ?? '';
+          if (id.isEmpty) return;
+          // Extra data (caller info, sdp...) bhi merge kar lo agar mila ho.
+          final extra = data['extra'];
+          if (extra is Map) {
+            data.addAll(Map<String, dynamic>.from(extra));
+          }
+          data.remove('extra');
+          _handleAccept(id, data);
+        } catch (e) {
+          debugPrint('CALLKIT acceptCallHandle error: $e');
+        }
+      });
+    } catch (e) {
+      debugPrint('CALLKIT acceptCallHandle register error: $e');
+    }
 
     // Listen to CallKit events (Action Answer/Decline)
     FlutterCallkitIncoming.onEvent.listen((CallEvent? event) {
@@ -39,36 +96,32 @@ class CallKitService {
       if (event is CallEventActionCallAccept) {
         debugPrint('CALLKIT: actionCallAccept');
         final params = event.callKitParams;
-        _currentCallId = params.id;
         final callData = _activeCalls[params.id] ?? params.extra;
         if (callData != null) {
           final data = Map<String, dynamic>.from(callData);
-          // Agar navigator ready hai toh turant open karo, warna pending mein
-          // save karo taaki HomeShell shuru hone par route kar sake.
-          if (appNavigatorKey.currentState != null) {
-            _openCallScreen(data);
-            Future.delayed(const Duration(milliseconds: 300), () {
-              WebRTCService().answerCall(data);
-            });
-          } else {
-            debugPrint('CALLKIT: navigator not ready, queuing accepted call');
-            _pendingAcceptCall = data;
-          }
+          _handleAccept(params.id, data);
         }
       } else if (event is CallEventActionCallDecline) {
         debugPrint('CALLKIT: actionCallDecline');
         final params = event.callKitParams;
         _currentCallId = null;
+        _handledAcceptIds.remove(params.id);
+        _activeCalls.remove(params.id);
         final callData = _activeCalls[params.id] ?? params.extra;
         if (callData != null) {
           WebRTCService().rejectCall(Map<String, dynamic>.from(callData));
         }
       } else if (event is CallEventActionCallEnded) {
         debugPrint('CALLKIT: actionCallEnded');
+        final params = event.callKitParams;
         _currentCallId = null;
+        _handledAcceptIds.remove(params.id);
+        _activeCalls.remove(params.id);
       } else if (event is CallEventActionCallTimeout) {
         debugPrint('CALLKIT: actionCallTimeout');
         _currentCallId = null;
+        _handledAcceptIds.remove(event.id);
+        _activeCalls.remove(event.id);
       }
     });
 
@@ -127,8 +180,36 @@ class CallKitService {
     );
   }
 
+  /// Kya abhi koi call active/ringing hai (plugin ya in-app overlay dono se)।
+  bool get hasActiveIncomingCall => _activeCalls.isNotEmpty;
+
+  bool hasCall(String id) => _activeCalls.containsKey(id);
+
+  /// WebSocket overlay wali call ko CallKit registry mein note karta hai taaki
+  /// FCM push baad mein aaye toh plugin double-UI/ring na dikhaye.
+  void registerInAppCall(Map<String, dynamic> data) {
+    final id = data['id']?.toString() ?? data['callId']?.toString() ?? '';
+    if (id.isEmpty) return;
+    _activeCalls[id] = Map<String, dynamic>.from(data);
+  }
+
+  void unregisterInAppCall(String id) {
+    if (id.isEmpty) return;
+    _activeCalls.remove(id);
+    if (_currentCallId == id) _currentCallId = null;
+  }
+
   Future<void> showIncomingCall(Map<String, dynamic> data) async {
     final String uuid = data['id']?.toString() ?? 'unknown-call-id';
+
+    // Duplicate guard: agar ye call pehle se dikh rahi hai (WebSocket overlay
+    // ya plugin ke through) toh dubara se show mat karo — warna double ring +
+    // double UI hota hai aur user call attend nahi kar paata.
+    if (uuid != 'unknown-call-id' && _activeCalls.containsKey(uuid)) {
+      debugPrint('CALLKIT: call $uuid already showing, skipping duplicate');
+      return;
+    }
+
     final String callerName = data['callerName']?.toString().isNotEmpty == true
         ? data['callerName'].toString()
         : 'DheeTantra Call';
@@ -179,11 +260,18 @@ class CallKitService {
       },
       headers: <String, dynamic>{'apiKey': '1234'},
       android: const AndroidParams(
-        isCustomNotification: false,
+        isCustomNotification: true,
         isShowLogo: false,
         isShowCallID: true,
         isShowFullLockedScreen: true,
-        isFullScreen: true,
+        // IMPORTANT: isFullScreen=true hone par plugin sirf activity dikhata hai
+        // aur notification nahi banati. Android 14+ par full-screen intent
+        // permission ke bina activity launch fail/denied hoti hai → ring nahi
+        // bajti. isFullScreen=false hone par plugin notification-based incoming
+        // call dikhata hai jo lock screen par bhi dikhti hai aur ringtone +
+        // vibration hamesha bajta hai (channel enabled hone par). Ye sabse
+        // reliable path hai.
+        isFullScreen: false,
         isImportant: true,
         ringtonePath: 'system_ringtone_default',
         backgroundColor: '#0955fa',
@@ -217,7 +305,12 @@ class CallKitService {
   }
 
   Future<void> endAllCalls() async {
-    await FlutterCallkitIncoming.endAllCalls();
+    try {
+      await FlutterCallkitIncoming.endAllCalls();
+    } catch (e) {
+      debugPrint('CALLKIT endAllCalls error: $e');
+    }
+    _currentCallId = null;
     _activeCalls.clear();
   }
 }

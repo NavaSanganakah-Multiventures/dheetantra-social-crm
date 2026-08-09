@@ -1,8 +1,5 @@
 import 'dart:io';
-import 'package:flutter/material.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
-
-import 'dart:isolate';
 
 @pragma('vm:entry-point')
 void startCallback() {
