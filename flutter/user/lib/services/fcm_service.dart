@@ -22,7 +22,7 @@ class FcmService {
   factory FcmService() => _instance;
   FcmService._internal();
 
-  static const _channelId = 'dheetantra';
+  static const _channelId = 'dheetantra_alerts';
   static const _channelName = 'DheeTantra Notifications';
   static const _enabledPref = 'notifications_enabled';
 
@@ -167,7 +167,7 @@ class FcmService {
         _channelId,
         _channelName,
         description: 'New messages, calls and broadcast updates',
-        importance: Importance.high,
+        importance: Importance.max,
         playSound: true,
         enableVibration: true,
       );
@@ -341,8 +341,8 @@ class FcmService {
           _channelId,
           _channelName,
           channelDescription: 'New messages, calls and broadcast updates',
-          importance: Importance.high,
-          priority: Priority.high,
+          importance: Importance.max,
+          priority: Priority.max,
           playSound: true,
           enableVibration: true,
         ),
