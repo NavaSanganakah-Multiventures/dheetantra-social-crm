@@ -192,7 +192,6 @@ class CallKitService {
         textColor: '#ffffff',
         incomingCallNotificationChannelName: "Incoming Call",
         missedCallNotificationChannelName: "Missed Call",
-        iconName: 'ic_launcher',
         textAccept: 'उठाएं',
         textDecline: 'काटें',
       ),
