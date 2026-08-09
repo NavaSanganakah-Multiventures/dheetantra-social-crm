@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'api_service.dart';
 import 'data_refresh_service.dart';
+import 'foreground_service.dart';
 
 /// Realtime connection to the workspace Durable Object.
 ///
@@ -320,9 +321,14 @@ class WebSocketService with WidgetsBindingObserver {
         break;
       case AppLifecycleState.paused:
       case AppLifecycleState.hidden:
-        // Battery: no point pinging a frozen isolate.
         _pausedAt = DateTime.now();
-        _stopKeepalive();
+        // Check if foreground service is running
+        DheetantraForegroundService().isRunning.then((running) {
+          if (!running) {
+            // Battery: no point pinging a frozen isolate if no foreground service.
+            _stopKeepalive();
+          }
+        });
         break;
       case AppLifecycleState.inactive:
       case AppLifecycleState.detached:
@@ -335,13 +341,15 @@ class WebSocketService with WidgetsBindingObserver {
     _retryAttempt = 0;
     _startKeepalive();
     final pausedFor = DateTime.now().difference(_pausedAt);
-    if (_connecting || (isConnected && pausedFor > _resumeThreshold)) {
-      // The old socket almost certainly died while frozen (or the handshake
-      // hung) — tear it down and establish a fresh connection now.
-      debugPrint('WS resume: recycling stale connection');
-      _teardown();
-    }
-    connect();
+    DheetantraForegroundService().isRunning.then((running) {
+      if (!running && (_connecting || (isConnected && pausedFor > _resumeThreshold))) {
+        // The old socket almost certainly died while frozen (or the handshake
+        // hung) — tear it down and establish a fresh connection now.
+        debugPrint('WS resume: recycling stale connection');
+        _teardown();
+      }
+      connect();
+    });
   }
 
   /// Stops the connection permanently (e.g. on logout).

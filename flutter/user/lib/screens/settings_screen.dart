@@ -9,6 +9,8 @@ import '../services/api_service.dart';
 import '../services/fcm_service.dart';
 import '../services/notification_center.dart';
 import '../services/websocket_service.dart';
+import '../services/battery_optimization_service.dart';
+import '../services/foreground_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
 import 'login_screen.dart';
@@ -133,6 +135,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await FcmService().cleanup();
     WebSocketService().disconnect();
     NotificationCenter().clear();
+    await DheetantraForegroundService().stopService();
     await ApiService().logout();
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
@@ -240,6 +243,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
               subtitle: 'WhatsApp कॉल्स प्राप्त करें',
               value: _callsEnabled,
               onChanged: _setCallsEnabled,
+            ),
+            const Divider(height: 1, indent: 52),
+            _SettingsTile(
+              icon: Icons.battery_charging_full_outlined,
+              title: 'बैटरी ऑप्टिमाइजेशन',
+              subtitle: 'Background में चालू रखने के लिए',
+              trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
+              onTap: () {
+                BatteryOptimizationService().showOptimizationDialog(context);
+              },
             ),
             const Divider(height: 1, indent: 52),
             const _SettingsTile(

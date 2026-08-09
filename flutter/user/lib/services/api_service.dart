@@ -153,12 +153,16 @@ class ApiService {
 
   // ========== FCM PUSH NOTIFICATIONS ==========
 
-  Future<bool> registerFcmToken(String token, {String deviceType = 'android'}) async {
+  Future<bool> registerFcmToken(String token, {String deviceType = 'android', String? oldToken}) async {
     try {
-      final res = await _dio.post('/api/fcm/register', data: {
+      final data = <String, dynamic>{
         'token': token,
         'device_type': deviceType,
-      });
+      };
+      if (oldToken != null) {
+        data['old_token'] = oldToken;
+      }
+      final res = await _dio.post('/api/fcm/register', data: data);
       return res.data['success'] == true;
     } catch (e) {
       debugPrint('FCM register error: $e');

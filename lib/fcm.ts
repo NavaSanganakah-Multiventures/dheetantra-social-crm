@@ -188,7 +188,7 @@ export async function sendPushNotification(
   title: string,
   body: string,
   data?: Record<string, string>,
-  options?: { ttlSeconds?: number; category?: string; sound?: string }
+  options?: { ttlSeconds?: number; category?: string; sound?: string; dataOnly?: boolean }
 ): Promise<{ success: boolean; unregistered?: boolean; error?: string }> {
   try {
     if (!token) return { success: false, error: 'Empty token' };
@@ -197,6 +197,10 @@ export async function sendPushNotification(
     if (!projectId) return { success: false, error: 'FCM project_id missing' };
 
     const stringData: Record<string, string> = {};
+    if (options?.dataOnly) {
+      stringData.title = String(title);
+      stringData.body = String(body);
+    }
     if (data) {
       for (const [k, v] of Object.entries(data)) {
         stringData[k] = String(v);
@@ -228,18 +232,18 @@ export async function sendPushNotification(
       body: JSON.stringify({
         message: {
           token,
-          notification: { title, body },
+          ...(options?.dataOnly ? {} : { notification: { title, body } }),
           data: stringData,
           android: {
             priority: 'high',
             ...(ttl ? { ttl } : {}),
-            notification: androidNotification,
+            notification: options?.dataOnly ? undefined : androidNotification,
           },
           apns: {
             headers: ttl ? { 'apns-priority': '10' } : undefined,
             payload: {
               aps: {
-                alert: { title, body },
+                ...(options?.dataOnly ? {} : { alert: { title, body } }),
                 sound: options?.sound || 'default',
                 'content-available': 1,
                 'mutable-content': 1,

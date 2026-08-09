@@ -79,11 +79,14 @@ router.post('/api/fcm/register', async (c) => {
   const userId = await resolveUserId(c);
   if (!userId) return c.json({ error: 'Unauthorized' }, 401);
 
-  const { token, device_type } = await c.req.json();
+  const { token, device_type, old_token } = await c.req.json();
   if (!token) return c.json({ error: 'Token is required' }, 400);
 
   if (c.env.DB) {
     try {
+      if (old_token && old_token !== token) {
+        await c.env.DB.prepare('DELETE FROM fcm_tokens WHERE token = ?').bind(old_token).run();
+      }
       await c.env.DB.prepare(
         'INSERT INTO fcm_tokens (id, user_id, token, device_type) VALUES (?, ?, ?, ?) ON CONFLICT(token) DO UPDATE SET user_id = excluded.user_id, device_type = excluded.device_type'
       ).bind(crypto.randomUUID(), userId, token, device_type || 'web').run();

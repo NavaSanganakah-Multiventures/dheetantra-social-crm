@@ -919,7 +919,7 @@ export async function handleIncomingEmail(message: any, env: any, ctx: any) {
                 },
                 // Default TTL (4 weeks) ensures the message is delivered even
                 // if the device is offline/dozing.
-                {}
+                { dataOnly: true }
               )
               )
             );

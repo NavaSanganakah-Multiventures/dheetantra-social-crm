@@ -4,9 +4,11 @@ import 'package:flutter/material.dart';
 
 import '../models/models.dart' as models;
 import '../services/api_service.dart';
+import '../services/battery_optimization_service.dart';
 import '../services/callkit_service.dart';
 import '../services/data_refresh_service.dart';
 import '../services/fcm_service.dart';
+import '../services/foreground_service.dart';
 import '../services/notification_center.dart';
 import '../services/notification_router.dart';
 import '../services/websocket_service.dart';
@@ -90,6 +92,11 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     FcmService().setupForUser();
     // Android 13+ notification aur Android 14+ full-screen intent permissions.
     CallKitService().requestPermissions();
+    BatteryOptimizationService().checkAndPrompt(context);
+    
+    // Start persistent connection service
+    await DheetantraForegroundService().init();
+    await DheetantraForegroundService().startService();
 
     _wsConnSub = ws.onConnectionChanged.listen((connected) {
       if (!mounted) return;

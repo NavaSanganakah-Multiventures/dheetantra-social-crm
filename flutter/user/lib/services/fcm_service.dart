@@ -90,11 +90,16 @@ class FcmService {
     }
 
     _messaging.onTokenRefresh.listen((newToken) async {
+      final prefs = await SharedPreferences.getInstance();
+      final oldToken = prefs.getString('fcm_token');
       _token = newToken;
       // Respect the notifications toggle — a token rotation must not silently
       // re-enable pushes the user disabled.
       if (await isEnabled()) {
-        await _registerToken(newToken);
+        final success = await _registerToken(newToken, oldToken: oldToken);
+        if (success) {
+          await prefs.setString('fcm_token', newToken);
+        }
       }
     });
   }
@@ -203,7 +208,12 @@ class FcmService {
       _token = await _messaging.getToken();
       debugPrint('[FCM] Token obtained: ${_token?.substring(0, 20)}...');
       if (_token != null) {
-        final success = await _registerToken(_token!);
+        final prefs = await SharedPreferences.getInstance();
+        final oldToken = prefs.getString('fcm_token');
+        final success = await _registerToken(_token!, oldToken: oldToken);
+        if (success) {
+          await prefs.setString('fcm_token', _token!);
+        }
         debugPrint('[FCM] Token registration result: $success');
       }
     } catch (e) {
@@ -211,10 +221,10 @@ class FcmService {
     }
   }
 
-  Future<bool> _registerToken(String token) async {
+  Future<bool> _registerToken(String token, {String? oldToken}) async {
     String deviceType = 'android';
     if (!kIsWeb && Platform.isIOS) deviceType = 'ios';
-    return ApiService().registerFcmToken(token, deviceType: deviceType);
+    return ApiService().registerFcmToken(token, deviceType: deviceType, oldToken: oldToken);
   }
 
   /// Removes the token from the backend (logout / notifications disabled).
