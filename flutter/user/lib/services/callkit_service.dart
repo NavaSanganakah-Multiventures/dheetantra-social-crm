@@ -179,7 +179,7 @@ class CallKitService {
       },
       headers: <String, dynamic>{'apiKey': '1234'},
       android: const AndroidParams(
-        isCustomNotification: true,
+        isCustomNotification: false,
         isShowLogo: false,
         isShowCallID: true,
         isShowFullLockedScreen: true,
@@ -192,6 +192,7 @@ class CallKitService {
         textColor: '#ffffff',
         incomingCallNotificationChannelName: "Incoming Call",
         missedCallNotificationChannelName: "Missed Call",
+        iconName: 'ic_launcher',
         textAccept: 'उठाएं',
         textDecline: 'काटें',
       ),
