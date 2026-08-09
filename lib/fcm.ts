@@ -208,6 +208,8 @@ export async function sendPushNotification(
     }
 
     const androidNotification: Record<string, any> = {
+      title: String(title),
+      body: String(body),
       channel_id: 'dheetantra_critical_alerts',
       sound: 'default',
       click_action: 'FLUTTER_NOTIFICATION_CLICK',
