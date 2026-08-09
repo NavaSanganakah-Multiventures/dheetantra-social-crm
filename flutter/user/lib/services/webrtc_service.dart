@@ -44,6 +44,19 @@ class WebRTCService {
   Future<void> answerCall(Map<String, dynamic> callData) async {
     try {
       _callStateController.add('connecting');
+      
+      // Wait for app to become foreground (resumed) before accessing microphone.
+      // On Android, accepting a call from lock screen might keep app in background briefly.
+      int attempts = 0;
+      while (WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed && attempts < 100) {
+        await Future.delayed(const Duration(milliseconds: 100));
+        attempts++;
+      }
+      
+      if (WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
+        throw Exception('App must be in foreground to answer call. Please unlock your phone.');
+      }
+
       await requestPermissions();
 
       final iceServers = await _getIceServers();
