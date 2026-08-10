@@ -7,10 +7,33 @@ import {
   parseEmailMediaJson, stripHtmlTags,
 } from '../shared';
 
+// Email service is a paid add-on; domains may only be added after an active
+// email add-on subscription exists for the workspace.
+async function getActiveEmailAddon(env: any, workspaceId: string): Promise<any | null> {
+  const now = Math.floor(Date.now() / 1000);
+  return env.DB.prepare(
+    `SELECT * FROM addon_subscriptions
+       WHERE workspace_id = ? AND addon_id LIKE 'email-addon-%'
+         AND status = 'active'
+         AND (current_period_end IS NULL OR current_period_end > ?)
+       ORDER BY domains_allowed DESC
+       LIMIT 1`
+  ).bind(workspaceId, now).first();
+}
+
+async function countEmailDomains(env: any, workspaceId: string): Promise<number> {
+  const row: any = await env.DB.prepare(
+    'SELECT COUNT(*) as count FROM domains WHERE workspace_id = ?'
+  ).bind(workspaceId).first();
+  return row?.count || 0;
+}
+
+
 const router = new Hono<{ Bindings: Env }>();
 
 router.post('/api/domains', requireRole('owner', 'admin'), async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
+  const user = c.get('user') as any;
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
   const { domainName, setupMode = 'full', defaultEmailPrefix = 'info', forwardTo } = await c.req.json();
@@ -32,13 +55,31 @@ router.post('/api/domains', requireRole('owner', 'admin'), async (c) => {
     return c.json({ error: 'Invalid default mailbox name. Use letters, numbers, dots, dashes, underscores or plus.' }, 400);
   }
 
-  // Daily rate limit + plan-based max domains check
+  // Email service requires an active paid add-on subscription.
+  const addon = await getActiveEmailAddon(c.env, workspaceId);
+  if (!addon) {
+    return c.json({
+      error: 'Email service is a paid add-on. Purchase an email add-on plan first.',
+      code: 'E_EMAIL_ADDON_REQUIRED',
+      action: 'purchase_addon',
+    }, 402);
+  }
+
+  const domainCount = await countEmailDomains(c.env, workspaceId);
+  if (domainCount >= addon.domains_allowed) {
+    return c.json({
+      error: `Email domain limit reached (${domainCount}/${addon.domains_allowed}). Upgrade your email add-on.`,
+      code: 'E_EMAIL_ADDON_LIMIT',
+      action: 'upgrade_addon',
+    }, 400);
+  }
+
+  // Daily rate limit + legacy plan-based max domains check (kept as defense-in-depth)
   const addRate = await checkDomainAddRateLimit(c.env, workspaceId);
   if (!addRate.ok) return c.json({ error: addRate.error, code: 'E_DOMAIN_RATE_LIMIT' }, 429);
 
   const limits = await getWorkspacePlanLimits(c.env, workspaceId);
-  const domainCount: any = await c.env.DB.prepare('SELECT COUNT(*) as count FROM domains WHERE workspace_id = ?').bind(workspaceId).first();
-  if (domainCount && domainCount.count >= limits.max_domains) {
+  if (domainCount >= limits.max_domains) {
     return c.json({ error: `Domain limit reached for your plan (max ${limits.max_domains}). Upgrade to add more domains.`, code: 'E_DOMAIN_LIMIT' }, 400);
   }
 
@@ -48,9 +89,11 @@ router.post('/api/domains', requireRole('owner', 'admin'), async (c) => {
     if (existing) return c.json({ error: 'Domain is already registered for this workspace' }, 400);
 
     const id = crypto.randomUUID();
-    // Domain is submitted for admin review before any Cloudflare zone is created
-    await c.env.DB.prepare('INSERT INTO domains (id, workspace_id, domain_name, setup_mode, status, review_status) VALUES (?, ?, ?, ?, ?, ?)')
-      .bind(id, workspaceId, clean, mode, 'pending', 'pending_review').run();
+    // Domain is submitted for admin review; Cloudflare onboarding starts only after approval
+    await c.env.DB.prepare(`INSERT INTO domains
+      (id, workspace_id, domain_name, setup_mode, status, review_status, billing_status, subscription_id, requested_by)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      .bind(id, workspaceId, clean, mode, 'pending', 'pending_review', 'paid', addon.id, user?.id || null).run();
 
     const emailId = crypto.randomUUID();
     const emailAddress = `${cleanPrefix}@${clean}`;
@@ -102,7 +145,7 @@ router.post('/api/domains/:id/verify', async (c) => {
   const { checkDomain } = await import('../services/emailService');
   // Full verification runs several Cloudflare calls and can take 5-15s.
   // Run it SYNCHRONOUSLY and return the FRESH status so the UI never shows a
-  // stale (pending) row after the user presses "जांचें". Previously the check
+  // stale (pending) row after the user presses "à¤à¤¾à¤à¤à¥à¤". Previously the check
   // ran in the background (waitUntil) while the response returned the OLD row,
   // so a verified/active domain kept displaying "Pending Verification".
   let verifyError: any = null;
@@ -125,13 +168,13 @@ router.post('/api/domains/:id/verify', async (c) => {
   if (fresh.status !== 'active') {
     // Zone exists but Cloudflare has not flipped it to active yet. This is
     // normal right after a nameserver change (propagation + CF polling can
-    // take minutes to hours) — return a clear message so the UI does not look
+    // take minutes to hours) â return a clear message so the UI does not look
     // like a failure.
     return c.json({
       success: true,
       domain: parsed,
       pending: true,
-      message: 'Cloudflare अभी nameserver verify कर रहा है। बदलाव के बाद active होने में कुछ मिनट से कुछ घंटे लग सकते हैं — 10-15 मिनट बाद फिर जांचें।',
+      message: 'Cloudflare à¤à¤­à¥ nameserver verify à¤à¤° à¤°à¤¹à¤¾ à¤¹à¥à¥¤ à¤¬à¤¦à¤²à¤¾à¤µ à¤à¥ à¤¬à¤¾à¤¦ active à¤¹à¥à¤¨à¥ à¤®à¥à¤ à¤à¥à¤ à¤®à¤¿à¤¨à¤ à¤¸à¥ à¤à¥à¤ à¤à¤à¤à¥ à¤²à¤ à¤¸à¤à¤¤à¥ à¤¹à¥à¤ â 10-15 à¤®à¤¿à¤¨à¤ à¤¬à¤¾à¤¦ à¤«à¤¿à¤° à¤à¤¾à¤à¤à¥à¤à¥¤',
     });
   }
   return c.json({ success: true, domain: parsed });
@@ -151,13 +194,13 @@ router.delete('/api/domains/:id', requireRole('owner', 'admin'), async (c) => {
   const { deleted, errors } = await removeDomain(c.env, row);
   if (!deleted) {
     // Cloudflare zone deletion failed or could not be confirmed (network,
-    // rate-limit, 5xx, permission, missing credentials). The row is kept —
-    // a live zone must never be orphaned — so the user can fix the cause
+    // rate-limit, 5xx, permission, missing credentials). The row is kept â
+    // a live zone must never be orphaned â so the user can fix the cause
     // (e.g. remove the zone in Cloudflare) and retry.
-    return c.json({ success: false, error: 'Cloudflare cleanup failed — domain kept for retry', errors }, 502);
+    return c.json({ success: false, error: 'Cloudflare cleanup failed â domain kept for retry', errors }, 502);
   }
   // Deleted. errors may still contain warnings (rule already gone, missing
-  // credentials) — surface them but the domain is removed.
+  // credentials) â surface them but the domain is removed.
   return c.json({ success: true, errors });
 });
 
