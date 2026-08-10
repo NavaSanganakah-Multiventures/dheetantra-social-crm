@@ -159,6 +159,78 @@ export async function listZoneDnsRecords(env: any, zoneId: string, creds?: CFCre
   return records;
 }
 
+
+// ==========================================
+// CLOUDFLARE FOR SAAS CUSTOM HOSTNAMES
+// ==========================================
+
+async function getSaasParentZoneId(env: any): Promise<string> {
+  const zoneId = await env.SECRETS_KV?.get('SAAS_PARENT_ZONE_ID');
+  if (!zoneId) {
+    throw new CloudflareApiError(500, 'SAAS_PARENT_ZONE_ID not configured in SECRETS_KV.');
+  }
+  return zoneId;
+}
+
+function getFallbackOrigin(env: any): string {
+  return env.SAAS_FALLBACK_ORIGIN || 'app.navasanganakah.com';
+}
+
+export async function createCustomHostname(env: any, domain: string, creds?: CFCreds) {
+  const zoneId = await getSaasParentZoneId(env);
+  const c = creds ?? await getCloudflareCredentials(env);
+  return cfFetchCreds(c, `/zones/${zoneId}/custom_hostnames`, {
+    method: 'POST',
+    body: JSON.stringify({
+      hostname: domain,
+      ssl: {
+        method: 'http',
+        type: 'dv',
+        settings: { min_tls_version: '1.0' }
+      },
+      custom_origin_server: getFallbackOrigin(env),
+    }),
+  });
+}
+
+export async function getCustomHostname(env: any, hostnameId: string, creds?: CFCreds) {
+  const zoneId = await getSaasParentZoneId(env);
+  return cfFetchCreds(creds ?? await getCloudflareCredentials(env), `/zones/${zoneId}/custom_hostnames/${hostnameId}`);
+}
+
+export async function listCustomHostnames(env: any, creds?: CFCreds) {
+  const zoneId = await getSaasParentZoneId(env);
+  const c = creds ?? await getCloudflareCredentials(env);
+  const out: any[] = [];
+  let page = 1;
+  for (;;) {
+    const result = await cfFetchCreds(c, `/zones/${zoneId}/custom_hostnames?per_page=100&page=${page}`);
+    if (!Array.isArray(result)) break;
+    out.push(...result);
+    if (result.length < 100) break;
+    page++;
+  }
+  return out;
+}
+
+export async function deleteCustomHostname(env: any, hostnameId: string, creds?: CFCreds) {
+  const zoneId = await getSaasParentZoneId(env);
+  return cfFetchCreds(creds ?? await getCloudflareCredentials(env), `/zones/${zoneId}/custom_hostnames/${hostnameId}`, { method: 'DELETE' });
+}
+
+// Extracts the verification record the customer must add at their DNS provider.
+export function getHostnameValidationRecord(hostname: any): { type?: string; name?: string; content?: string } | null {
+  const ssl = hostname?.ssl || {};
+  const txt = ssl?.txt_name && ssl?.txt_value ? {
+    type: 'TXT',
+    name: ssl.txt_name,
+    content: ssl.txt_value,
+  } : undefined;
+  if (txt) return txt;
+  // Fallback: HTTP validation only requires the CNAME to the fallback origin.
+  return null;
+}
+
 // ==========================================
 // KV NAMESPACES (admin KV-copy tool)
 // ==========================================
@@ -186,7 +258,7 @@ export async function listKvKeys(env: any, namespaceId: string, opts: { limit?: 
   };
 }
 
-// KV values are raw text, not JSON — cfFetchCreds would mis-parse them, so
+// KV values are raw text, not JSON â cfFetchCreds would mis-parse them, so
 // these use the shared credential fetch with a plain-text body and explicit
 // timeouts instead.
 export async function getKvValue(env: any, namespaceId: string, key: string, creds?: CFCreds): Promise<string> {
