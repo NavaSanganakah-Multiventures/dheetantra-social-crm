@@ -87,6 +87,11 @@ ALTER TABLE domains ADD COLUMN requested_by TEXT;                        -- user
 
 CREATE INDEX IF NOT EXISTS idx_domains_billing ON domains(workspace_id, billing_status, review_status);
 
+
+-- Track add-on payments distinctly from plan subscriptions
+ALTER TABLE payments ADD COLUMN addon_subscription_id TEXT;
+
+
 -- -------------------------------------------------
 -- 5. SEED DEFAULT EMAIL ADDON PLANS
 -- -------------------------------------------------
