@@ -454,3 +454,77 @@ CREATE TABLE IF NOT EXISTS webhook_events (
   processed INTEGER DEFAULT 1,
   received_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+
+-- ==========================================
+-- SaaS Custom Hostnames + Email Addon Gating
+-- ==========================================
+
+CREATE TABLE IF NOT EXISTS custom_hostnames (
+  id TEXT PRIMARY KEY,
+  workspace_id TEXT NOT NULL,
+  domain TEXT NOT NULL COLLATE NOCASE,
+  hostname_id TEXT,
+  status TEXT DEFAULT 'pending',
+  verification_code TEXT,
+  fallback_origin TEXT DEFAULT '',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
+  UNIQUE(workspace_id, domain)
+);
+
+CREATE INDEX IF NOT EXISTS idx_custom_hostnames_workspace ON custom_hostnames(workspace_id, status);
+CREATE INDEX IF NOT EXISTS idx_custom_hostnames_domain ON custom_hostnames(domain);
+
+CREATE TABLE IF NOT EXISTS service_addons (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  description TEXT,
+  upfront_price REAL DEFAULT 0,
+  billing_type TEXT NOT NULL DEFAULT 'recurring',
+  billing_period TEXT DEFAULT 'monthly',
+  billing_interval INTEGER DEFAULT 1,
+  currency TEXT DEFAULT 'INR',
+  razorpay_plan_id TEXT,
+  max_domains INTEGER DEFAULT 1,
+  is_active INTEGER DEFAULT 1,
+  sort_order INTEGER DEFAULT 0,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_service_addons_active ON service_addons(is_active, sort_order);
+
+CREATE TABLE IF NOT EXISTS addon_subscriptions (
+  id TEXT PRIMARY KEY,
+  workspace_id TEXT NOT NULL,
+  addon_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  razorpay_subscription_id TEXT,
+  razorpay_order_id TEXT,
+  status TEXT NOT NULL DEFAULT 'created',
+  amount REAL DEFAULT 0,
+  currency TEXT DEFAULT 'INR',
+  current_period_start INTEGER,
+  current_period_end INTEGER,
+  cancel_at_period_end INTEGER DEFAULT 0,
+  domains_allowed INTEGER DEFAULT 1,
+  domains_used INTEGER DEFAULT 0,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
+  FOREIGN KEY (addon_id) REFERENCES service_addons(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_addon_subscriptions_workspace ON addon_subscriptions(workspace_id, status);
+CREATE INDEX IF NOT EXISTS idx_addon_subscriptions_addon ON addon_subscriptions(addon_id, status);
+CREATE INDEX IF NOT EXISTS idx_addon_subscriptions_razorpay ON addon_subscriptions(razorpay_subscription_id);
+
+ALTER TABLE domains ADD COLUMN billing_status TEXT DEFAULT 'unpaid';
+ALTER TABLE domains ADD COLUMN subscription_id TEXT;
+ALTER TABLE domains ADD COLUMN admin_notes TEXT;
+ALTER TABLE domains ADD COLUMN requested_by TEXT;
+
+CREATE INDEX IF NOT EXISTS idx_domains_billing ON domains(workspace_id, billing_status, review_status);
+
+ALTER TABLE payments ADD COLUMN addon_subscription_id TEXT;
