@@ -177,7 +177,7 @@ router.get('/api/crm/contacts', async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
-  // Fetch from D1 (Relational Data) — paginated; frontend already sends limit=
+  // Fetch from D1 (Relational Data) â paginated; frontend already sends limit=
   const { limit, offset } = pagination(c, 500);
   const { results } = await c.env.DB.prepare(
     'SELECT * FROM contacts WHERE workspace_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?'
@@ -243,8 +243,8 @@ router.post('/api/crm/contacts', async (c) => {
     lead_value
   } = body;
 
-  if (!name) return c.json({ error: 'नाम आवश्यक है (Name is required)' }, 400);
-  if (!phone) return c.json({ error: 'फ़ोन नंबर आवश्यक है (Phone is required)' }, 400);
+  if (!name) return c.json({ error: 'à¤¨à¤¾à¤® à¤à¤µà¤¶à¥à¤¯à¤ à¤¹à¥ (Name is required)' }, 400);
+  if (!phone) return c.json({ error: 'à¤«à¤¼à¥à¤¨ à¤¨à¤à¤¬à¤° à¤à¤µà¤¶à¥à¤¯à¤ à¤¹à¥ (Phone is required)' }, 400);
   if (String(name).length > 200) return c.json({ error: 'Name is too long (max 200 characters)' }, 400);
   if (notes && String(notes).length > 5000) return c.json({ error: 'Notes are too long (max 5000 characters)' }, 400);
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email))) {
@@ -255,11 +255,11 @@ router.post('/api/crm/contacts', async (c) => {
 
   // Check if contact already exists
   const existing = await c.env.DB.prepare(
-    'SELECT id FROM contacts WHERE workspace_id = ? AND platform = "whatsapp" AND platform_contact_id = ?'
+    'SELECT id FROM contacts WHERE workspace_id = ? AND platform = \'whatsapp\' AND platform_contact_id = ?'
   ).bind(workspaceId, platformContactId).first();
 
   if (existing) {
-    return c.json({ error: 'इस फ़ोन नंबर वाला संपर्क पहले से मौजूद है।' }, 400);
+    return c.json({ error: 'à¤à¤¸ à¤«à¤¼à¥à¤¨ à¤¨à¤à¤¬à¤° à¤µà¤¾à¤²à¤¾ à¤¸à¤à¤ªà¤°à¥à¤ à¤ªà¤¹à¤²à¥ à¤¸à¥ à¤®à¥à¤à¥à¤¦ à¤¹à¥à¥¤' }, 400);
   }
 
   const id = crypto.randomUUID();
@@ -316,15 +316,15 @@ router.put('/api/crm/contacts/:contactId', async (c) => {
     lead_value
   } = body;
 
-  if (!name) return c.json({ error: 'नाम आवश्यक है' }, 400);
-  if (!phone) return c.json({ error: 'फ़ोन नंबर आवश्यक है' }, 400);
+  if (!name) return c.json({ error: 'à¤¨à¤¾à¤® à¤à¤µà¤¶à¥à¤¯à¤ à¤¹à¥' }, 400);
+  if (!phone) return c.json({ error: 'à¤«à¤¼à¥à¤¨ à¤¨à¤à¤¬à¤° à¤à¤µà¤¶à¥à¤¯à¤ à¤¹à¥' }, 400);
 
   const platformContactId = phone.replace(/[^0-9]/g, '');
 
   const existing = await c.env.DB.prepare(
     'SELECT id FROM contacts WHERE id = ? AND workspace_id = ?'
   ).bind(contactId, workspaceId).first();
-  if (!existing) return c.json({ error: 'संपर्क नहीं मिला' }, 404);
+  if (!existing) return c.json({ error: 'à¤¸à¤à¤ªà¤°à¥à¤ à¤¨à¤¹à¥à¤ à¤®à¤¿à¤²à¤¾' }, 404);
 
   await c.env.DB.prepare(`
     UPDATE contacts SET
@@ -374,7 +374,7 @@ router.delete('/api/crm/contacts/:contactId', async (c) => {
   const existing = await c.env.DB.prepare(
     'SELECT id FROM contacts WHERE id = ? AND workspace_id = ?'
   ).bind(contactId, workspaceId).first();
-  if (!existing) return c.json({ error: 'संपर्क नहीं मिला' }, 404);
+  if (!existing) return c.json({ error: 'à¤¸à¤à¤ªà¤°à¥à¤ à¤¨à¤¹à¥à¤ à¤®à¤¿à¤²à¤¾' }, 404);
 
   // Delete conversations and messages associated with this contact
   const convs = await c.env.DB.prepare('SELECT id FROM conversations WHERE contact_id = ?').bind(contactId).all<{ id: string }>();
