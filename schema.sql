@@ -257,6 +257,10 @@ CREATE TABLE IF NOT EXISTS domains (
   consecutive_failures INTEGER DEFAULT 0, -- maintenance retry backoff counter
   next_retry_at DATETIME, -- maintenance rows skipped until this time passes
   pending_records TEXT, -- records the user must add at their provider (partial/CNAME mode)
+  billing_status TEXT DEFAULT 'unpaid', -- 'unpaid' | 'paid' (email add-on gating, from 0019)
+  subscription_id TEXT, -- addon_subscriptions.id that paid for this domain (from 0019)
+  admin_notes TEXT, -- internal admin notes (from 0019)
+  requested_by TEXT, -- user id who requested the domain (from 0019)
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
 );
@@ -453,4 +457,57 @@ CREATE TABLE IF NOT EXISTS webhook_events (
   payload_json TEXT,
   processed INTEGER DEFAULT 1,
   received_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ===== Email SaaS gating (migration 0019_saas_email_gating) =====
+CREATE TABLE IF NOT EXISTS custom_hostnames (
+  id TEXT PRIMARY KEY,
+  workspace_id TEXT NOT NULL,
+  domain TEXT NOT NULL COLLATE NOCASE,
+  hostname_id TEXT,                                   -- Cloudflare custom hostname id
+  status TEXT DEFAULT 'pending',                      -- pending | pending_validation | active | failed
+  verification_code TEXT,                             -- TXT/CNAME verification record value
+  fallback_origin TEXT DEFAULT '',                    -- e.g. app.navasanganakah.com
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
+  UNIQUE(workspace_id, domain)
+);
+
+CREATE TABLE IF NOT EXISTS service_addons (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  description TEXT,
+  upfront_price REAL DEFAULT 0,
+  billing_type TEXT NOT NULL DEFAULT 'recurring',    -- recurring | one_time
+  billing_period TEXT DEFAULT 'monthly',              -- daily | weekly | monthly | yearly
+  billing_interval INTEGER DEFAULT 1,
+  currency TEXT DEFAULT 'INR',
+  razorpay_plan_id TEXT,
+  max_domains INTEGER DEFAULT 1,                      -- how many email domains this addon allows
+  is_active INTEGER DEFAULT 1,
+  sort_order INTEGER DEFAULT 0,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS addon_subscriptions (
+  id TEXT PRIMARY KEY,
+  workspace_id TEXT NOT NULL,
+  addon_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  razorpay_subscription_id TEXT,
+  razorpay_order_id TEXT,
+  status TEXT NOT NULL DEFAULT 'created',            -- created | active | past_due | paused | completed | cancelled | expired
+  amount REAL DEFAULT 0,
+  currency TEXT DEFAULT 'INR',
+  current_period_start INTEGER,
+  current_period_end INTEGER,                         -- unix seconds
+  cancel_at_period_end INTEGER DEFAULT 0,
+  domains_allowed INTEGER DEFAULT 1,
+  domains_used INTEGER DEFAULT 0,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
+  FOREIGN KEY (addon_id) REFERENCES service_addons(id)
 );
