@@ -247,7 +247,7 @@ export async function handleIncomingMessage(
         try {
           const ai = new GoogleGenAI({ apiKey: geminiKey });
           const aiResponse = await ai.models.generateContent({
-              model: 'gemini-3.5-flash',
+              model: 'gemini-2.0-flash',
               contents: `You are a helpful customer support AI for Dhitantra.
   User message: "${messageText}"
   User Name: ${contactName}
@@ -292,7 +292,7 @@ export async function handleIncomingMessage(
 
   // Send the reply back to the user
   if (conversationId) {
-    await sendWhatsAppMessage(env, phoneNumberId, from, replyText, conversationId);
+    await sendWhatsAppMessage(env, phoneNumberId, from, replyText, conversationId, workspaceId);
   }
 }
 
@@ -302,6 +302,7 @@ export async function sendWhatsAppMessage(
   to: string,
   message: string,
   conversationId?: string | null,
+  workspaceId?: string | null,
   messageType: string = 'text',
   mediaUrl?: string | null,
   filename?: string | null,
@@ -388,7 +389,7 @@ export async function sendWhatsAppMessage(
           `).bind(sentMessageId, conversationId, messageType, message, mediaUrl || null, platformMsgId).run();
 
           // Broadcast bot reply via Durable Object
-          try {
+          if (workspaceId) try {
             const globalDoId = env.CHAT_DO.idFromName(`global-${workspaceId}`);
             const stub = env.CHAT_DO.get(globalDoId);
             const botMsgNow = new Date().toISOString();
