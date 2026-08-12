@@ -193,7 +193,7 @@ metaOauth.post('/embedded-signup', async (c) => {
       }
     }
 
-    // 3. Subscribe to webhook events (CRITICAL â without this, Meta never sends webhooks!)
+    // 3. Subscribe to webhook events (CRITICAL — without this, Meta never sends webhooks!)
     let webhookSubscribed = false;
     try {
       const subsRes = await fetch(`https://graph.facebook.com/v20.0/${wabaId}/subscribed_apps`, {
