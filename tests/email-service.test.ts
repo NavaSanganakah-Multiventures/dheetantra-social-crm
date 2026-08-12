@@ -5,12 +5,13 @@ import { describe, it, expect, vi } from 'vitest';
 // shadowing conflicts with the global EmailMessage type from workers-types.)
 vi.mock('cloudflare:email', () => ({
   EmailMessage: class {
-    to: string;
+    // Real Cloudflare API: new EmailMessage(sender, recipient, rawMime) = (from, to, raw).
     from: string;
+    to: string;
     raw: string;
-    constructor(to: string, from: string, raw: string) {
-      this.to = to;
+    constructor(from: string, to: string, raw: string) {
       this.from = from;
+      this.to = to;
       this.raw = raw;
     }
   },
