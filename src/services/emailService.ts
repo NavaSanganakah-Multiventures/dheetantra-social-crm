@@ -1036,7 +1036,7 @@ export async function parseEmailMessage(message: any, rawText?: string): Promise
     parts: 0,
   };
 
-  collectParts(headers.get('content-type') || 'text/plain', body, parsed, 0);
+  collectParts(headers.get('content-type') || 'text/plain', body, parsed, 0, (headers.get('content-transfer-encoding') || '7bit').toLowerCase().trim());
   return parsed;
 }
 
@@ -1075,7 +1075,7 @@ function parseContentType(value: string): { type: string; params: Record<string,
   return { type, params };
 }
 
-function collectParts(contentType: string, body: string, out: ParsedEmail, depth: number) {
+function collectParts(contentType: string, body: string, out: ParsedEmail, depth: number, topTransferEncoding?: string) {
   if (depth > 10) return;
   const { type, params } = parseContentType(contentType);
 
@@ -1095,12 +1095,22 @@ function collectParts(contentType: string, body: string, out: ParsedEmail, depth
       const disposition = headers.get('content-disposition') || '';
       const transferEncoding = (headers.get('content-transfer-encoding') || '7bit').toLowerCase().trim();
 
-      if (disposition.toLowerCase().startsWith('attachment') || (parseContentType(partType).type.startsWith('application/'))) {
+      const partTypeMain = parseContentType(partType).type;
+      const filename = extractFilename(disposition, partType);
+      const isTextBody = (partTypeMain === 'text/plain' || partTypeMain === 'text/html') && !disposition.toLowerCase().startsWith('attachment');
+      const isAttachment = !isTextBody && (
+        disposition.toLowerCase().startsWith('attachment') ||
+        partTypeMain.startsWith('application/') ||
+        partTypeMain.startsWith('image/') ||
+        partTypeMain.startsWith('audio/') ||
+        partTypeMain.startsWith('video/') ||
+        !!filename
+      );
+      if (isAttachment) {
         if (out.attachments.length >= 32) continue; // cap attachments
-        const filename = extractFilename(disposition, partType);
         const data = decodePart(partBody, transferEncoding);
         if (filename || (data && data.byteLength > 0)) {
-          out.attachments.push({ filename: filename || 'attachment.bin', type: parseContentType(partType).type, data: data || new Uint8Array(0) });
+          out.attachments.push({ filename: filename || 'attachment.bin', type: partTypeMain, data: data || new Uint8Array(0) });
         }
         continue;
       }
@@ -1118,7 +1128,7 @@ function collectParts(contentType: string, body: string, out: ParsedEmail, depth
     return;
   }
 
-  const transferEncoding = '7bit';
+  const transferEncoding = topTransferEncoding || '7bit';
   if (type === 'text/plain') out.text = decodePartText(body, transferEncoding);
   if (type === 'text/html') out.html = decodePartText(body, transferEncoding);
 }
