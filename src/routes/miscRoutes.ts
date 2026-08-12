@@ -504,6 +504,18 @@ router.get('/api/whatsapp/media', async (c) => {
     return c.text('Missing parameters', 400);
   }
 
+  // IDOR guard: this route is behind authMiddleware, but workspaceId is taken
+  // from the query string. Verify the authenticated user is actually a member
+  // of that workspace before using its access token - otherwise any logged-in
+  // user could download another workspace's media with that workspace's token.
+  const user = c.get('user') as any;
+  if (c.env.DB) {
+    const member = await c.env.DB.prepare(
+      'SELECT role FROM workspace_members WHERE workspace_id = ? AND user_id = ?'
+    ).bind(workspaceId, user?.id).first();
+    if (!member) return c.text('Forbidden: no access to this workspace', 403);
+  }
+
   try {
     const config = await c.env.DB.prepare('SELECT access_token FROM whatsapp_configs WHERE workspace_id = ?').bind(workspaceId).first();
     if (!config || !config.access_token) {
