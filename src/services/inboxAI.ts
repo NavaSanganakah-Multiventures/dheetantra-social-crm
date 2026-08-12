@@ -5,7 +5,7 @@ import { Env } from '../types';
 export const AI_LABELS = ['lead', 'urgent', 'complaint', 'inquiry', 'support', 'follow_up', 'spam', 'other'] as const;
 export type AiLabel = typeof AI_LABELS[number];
 
-const MODEL = 'gemini-3.5-flash';
+const MODEL = 'gemini-2.0-flash';
 
 async function getGemini(env: Env): Promise<GoogleGenAI | null> {
   const key = await env.SECRETS_KV.get('GEMINI_API_KEY');
