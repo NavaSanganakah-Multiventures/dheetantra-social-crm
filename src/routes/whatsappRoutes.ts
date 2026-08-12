@@ -95,8 +95,11 @@ router.post('/api/whatsapp/config', requireRole('owner', 'admin'), async (c) => 
             console.error(`[Calling] Failed to auto-enable calling for ${phone_number_id}:`, e);
           }
 
-          // Subscribe webhook fields (messages + calls) for this WABA
-          const finalWabaId = waba_id || null;
+          // Subscribe webhook fields (messages + calls) for this WABA.
+          // Use the outer finalWabaId (which falls back to the stored value) —
+          // re-deriving from raw `waba_id` here shadowed it and skipped
+          // subscription whenever the caller updated a config without
+          // re-sending waba_id in the body.
           if (finalWabaId) {
             try {
               const subsRes = await fetch(`https://graph.facebook.com/v20.0/${finalWabaId}/subscribed_apps`, {
@@ -495,7 +498,7 @@ router.get('/api/whatsapp/templates', async (c) => {
     let metaTemplates: any[] = [];
     let fetchError = null;
 
-    if (config && config.waba_id && config.access_token && config.access_token !== '••••••••••••••••') {
+    if (config && config.waba_id && config.access_token && config.access_token !== 'â¢â¢â¢â¢â¢â¢â¢â¢â¢â¢â¢â¢â¢â¢â¢â¢') {
       try {
         const res = await fetch(`https://graph.facebook.com/v19.0/${config.waba_id}/message_templates`, {
           headers: { 'Authorization': `Bearer ${config.access_token}` }
@@ -556,7 +559,7 @@ router.post('/api/whatsapp/templates', requireRole('owner', 'admin'), async (c) 
     let metaSuccess = false;
     let metaError = null;
 
-    if (config && config.waba_id && config.access_token && config.access_token !== '••••••••••••••••') {
+    if (config && config.waba_id && config.access_token && config.access_token !== 'â¢â¢â¢â¢â¢â¢â¢â¢â¢â¢â¢â¢â¢â¢â¢â¢') {
       try {
         const payload = {
           name: cleanName,
