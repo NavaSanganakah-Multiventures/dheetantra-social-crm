@@ -307,7 +307,7 @@ router.post('/api/email/send', async (c) => {
   const quota = await checkEmailPlanQuota(c.env, workspaceId);
   if (!quota.ok) return c.json({ error: quota.error, code: 'E_QUOTA_EXCEEDED' }, 429);
 
-  const { resolveFromAddress, sendEmail, logEmailSend, renderTemplate, stripHtml } = await import('../services/emailService');
+  const { resolveFromAddress, sendEmail, logEmailSend, renderTemplate, stripHtml, storeOutboundEmail } = await import('../services/emailService');
 
   let resolved: any;
   try {
@@ -343,6 +343,7 @@ router.post('/api/email/send', async (c) => {
       });
       await c.env.DB.prepare('UPDATE domains SET sending_onboarded = 1 WHERE id = ?').bind(resolved.domain.id).run();
       await incrementEmailUsage(c.env, workspaceId, quota.isOverage);
+      await storeOutboundEmail(c.env, workspaceId, to, subject, bodyText, bodyHtml);
     } catch (bookkeepingErr) {
       console.error('[Email] Send bookkeeping failed (email was delivered):', bookkeepingErr);
     }
