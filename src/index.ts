@@ -407,11 +407,35 @@ app.post('/api/whatsapp/webhook', async (c) => {
 
                     if (!days.includes(dayOfWeek) || currentTime < startMin || currentTime > endMin) {
                       console.log(`[Calling] ⛔ Outside call schedule for ${phoneNumberId}. Day=${dayOfWeek}, Time=${currentHour}:${currentMin}, Schedule=${schedule.start_time}-${schedule.end_time}`);
-                      const callId = crypto.randomUUID();
-                      await c.env.DB.prepare(`
-                        INSERT INTO calls (id, workspace_id, contact_id, phone_number_id, caller_number, type, direction, status, duration)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                      `).bind(callId, config.workspace_id, '', phoneNumberId, callerNumber || 'unknown', 'voice', 'incoming', 'missed', 0).run();
+                      // Resolve/create a contact for the missed call before logging it.
+                      // calls.contact_id is NOT NULL with a FK to contacts(id); the previous
+                      // empty-string value violated the FK (insert failed with foreign_keys
+                      // on) and left a dangling reference otherwise. Mirror the connect/offer
+                      // path's contact resolution. If there is no caller number we cannot
+                      // build a valid contact, so skip the log rather than write a bad row.
+                      let missedContactId = '';
+                      if (callerNumber) {
+                        const existingMissed = await c.env.DB.prepare(
+                          "SELECT id FROM contacts WHERE workspace_id = ? AND platform = 'whatsapp' AND platform_contact_id = ?"
+                        ).bind(config.workspace_id, callerNumber).first<{ id: string }>();
+                        if (existingMissed) {
+                          missedContactId = existingMissed.id;
+                        } else {
+                          missedContactId = crypto.randomUUID();
+                          await c.env.DB.prepare(
+                            "INSERT INTO contacts (id, workspace_id, platform, name, platform_contact_id) VALUES (?, ?, ?, ?, ?)"
+                          ).bind(missedContactId, config.workspace_id, 'whatsapp', `+${callerNumber}`, callerNumber).run();
+                        }
+                      }
+                      if (missedContactId) {
+                        const missedCallId = crypto.randomUUID();
+                        await c.env.DB.prepare(`
+                          INSERT INTO calls (id, workspace_id, contact_id, phone_number_id, caller_number, type, direction, status, duration)
+                          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        `).bind(missedCallId, config.workspace_id, missedContactId, phoneNumberId, callerNumber || 'unknown', 'voice', 'incoming', 'missed', 0).run();
+                      } else {
+                        console.warn(`[Calling] Skipping missed-call log for ${phoneNumberId}: no caller number to resolve a contact`);
+                      }
                       continue;
                     }
                   }
