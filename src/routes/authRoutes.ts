@@ -14,11 +14,6 @@ router.get('/api/auth/me', async (c) => {
     const userDataStr = await c.env.SECRETS_KV.get(`SESSION:${sessionId}`);
     if (userDataStr) {
       const user = JSON.parse(userDataStr);
-      // Attach the user's workspace id so the dashboard can keep
-      // localStorage('workspaceId') in sync. Without this, a user whose
-      // localStorage was cleared (but whose session cookie is still valid)
-      // stops sending x-workspace-id, and every workspace-scoped request
-      // (settings, broadcast, calls, ...) 403s with 'workspace role required'.
       if (c.env.DB && user?.id) {
         try {
           const wm = await c.env.DB.prepare(
@@ -50,10 +45,10 @@ router.post('/api/auth/send-otp', async (c) => {
       const isRegistered = existingUser ? existingUser.is_registered === 1 : false;
 
       if (type === 'login' && !isRegistered) {
-        return c.json({ error: 'à¤à¤®à¤¾à¤¨à¥à¤¯ à¤à¥à¤°à¥à¤¡à¥à¤à¤¶à¤¿à¤¯à¤²' }, 401);
+        return c.json({ error: 'अमान्य क्रेडेंशियल' }, 401);
       }
       if (type === 'register' && isRegistered) {
-        return c.json({ error: 'à¤¯à¤¹ à¤à¤®à¥à¤² à¤ªà¤¹à¤²à¥ à¤¸à¥ à¤ªà¤à¤à¥à¤à¥à¤¤ à¤¹à¥à¥¤' }, 400);
+        return c.json({ error: 'यह ईमेल पहले से पंजीकृत है।' }, 400);
       }
 
       // If registering and user doesn't exist, create user with is_registered = 0
@@ -76,7 +71,7 @@ router.post('/api/auth/send-otp', async (c) => {
     const cooldownKey = `OTP_COOLDOWN:${email}`;
     const inCooldown = await c.env.SECRETS_KV.get(cooldownKey);
     if (inCooldown) {
-      return c.json({ error: 'à¤à¥à¤ªà¤¯à¤¾ à¤à¤ à¤à¤° OTP à¤à¤¾ à¤à¤¨à¥à¤°à¥à¤§ à¤à¤°à¤¨à¥ à¤¸à¥ à¤ªà¤¹à¤²à¥ 60 à¤¸à¥à¤à¤à¤¡ à¤ªà¥à¤°à¤¤à¥à¤à¥à¤·à¤¾ à¤à¤°à¥à¤à¥¤' }, 429);
+      return c.json({ error: 'कृपया एक और OTP का अनुरोध करने से पहले 60 सेकंड प्रतीक्षा करें।' }, 429);
     }
     await c.env.SECRETS_KV.put(cooldownKey, '1', { expirationTtl: 60 });
   }
@@ -125,7 +120,7 @@ router.post('/api/auth/send-otp', async (c) => {
     }
   } else {
     // Fallback for local development
-    console.log(`\n\n=== ð OTP FOR ${email} (${type}) ===\n${otp}\n========================\n\n`);
+    console.log(`\n\n=== 🔐 OTP FOR ${email} (${type}) ===\n${otp}\n========================\n\n`);
   }
 
   return c.json({ success: true, message: 'OTP Sent' });
@@ -218,7 +213,7 @@ router.post('/api/auth/verify-otp', async (c) => {
       const attempts = parseInt(await c.env.SECRETS_KV.get(attemptKey) || '0', 10) + 1;
       await c.env.SECRETS_KV.put(attemptKey, String(attempts), { expirationTtl: 900 });
     }
-    return c.json({ error: 'à¤à¤®à¤¾à¤¨à¥à¤¯ à¤à¥à¤°à¥à¤¡à¥à¤à¤¶à¤¿à¤¯à¤²' }, 401);
+    return c.json({ error: 'अमान्य क्रेडेंशियल' }, 401);
   }
 
   // Reset attempt counter on success
