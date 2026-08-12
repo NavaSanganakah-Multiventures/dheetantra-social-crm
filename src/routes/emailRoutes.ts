@@ -55,6 +55,11 @@ router.post('/api/domains', requireRole('owner', 'admin'), async (c) => {
     return c.json({ error: 'Invalid default mailbox name. Use letters, numbers, dots, dashes, underscores or plus.' }, 400);
   }
 
+  const safeForwardTo = forwardTo ? String(forwardTo).trim().toLowerCase() : null;
+  if (safeForwardTo && !EMAIL_REGEX.test(safeForwardTo)) {
+    return c.json({ error: 'Invalid forward-to email address.' }, 400);
+  }
+
   // Email service requires an active paid add-on subscription.
   const addon = await getActiveEmailAddon(c.env, workspaceId);
   if (!addon) {
@@ -74,13 +79,17 @@ router.post('/api/domains', requireRole('owner', 'admin'), async (c) => {
     }, 400);
   }
 
-  // Daily rate limit + legacy plan-based max domains check (kept as defense-in-depth)
+  // Daily rate limit
   const addRate = await checkDomainAddRateLimit(c.env, workspaceId);
   if (!addRate.ok) return c.json({ error: addRate.error, code: 'E_DOMAIN_RATE_LIMIT' }, 429);
 
+  // The email add-on is the authoritative domain entitlement. The legacy
+  // plan-based max_domains defaults to 1 and must NOT block an add-on that
+  // allows more domains (e.g. add-on=5 vs plan default=1). Take the higher.
   const limits = await getWorkspacePlanLimits(c.env, workspaceId);
-  if (domainCount >= limits.max_domains) {
-    return c.json({ error: `Domain limit reached for your plan (max ${limits.max_domains}). Upgrade to add more domains.`, code: 'E_DOMAIN_LIMIT' }, 400);
+  const effectiveMaxDomains = Math.max(addon.domains_allowed || 0, limits.max_domains || 0);
+  if (domainCount >= effectiveMaxDomains) {
+    return c.json({ error: `Domain limit reached (max ${effectiveMaxDomains}). Upgrade to add more domains.`, code: 'E_DOMAIN_LIMIT' }, 400);
   }
 
   try {
@@ -99,7 +108,7 @@ router.post('/api/domains', requireRole('owner', 'admin'), async (c) => {
     const emailAddress = `${cleanPrefix}@${clean}`;
     await c.env.DB.prepare(
       'INSERT INTO domain_emails (id, domain_id, local_part, email_address, forward_to, is_default) VALUES (?, ?, ?, ?, ?, 1)'
-    ).bind(emailId, id, cleanPrefix, emailAddress, forwardTo || null).run();
+    ).bind(emailId, id, cleanPrefix, emailAddress, safeForwardTo).run();
 
     const row: any = await c.env.DB.prepare('SELECT * FROM domains WHERE id = ?').bind(id).first();
     return c.json({
