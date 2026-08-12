@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { getCookie } from 'hono/cookie';
 import { Env } from '../types';
 
 const metaOauth = new Hono<{ Bindings: Env }>();
@@ -102,6 +103,25 @@ metaOauth.post('/embedded-signup', async (c) => {
 
   if (!workspaceId || !wabaId || !phoneNumberIds || !Array.isArray(phoneNumberIds)) {
     return c.json({ error: 'Missing required parameters' }, 400);
+  }
+
+  // Auth + workspace membership: this endpoint writes whatsapp_configs for the
+  // given workspace, so it must not be callable unauthenticated. /api/meta is
+  // not mounted behind authMiddleware, so verify the session cookie here.
+  const sessionId = getCookie(c, 'auth_session');
+  let authUser: any = null;
+  if (sessionId && c.env.SECRETS_KV) {
+    const userDataStr = await c.env.SECRETS_KV.get(`SESSION:${sessionId}`);
+    if (userDataStr) {
+      try { authUser = JSON.parse(userDataStr); } catch { authUser = null; }
+    }
+  }
+  if (!authUser?.id) return c.json({ error: 'Unauthorized' }, 401);
+  if (c.env.DB) {
+    const member = await c.env.DB.prepare(
+      'SELECT role FROM workspace_members WHERE workspace_id = ? AND user_id = ?'
+    ).bind(workspaceId, authUser.id).first();
+    if (!member) return c.json({ error: 'Forbidden: no access to this workspace' }, 403);
   }
 
   const systemUserToken = await c.env.SECRETS_KV.get('META_SYSTEM_USER_TOKEN');
