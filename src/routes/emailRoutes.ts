@@ -61,7 +61,22 @@ router.post('/api/domains', requireRole('owner', 'admin'), async (c) => {
   }
 
   // Email service requires an active paid add-on subscription.
-  const addon = await getActiveEmailAddon(c.env, workspaceId);
+  let addon: any;
+  try {
+    addon = await getActiveEmailAddon(c.env, workspaceId);
+  } catch (e: any) {
+    // Most likely cause: the email-gating migration (0019_saas_email_gating)
+    // has not been applied to the D1 database, so the addon_subscriptions
+    // table is missing. Surface a clear, actionable JSON error instead of an
+    // unhandled non-JSON 500 (which the UI showed as an opaque parse failure).
+    console.error('[Email] Addon subscription lookup failed:', e);
+    return c.json({
+      error: 'Email add-on billing is not initialized on the database. Run database migrations and redeploy.',
+      code: 'E_EMAIL_ADDON_UNAVAILABLE',
+      action: 'run_migrations',
+      detail: String(e?.message || e),
+    }, 500);
+  }
   if (!addon) {
     return c.json({
       error: 'Email service is a paid add-on. Purchase an email add-on plan first.',
