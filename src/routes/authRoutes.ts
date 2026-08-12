@@ -13,7 +13,18 @@ router.get('/api/auth/me', async (c) => {
   if (c.env.SECRETS_KV) {
     const userDataStr = await c.env.SECRETS_KV.get(`SESSION:${sessionId}`);
     if (userDataStr) {
-      return c.json({ user: JSON.parse(userDataStr) });
+      const user = JSON.parse(userDataStr);
+      if (c.env.DB && user?.id) {
+        try {
+          const wm = await c.env.DB.prepare(
+            'SELECT workspace_id FROM workspace_members WHERE user_id = ?'
+          ).bind(user.id).first<{ workspace_id: string }>();
+          if (wm) user.workspace_id = wm.workspace_id;
+        } catch (e) {
+          console.error('Failed to resolve workspace_id for /api/auth/me:', e);
+        }
+      }
+      return c.json({ user });
     }
   } else {
     // Mock user for local development if KV is missing
