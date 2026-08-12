@@ -41,6 +41,9 @@ export default function DashboardWrapper() {
          if (data.user) {
              setUser(data.user);
              localStorage.setItem('userTimezone', data.user.timezone || 'Asia/Kolkata');
+             if (data.user.workspace_id) {
+               localStorage.setItem('workspaceId', data.user.workspace_id);
+             }
          } else {
              router.push('/login');
          }
