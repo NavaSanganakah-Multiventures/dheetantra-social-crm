@@ -174,7 +174,7 @@ router.post('/api/domains/:id/verify', async (c) => {
       success: true,
       domain: parsed,
       pending: true,
-      message: 'Cloudflare à¤à¤­à¥ nameserver verify à¤à¤° à¤°à¤¹à¤¾ à¤¹à¥à¥¤ à¤¬à¤¦à¤²à¤¾à¤µ à¤à¥ à¤¬à¤¾à¤¦ active à¤¹à¥à¤¨à¥ à¤®à¥à¤ à¤à¥à¤ à¤®à¤¿à¤¨à¤ à¤¸à¥ à¤à¥à¤ à¤à¤à¤à¥ à¤²à¤ à¤¸à¤à¤¤à¥ à¤¹à¥à¤ â 10-15 à¤®à¤¿à¤¨à¤ à¤¬à¤¾à¤¦ à¤«à¤¿à¤° à¤à¤¾à¤à¤à¥à¤à¥¤',
+      message: 'Cloudflare अभी nameserver verify कर रहा है। बदलाव के बाद active होने में कुछ मिनट से कुछ घंटे लग सकते हैं — 10-15 मिनट बाद फिर जांचें।',
     });
   }
   return c.json({ success: true, domain: parsed });
@@ -197,7 +197,7 @@ router.delete('/api/domains/:id', requireRole('owner', 'admin'), async (c) => {
     // rate-limit, 5xx, permission, missing credentials). The row is kept â
     // a live zone must never be orphaned â so the user can fix the cause
     // (e.g. remove the zone in Cloudflare) and retry.
-    return c.json({ success: false, error: 'Cloudflare cleanup failed â domain kept for retry', errors }, 502);
+    return c.json({ success: false, error: 'Cloudflare cleanup failed — domain kept for retry', errors }, 502);
   }
   // Deleted. errors may still contain warnings (rule already gone, missing
   // credentials) â surface them but the domain is removed.
@@ -491,6 +491,7 @@ router.get('/api/email/diagnostics', async (c) => {
       setup_mode: d.setup_mode,
       status: d.status,
       review_status: d.review_status,
+      zone_id: d.zone_id,
       has_zone_id: !!d.zone_id,
       has_routing_rule_id: !!d.routing_rule_id,
       sending_onboarded: !!d.sending_onboarded,
