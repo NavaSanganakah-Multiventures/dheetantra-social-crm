@@ -854,13 +854,23 @@ function AddDomainModal({ onClose, onAdded }: { onClose: () => void; onAdded: ()
         headers: getHeaders(),
         body: JSON.stringify({ domainName: domainName.trim(), setupMode, defaultEmailPrefix, forwardTo: forwardTo || null }),
       });
-      const data: any = await res.json();
+      // Read raw text first so a non-JSON server response (e.g. an unhandled
+      // 500) never becomes an opaque "Unexpected token" parse error in the UI.
+      const text = await res.text();
+      let data: any;
+      try { data = JSON.parse(text); } catch { data = { error: 'सर्वर से अमान्य प्रतिक्रिया — कुछ गड़बड़ हो गई।' }; }
       if (data.success) {
         toast('success', `${data.domain?.domain_name} admin review के लिए submit हो गया।`);
         onAdded();
         onClose();
       } else {
-        toast('error', data.error || 'डोमेन जोड़ने में त्रुटि');
+        // Surface the actionable reason instead of a raw/technical string.
+        let msg = data.error || 'डोमेन जोड़ने में त्रुटि';
+        if (data.code === 'E_EMAIL_ADDON_REQUIRED') msg = 'ईमेल ऐड-ऑन सक्रिय नहीं है। पहले ईमेल ऐड-ॉन प्लान खरीदें।';
+        else if (data.code === 'E_EMAIL_ADDON_LIMIT') msg = `डोमेन लिमिट पूरी: ${data.error} ऐड-ऑन अपग्रेड करें।`;
+        else if (data.code === 'E_DOMAIN_LIMIT') msg = data.error;
+        else if (data.code === 'E_DOMAIN_RATE_LIMIT') msg = 'बहुत ज़्यादा डोमेन जोड़ने की कोशिश — थोड़ी देर बाद कोशिश करें।';
+        toast('error', msg);
       }
     } catch (e: any) {
       toast('error', e.message || 'डोमेन जोड़ने में त्रुटि');
