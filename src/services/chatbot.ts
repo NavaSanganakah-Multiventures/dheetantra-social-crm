@@ -88,7 +88,7 @@ export async function handleIncomingMessage(
           `).bind(incomingMessageId, conversationId, messageType, messageText, mediaUrl || null, messageId).run();
           console.log(`[handleIncomingMessage] Incoming message saved. id=${incomingMessageId}`);
         } catch (saveErr) {
-          console.error('[handleIncomingMessage] Failed to save message â broadcasting anyway:', saveErr);
+          console.error('[handleIncomingMessage] Failed to save message — broadcasting anyway:', saveErr);
         }
 
         // Check if calling is enabled for this phone number/config
@@ -258,30 +258,30 @@ export async function handleIncomingMessage(
   } else {
     // Rule based logic
     if (messageType === 'text') {
-      replyText = `à¤¨à¤®à¤¸à¥à¤¤à¥ ${contactName}! Dhitantra à¤ªà¥à¤²à¥à¤à¤«à¥à¤°à¥à¤® à¤®à¥à¤ à¤à¤ªà¤à¤¾ à¤¸à¥à¤µà¤¾à¤à¤¤ à¤¹à¥à¥¤\n\n`;
+      replyText = `नमस्ते ${contactName}! Dhitantra प्लेटफॉर्म में आपका स्वागत है।\n\n`;
       const text = messageText.toLowerCase().trim();
-      if (text === 'hi' || text === 'hello' || text === 'à¤¨à¤®à¤¸à¥à¤¤à¥') {
-        replyText += 'à¤¹à¤® à¤à¤ªà¤à¥ à¤à¥à¤¸à¥ à¤®à¤¦à¤¦ à¤à¤° à¤¸à¤à¤¤à¥ à¤¹à¥à¤?\n\nà¤¨à¥à¤à¥ à¤¦à¤¿à¤ à¤à¤ à¤µà¤¿à¤à¤²à¥à¤ªà¥à¤ à¤®à¥à¤ à¤¸à¥ à¤à¤¾à¤à¤ª à¤à¤°à¥à¤:\n1. Services (à¤¸à¥à¤µà¤¾à¤à¤)\n2. Support (à¤¸à¤¹à¤¾à¤¯à¤¤à¤¾)\n3. Pricing (à¤à¥à¤®à¤¤)';
+      if (text === 'hi' || text === 'hello' || text === 'नमस्ते') {
+        replyText += 'हम आपकी कैसे मदद कर सकते हैं?\n\nनीचे दिए गए विकल्पों में से टाइप करें:\n1. Services (सेवाएं)\n2. Support (सहायता)\n3. Pricing (कीमत)';
       } else if (text.includes('1') || text.includes('services')) {
-        replyText = 'à¤¹à¤® à¤à¤ à¤¸à¤à¤ªà¥à¤°à¥à¤£ Social Media Management à¤à¤° CRM à¤à¥à¤² à¤ªà¥à¤°à¤¦à¤¾à¤¨ à¤à¤°à¤¤à¥ à¤¹à¥à¤à¥¤ à¤à¤ª à¤¯à¤¹à¤¾à¤ à¤¸à¥ à¤à¤ªà¤¨à¥ à¤¸à¤­à¥ à¤®à¥à¤¸à¥à¤ à¤à¤° à¤¶à¥à¤¡à¥à¤¯à¥à¤²à¤¿à¤à¤ à¤®à¥à¤¨à¥à¤ à¤à¤° à¤¸à¤à¤¤à¥ à¤¹à¥à¤à¥¤';
+        replyText = 'हम एक संपूर्ण Social Media Management और CRM टूल प्रदान करते हैं। आप यहाँ से अपने सभी मैसेज और शेड्यूलिंग मैनेज कर सकते हैं।';
       } else if (text.includes('2') || text.includes('support')) {
-        replyText = 'à¤à¥à¤ªà¤¯à¤¾ à¤à¤ªà¤¨à¤¾ à¤¸à¤µà¤¾à¤² à¤ªà¥à¤à¥à¤, à¤¹à¤®à¤¾à¤°à¥ à¤à¥à¤® à¤à¤²à¥à¤¦ à¤¹à¥ à¤à¤ªà¤¸à¥ à¤¸à¤à¤ªà¤°à¥à¤ à¤à¤°à¥à¤à¥à¥¤';
+        replyText = 'कृपया अपना सवाल पूछें, हमारी टीम जल्द ही आपसे संपर्क करेगी।';
       } else if (text.includes('3') || text.includes('pricing')) {
-        replyText = 'à¤¹à¤®à¤¾à¤°à¥ à¤à¥à¤®à¤¤ à¤¸à¥ à¤à¥à¤¡à¤¼à¥ à¤à¤¾à¤¨à¤à¤¾à¤°à¥ à¤à¥ à¤²à¤¿à¤ à¤à¥à¤ªà¤¯à¤¾ à¤¹à¤®à¤¾à¤°à¥ à¤µà¥à¤¬à¤¸à¤¾à¤à¤ www.dhitantra.com à¤ªà¤° à¤à¤¾à¤à¤à¥¤';
+        replyText = 'हमारी कीमत से जुड़ी जानकारी के लिए कृपया हमारी वेबसाइट www.dhitantra.com पर जाएँ।';
       } else {
-        replyText = 'à¤®à¥à¤à¥ à¤à¤ªà¤à¤¾ à¤¸à¤à¤¦à¥à¤¶ à¤¸à¤®à¤ à¤®à¥à¤ à¤¨à¤¹à¥à¤ à¤à¤¯à¤¾à¥¤ à¤à¥à¤ªà¤¯à¤¾ "Hi" à¤¯à¤¾ "Hello" à¤²à¤¿à¤à¤à¤° à¤¦à¥à¤¬à¤¾à¤°à¤¾ à¤¶à¥à¤°à¥à¤à¤¤ à¤à¤°à¥à¤à¥¤';
+        replyText = 'मुझे आपका संदेश समझ में नहीं आया। कृपया "Hi" या "Hello" लिखकर दोबारा शुरुआत करें।';
       }
     } else {
-      let typeInHindi = 'à¤¸à¤à¤¦à¥à¤¶';
-      if (messageType === 'image') typeInHindi = 'à¤«à¤¼à¥à¤à¥ (Image)';
-      else if (messageType === 'video') typeInHindi = 'à¤µà¥à¤¡à¤¿à¤¯à¥ (Video)';
-      else if (messageType === 'document') typeInHindi = 'à¤¦à¤¸à¥à¤¤à¤¾à¤µà¥à¤à¤¼ (Document)';
-      else if (messageType === 'audio') typeInHindi = 'à¤à¤¡à¤¿à¤¯à¥ (Audio)';
-      else if (messageType === 'sticker') typeInHindi = 'à¤¸à¥à¤à¤¿à¤à¤° (Sticker)';
-      else if (messageType === 'location') typeInHindi = 'à¤²à¥à¤à¥à¤¶à¤¨ (Location)';
-      else if (messageType === 'contacts') typeInHindi = 'à¤à¥à¤¨à¥à¤à¥à¤à¥à¤ (Contact)';
+      let typeInHindi = 'संदेश';
+      if (messageType === 'image') typeInHindi = 'फ़ोटो (Image)';
+      else if (messageType === 'video') typeInHindi = 'वीडियो (Video)';
+      else if (messageType === 'document') typeInHindi = 'दस्तावेज़ (Document)';
+      else if (messageType === 'audio') typeInHindi = 'ऑडियो (Audio)';
+      else if (messageType === 'sticker') typeInHindi = 'स्टिकर (Sticker)';
+      else if (messageType === 'location') typeInHindi = 'लोकेशन (Location)';
+      else if (messageType === 'contacts') typeInHindi = 'कॉन्टैक्ट (Contact)';
       
-      replyText = `à¤¨à¤®à¤¸à¥à¤¤à¥ ${contactName}! à¤¹à¤®à¥à¤ à¤à¤ªà¤à¤¾ ${typeInHindi} à¤ªà¥à¤°à¤¾à¤ªà¥à¤¤ à¤¹à¥à¤ à¤¹à¥à¥¤ à¤¹à¤®à¤¾à¤°à¥ à¤¸à¤¹à¤¾à¤¯à¤¤à¤¾ à¤à¥à¤® à¤à¤²à¥à¤¦ à¤¹à¥ à¤à¤ªà¤¸à¥ à¤¸à¤à¤ªà¤°à¥à¤ à¤à¤°à¥à¤à¥à¥¤`;
+      replyText = `नमस्ते ${contactName}! हमें आपका ${typeInHindi} प्राप्त हुआ है। हमारी सहायता टीम जल्द ही आपसे संपर्क करेगी।`;
     }
   }
 
