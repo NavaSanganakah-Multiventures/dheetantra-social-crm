@@ -96,7 +96,6 @@ router.post('/api/whatsapp/config', requireRole('owner', 'admin'), async (c) => 
           }
 
           // Subscribe webhook fields (messages + calls) for this WABA
-          const finalWabaId = waba_id || null;
           if (finalWabaId) {
             try {
               const subsRes = await fetch(`https://graph.facebook.com/v20.0/${finalWabaId}/subscribed_apps`, {
