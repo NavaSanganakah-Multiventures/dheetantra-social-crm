@@ -307,7 +307,7 @@ router.post('/api/email/send', async (c) => {
   const quota = await checkEmailPlanQuota(c.env, workspaceId);
   if (!quota.ok) return c.json({ error: quota.error, code: 'E_QUOTA_EXCEEDED' }, 429);
 
-  const { resolveFromAddress, sendEmail, logEmailSend, renderTemplate, stripHtml } = await import('../services/emailService');
+  const { resolveFromAddress, sendEmail, logEmailSend, renderTemplate, stripHtml, storeOutboundEmail } = await import('../services/emailService');
 
   let resolved: any;
   try {
@@ -343,6 +343,7 @@ router.post('/api/email/send', async (c) => {
       });
       await c.env.DB.prepare('UPDATE domains SET sending_onboarded = 1 WHERE id = ?').bind(resolved.domain.id).run();
       await incrementEmailUsage(c.env, workspaceId, quota.isOverage);
+      await storeOutboundEmail(c.env, workspaceId, to, subject, bodyText, bodyHtml);
     } catch (bookkeepingErr) {
       console.error('[Email] Send bookkeeping failed (email was delivered):', bookkeepingErr);
     }
@@ -709,7 +710,7 @@ router.post('/api/email/inbox/conversations/:id/reply', async (c) => {
     if (!row) return c.json({ error: 'Conversation not found' }, 404);
     const toEmail = row.sender_email;
 
-    // 2. Determine mailbox to send from (original recipient)
+    // 2. Determine mailbox to send from (original recipient) + original Message-Id
     const firstIncoming: any = await c.env.DB.prepare(
       `SELECT m.media_url FROM messages m
        WHERE m.conversation_id = ? AND m.sender_type = 'contact'
@@ -718,12 +719,20 @@ router.post('/api/email/inbox/conversations/:id/reply', async (c) => {
     const firstMedia = parseEmailMediaJson(firstIncoming?.media_url);
     let fromEmail = firstMedia.to || '';
     let originalSubject = firstMedia.subject || '';
+    const originalMessageId = firstMedia.messageId || '';
 
-    if (!fromEmail) {
-      const { resolveFromAddress } = await import('../services/emailService');
-      const resolved = await resolveFromAddress(c.env, workspaceId, null);
-      fromEmail = resolved.fromEmail;
+    const { resolveFromAddress, sendEmail, logEmailSend } = await import('../services/emailService');
+
+    // Validate the from address is an active, approved, registered mailbox
+    // (default to the workspace's first mailbox when the original recipient
+    // is unknown/removed). Replaces the partial suspended-only check.
+    let resolved: any;
+    try {
+      resolved = await resolveFromAddress(c.env, workspaceId, fromEmail || null);
+    } catch (e: any) {
+      return c.json({ error: e.message, code: e.code || 'E_FROM_INVALID' }, e.status || 400);
     }
+    fromEmail = resolved.fromEmail;
 
     const rate = await checkEmailRateLimit(c.env, workspaceId);
     if (!rate.ok) return c.json({ error: rate.error }, 429);
@@ -731,35 +740,25 @@ router.post('/api/email/inbox/conversations/:id/reply', async (c) => {
     const quota = await checkEmailPlanQuota(c.env, workspaceId);
     if (!quota.ok) return c.json({ error: quota.error, code: 'E_QUOTA_EXCEEDED' }, 429);
 
-    // Block replies when the from-domain is auto-suspended for abuse.
-    // Checked after the rate/quota gates so bursts that will 429 anyway do
-    // not pay the extra DB + KV round trips.
-    const fromDomainPart = fromEmail.split('@')[1] || '';
-    if (fromDomainPart) {
-      const fromDomainRow: any = await c.env.DB.prepare(
-        'SELECT id, status FROM domains WHERE workspace_id = ? AND domain_name = ?'
-      ).bind(workspaceId, fromDomainPart).first();
-      if (fromDomainRow) {
-        if (fromDomainRow.status === 'suspended') {
-          return c.json({ error: 'Domain suspended due to high send failures. Contact support to restore it.', code: 'E_DOMAIN_SUSPENDED' }, 403);
-        }
-        const abuse = await checkDomainAbuse(c.env, fromDomainRow.id, c.executionCtx);
-        if (!abuse.ok) return c.json({ error: abuse.message, code: 'E_DOMAIN_SUSPENDED' }, 403);
-      }
-    }
+    // Abuse gate on the from-domain (auto-suspended domains cannot send).
+    const abuse = await checkDomainAbuse(c.env, resolved.domain.id, c.executionCtx);
+    if (!abuse.ok) return c.json({ error: abuse.message, code: 'E_DOMAIN_SUSPENDED' }, 403);
 
     const subject = originalSubject.startsWith('Re:') ? originalSubject : `Re: ${originalSubject || 'Your email'}`;
+    const inReplyTo = originalMessageId || undefined;
+    const references = originalMessageId || undefined;
 
-    const { sendEmail } = await import('../services/emailService');
-    await sendEmail(c.env, {
-      to: toEmail,
-      from: fromEmail,
-      subject,
-      html: html || '',
-      text: text || '',
-    });
+    try {
+      await sendEmail(c.env, { to: toEmail, from: fromEmail, subject, html: html || '', text: text || '', inReplyTo, references });
+    } catch (e: any) {
+      try { await logEmailSend(c.env, { workspaceId, domainId: resolved.domain.id, fromEmail, toEmail, subject, status: 'failed', errorCode: e.code, errorMessage: e.message }); } catch (logErr) { console.error('[Email] Failed to log reply error:', logErr); }
+      return c.json({ success: false, error: e.message || 'Reply failed', code: e.code || 'E_REPLY_FAILED' }, e.status || 500);
+    }
 
-    await incrementEmailUsage(c.env, workspaceId, quota.isOverage);
+    try {
+      await logEmailSend(c.env, { workspaceId, domainId: resolved.domain.id, fromEmail, toEmail, subject, status: 'sent' });
+      await incrementEmailUsage(c.env, workspaceId, quota.isOverage);
+    } catch (bookkeepingErr) { console.error('[Email] Reply bookkeeping failed (email was delivered):', bookkeepingErr); }
 
     // 3. Store the reply in messages for a complete thread view
     const replyId = crypto.randomUUID();
