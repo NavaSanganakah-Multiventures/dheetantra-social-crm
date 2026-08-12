@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { getCookie } from 'hono/cookie';
 import { Env } from '../types';
 
 const metaOauth = new Hono<{ Bindings: Env }>();
@@ -104,6 +105,25 @@ metaOauth.post('/embedded-signup', async (c) => {
     return c.json({ error: 'Missing required parameters' }, 400);
   }
 
+  // Auth + workspace membership: this endpoint writes whatsapp_configs for the
+  // given workspace, so it must not be callable unauthenticated. /api/meta is
+  // not mounted behind authMiddleware, so verify the session cookie here.
+  const sessionId = getCookie(c, 'auth_session');
+  let authUser: any = null;
+  if (sessionId && c.env.SECRETS_KV) {
+    const userDataStr = await c.env.SECRETS_KV.get(`SESSION:${sessionId}`);
+    if (userDataStr) {
+      try { authUser = JSON.parse(userDataStr); } catch { authUser = null; }
+    }
+  }
+  if (!authUser?.id) return c.json({ error: 'Unauthorized' }, 401);
+  if (c.env.DB) {
+    const member = await c.env.DB.prepare(
+      'SELECT role FROM workspace_members WHERE workspace_id = ? AND user_id = ?'
+    ).bind(workspaceId, authUser.id).first();
+    if (!member) return c.json({ error: 'Forbidden: no access to this workspace' }, 403);
+  }
+
   const systemUserToken = await c.env.SECRETS_KV.get('META_SYSTEM_USER_TOKEN');
   if (!systemUserToken) {
     return c.json({ error: 'Tech Provider System User Token not configured in KV' }, 500);
@@ -173,7 +193,7 @@ metaOauth.post('/embedded-signup', async (c) => {
       }
     }
 
-    // 3. Subscribe to webhook events (CRITICAL — without this, Meta never sends webhooks!)
+    // 3. Subscribe to webhook events (CRITICAL â without this, Meta never sends webhooks!)
     let webhookSubscribed = false;
     try {
       const subsRes = await fetch(`https://graph.facebook.com/v20.0/${wabaId}/subscribed_apps`, {
