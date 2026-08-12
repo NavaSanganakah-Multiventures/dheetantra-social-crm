@@ -255,7 +255,7 @@ router.post('/api/crm/contacts', async (c) => {
 
   // Check if contact already exists
   const existing = await c.env.DB.prepare(
-    'SELECT id FROM contacts WHERE workspace_id = ? AND platform = "whatsapp" AND platform_contact_id = ?'
+    'SELECT id FROM contacts WHERE workspace_id = ? AND platform = \'whatsapp\' AND platform_contact_id = ?'
   ).bind(workspaceId, platformContactId).first();
 
   if (existing) {
