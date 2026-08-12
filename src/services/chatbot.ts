@@ -209,14 +209,9 @@ export async function handleIncomingMessage(
     console.error("Failed to get reply_mode", e);
   }
 
-  // Voice AI Agent Handling (System Calls)
-  if (messageType === 'system_call') {
-    console.log(`[Calling] system_call received via message webhook. Instructions: ${aiVoiceInstructions}`);
-    // Note: The WebRTC SDP doesn't come through the messages webhook,
-    // it comes through the calls webhook. So we intercept it there (src/index.ts).
-    // This block catches the text representation of the call.
-    return; // Stop execution as system_calls don't get text replies
-  }
+  // Note: system_call messages already returned early above (auto-reply and
+  // AI are skipped for voice calls). The WebRTC SDP does not arrive through
+  // the messages webhook; it is handled by the calls webhook in src/index.ts.
 
   if (replyMode === 'manual') {
     return; // Don't auto-reply
