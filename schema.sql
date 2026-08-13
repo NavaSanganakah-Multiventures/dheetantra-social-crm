@@ -513,4 +513,6 @@ CREATE TABLE IF NOT EXISTS addon_subscriptions (
 );
 
 CREATE INDEX IF NOT EXISTS idx_domains_billing ON domains(workspace_id, billing_status, review_status);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_addon_sub_active_email ON addon_subscriptions(workspace_id) WHERE addon_id LIKE 'email-addon-%' AND status IN ('created','active');
 -- billing-gated domain review support (idx_domains_billing)
