@@ -499,7 +499,7 @@ admin.get('/kv', async (c) => {
       } else if (keyName.startsWith('OTP:')) {
         val = '[Verification Code Data]';
       } else {
-        val = 'â¢â¢â¢â¢â¢â¢â¢â¢';
+        val = '••••••••';
       }
 
       keysWithValues.push({
@@ -797,7 +797,7 @@ admin.post('/domains/:id/unsuspend', async (c) => {
  * and no keys are skipped. The client keeps calling with the returned `cursor`
  * until `done: true`.
  *
- * Live session/OTP keys (`SESSION:` / `OTP:` prefixes) are never copied â
+ * Live session/OTP keys (`SESSION:` / `OTP:` prefixes) are never copied —
  * they hold per-user auth state and must not leak into another namespace.
  *
  * Body: { sourceNamespaceId, destNamespaceId, cursor? }
