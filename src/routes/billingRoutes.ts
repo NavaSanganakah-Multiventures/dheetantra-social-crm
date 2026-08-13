@@ -471,12 +471,23 @@ router.post('/api/billing/addons/:addonId/subscribe', async (c) => {
     }
 
     const subId = crypto.randomUUID();
-    await c.env.DB.prepare(
-      `INSERT INTO addon_subscriptions
-        (id, workspace_id, addon_id, user_id, billing_type, status, amount, currency, domains_allowed)
-       VALUES (?, ?, ?, ?, ?, 'created', ?, ?, ?)`
-    ).bind(subId, workspaceId, addon.id, user.id, addon.billing_type || 'recurring',
-      addon.upfront_price || 0, addon.currency || 'INR', addon.max_domains || 1).run();
+    try {
+      await c.env.DB.prepare(
+        `INSERT INTO addon_subscriptions
+          (id, workspace_id, addon_id, user_id, billing_type, status, amount, currency, domains_allowed)
+         VALUES (?, ?, ?, ?, ?, 'created', ?, ?, ?)`
+      ).bind(subId, workspaceId, addon.id, user.id, addon.billing_type || 'recurring',
+        addon.upfront_price || 0, addon.currency || 'INR', addon.max_domains || 1).run();
+    } catch (insErr: any) {
+      // Unique partial index idx_addon_sub_active_email enforces one active email add-on per workspace.
+      if (/UNIQUE constraint/i.test(insErr.message)) {
+        return c.json({
+          error: 'An email add-on subscription already exists for this workspace. Please refresh and try again.',
+          code: 'E_ADDON_EXISTS',
+        }, 409);
+      }
+      throw insErr;
+    }
 
     let checkout: any = {};
     if (addon.billing_type === 'recurring' && addon.upfront_price > 0) {
@@ -589,25 +600,30 @@ router.post('/api/billing/addons/:addonId/verify', async (c) => {
     periodEnd = now + (map[recurring] || 30) * interval * 86400;
   }
 
-  await c.env.DB.prepare(
-    `UPDATE addon_subscriptions
-     SET status = ?, current_period_start = ?, current_period_end = ?, updated_at = CURRENT_TIMESTAMP
-     WHERE id = ?`
-  ).bind(status, periodStart, periodEnd, subscription_id).run();
+  try {
+    await c.env.DB.prepare(
+      `UPDATE addon_subscriptions
+       SET status = ?, current_period_start = ?, current_period_end = ?, updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`
+    ).bind(status, periodStart, periodEnd, subscription_id).run();
 
-  await c.env.DB.prepare(
-    'INSERT INTO payments (id, workspace_id, subscription_id, razorpay_payment_id, razorpay_order_id, razorpay_subscription_id, amount, currency, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
-  ).bind(
-    crypto.randomUUID(),
-    sub.workspace_id,
-    subscription_id,
-    razorpay_payment_id,
-    razorpay_order_id || null,
-    razorpay_subscription_id || null,
-    sub.amount,
-    sub.currency || 'INR',
-    'captured'
-  ).run();
+    await c.env.DB.prepare(
+      'INSERT INTO payments (id, workspace_id, subscription_id, razorpay_payment_id, razorpay_order_id, razorpay_subscription_id, amount, currency, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    ).bind(
+      crypto.randomUUID(),
+      sub.workspace_id,
+      subscription_id,
+      razorpay_payment_id,
+      razorpay_order_id || null,
+      razorpay_subscription_id || null,
+      sub.amount,
+      sub.currency || 'INR',
+      'captured'
+    ).run();
+  } catch (dbErr: any) {
+    console.error('[Billing] Addon verify DB write failed:', dbErr);
+    return c.json({ error: 'Payment verified but failed to persist. Please contact support with this payment id.', razorpay_payment_id, code: 'E_VERIFY_PERSIST' }, 500);
+  }
 
   return c.json({ success: true, addon_id: sub.addon_id, status, current_period_end: periodEnd });
 });
