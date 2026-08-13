@@ -101,6 +101,9 @@ export async function sendEmail(env: any, input: SendEmailInput): Promise<{ mess
 
   // Preferred: structured send() API
   try {
+    const headers: Record<string, string> = {};
+    if (input.inReplyTo) headers['In-Reply-To'] = input.inReplyTo;
+    if (input.references) headers['References'] = input.references;
     const res = await binding.send({
       to: input.to,
       from: input.from,
@@ -108,6 +111,7 @@ export async function sendEmail(env: any, input: SendEmailInput): Promise<{ mess
       html: input.html || undefined,
       text: input.text || undefined,
       replyTo: input.replyTo || undefined,
+      ...(Object.keys(headers).length ? { headers } : {}),
     });
     return { messageId: res?.messageId || '' };
   } catch (err: any) {
@@ -231,6 +235,37 @@ export async function logEmailSend(
   } catch (e) {
     console.error('Failed to write email send log:', e);
   }
+}
+
+// Store an outbound (agent-sent) email as a conversation message so composed
+// emails appear in the inbox thread alongside replies. Mirrors the incoming
+// path but sender_type='agent'. Best-effort: never turns a delivered email into an error.
+export async function storeOutboundEmail(env: any, workspaceId: string, toEmail: string, subject: string, text: string, html: string) {
+  try {
+    const normalizedTo = (toEmail || '').toLowerCase().trim();
+    if (!normalizedTo) return;
+    let contact: any = await env.DB.prepare("SELECT * FROM contacts WHERE workspace_id = ? AND platform = 'email' AND platform_contact_id = ?").bind(workspaceId, normalizedTo).first();
+    if (!contact) {
+      const contactId = crypto.randomUUID();
+      await env.DB.prepare("INSERT INTO contacts (id, workspace_id, platform, platform_contact_id, name, email) VALUES (?, ?, ?, ?, ?, ?)").bind(contactId, workspaceId, 'email', normalizedTo, normalizedTo, normalizedTo).run();
+      contact = { id: contactId };
+    }
+    let conversation: any = await env.DB.prepare("SELECT id FROM conversations WHERE workspace_id = ? AND contact_id = ? AND platform = 'email' AND status = 'open' ORDER BY created_at DESC LIMIT 1").bind(workspaceId, contact.id).first();
+    if (!conversation) {
+      const conversationId = crypto.randomUUID();
+      await env.DB.prepare("INSERT INTO conversations (id, workspace_id, contact_id, platform, status) VALUES (?, ?, ?, ?, 'open')").bind(conversationId, workspaceId, contact.id, 'email').run();
+      conversation = { id: conversationId };
+    }
+    const mediaJson = JSON.stringify({ html: html || '', subject: subject || '', to: normalizedTo, attachments: [] });
+    const messageId = crypto.randomUUID();
+    const now = new Date().toISOString();
+    await env.DB.prepare(`INSERT INTO messages (id, conversation_id, sender_type, content, media_url, status, message_type, platform, created_at) VALUES (?, ?, 'agent', ?, ?, 'sent', 'email', 'email', ?)`).bind(messageId, conversation.id, text || subject || '(no content)', mediaJson, now).run();
+    try {
+      const globalDoId = env.CHAT_DO.idFromName(`global-${workspaceId}`);
+      const stub = env.CHAT_DO.get(globalDoId);
+      await stub.fetch(new Request('http://internal/broadcast', { method: 'POST', body: JSON.stringify({ type: 'new_message', message: { id: messageId, conversation_id: conversation.id, sender_type: 'agent', message_type: 'email', content: text || subject || '(no content)', media_url: mediaJson, platform: 'email', status: 'sent', created_at: now } }) }));
+    } catch (e) { console.error('[Email] Outbound broadcast failed:', e); }
+  } catch (e) { console.error('[Email] Failed to store outbound email:', e); }
 }
 
 export async function resolveFromAddress(env: any, workspaceId: string, fromAddress?: string | null) {
@@ -842,6 +877,7 @@ export async function handleIncomingEmail(message: any, env: any, ctx: any) {
       subject: parsed.subject || '',
       attachments,
       to: recipient.full,
+      messageId: parsed.messageId || '',
       unverified: senderUnverified,
     });
 
@@ -943,7 +979,7 @@ export async function handleIncomingEmail(message: any, env: any, ctx: any) {
       const forwardDomain = String(forwardTo).split('@')[1]?.toLowerCase() || '';
       const isLoop = await env.DB.prepare('SELECT id FROM domains WHERE domain_name = ? AND status = ?').bind(forwardDomain, 'active').first().catch(() => null);
       if (!isLoop) {
-        ctx.waitUntil?.(sendForward(env, message, forwardTo, rawText));
+        ctx.waitUntil?.(sendForward(env, mailbox?.email_address || recipient.full, forwardTo, message, rawText));
       }
     }
 
@@ -953,9 +989,13 @@ export async function handleIncomingEmail(message: any, env: any, ctx: any) {
   }
 }
 
-async function sendForward(env: any, original: any, forwardTo: string, rawText: string) {
+async function sendForward(env: any, fromOnboarded: string, forwardTo: string, original: any, rawText: string) {
   try {
-    const message = new EmailMessage(String(original.from || ''), forwardTo, rawText);
+    const originalFrom = sanitizeHeaderValue(String(original.from || ''));
+    const safeFrom = sanitizeHeaderValue(fromOnboarded || originalFrom);
+    const safeTo = sanitizeHeaderValue(forwardTo);
+    const raw = `From: ${safeFrom}\r\nTo: ${safeTo}\r\nReply-To: ${originalFrom}\r\nSubject: Fwd: forwarded message\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n--- Begin forwarded message ---\r\nFrom: ${originalFrom}\r\n\r\n${rawText}`;
+    const message = new EmailMessage(safeFrom, safeTo, raw);
     await env.EMAIL_SENDER.send(message);
   } catch (e) {
     console.error('[Email] Forward failed:', e);
@@ -1016,6 +1056,7 @@ interface ParsedEmail {
   html: string;
   attachments: { filename: string; type: string; data: Uint8Array }[];
   parts: number;
+  messageId: string;
 }
 
 export async function parseEmailMessage(message: any, rawText?: string): Promise<ParsedEmail> {
@@ -1034,9 +1075,10 @@ export async function parseEmailMessage(message: any, rawText?: string): Promise
     html: '',
     attachments: [],
     parts: 0,
+    messageId: decodeHeader(headers.get('message-id') || ''),
   };
 
-  collectParts(headers.get('content-type') || 'text/plain', body, parsed, 0);
+  collectParts(headers.get('content-type') || 'text/plain', body, parsed, 0, (headers.get('content-transfer-encoding') || '7bit').toLowerCase().trim());
   return parsed;
 }
 
@@ -1075,7 +1117,7 @@ function parseContentType(value: string): { type: string; params: Record<string,
   return { type, params };
 }
 
-function collectParts(contentType: string, body: string, out: ParsedEmail, depth: number) {
+function collectParts(contentType: string, body: string, out: ParsedEmail, depth: number, topTransferEncoding?: string) {
   if (depth > 10) return;
   const { type, params } = parseContentType(contentType);
 
@@ -1095,12 +1137,22 @@ function collectParts(contentType: string, body: string, out: ParsedEmail, depth
       const disposition = headers.get('content-disposition') || '';
       const transferEncoding = (headers.get('content-transfer-encoding') || '7bit').toLowerCase().trim();
 
-      if (disposition.toLowerCase().startsWith('attachment') || (parseContentType(partType).type.startsWith('application/'))) {
+      const partTypeMain = parseContentType(partType).type;
+      const filename = extractFilename(disposition, partType);
+      const isTextBody = (partTypeMain === 'text/plain' || partTypeMain === 'text/html') && !disposition.toLowerCase().startsWith('attachment');
+      const isAttachment = !isTextBody && (
+        disposition.toLowerCase().startsWith('attachment') ||
+        partTypeMain.startsWith('application/') ||
+        partTypeMain.startsWith('image/') ||
+        partTypeMain.startsWith('audio/') ||
+        partTypeMain.startsWith('video/') ||
+        !!filename
+      );
+      if (isAttachment) {
         if (out.attachments.length >= 32) continue; // cap attachments
-        const filename = extractFilename(disposition, partType);
         const data = decodePart(partBody, transferEncoding);
         if (filename || (data && data.byteLength > 0)) {
-          out.attachments.push({ filename: filename || 'attachment.bin', type: parseContentType(partType).type, data: data || new Uint8Array(0) });
+          out.attachments.push({ filename: filename || 'attachment.bin', type: partTypeMain, data: data || new Uint8Array(0) });
         }
         continue;
       }
@@ -1118,7 +1170,7 @@ function collectParts(contentType: string, body: string, out: ParsedEmail, depth
     return;
   }
 
-  const transferEncoding = '7bit';
+  const transferEncoding = topTransferEncoding || '7bit';
   if (type === 'text/plain') out.text = decodePartText(body, transferEncoding);
   if (type === 'text/html') out.html = decodePartText(body, transferEncoding);
 }
