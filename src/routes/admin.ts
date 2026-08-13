@@ -649,7 +649,7 @@ admin.get('/domains/pending', async (c) => {
       FROM domains d
       JOIN workspaces w ON d.workspace_id = w.id
       LEFT JOIN addon_subscriptions s ON d.subscription_id = s.id
-      WHERE d.review_status = 'pending_review' AND d.billing_status = 'paid'
+      WHERE d.review_status = 'pending_review'
       ORDER BY d.created_at ASC
     `).all();
     return c.json({ domains: results || [] });
@@ -687,6 +687,15 @@ admin.post('/domains/:id/approve', async (c) => {
         return c.json({
           error: 'Linked email add-on subscription is no longer active. Ask customer to renew.',
           code: 'E_ADDON_INACTIVE',
+        }, 400);
+      }
+      // Enforce the add-on's domain quota before consuming a slot.
+      if (addon.domains_allowed != null && Number(addon.domains_used) >= Number(addon.domains_allowed)) {
+        return c.json({
+          error: 'Email add-on domain quota reached for this workspace.',
+          code: 'E_ADDON_QUOTA',
+          domains_used: addon.domains_used,
+          domains_allowed: addon.domains_allowed,
         }, 400);
       }
       await c.env.DB.prepare(
