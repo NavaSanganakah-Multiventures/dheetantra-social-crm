@@ -513,3 +513,4 @@ CREATE TABLE IF NOT EXISTS addon_subscriptions (
 );
 
 CREATE INDEX IF NOT EXISTS idx_domains_billing ON domains(workspace_id, billing_status, review_status);
+-- billing-gated domain review support (idx_domains_billing)
