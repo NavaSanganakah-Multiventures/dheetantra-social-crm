@@ -27,7 +27,7 @@ import {
 const router = new Hono<{ Bindings: Env }>();
 
 // ==========================================
-// SUBSCRIBE â create a Razorpay order or
+// SUBSCRIBE — create a Razorpay order or
 // subscription for the chosen plan
 // ==========================================
 
@@ -47,7 +47,7 @@ router.post('/api/billing/subscribe', async (c) => {
   const existing = await getWorkspaceSubscription(c.env, workspaceId);
   if (existing) {
     return c.json({
-      error: 'à¤à¤ªà¤à¥ workspace à¤ªà¤° à¤ªà¤¹à¤²à¥ à¤¸à¥ à¤à¤ active subscription à¤¹à¥à¥¤ à¤ªà¤¹à¤²à¥ à¤à¤¸à¥ cancel à¤à¤°à¥à¤ à¤¯à¤¾ dashboard à¤®à¥à¤ à¤¦à¥à¤à¥à¤à¥¤',
+      error: 'आपके workspace पर पहले से एक active subscription है। पहले उसे cancel करें या dashboard में देखें।',
       cancelExisting: true,
       existing: { subscription_id: existing.id, status: existing.status },
     }, 400);
@@ -135,7 +135,7 @@ router.post('/api/billing/subscribe', async (c) => {
 });
 
 // ==========================================
-// VERIFY â confirm the checkout payment
+// VERIFY — confirm the checkout payment
 // server-side with signature validation
 // ==========================================
 
@@ -236,7 +236,7 @@ router.post('/api/billing/verify', async (c) => {
 });
 
 // ==========================================
-// SUBSCRIPTION STATUS â current plan + sub
+// SUBSCRIPTION STATUS — current plan + sub
 // ==========================================
 
 router.get('/api/billing/subscription', async (c) => {
@@ -276,7 +276,7 @@ router.get('/api/billing/subscription', async (c) => {
 });
 
 // ==========================================
-// PAYMENTS â invoice history
+// PAYMENTS — invoice history
 // ==========================================
 
 router.get('/api/billing/payments', async (c) => {
@@ -290,7 +290,7 @@ router.get('/api/billing/payments', async (c) => {
 });
 
 // ==========================================
-// CANCEL â owner can cancel (at period end)
+// CANCEL — owner can cancel (at period end)
 // ==========================================
 
 router.post('/api/billing/cancel', async (c) => {
@@ -335,7 +335,7 @@ router.post('/api/billing/cancel', async (c) => {
 });
 
 // ==========================================
-// WEBHOOK â Razorpay server events (no auth)
+// WEBHOOK — Razorpay server events (no auth)
 // ==========================================
 
 router.post('/api/billing/webhook', async (c) => {
@@ -363,7 +363,6 @@ router.post('/api/billing/webhook', async (c) => {
   console.log(`[Billing] Webhook ${body.event || 'unknown'} -> processed=${result.processed} duplicate=${result.duplicate}`);
   return c.json({ success: result.processed, duplicate: result.duplicate, event: result.event });
 });
-
 
 // ==========================================
 // SERVICE ADDONS (paid optional services, e.g. Email Service Domain)
@@ -612,6 +611,5 @@ router.post('/api/billing/addons/:addonId/verify', async (c) => {
 
   return c.json({ success: true, addon_id: sub.addon_id, status, current_period_end: periodEnd });
 });
-
 
 export default router;
