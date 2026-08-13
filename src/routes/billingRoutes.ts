@@ -364,4 +364,268 @@ router.post('/api/billing/webhook', async (c) => {
   return c.json({ success: result.processed, duplicate: result.duplicate, event: result.event });
 });
 
+// ==========================================
+// SERVICE ADDONS (paid optional services, e.g. Email Service Domain)
+// ==========================================
+
+router.get('/api/billing/addons/:addonId?', async (c) => {
+  if (!c.env.DB) return c.json({ error: 'Database not connected' }, 500);
+  const workspaceId = c.req.header('x-workspace-id');
+  const addonId = c.req.param('addonId');
+
+  try {
+    let addons: any[] = [];
+    if (addonId) {
+      const row: any = await c.env.DB.prepare('SELECT * FROM service_addons WHERE id = ? AND is_active = 1').bind(addonId).first();
+      if (row) addons = [row];
+    } else {
+      const { results } = await c.env.DB.prepare(
+        'SELECT * FROM service_addons WHERE is_active = 1 ORDER BY sort_order ASC'
+      ).all();
+      addons = results || [];
+    }
+
+    // If a workspace is known, attach its active subscription status for each addon
+    let activeSubs: any[] = [];
+    if (workspaceId) {
+      const now = Math.floor(Date.now() / 1000);
+      const { results } = await c.env.DB.prepare(
+        `SELECT * FROM addon_subscriptions
+         WHERE workspace_id = ? AND status = 'active' AND (current_period_end IS NULL OR current_period_end > ?)`
+      ).bind(workspaceId, now).all();
+      activeSubs = results || [];
+    }
+
+    return c.json({
+      addons: addons.map((a: any) => ({
+        ...a,
+        active_subscription: activeSubs.find((s: any) => s.addon_id === a.id) || null,
+      })),
+    });
+  } catch (e: any) {
+    console.error('[Billing] Failed to fetch addons:', e);
+    return c.json({ error: e.message || 'Failed to load addons' }, 500);
+  }
+});
+
+router.post('/api/billing/addons/:addonId/subscribe', async (c) => {
+  const user = c.get('user') as any;
+  const workspaceId = c.req.header('x-workspace-id');
+  const addonId = c.req.param('addonId');
+
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+  if (!user?.id) return c.json({ error: 'Authenticated user required' }, 401);
+  if (!c.env.DB) return c.json({ error: 'Database not connected' }, 500);
+
+  try {
+    // One active email addon at a time per workspace
+    if (addonId.startsWith('email-addon')) {
+      const existing: any = await c.env.DB.prepare(
+        `SELECT * FROM addon_subscriptions
+         WHERE workspace_id = ? AND addon_id LIKE 'email-addon-%' AND status IN ('created', 'active')`
+      ).bind(workspaceId).first();
+      if (existing) {
+        return c.json({
+          error: 'An email add-on subscription already exists for this workspace. Cancel or let it expire before purchasing a different tier.',
+          existing_subscription_id: existing.id,
+        }, 400);
+      }
+    }
+
+    const addon: any = await c.env.DB.prepare('SELECT * FROM service_addons WHERE id = ? AND is_active = 1').bind(addonId).first();
+    if (!addon) return c.json({ error: 'Add-on not found' }, 404);
+
+    // Sync a Razorpay plan for recurring addons
+    if (addon.billing_type === 'recurring' && addon.upfront_price > 0) {
+      const planForSync = {
+        id: addon.id,
+        name: addon.name,
+        description: addon.description || '',
+        upfront_price: addon.upfront_price,
+        billing_type: addon.billing_type,
+        billing_period: addon.billing_period,
+        billing_interval: addon.billing_interval,
+        currency: addon.currency,
+        is_free: 0,
+        is_active: 1,
+        razorpay_plan_id: addon.razorpay_plan_id || null,
+      };
+      try {
+        addon.razorpay_plan_id = await syncRazorpayPlan(c.env, planForSync);
+        if (addon.razorpay_plan_id) {
+          await c.env.DB.prepare('UPDATE service_addons SET razorpay_plan_id = ? WHERE id = ?')
+            .bind(addon.razorpay_plan_id, addon.id).run();
+        }
+      } catch (e: any) {
+        console.error('[Billing] Addon Razorpay plan sync failed:', e);
+      }
+      if (!addon.razorpay_plan_id) {
+        return c.json({ error: 'Payment gateway temporarily unavailable. Try again later.' }, 502);
+      }
+    }
+
+    const keyId = await getRazorpayKeyId(c.env);
+    if (!keyId) {
+      console.error('[Billing] RAZORPAY_KEY_ID missing');
+      return c.json({ error: 'Payment gateway not configured. Contact support.' }, 503);
+    }
+
+    const subId = crypto.randomUUID();
+    try {
+      await c.env.DB.prepare(
+        `INSERT INTO addon_subscriptions
+          (id, workspace_id, addon_id, user_id, billing_type, status, amount, currency, domains_allowed)
+         VALUES (?, ?, ?, ?, ?, 'created', ?, ?, ?)`
+      ).bind(subId, workspaceId, addon.id, user.id, addon.billing_type || 'recurring',
+        addon.upfront_price || 0, addon.currency || 'INR', addon.max_domains || 1).run();
+    } catch (insErr: any) {
+      // Unique partial index idx_addon_sub_active_email enforces one active email add-on per workspace.
+      if (/UNIQUE constraint/i.test(insErr.message)) {
+        return c.json({
+          error: 'An email add-on subscription already exists for this workspace. Please refresh and try again.',
+          code: 'E_ADDON_EXISTS',
+        }, 409);
+      }
+      throw insErr;
+    }
+
+    let checkout: any = {};
+    if (addon.billing_type === 'recurring' && addon.upfront_price > 0) {
+      const rSub = await createRazorpaySubscription(c.env, addon, {
+        workspace_id: workspaceId,
+        addon_id: addon.id,
+        dheetantra_addon_subscription_id: subId,
+      });
+      await c.env.DB.prepare(
+        'UPDATE addon_subscriptions SET razorpay_subscription_id = ? WHERE id = ?'
+      ).bind(rSub.id, subId).run();
+      checkout = { subscription_id: rSub.id };
+    } else {
+      // One-time (or zero-price) addon path
+      const order = await createRazorpayOrder(c.env, addon, subId);
+      await c.env.DB.prepare(
+        'UPDATE addon_subscriptions SET razorpay_order_id = ? WHERE id = ?'
+      ).bind(order.id, subId).run();
+      checkout = { order_id: order.id, amount: razorpayAmount(addon.upfront_price) };
+    }
+
+    return c.json({
+      success: true,
+      key_id: keyId,
+      db_subscription_id: subId,
+      name: addon.name,
+      description: addon.description || '',
+      currency: addon.currency || 'INR',
+      ...checkout,
+      prefill: { email: user.email || '', name: user.name || '' },
+    });
+  } catch (e: any) {
+    console.error('[Billing] Addon subscribe failed:', e);
+    if (e instanceof RazorpayConfigError) return c.json({ error: e.message }, 503);
+    return c.json({ error: e instanceof RazorpayApiError ? e.message : 'Failed to set up add-on checkout.' }, 502);
+  }
+});
+
+router.post('/api/billing/addons/:addonId/verify', async (c) => {
+  const user = c.get('user') as any;
+  const {
+    subscription_id,
+    razorpay_payment_id,
+    razorpay_subscription_id,
+    razorpay_order_id,
+    razorpay_signature,
+  } = await c.req.json();
+
+  if (!subscription_id || !razorpay_payment_id || !razorpay_signature) {
+    return c.json({ error: 'Missing payment details' }, 400);
+  }
+
+  const sub: any = await c.env.DB.prepare(
+    'SELECT * FROM addon_subscriptions WHERE id = ?'
+  ).bind(subscription_id).first();
+  if (!sub) return c.json({ error: 'Add-on subscription not found' }, 404);
+  if (sub.user_id && sub.user_id !== user.id) return c.json({ error: 'Forbidden' }, 403);
+
+  const isRecurring = sub.billing_type === 'recurring';
+  if (isRecurring) {
+    if (!razorpay_subscription_id || razorpay_subscription_id !== sub.razorpay_subscription_id) {
+      return c.json({ error: 'Payment verification failed. Please contact support.' }, 400);
+    }
+  } else {
+    if (!razorpay_order_id || razorpay_order_id !== sub.razorpay_order_id) {
+      return c.json({ error: 'Payment verification failed. Please contact support.' }, 400);
+    }
+  }
+
+  if (!['created', 'authenticated'].includes(sub.status)) {
+    return c.json({ error: 'Payment verification failed. Please contact support.' }, 400);
+  }
+
+  let keySecret = '';
+  try {
+    const creds = await getRazorpayCredentials(c.env);
+    keySecret = creds.keySecret;
+  } catch (e: any) {
+    return c.json({ error: e.message }, 503);
+  }
+
+  const payload = isRecurring
+    ? `${razorpay_payment_id}|${razorpay_subscription_id}`
+    : `${razorpay_order_id}|${razorpay_payment_id}`;
+  const valid = await verifyPaymentSignature(keySecret, payload, razorpay_signature);
+  if (!valid) {
+    console.warn('[Billing] Addon verify signature mismatch', payload);
+    return c.json({ error: 'Payment verification failed. Please contact support.' }, 400);
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  let periodStart = now;
+  let periodEnd: number | null = null;
+  let status = 'active';
+
+  if (isRecurring) {
+    try {
+      const rSub = await fetchRazorpaySubscription(c.env, razorpay_subscription_id);
+      if (rSub?.current_start) periodStart = Number(rSub.current_start);
+      if (rSub?.current_end) periodEnd = Number(rSub.current_end);
+      if (rSub?.status && ['active', 'authenticated'].includes(rSub.status)) status = rSub.status;
+    } catch (e) {
+      console.error('[Billing] Failed to fetch Razorpay addon subscription for verification:', e);
+    }
+  } else {
+    const addon: any = await c.env.DB.prepare('SELECT * FROM service_addons WHERE id = ?').bind(sub.addon_id).first();
+    const recurring = addon?.billing_period || 'monthly';
+    const interval = Number(addon?.billing_interval) || 1;
+    const map: Record<string, number> = { daily: 1, weekly: 7, monthly: 30, yearly: 365 };
+    periodEnd = now + (map[recurring] || 30) * interval * 86400;
+  }
+
+  try {
+    await c.env.DB.prepare(
+      `UPDATE addon_subscriptions
+       SET status = ?, current_period_start = ?, current_period_end = ?, updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`
+    ).bind(status, periodStart, periodEnd, subscription_id).run();
+
+    await c.env.DB.prepare(
+      'INSERT INTO payments (id, workspace_id, subscription_id, razorpay_payment_id, razorpay_order_id, razorpay_subscription_id, amount, currency, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    ).bind(
+      crypto.randomUUID(),
+      sub.workspace_id,
+      subscription_id,
+      razorpay_payment_id,
+      razorpay_order_id || null,
+      razorpay_subscription_id || null,
+      sub.amount,
+      sub.currency || 'INR',
+      'captured'
+    ).run();
+  } catch (dbErr: any) {
+    console.error('[Billing] Addon verify DB write failed:', dbErr);
+    return c.json({ error: 'Payment verified but failed to persist. Please contact support with this payment id.', razorpay_payment_id, code: 'E_VERIFY_PERSIST' }, 500);
+  }
+
+  return c.json({ success: true, addon_id: sub.addon_id, status, current_period_end: periodEnd });
+});
+
 export default router;

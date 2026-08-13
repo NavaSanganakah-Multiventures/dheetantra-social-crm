@@ -644,9 +644,11 @@ admin.get('/domains/pending', async (c) => {
   try {
     const { results } = await c.env.DB.prepare(`
       SELECT d.*, w.name as workspace_name,
-        (SELECT group_concat(u.email) FROM workspace_members wm JOIN users u ON wm.user_id = u.id WHERE wm.workspace_id = d.workspace_id) as owner_emails
+        (SELECT group_concat(u.email) FROM workspace_members wm JOIN users u ON wm.user_id = u.id WHERE wm.workspace_id = d.workspace_id) as owner_emails,
+        s.status as addon_status, s.current_period_end as addon_period_end
       FROM domains d
       JOIN workspaces w ON d.workspace_id = w.id
+      LEFT JOIN addon_subscriptions s ON d.subscription_id = s.id
       WHERE d.review_status = 'pending_review'
       ORDER BY d.created_at ASC
     `).all();
@@ -667,6 +669,38 @@ admin.post('/domains/:id/approve', async (c) => {
     if (!row) return c.json({ error: 'Domain not found' }, 404);
     if (row.review_status !== 'pending_review') {
       return c.json({ error: `Domain is already ${row.review_status}` }, 400);
+    }
+    if (row.billing_status !== 'paid') {
+      return c.json({
+        error: 'Cannot approve: email add-on payment not verified for this domain.',
+        code: 'E_DOMAIN_NOT_PAID',
+        billing_status: row.billing_status,
+      }, 400);
+    }
+
+    // Verify the linked addon subscription is still active before consuming a slot.
+    if (row.subscription_id) {
+      const addon: any = await c.env.DB.prepare(
+        'SELECT * FROM addon_subscriptions WHERE id = ? AND status = \'active\''
+      ).bind(row.subscription_id).first();
+      if (!addon) {
+        return c.json({
+          error: 'Linked email add-on subscription is no longer active. Ask customer to renew.',
+          code: 'E_ADDON_INACTIVE',
+        }, 400);
+      }
+      // Enforce the add-on's domain quota before consuming a slot.
+      if (addon.domains_allowed != null && Number(addon.domains_used) >= Number(addon.domains_allowed)) {
+        return c.json({
+          error: 'Email add-on domain quota reached for this workspace.',
+          code: 'E_ADDON_QUOTA',
+          domains_used: addon.domains_used,
+          domains_allowed: addon.domains_allowed,
+        }, 400);
+      }
+      await c.env.DB.prepare(
+        'UPDATE addon_subscriptions SET domains_used = domains_used + 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
+      ).bind(row.subscription_id).run();
     }
 
     await c.env.DB.prepare("UPDATE domains SET review_status = 'approved' WHERE id = ?").bind(id).run();

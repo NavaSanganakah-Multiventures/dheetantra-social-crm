@@ -511,3 +511,8 @@ CREATE TABLE IF NOT EXISTS addon_subscriptions (
   FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
   FOREIGN KEY (addon_id) REFERENCES service_addons(id)
 );
+
+CREATE INDEX IF NOT EXISTS idx_domains_billing ON domains(workspace_id, billing_status, review_status);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_addon_sub_active_email ON addon_subscriptions(workspace_id) WHERE addon_id LIKE 'email-addon-%' AND status IN ('created','active');
+-- billing-gated domain review support (idx_domains_billing)
