@@ -55,8 +55,28 @@ router.post('/api/domains', requireRole('owner', 'admin'), async (c) => {
     return c.json({ error: 'Invalid default mailbox name. Use letters, numbers, dots, dashes, underscores or plus.' }, 400);
   }
 
+  const safeForwardTo = forwardTo ? String(forwardTo).trim().toLowerCase() : null;
+  if (safeForwardTo && !EMAIL_REGEX.test(safeForwardTo)) {
+    return c.json({ error: 'Invalid forward-to email address.' }, 400);
+  }
+
   // Email service requires an active paid add-on subscription.
-  const addon = await getActiveEmailAddon(c.env, workspaceId);
+  let addon: any;
+  try {
+    addon = await getActiveEmailAddon(c.env, workspaceId);
+  } catch (e: any) {
+    // Most likely cause: the email-gating migration (0019_saas_email_gating)
+    // has not been applied to the D1 database, so the addon_subscriptions
+    // table is missing. Surface a clear, actionable JSON error instead of an
+    // unhandled non-JSON 500 (which the UI showed as an opaque parse failure).
+    console.error('[Email] Addon subscription lookup failed:', e);
+    return c.json({
+      error: 'Email add-on billing is not initialized on the database. Run database migrations and redeploy.',
+      code: 'E_EMAIL_ADDON_UNAVAILABLE',
+      action: 'run_migrations',
+      detail: String(e?.message || e),
+    }, 500);
+  }
   if (!addon) {
     return c.json({
       error: 'Email service is a paid add-on. Purchase an email add-on plan first.',
@@ -74,13 +94,17 @@ router.post('/api/domains', requireRole('owner', 'admin'), async (c) => {
     }, 400);
   }
 
-  // Daily rate limit + legacy plan-based max domains check (kept as defense-in-depth)
+  // Daily rate limit
   const addRate = await checkDomainAddRateLimit(c.env, workspaceId);
   if (!addRate.ok) return c.json({ error: addRate.error, code: 'E_DOMAIN_RATE_LIMIT' }, 429);
 
+  // The email add-on is the authoritative domain entitlement. The legacy
+  // plan-based max_domains defaults to 1 and must NOT block an add-on that
+  // allows more domains (e.g. add-on=5 vs plan default=1). Take the higher.
   const limits = await getWorkspacePlanLimits(c.env, workspaceId);
-  if (domainCount >= limits.max_domains) {
-    return c.json({ error: `Domain limit reached for your plan (max ${limits.max_domains}). Upgrade to add more domains.`, code: 'E_DOMAIN_LIMIT' }, 400);
+  const effectiveMaxDomains = Math.max(addon.domains_allowed || 0, limits.max_domains || 0);
+  if (domainCount >= effectiveMaxDomains) {
+    return c.json({ error: `Domain limit reached (max ${effectiveMaxDomains}). Upgrade to add more domains.`, code: 'E_DOMAIN_LIMIT' }, 400);
   }
 
   try {
@@ -99,7 +123,7 @@ router.post('/api/domains', requireRole('owner', 'admin'), async (c) => {
     const emailAddress = `${cleanPrefix}@${clean}`;
     await c.env.DB.prepare(
       'INSERT INTO domain_emails (id, domain_id, local_part, email_address, forward_to, is_default) VALUES (?, ?, ?, ?, ?, 1)'
-    ).bind(emailId, id, cleanPrefix, emailAddress, forwardTo || null).run();
+    ).bind(emailId, id, cleanPrefix, emailAddress, safeForwardTo).run();
 
     const row: any = await c.env.DB.prepare('SELECT * FROM domains WHERE id = ?').bind(id).first();
     return c.json({
@@ -174,7 +198,7 @@ router.post('/api/domains/:id/verify', async (c) => {
       success: true,
       domain: parsed,
       pending: true,
-      message: 'Cloudflare à¤à¤­à¥ nameserver verify à¤à¤° à¤°à¤¹à¤¾ à¤¹à¥à¥¤ à¤¬à¤¦à¤²à¤¾à¤µ à¤à¥ à¤¬à¤¾à¤¦ active à¤¹à¥à¤¨à¥ à¤®à¥à¤ à¤à¥à¤ à¤®à¤¿à¤¨à¤ à¤¸à¥ à¤à¥à¤ à¤à¤à¤à¥ à¤²à¤ à¤¸à¤à¤¤à¥ à¤¹à¥à¤ â 10-15 à¤®à¤¿à¤¨à¤ à¤¬à¤¾à¤¦ à¤«à¤¿à¤° à¤à¤¾à¤à¤à¥à¤à¥¤',
+      message: 'Cloudflare अभी nameserver verify कर रहा है। बदलाव के बाद active होने में कुछ मिनट से कुछ घंटे लग सकते हैं — 10-15 मिनट बाद फिर जांचें।',
     });
   }
   return c.json({ success: true, domain: parsed });
@@ -197,7 +221,7 @@ router.delete('/api/domains/:id', requireRole('owner', 'admin'), async (c) => {
     // rate-limit, 5xx, permission, missing credentials). The row is kept â
     // a live zone must never be orphaned â so the user can fix the cause
     // (e.g. remove the zone in Cloudflare) and retry.
-    return c.json({ success: false, error: 'Cloudflare cleanup failed â domain kept for retry', errors }, 502);
+    return c.json({ success: false, error: 'Cloudflare cleanup failed — domain kept for retry', errors }, 502);
   }
   // Deleted. errors may still contain warnings (rule already gone, missing
   // credentials) â surface them but the domain is removed.
@@ -307,7 +331,7 @@ router.post('/api/email/send', async (c) => {
   const quota = await checkEmailPlanQuota(c.env, workspaceId);
   if (!quota.ok) return c.json({ error: quota.error, code: 'E_QUOTA_EXCEEDED' }, 429);
 
-  const { resolveFromAddress, sendEmail, logEmailSend, renderTemplate, stripHtml } = await import('../services/emailService');
+  const { resolveFromAddress, sendEmail, logEmailSend, renderTemplate, stripHtml, storeOutboundEmail } = await import('../services/emailService');
 
   let resolved: any;
   try {
@@ -343,6 +367,7 @@ router.post('/api/email/send', async (c) => {
       });
       await c.env.DB.prepare('UPDATE domains SET sending_onboarded = 1 WHERE id = ?').bind(resolved.domain.id).run();
       await incrementEmailUsage(c.env, workspaceId, quota.isOverage);
+      await storeOutboundEmail(c.env, workspaceId, to, subject, bodyText, bodyHtml);
     } catch (bookkeepingErr) {
       console.error('[Email] Send bookkeeping failed (email was delivered):', bookkeepingErr);
     }
@@ -491,6 +516,7 @@ router.get('/api/email/diagnostics', async (c) => {
       setup_mode: d.setup_mode,
       status: d.status,
       review_status: d.review_status,
+      zone_id: d.zone_id,
       has_zone_id: !!d.zone_id,
       has_routing_rule_id: !!d.routing_rule_id,
       sending_onboarded: !!d.sending_onboarded,
@@ -709,7 +735,7 @@ router.post('/api/email/inbox/conversations/:id/reply', async (c) => {
     if (!row) return c.json({ error: 'Conversation not found' }, 404);
     const toEmail = row.sender_email;
 
-    // 2. Determine mailbox to send from (original recipient)
+    // 2. Determine mailbox to send from (original recipient) + original Message-Id
     const firstIncoming: any = await c.env.DB.prepare(
       `SELECT m.media_url FROM messages m
        WHERE m.conversation_id = ? AND m.sender_type = 'contact'
@@ -718,12 +744,17 @@ router.post('/api/email/inbox/conversations/:id/reply', async (c) => {
     const firstMedia = parseEmailMediaJson(firstIncoming?.media_url);
     let fromEmail = firstMedia.to || '';
     let originalSubject = firstMedia.subject || '';
+    const originalMessageId = firstMedia.messageId || '';
 
-    if (!fromEmail) {
-      const { resolveFromAddress } = await import('../services/emailService');
-      const resolved = await resolveFromAddress(c.env, workspaceId, null);
-      fromEmail = resolved.fromEmail;
+    const { resolveFromAddress, sendEmail, logEmailSend } = await import('../services/emailService');
+
+    let resolved: any;
+    try {
+      resolved = await resolveFromAddress(c.env, workspaceId, fromEmail || null);
+    } catch (e: any) {
+      return c.json({ error: e.message, code: e.code || 'E_FROM_INVALID' }, e.status || 400);
     }
+    fromEmail = resolved.fromEmail;
 
     const rate = await checkEmailRateLimit(c.env, workspaceId);
     if (!rate.ok) return c.json({ error: rate.error }, 429);
@@ -731,35 +762,24 @@ router.post('/api/email/inbox/conversations/:id/reply', async (c) => {
     const quota = await checkEmailPlanQuota(c.env, workspaceId);
     if (!quota.ok) return c.json({ error: quota.error, code: 'E_QUOTA_EXCEEDED' }, 429);
 
-    // Block replies when the from-domain is auto-suspended for abuse.
-    // Checked after the rate/quota gates so bursts that will 429 anyway do
-    // not pay the extra DB + KV round trips.
-    const fromDomainPart = fromEmail.split('@')[1] || '';
-    if (fromDomainPart) {
-      const fromDomainRow: any = await c.env.DB.prepare(
-        'SELECT id, status FROM domains WHERE workspace_id = ? AND domain_name = ?'
-      ).bind(workspaceId, fromDomainPart).first();
-      if (fromDomainRow) {
-        if (fromDomainRow.status === 'suspended') {
-          return c.json({ error: 'Domain suspended due to high send failures. Contact support to restore it.', code: 'E_DOMAIN_SUSPENDED' }, 403);
-        }
-        const abuse = await checkDomainAbuse(c.env, fromDomainRow.id, c.executionCtx);
-        if (!abuse.ok) return c.json({ error: abuse.message, code: 'E_DOMAIN_SUSPENDED' }, 403);
-      }
-    }
+    const abuse = await checkDomainAbuse(c.env, resolved.domain.id, c.executionCtx);
+    if (!abuse.ok) return c.json({ error: abuse.message, code: 'E_DOMAIN_SUSPENDED' }, 403);
 
     const subject = originalSubject.startsWith('Re:') ? originalSubject : `Re: ${originalSubject || 'Your email'}`;
+    const inReplyTo = originalMessageId || undefined;
+    const references = originalMessageId || undefined;
 
-    const { sendEmail } = await import('../services/emailService');
-    await sendEmail(c.env, {
-      to: toEmail,
-      from: fromEmail,
-      subject,
-      html: html || '',
-      text: text || '',
-    });
+    try {
+      await sendEmail(c.env, { to: toEmail, from: fromEmail, subject, html: html || '', text: text || '', inReplyTo, references });
+    } catch (e: any) {
+      try { await logEmailSend(c.env, { workspaceId, domainId: resolved.domain.id, fromEmail, toEmail, subject, status: 'failed', errorCode: e.code, errorMessage: e.message }); } catch (logErr) { console.error('[Email] Failed to log reply error:', logErr); }
+      return c.json({ success: false, error: e.message || 'Reply failed', code: e.code || 'E_REPLY_FAILED' }, e.status || 500);
+    }
 
-    await incrementEmailUsage(c.env, workspaceId, quota.isOverage);
+    try {
+      await logEmailSend(c.env, { workspaceId, domainId: resolved.domain.id, fromEmail, toEmail, subject, status: 'sent' });
+      await incrementEmailUsage(c.env, workspaceId, quota.isOverage);
+    } catch (bookkeepingErr) { console.error('[Email] Reply bookkeeping failed (email was delivered):', bookkeepingErr); }
 
     // 3. Store the reply in messages for a complete thread view
     const replyId = crypto.randomUUID();
