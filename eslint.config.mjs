@@ -1,16 +1,22 @@
-import { defineConfig } from "eslint/config";
-import next from "eslint-config-next";
-import path from "node:path";
+import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import next from "eslint-config-next";
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __dirname = dirname(__filename);
 
-export default defineConfig([
-    {
-        ignores: [".wrangler/**", "out/**", ".next/**", "dist/**"]
-    },
-    {
-        extends: [...next],
-    }
-]);
+export default [
+  {
+    ignores: [
+      ".wrangler/**",
+      "out/**",
+      ".next/**",
+      "dist/**",
+      "node_modules/**",
+      "flutter/**",
+      ".kilo/**",
+      "db_migrations/**",
+    ],
+  },
+  ...next,
+];
