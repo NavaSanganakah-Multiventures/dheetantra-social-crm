@@ -5,7 +5,8 @@ import next from "eslint-config-next";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-export default [
+/** @type {import('eslint').Linter.Config[]} */
+const config = [
   {
     ignores: [
       ".wrangler/**",
@@ -16,7 +17,12 @@ export default [
       "flutter/**",
       ".kilo/**",
       "db_migrations/**",
+      "public/**",
+      "hooks/**",
+      "assets/**",
     ],
   },
   ...next,
 ];
+
+export default config;
