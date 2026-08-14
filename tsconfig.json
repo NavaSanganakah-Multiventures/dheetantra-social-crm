@@ -37,9 +37,6 @@
     ".next/dev/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules",
-    "src",
-    "workers",
-    "db_migrations"
+    "node_modules"
   ]
 }

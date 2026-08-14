@@ -45,10 +45,10 @@ router.post('/api/auth/send-otp', async (c) => {
       const isRegistered = existingUser ? existingUser.is_registered === 1 : false;
 
       if (type === 'login' && !isRegistered) {
-        return c.json({ error: 'अमान्य क्रेडेंशियल' }, 401);
+        return c.json({ error: 'à¤à¤®à¤¾à¤¨à¥à¤¯ à¤à¥à¤°à¥à¤¡à¥à¤à¤¶à¤¿à¤¯à¤²' }, 401);
       }
       if (type === 'register' && isRegistered) {
-        return c.json({ error: 'यह ईमेल पहले से पंजीकृत है।' }, 400);
+        return c.json({ error: 'à¤¯à¤¹ à¤à¤®à¥à¤² à¤ªà¤¹à¤²à¥ à¤¸à¥ à¤ªà¤à¤à¥à¤à¥à¤¤ à¤¹à¥à¥¤' }, 400);
       }
 
       // If registering and user doesn't exist, create user with is_registered = 0
@@ -71,7 +71,7 @@ router.post('/api/auth/send-otp', async (c) => {
     const cooldownKey = `OTP_COOLDOWN:${email}`;
     const inCooldown = await c.env.SECRETS_KV.get(cooldownKey);
     if (inCooldown) {
-      return c.json({ error: 'कृपया एक और OTP का अनुरोध करने से पहले 60 सेकंड प्रतीक्षा करें।' }, 429);
+      return c.json({ error: 'à¤à¥à¤ªà¤¯à¤¾ à¤à¤ à¤à¤° OTP à¤à¤¾ à¤à¤¨à¥à¤°à¥à¤§ à¤à¤°à¤¨à¥ à¤¸à¥ à¤ªà¤¹à¤²à¥ 60 à¤¸à¥à¤à¤à¤¡ à¤ªà¥à¤°à¤¤à¥à¤à¥à¤·à¤¾ à¤à¤°à¥à¤à¥¤' }, 429);
     }
     await c.env.SECRETS_KV.put(cooldownKey, '1', { expirationTtl: 60 });
   }
@@ -120,7 +120,7 @@ router.post('/api/auth/send-otp', async (c) => {
     }
   } else {
     // Fallback for local development
-    console.log(`\n\n=== 🔐 OTP FOR ${email} (${type}) ===\n${otp}\n========================\n\n`);
+    console.log(`\n\n=== ð OTP FOR ${email} (${type}) ===\n${otp}\n========================\n\n`);
   }
 
   return c.json({ success: true, message: 'OTP Sent' });
@@ -213,7 +213,7 @@ router.post('/api/auth/verify-otp', async (c) => {
       const attempts = parseInt(await c.env.SECRETS_KV.get(attemptKey) || '0', 10) + 1;
       await c.env.SECRETS_KV.put(attemptKey, String(attempts), { expirationTtl: 900 });
     }
-    return c.json({ error: 'अमान्य क्रेडेंशियल' }, 401);
+    return c.json({ error: 'à¤à¤®à¤¾à¤¨à¥à¤¯ à¤à¥à¤°à¥à¤¡à¥à¤à¤¶à¤¿à¤¯à¤²' }, 401);
   }
 
   // Reset attempt counter on success
@@ -223,6 +223,8 @@ router.post('/api/auth/verify-otp', async (c) => {
 
   let user: any = { id: crypto.randomUUID(), email, name: '', timezone: 'Asia/Kolkata' };
   let defaultWorkspaceId = crypto.randomUUID();
+
+  const freePlanId = c.env.DB ? await getFreePlanId(c.env) : null;
 
   if (c.env.DB) {
     try {

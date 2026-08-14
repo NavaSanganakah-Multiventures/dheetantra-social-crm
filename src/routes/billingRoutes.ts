@@ -24,10 +24,10 @@ import {
   periodDays,
 } from '../services/subscriptionService';
 
-const router = new Hono<{ Bindings: Env }>();
+const router = new Hono<{ Bindings: Env; Variables: { user: any; workspaceRole?: string } }>();
 
 // ==========================================
-// SUBSCRIBE — create a Razorpay order or
+// SUBSCRIBE â create a Razorpay order or
 // subscription for the chosen plan
 // ==========================================
 
@@ -47,7 +47,7 @@ router.post('/api/billing/subscribe', async (c) => {
   const existing = await getWorkspaceSubscription(c.env, workspaceId);
   if (existing) {
     return c.json({
-      error: 'आपके workspace पर पहले से एक active subscription है। पहले उसे cancel करें या dashboard में देखें।',
+      error: 'à¤à¤ªà¤à¥ workspace à¤ªà¤° à¤ªà¤¹à¤²à¥ à¤¸à¥ à¤à¤ active subscription à¤¹à¥à¥¤ à¤ªà¤¹à¤²à¥ à¤à¤¸à¥ cancel à¤à¤°à¥à¤ à¤¯à¤¾ dashboard à¤®à¥à¤ à¤¦à¥à¤à¥à¤à¥¤',
       cancelExisting: true,
       existing: { subscription_id: existing.id, status: existing.status },
     }, 400);
@@ -135,7 +135,7 @@ router.post('/api/billing/subscribe', async (c) => {
 });
 
 // ==========================================
-// VERIFY — confirm the checkout payment
+// VERIFY â confirm the checkout payment
 // server-side with signature validation
 // ==========================================
 
@@ -236,7 +236,7 @@ router.post('/api/billing/verify', async (c) => {
 });
 
 // ==========================================
-// SUBSCRIPTION STATUS — current plan + sub
+// SUBSCRIPTION STATUS â current plan + sub
 // ==========================================
 
 router.get('/api/billing/subscription', async (c) => {
@@ -276,7 +276,7 @@ router.get('/api/billing/subscription', async (c) => {
 });
 
 // ==========================================
-// PAYMENTS — invoice history
+// PAYMENTS â invoice history
 // ==========================================
 
 router.get('/api/billing/payments', async (c) => {
@@ -290,7 +290,7 @@ router.get('/api/billing/payments', async (c) => {
 });
 
 // ==========================================
-// CANCEL — owner can cancel (at period end)
+// CANCEL â owner can cancel (at period end)
 // ==========================================
 
 router.post('/api/billing/cancel', async (c) => {
@@ -335,7 +335,7 @@ router.post('/api/billing/cancel', async (c) => {
 });
 
 // ==========================================
-// WEBHOOK — Razorpay server events (no auth)
+// WEBHOOK â Razorpay server events (no auth)
 // ==========================================
 
 router.post('/api/billing/webhook', async (c) => {
