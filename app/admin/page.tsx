@@ -1918,6 +1918,55 @@ export default function AdminDashboard() {
                 </label>
               </div>
 
+
+              <div className="space-y-3 pt-2 border-t border-surface-800">
+                <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider">ईमेल लिमिट्स (Plan Email Limits)</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] text-surface-400 mb-1">Monthly Email Limit</label>
+                    <input
+                      type="number"
+                      min="0"
+                      placeholder="100"
+                      value={planForm.limits.email_monthly_limit}
+                      onChange={e => setPlanForm(prev => ({ ...prev, limits: { ...prev.limits, email_monthly_limit: e.target.value } }))}
+                      className="w-full px-3 py-2 bg-surface-950 border border-surface-800 rounded-xl text-xs text-white focus:outline-none focus:border-primary-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-surface-400 mb-1">Included Email Domains</label>
+                    <input
+                      type="number"
+                      min="0"
+                      placeholder="1"
+                      value={planForm.limits.max_domains}
+                      onChange={e => setPlanForm(prev => ({ ...prev, limits: { ...prev.limits, max_domains: e.target.value } }))}
+                      className="w-full px-3 py-2 bg-surface-950 border border-surface-800 rounded-xl text-xs text-white focus:outline-none focus:border-primary-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-surface-400 mb-1">Max Mailboxes / Domain</label>
+                    <input
+                      type="number"
+                      min="0"
+                      placeholder="3"
+                      value={planForm.limits.max_mailboxes_per_domain}
+                      onChange={e => setPlanForm(prev => ({ ...prev, limits: { ...prev.limits, max_mailboxes_per_domain: e.target.value } }))}
+                      className="w-full px-3 py-2 bg-surface-950 border border-surface-800 rounded-xl text-xs text-white focus:outline-none focus:border-primary-500"
+                    />
+                  </div>
+                </div>
+                <label className="flex items-center gap-2 text-xs text-surface-300 font-medium cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={planForm.limits.allow_email_send === '1'}
+                    onChange={e => setPlanForm(prev => ({ ...prev, limits: { ...prev.limits, allow_email_send: e.target.checked ? '1' : '0' } }))}
+                    className="rounded bg-surface-950 border-surface-800 text-primary-600 focus:ring-0 w-4 h-4"
+                  />
+                  Email Sending Enabled
+                </label>
+              </div>
+
 <div className="space-y-2">
                 <div className="flex justify-between items-center mb-1">
                   <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider">सुविधाएँ (Features)</label>
