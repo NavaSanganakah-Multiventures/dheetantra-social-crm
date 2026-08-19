@@ -470,7 +470,23 @@ export default function AdminDashboard() {
     }
   };
 
-  const deletePlan = async (id: string) => {
+  const diagnoseDomain = async (id: string) => {
+    try {
+      const res = await fetch(`/api/admin/domains/${id}/diagnose`, { method: 'POST' });
+      const data: any = await res.json();
+      if (res.ok && data.success) {
+        const msg = data.result?.after?.error_message || `status: ${data.result?.after?.status || 'unknown'}`;
+        addNotification(`Diagnose: ${msg}`);
+        loadDomains();
+      } else {
+        addNotification(data.error || 'Diagnose failed', 'error');
+      }
+    } catch {
+      addNotification('Diagnose request failed', 'error');
+    }
+  };
+
+const deletePlan = async (id: string) => {
     if (!confirm('क्या आप वाकई इस प्लान को हटाना चाहते हैं?')) return;
     try {
       const res = await fetch(`/api/admin/plans/${id}`, { method: 'DELETE' });
@@ -1288,6 +1304,10 @@ export default function AdminDashboard() {
                                 </span>
                               </td>
                               <td className="px-6 py-4 text-surface-500">{formatAdminDate(d.created_at)}</td>
+                              <td className="px-6 py-4 max-w-[180px]">
+                                {d.error_message && <p className="text-[10px] text-rose-500 truncate" title={d.error_message}>{d.error_message}</p>}
+                                {d.review_status === 'approved' && d.status !== 'active' && <button onClick={() => diagnoseDomain(d.id)} className="text-[10px] text-primary-400 hover:text-primary-300 mt-1">Diagnose / Retry</button>}
+                              </td>
                               <td className="px-6 py-4 text-right">
                                 {d.review_status === 'pending_review' ? (
                                   <div className="flex items-center justify-end gap-2">
