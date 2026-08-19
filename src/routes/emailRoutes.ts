@@ -21,33 +21,24 @@ async function getActiveEmailAddon(env: any, workspaceId: string): Promise<any |
   ).bind(workspaceId, now).first();
   if (subscription) return subscription;
 
-  // Fall back to plan-based email add-on entitlement. Some base plans include
-  // a number of email domains without a separate paid add-on subscription.
-  const planRow: any = await env.DB.prepare(
-    `SELECT p.limits_json FROM workspaces w
-       LEFT JOIN plans p ON p.id = w.plan_id
-       WHERE w.id = ?`
-  ).bind(workspaceId).first();
-  if (planRow?.limits_json) {
-    try {
-      const limits = JSON.parse(planRow.limits_json);
-      const emailAddon = limits?.email_addon;
-      if (emailAddon && (emailAddon.included === true || emailAddon.included === 1)) {
-        return {
-          id: 'plan-email-addon',
-          workspace_id: workspaceId,
-          addon_id: 'email-addon-plan',
-          status: 'active',
-          domains_allowed: Math.max(1, Number(emailAddon.max_domains) || 1),
-          current_period_end: null,
-        };
-      }
-    } catch { /* ignore malformed limits_json */ }
+  // Fall back to plan-based limits. Every non-trivial plan already encodes
+  // how many email domains it includes via limits_json.max_domains. This lets
+  // a workspace add domains immediately after admin assigns a plan or a paid
+  // subscription activates, without forcing a separate add-on purchase.
+  const { getWorkspacePlanLimits } = await import('../shared');
+  const limits = await getWorkspacePlanLimits(env, workspaceId);
+  if ((limits.max_domains || 0) > 0) {
+    return {
+      id: 'plan-email-addon',
+      workspace_id: workspaceId,
+      addon_id: 'email-addon-plan',
+      status: 'active',
+      domains_allowed: limits.max_domains,
+      current_period_end: null,
+    };
   }
   return null;
-}
-
-async function countEmailDomains(env: any, workspaceId: string): Promise<number> {
+}async function countEmailDomains(env: any, workspaceId: string): Promise<number> {
   const row: any = await env.DB.prepare(
     'SELECT COUNT(*) as count FROM domains WHERE workspace_id = ?'
   ).bind(workspaceId).first();
