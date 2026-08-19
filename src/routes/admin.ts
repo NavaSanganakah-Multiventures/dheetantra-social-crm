@@ -1,56 +1,9 @@
 /// <reference path="../worker-env.d.ts" />
 import { Hono } from 'hono';
-import { getCookie } from 'hono/co
-
-admin.post('/domains/:id/diagnose', async (c) => {
-  const isAdmin = await verifyAdmin(c);
-  if (!isAdmin) return c.json({ error: 'Unauthorized' }, 403);
-  if (!c.env.DB) return c.json({ error: 'Database not connected' }, 500);
-
-  try {
-    const id = c.req.param('id');
-    const domain: any = await c.env.DB.prepare('SELECT * FROM domains WHERE id = ?').bind(id).first();
-    if (!domain) return c.json({ error: 'Domain not found' }, 404);
-    if (domain.review_status !== 'approved') {
-      return c.json({ success: false, error: 'Domain not approved yet' });
-    }
-
-    const result: any = {
-      before: {
-        status: domain.status,
-        zone_id: domain.zone_id,
-        routing_rule_id: domain.routing_rule_id,
-        error_message: domain.error_message,
-      },
-      onboarding: null,
-    };
-
-    try {
-      const { onboardDomain } = await import('../services/emailService');
-      const onboardResult = await onboardDomain(c.env, domain);
-      result.onboarding = { ok: true, status: onboardResult?.status || 'unknown' };
-    } catch (e: any) {
-      result.onboarding = { ok: false, error: e.message };
-    }
-
-    const fresh: any = await c.env.DB.prepare('SELECT * FROM domains WHERE id = ?').bind(id).first();
-    result.after = {
-      status: fresh.status,
-      zone_id: fresh.zone_id,
-      routing_rule_id: fresh.routing_rule_id,
-      error_message: fresh.error_message,
-    };
-
-    return c.json({ success: true, result });
-  } catch (err: any) {
-    return c.json({ error: err.message }, 500);
-  }
-});
-okie';
+import { getCookie } from 'hono/cookie';
 import { Env } from '../types';
 
 const admin = new Hono<{ Bindings: Env }>();
-
 // Helper function to verify admin permissions
 async function verifyAdmin(c: any): Promise<{ user: any } | null> {
   const sessionId = getCookie(c, 'auth_session');
@@ -918,6 +871,51 @@ admin.post('/kv-copy', async (c) => {
     });
   } catch (err: any) {
     console.error('[Admin] KV copy error:', err);
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+admin.post('/domains/:id/diagnose', async (c) => {
+  const isAdmin = await verifyAdmin(c);
+  if (!isAdmin) return c.json({ error: 'Unauthorized' }, 403);
+  if (!c.env.DB) return c.json({ error: 'Database not connected' }, 500);
+
+  try {
+    const id = c.req.param('id');
+    const domain: any = await c.env.DB.prepare('SELECT * FROM domains WHERE id = ?').bind(id).first();
+    if (!domain) return c.json({ error: 'Domain not found' }, 404);
+    if (domain.review_status !== 'approved') {
+      return c.json({ success: false, error: 'Domain not approved yet' });
+    }
+
+    const result: any = {
+      before: {
+        status: domain.status,
+        zone_id: domain.zone_id,
+        routing_rule_id: domain.routing_rule_id,
+        error_message: domain.error_message,
+      },
+      onboarding: null,
+    };
+
+    try {
+      const { onboardDomain } = await import('../services/emailService');
+      const onboardResult = await onboardDomain(c.env, domain);
+      result.onboarding = { ok: true, status: onboardResult?.status || 'unknown' };
+    } catch (e: any) {
+      result.onboarding = { ok: false, error: e.message };
+    }
+
+    const fresh: any = await c.env.DB.prepare('SELECT * FROM domains WHERE id = ?').bind(id).first();
+    result.after = {
+      status: fresh.status,
+      zone_id: fresh.zone_id,
+      routing_rule_id: fresh.routing_rule_id,
+      error_message: fresh.error_message,
+    };
+
+    return c.json({ success: true, result });
+  } catch (err: any) {
     return c.json({ error: err.message }, 500);
   }
 });
