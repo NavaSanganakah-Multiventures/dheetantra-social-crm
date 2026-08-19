@@ -93,17 +93,6 @@ export default function EmailServiceView() {
   const [loadingDomains, setLoadingDomains] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [emailStatus, setEmailStatus] = useState<{ entitlement: string | null; domains_allowed: number; domains_used: number; can_add_domain: boolean; email_enabled: boolean } | null>(null);
-  const [emailStatus, setEmailStatus] = useState<{ entitlement: string | null; domains_allowed: number; domains_used: number; can_add_domain: boolean; email_enabled: boolean } | null>(null);
-
-  const loadEmailStatus = useCallback(async () => {
-    try {
-      const res = await fetch('/api/billing/email-status', { headers: getHeaders() });
-      const data: any = await res.json();
-      if (res.ok) setEmailStatus(data);
-    } catch (e) {
-      console.error('Failed to load email status', e);
-    }
-  }, []);
 
   const loadEmailStatus = useCallback(async () => {
     try {
