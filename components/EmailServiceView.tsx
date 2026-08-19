@@ -963,11 +963,12 @@ function AddDomainModal({ emailStatus, onClose, onAdded }: { emailStatus: { enti
               </button>
               <button
                 type="button"
-                onClick={() => setSetupMode('cname')}
+                disabled={true}
+                onClick={() => {}}
                 className={`p-3 rounded-xl border text-left transition-colors ${setupMode === 'cname' ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20' : 'border-surface-200 dark:border-surface-700 hover:border-surface-300'}`}
               >
                 <span className="block text-sm font-semibold text-surface-900 dark:text-white">CNAME सेटअप</span>
-                <span className="block text-xs text-surface-500 dark:text-surface-400 mt-1">DNS records खुद जोड़ें (Business+ plan)</span>
+                <span className="block text-xs text-surface-500 dark:text-surface-400 mt-1">Email Routing के लिए उपलब्ध नहीं — केवल Full Setup चुनें</span>
               </button>
             </div>
           </div>
