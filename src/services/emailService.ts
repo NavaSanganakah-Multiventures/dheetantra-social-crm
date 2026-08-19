@@ -767,6 +767,7 @@ export async function handleIncomingEmail(message: any, env: any, ctx: any) {
       console.log(`[Email] No domain registered for ${recipient.domain}; dropping`);
       return;
     }
+    console.log(`[Email] Domain found: ${recipient.domain} status=${domainRow.status} review=${domainRow.review_status} workspace=${domainRow.workspace_id}`);
     // Abuse-suspended and admin-rejected domains must stay that way: a delivered
     // email must never silently lift the suspension or override admin review.
     // NOTE: admin rejection is stored as review_status='rejected' with
@@ -830,10 +831,20 @@ export async function handleIncomingEmail(message: any, env: any, ctx: any) {
     ).bind(workspaceId, senderEmail).first();
     if (!contact) {
       const contactId = crypto.randomUUID();
-      await env.DB.prepare(
-        "INSERT INTO contacts (id, workspace_id, platform, platform_contact_id, name, email) VALUES (?, ?, ?, ?, ?, ?)"
-      ).bind(contactId, workspaceId, 'email', senderEmail, parsed.fromName || senderEmail, senderEmail).run();
-      contact = { id: contactId };
+      try {
+        await env.DB.prepare(
+          "INSERT INTO contacts (id, workspace_id, platform, platform_contact_id, name, email) VALUES (?, ?, ?, ?, ?, ?)"
+        ).bind(contactId, workspaceId, 'email', senderEmail, parsed.fromName || senderEmail, senderEmail).run();
+        contact = { id: contactId };
+      } catch (insertErr: any) {
+        if (/UNIQUE constraint/i.test(insertErr.message)) {
+          contact = await env.DB.prepare(
+            "SELECT * FROM contacts WHERE workspace_id = ? AND platform = 'email' AND platform_contact_id = ?"
+          ).bind(workspaceId, senderEmail).first();
+        } else {
+          throw insertErr;
+        }
+      }
     }
 
     // Conversation
@@ -1005,12 +1016,21 @@ async function sendForward(env: any, fromOnboarded: string, forwardTo: string, o
 function parseRecipient(to: string | undefined): { full: string; local: string; domain: string } | null {
   const raw = String(to || '').trim();
   if (!raw) return null;
-  const first = raw.split(',')[0].trim().replace(/^[^<]*<([^>]+)>$/, '$1').toLowerCase();
+  let first = raw.split(',')[0].trim();
+  const angleMatch = first.match(/<([^>]+)>/);
+  if (angleMatch) first = angleMatch[1];
+  first = first.toLowerCase();
   const at = first.lastIndexOf('@');
-  if (at <= 0 || at === first.length - 1) return null;
+  if (at <= 0 || at === first.length - 1) {
+    console.log('[Email] parseRecipient: no valid @ in', to);
+    return null;
+  }
   const local = first.slice(0, at);
   const domain = first.slice(at + 1);
-  if (!/^[\w.+-]+$/.test(local) || !/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(domain)) return null;
+  if (!local || !domain || !/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(domain)) {
+    console.log('[Email] parseRecipient: rejected local/domain', { local, domain });
+    return null;
+  }
   return { full: first, local, domain };
 }
 
