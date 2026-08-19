@@ -122,12 +122,6 @@ head_sampling_rate = 1
 [[send_email]]
 name = "EMAIL_SENDER"
 
-# Catch-all inbound email routing: forward every email to this Worker's email() handler.
-# Email Routing must also be enabled on the zone in the Cloudflare dashboard.
-[[email_routing]]
-type = "catch_all"
-name = "inbound-email"
-destination = "worker"
 
 [[rules]]
 type = "Text"
