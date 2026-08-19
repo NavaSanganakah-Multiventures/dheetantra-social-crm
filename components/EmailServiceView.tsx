@@ -115,13 +115,18 @@ export default function EmailServiceView() {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
     fetch('/api/domains', { headers: getHeaders() })
       .then(r => r.json())
-      .then((data: any) => { if (data.domains) setDomains(data.domains); })
+      .then((data: any) => { if (!cancelled && data.domains) setDomains(data.domains); })
       .catch((e) => console.error('Failed to load domains', e))
-      .finally(() => setLoadingDomains(false));
-    loadEmailStatus();
-  }, [loadEmailStatus]);
+      .finally(() => { if (!cancelled) setLoadingDomains(false); });
+    fetch('/api/billing/email-status', { headers: getHeaders() })
+      .then(r => r.json())
+      .then((data: any) => { if (!cancelled && data) setEmailStatus(data); })
+      .catch((e) => console.error('Failed to load email status', e));
+    return () => { cancelled = true; };
+  }, []);
 
   const verifyDomain = async (id: string) => {
     try {
