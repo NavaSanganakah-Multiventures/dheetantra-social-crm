@@ -200,6 +200,47 @@ export async function expireSubscriptions(env: any): Promise<number> {
   return expired;
 }
 
+
+// ---------------------------------------------------------------------------
+// Add-on expiry cron
+// ---------------------------------------------------------------------------
+
+export async function expireAddonSubscriptions(env: any): Promise<number> {
+  const now = Math.floor(Date.now() / 1000);
+  let expired = 0;
+
+  for (let pass = 0; pass < 10; pass++) {
+    let rows: any = { results: [] };
+    try {
+      rows = await env.DB.prepare(
+        `SELECT id, workspace_id FROM addon_subscriptions
+         WHERE current_period_end IS NOT NULL AND current_period_end < ?
+         AND ((status = 'active' AND billing_type = 'recurring') OR status = 'completed')
+         LIMIT 500`
+      ).bind(now).all();
+    } catch (e) {
+      console.error('[Billing] Addon expiry scan failed:', e);
+      return expired;
+    }
+
+    if (!(rows.results || []).length) break;
+
+    for (const row of rows.results || []) {
+      try {
+        const upd: any = await env.DB.prepare(
+          "UPDATE addon_subscriptions SET status = 'expired', updated_at = CURRENT_TIMESTAMP WHERE id = ? AND status IN ('active', 'completed')"
+        ).bind(row.id).run();
+        if ((upd?.meta?.changes ?? 0) > 0) expired++;
+      } catch (e) {
+        console.error('[Billing] Failed to expire addon subscription:', e);
+      }
+    }
+
+    if ((rows.results || []).length < 500) break;
+  }
+  return expired;
+}
+
 // ---------------------------------------------------------------------------
 // Webhook processing (idempotent via webhook_events.razorpay_event_id)
 // ---------------------------------------------------------------------------
@@ -222,6 +263,72 @@ export interface WebhookResult {
   processed: boolean;
   duplicate: boolean;
   event: string;
+}
+
+
+// ---------------------------------------------------------------------------
+// Add-on webhook helpers
+// ---------------------------------------------------------------------------
+
+async function applyAddonSubscriptionEntity(env: any, subEntity: any, forceDowngrade = false): Promise<any | null> {
+  if (!subEntity?.id) return null;
+  const status = WEBHOOK_STATUS_MAP[subEntity.status] || subEntity.status;
+  const sub: any = await env.DB.prepare(
+    'SELECT id, workspace_id, addon_id, status FROM addon_subscriptions WHERE razorpay_subscription_id = ?'
+  ).bind(subEntity.id).first();
+  if (!sub) return null;
+
+  if (sub.status === 'active' && status === 'authenticated') return sub;
+
+  const periodStart = subEntity.current_start ? Number(subEntity.current_start) : undefined;
+  const periodEnd = subEntity.current_end ? Number(subEntity.current_end) : undefined;
+
+  const sets = ["status = ?", "updated_at = CURRENT_TIMESTAMP"];
+  const vals: any[] = [status];
+  if (periodStart) { sets.push('current_period_start = ?'); vals.push(periodStart); }
+  if (periodEnd) { sets.push('current_period_end = ?'); vals.push(periodEnd); }
+  vals.push(sub.id);
+  await env.DB.prepare(`UPDATE addon_subscriptions SET ${sets.join(', ')} WHERE id = ?`).bind(...vals).run();
+
+  return sub;
+}
+
+async function applyAddonPaymentEntity(env: any, paymentEntity: any, subEntity: any): Promise<any | null> {
+  if (!paymentEntity?.id) return null;
+  let sub = subEntity?.id
+    ? await env.DB.prepare('SELECT * FROM addon_subscriptions WHERE razorpay_subscription_id = ?').bind(subEntity.id).first()
+    : paymentEntity?.subscription_id
+      ? await env.DB.prepare('SELECT * FROM addon_subscriptions WHERE razorpay_subscription_id = ?').bind(paymentEntity.subscription_id).first()
+      : await env.DB.prepare('SELECT * FROM addon_subscriptions WHERE razorpay_order_id = ?').bind(paymentEntity.order_id || '').first();
+  if (!sub) return null;
+
+  await env.DB.prepare(
+    'INSERT OR IGNORE INTO payments (id, workspace_id, subscription_id, razorpay_payment_id, razorpay_order_id, razorpay_subscription_id, amount, currency, status, method, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)'
+  ).bind(
+    crypto.randomUUID(),
+    sub.workspace_id || null,
+    sub.id || null,
+    paymentEntity.id,
+    paymentEntity.order_id || null,
+    subEntity?.id || paymentEntity.subscription_id || null,
+    Number(paymentEntity.amount || 0) / 100,
+    paymentEntity.currency || 'INR',
+    paymentEntity.status === 'captured' ? 'captured'
+      : paymentEntity.status === 'refunded' ? 'refunded'
+      : paymentEntity.status === 'failed' ? 'failed' : 'pending',
+    paymentEntity.method || null
+  ).run();
+
+  // One-time addon orders: activate on capture if verify missed it
+  if (paymentEntity.status === 'captured' && sub.billing_type === 'one_time' && ['created', 'authenticated'].includes(sub.status)) {
+    const now = Math.floor(Date.now() / 1000);
+    const addon: any = await env.DB.prepare('SELECT billing_period, billing_interval FROM service_addons WHERE id = ?').bind(sub.addon_id).first();
+    const periodEnd = addon ? now + periodDays(addon.billing_period, addon.billing_interval) * 86400 : now + 30 * 86400;
+    await env.DB.prepare(
+      "UPDATE addon_subscriptions SET status = 'active', current_period_start = ?, current_period_end = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?"
+    ).bind(now, periodEnd, sub.id).run();
+  }
+  return sub;
 }
 
 export async function handleRazorpayWebhook(env: any, body: any): Promise<WebhookResult> {
@@ -261,19 +368,30 @@ export async function handleRazorpayWebhook(env: any, body: any): Promise<Webhoo
   try {
     if (event === 'subscription.charged' || event === 'subscription.activated') {
       const appliedSub = await applySubscriptionEntity(env, subEntity);
+      if (!appliedSub) {
+        const appliedAddonSub = await applyAddonSubscriptionEntity(env, subEntity);
+        if (paymentEntity) {
+          await applyAddonPaymentEntity(env, paymentEntity, subEntity);
+        }
+        if (appliedAddonSub) return { processed: true, duplicate: false, event };
+      }
       if (paymentEntity) {
         await applyPaymentEntity(env, paymentEntity, subEntity, appliedSub);
       }
     } else if (event.startsWith('subscription.')) {
       if (event === 'subscription.completed' || event === 'subscription.cancelled') {
         await applySubscriptionEntity(env, subEntity, true);
+        await applyAddonSubscriptionEntity(env, subEntity, true);
       } else {
         await applySubscriptionEntity(env, subEntity);
+        await applyAddonSubscriptionEntity(env, subEntity);
       }
     } else if (event === 'payment.captured') {
       await applyPaymentEntity(env, paymentEntity, subEntity);
+      await applyAddonPaymentEntity(env, paymentEntity, subEntity);
     } else if (event === 'payment.failed') {
       const failedSub: any = await applyPaymentEntity(env, paymentEntity, subEntity);
+      await applyAddonPaymentEntity(env, paymentEntity, subEntity);
       // The payload has no subscription entity, so use the payment's
       // subscription_id lookup result to mark the renewal as past due.
       if (failedSub?.razorpay_subscription_id) await markPastDue(env, failedSub.razorpay_subscription_id);
