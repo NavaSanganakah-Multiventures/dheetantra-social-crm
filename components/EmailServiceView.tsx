@@ -92,6 +92,17 @@ export default function EmailServiceView() {
   const [domains, setDomains] = useState<any[]>([]);
   const [loadingDomains, setLoadingDomains] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [emailStatus, setEmailStatus] = useState<{ entitlement: string | null; domains_allowed: number; domains_used: number; can_add_domain: boolean; email_enabled: boolean } | null>(null);
+
+  const loadEmailStatus = useCallback(async () => {
+    try {
+      const res = await fetch('/api/billing/email-status', { headers: getHeaders() });
+      const data: any = await res.json();
+      if (res.ok) setEmailStatus(data);
+    } catch (e) {
+      console.error('Failed to load email status', e);
+    }
+  }, []);
 
   const refreshDomains = useCallback(async () => {
     try {
@@ -109,7 +120,8 @@ export default function EmailServiceView() {
       .then((data: any) => { if (data.domains) setDomains(data.domains); })
       .catch((e) => console.error('Failed to load domains', e))
       .finally(() => setLoadingDomains(false));
-  }, []);
+    loadEmailStatus();
+  }, [loadEmailStatus]);
 
   const verifyDomain = async (id: string) => {
     try {
@@ -230,7 +242,7 @@ export default function EmailServiceView() {
       {tab === 'templates' && <TemplatesSection />}
       {tab === 'logs' && <LogsSection />}
 
-      {showAddModal && <AddDomainModal onClose={() => setShowAddModal(false)} onAdded={refreshDomains} />}
+      {showAddModal && <AddDomainModal emailStatus={emailStatus} onClose={() => setShowAddModal(false)} onAdded={() => { refreshDomains(); loadEmailStatus(); }} />}
     </div>
   );
 }
@@ -834,7 +846,7 @@ function DomainsSection({
 // ADD DOMAIN MODAL
 // ==========================================
 
-function AddDomainModal({ onClose, onAdded }: { onClose: () => void; onAdded: () => void }) {
+function AddDomainModal({ emailStatus, onClose, onAdded }: { emailStatus: { entitlement: string | null; domains_allowed: number; domains_used: number; can_add_domain: boolean; email_enabled: boolean } | null; onClose: () => void; onAdded: () => void }) {
   const { toast } = useToast();
   const [domainName, setDomainName] = useState('');
   const [setupMode, setSetupMode] = useState<'full' | 'cname'>('full');
@@ -891,7 +903,17 @@ function AddDomainModal({ onClose, onAdded }: { onClose: () => void; onAdded: ()
 
         <div className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-surface-500 dark:text-surface-400 mb-1">डोमेन नाम (जैसे: example.com)</label>
+            <label className="block text-xs font-semibold text-surface-500 dark:text-surface-400 mb-1">डोमेन नाम (जैसे: example.com)</label>{emailStatus && !emailStatus.can_add_domain && (
+            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-3 text-sm text-amber-700 dark:text-amber-400">
+              {emailStatus.domains_allowed === 0 ? (
+                <p>ईमेल डोमेन जोड़ने का विकल्प उपलब्ध नहीं है। कृपया एक ईमेल ऐड-ऑन खरीदें या ऐसा प्लान चुनें जिसमें ईमेल डोमेन शामिल हों।</p>
+              ) : (
+                <p>डोमेन लिमिट पूरी हो चुकी है ({emailStatus.domains_used}/{emailStatus.domains_allowed})। और डोमेन जोड़ने के लिए प्लान/ऐड-ऑन अपग्रेड करें।</p>
+              )}
+            </div>
+          )}
+
+          
             <input
               type="text"
               value={domainName}
@@ -955,7 +977,7 @@ function AddDomainModal({ onClose, onAdded }: { onClose: () => void; onAdded: ()
             </button>
             <button
               onClick={submit}
-              disabled={saving}
+              disabled={saving || (emailStatus !== null && !emailStatus.can_add_domain)}
               className="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-primary-600 hover:bg-primary-700 dark:bg-primary-500 dark:hover:bg-primary-600 rounded-xl transition-colors disabled:opacity-60 inline-flex items-center justify-center gap-2"
             >
               {saving && <Loader2 className="w-4 h-4 animate-spin" />}
