@@ -679,7 +679,8 @@ admin.post('/domains/:id/approve', async (c) => {
     }
 
     // Verify the linked addon subscription is still active before consuming a slot.
-    if (row.subscription_id) {
+    // subscription_id is null when the domain was created from plan-based entitlement.
+    if (row.subscription_id && row.subscription_id !== 'plan-email-addon') {
       const addon: any = await c.env.DB.prepare(
         'SELECT * FROM addon_subscriptions WHERE id = ? AND status = \'active\''
       ).bind(row.subscription_id).first();
