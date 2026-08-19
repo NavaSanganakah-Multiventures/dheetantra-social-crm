@@ -134,7 +134,7 @@ router.post('/api/domains', requireRole('owner', 'admin'), async (c) => {
     await c.env.DB.prepare(`INSERT INTO domains
       (id, workspace_id, domain_name, setup_mode, status, review_status, billing_status, subscription_id, requested_by)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-      .bind(id, workspaceId, clean, mode, 'pending', 'pending_review', 'paid', addon.id, user?.id || null).run();
+      .bind(id, workspaceId, clean, mode, 'pending', 'pending_review', 'paid', (addon.id && addon.id !== 'plan-email-addon') ? addon.id : null, user?.id || null).run();
 
     const emailId = crypto.randomUUID();
     const emailAddress = `${cleanPrefix}@${clean}`;
