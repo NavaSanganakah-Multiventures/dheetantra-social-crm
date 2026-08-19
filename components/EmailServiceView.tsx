@@ -866,7 +866,7 @@ function DomainsSection({
 function AddDomainModal({ emailStatus, onClose, onAdded }: { emailStatus: { entitlement: string | null; domains_allowed: number; domains_used: number; can_add_domain: boolean; email_enabled: boolean } | null; onClose: () => void; onAdded: () => void }) {
   const { toast } = useToast();
   const [domainName, setDomainName] = useState('');
-  const [setupMode, setSetupMode] = useState<'full' | 'cname'>('full');
+  const [setupMode, setSetupMode] = useState<'full'>('full');
   const [defaultEmailPrefix, setDefaultEmailPrefix] = useState('info');
   const [forwardTo, setForwardTo] = useState('');
   const [saving, setSaving] = useState(false);
