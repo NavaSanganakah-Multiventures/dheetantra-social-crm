@@ -11,7 +11,7 @@ import {
 // email add-on subscription exists for the workspace.
 async function getActiveEmailAddon(env: any, workspaceId: string): Promise<any | null> {
   const now = Math.floor(Date.now() / 1000);
-  return env.DB.prepare(
+  const subscription: any = await env.DB.prepare(
     `SELECT * FROM addon_subscriptions
        WHERE workspace_id = ? AND addon_id LIKE 'email-addon-%'
          AND status = 'active'
@@ -19,6 +19,32 @@ async function getActiveEmailAddon(env: any, workspaceId: string): Promise<any |
        ORDER BY domains_allowed DESC
        LIMIT 1`
   ).bind(workspaceId, now).first();
+  if (subscription) return subscription;
+
+  // Fall back to plan-based email add-on entitlement. Some base plans include
+  // a number of email domains without a separate paid add-on subscription.
+  const planRow: any = await env.DB.prepare(
+    `SELECT p.limits_json FROM workspaces w
+       LEFT JOIN plans p ON p.id = w.plan_id
+       WHERE w.id = ?`
+  ).bind(workspaceId).first();
+  if (planRow?.limits_json) {
+    try {
+      const limits = JSON.parse(planRow.limits_json);
+      const emailAddon = limits?.email_addon;
+      if (emailAddon && (emailAddon.included === true || emailAddon.included === 1)) {
+        return {
+          id: 'plan-email-addon',
+          workspace_id: workspaceId,
+          addon_id: 'email-addon-plan',
+          status: 'active',
+          domains_allowed: Math.max(1, Number(emailAddon.max_domains) || 1),
+          current_period_end: null,
+        };
+      }
+    } catch { /* ignore malformed limits_json */ }
+  }
+  return null;
 }
 
 async function countEmailDomains(env: any, workspaceId: string): Promise<number> {

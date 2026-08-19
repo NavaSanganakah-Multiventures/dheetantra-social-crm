@@ -1128,10 +1128,14 @@ const worker = {
   async scheduled(controller: any, env: any, ctx: any) {
     const { runDomainMaintenance } = await import('./services/emailService');
     await runDomainMaintenance(env, ctx);
-    const { expireSubscriptions } = await import('./services/subscriptionService');
+    const { expireSubscriptions, expireAddonSubscriptions } = await import('./services/subscriptionService');
     const expired = await expireSubscriptions(env);
+    const expiredAddons = await expireAddonSubscriptions(env);
     if (expired > 0) {
       console.log(`[Billing] Expired ${expired} subscription(s) and downgraded workspaces to free plan`);
+    if (expiredAddons > 0) {
+      console.log(`[Billing] Expired ${expiredAddons} add-on subscription(s)`);
+    }
     }
   },
 
