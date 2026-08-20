@@ -28,7 +28,7 @@ export function SettingsView() {
     const [newMemberEmail, setNewMemberEmail] = useState("");
     const [newMemberRole, setNewMemberRole] = useState<'admin' | 'member'>('member');
     const [addingMember, setAddingMember] = useState(false);
-    const [currentRole, setCurrentRole] = useState<string>(() => (typeof window !== 'undefined' ? localStorage.getItem('workspaceRole') || '' : ''));
+    const [currentRole] = useState<string>(() => (typeof window !== 'undefined' ? localStorage.getItem('workspaceRole') || '' : ''));
 
     const saveUserProfile = async () => {
       setSavingProfile(true);
