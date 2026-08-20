@@ -14,6 +14,9 @@ import '../services/foreground_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
 import 'login_screen.dart';
+import 'workspace_screen.dart';
+import 'whatsapp_accounts_screen.dart';
+import 'integrations_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -33,6 +36,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _testingPush = false;
   String _userName = '';
   String _userEmail = '';
+  String _userRole = 'member';
 
   @override
   void initState() {
@@ -57,6 +61,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() {
       _userName = user?['name'] ?? 'User';
       _userEmail = user?['email'] ?? '';
+      _userRole = user?['role'] ?? 'member';
       _loading = false;
     });
   }
@@ -68,7 +73,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     });
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_notificationsPref, enabled);
-    // Register/remove the FCM device token with the backend.
     await FcmService().setEnabled(enabled);
     if (!mounted) return;
     setState(() => _savingNotifications = false);
@@ -131,7 +135,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _logout() async {
-    // Clean up FCM token + realtime socket before leaving.
     await FcmService().cleanup();
     WebSocketService().disconnect();
     NotificationCenter().clear();
@@ -142,6 +145,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       MaterialPageRoute(builder: (_) => const LoginScreen()),
       (route) => false,
     );
+  }
+
+  bool get _canManageWorkspace {
+    return _userRole == 'owner' || _userRole == 'admin';
   }
 
   @override
@@ -181,12 +188,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       _userEmail,
                       style: const TextStyle(color: AppColors.textMuted, fontSize: 13),
                     ),
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppColors.accent.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        _userRole.toUpperCase(),
+                        style: const TextStyle(
+                          color: AppColors.accent,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
                   ],
                 ),
-              ),
-              IconButton(
-                onPressed: () {},
-                icon: const Icon(Icons.edit_outlined, color: AppColors.textSecondary),
               ),
             ],
           ),
@@ -203,22 +222,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ? 'ID: ${ApiService().workspaceId!.substring(0, 8)}...'
                   : 'कनेक्ट नहीं',
               trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
-              onTap: () {},
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const WorkspaceScreen()),
+                );
+              },
             ),
             const Divider(height: 1, indent: 52),
             _SettingsTile(
               icon: Icons.smartphone_outlined,
               title: 'WhatsApp अकाउंट्स',
+              subtitle: _canManageWorkspace ? 'जोड़ें, संपादित करें, हटाएं' : 'सिर्फ़ देखें',
               trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
-              onTap: () {},
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const WhatsAppAccountsScreen()),
+                );
+              },
             ),
             const Divider(height: 1, indent: 52),
             _SettingsTile(
               icon: Icons.integration_instructions_outlined,
-              title: 'इंटीग्रेशन्स',
-              subtitle: 'WhatsApp, Email',
+              title: 'टूल्स और इंटीग्रेशन्स',
+              subtitle: 'Email, Template, नया WhatsApp',
               trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
-              onTap: () {},
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const IntegrationsScreen()),
+                );
+              },
             ),
           ],
         ),
@@ -247,7 +279,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const Divider(height: 1, indent: 52),
             _SettingsTile(
               icon: Icons.battery_charging_full_outlined,
-              title: 'बैटरी ऑप्टिमाइजेशन',
+              title: 'बैटरी ऑप्टिमाइज़ेशन',
               subtitle: 'Background में चालू रखने के लिए',
               trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
               onTap: () {
