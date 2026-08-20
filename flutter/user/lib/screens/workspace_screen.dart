@@ -34,8 +34,9 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
     if (!mounted) return;
     setState(() {
       _userRole = user?['role'] ?? 'member';
-      _workspaceName = workspace?['name'] ?? workspace?['workspace']?['name'] ?? 'Workspace';
-      _planName = workspace?['plan']?['name'] ?? workspace?['plan_name'] ?? 'Free';
+      final ws = workspace?['workspace'] as Map<String, dynamic>?;
+      _workspaceName = ws?['name']?.toString() ?? workspace?['name']?.toString() ?? 'Workspace';
+      _planName = ws?['plan_name']?.toString() ?? workspace?['plan_name']?.toString() ?? 'Free';
       _members = membersData is List
           ? membersData.map((j) => WorkspaceMember.fromJson(j as Map<String, dynamic>)).toList()
           : [];
@@ -54,7 +55,7 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
     final result = await showDialog<Map<String, String>>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('मेम्बर जोड़ें'),
+        title: const Text('à¤®à¥à¤®à¥à¤¬à¤° à¤à¥à¤¡à¤¼à¥à¤'),
         content: StatefulBuilder(
           builder: (context, setLocalState) {
             return Column(
@@ -64,7 +65,7 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
                   controller: emailController,
                   keyboardType: TextInputType.emailAddress,
                   decoration: const InputDecoration(
-                    labelText: 'ईमेल',
+                    labelText: 'à¤à¤®à¥à¤²',
                     hintText: 'user@example.com',
                   ),
                 ),
@@ -86,7 +87,7 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('रद्द करें'),
+            child: const Text('à¤°à¤¦à¥à¤¦ à¤à¤°à¥à¤'),
           ),
           FilledButton(
             onPressed: () {
@@ -95,7 +96,7 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
                 'role': selectedRole,
               });
             },
-            child: const Text('जोड़ें'),
+            child: const Text('à¤à¥à¤¡à¤¼à¥à¤'),
           ),
         ],
       ),
@@ -107,9 +108,9 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
     setState(() => _saving = false);
     if (!mounted) return;
     if (res['error'] != null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('त्रुटि: ${res['error']}')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('à¤¤à¥à¤°à¥à¤à¤¿: ${res['error']}')));
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('मेम्बर जोड़ा गया')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('à¤®à¥à¤®à¥à¤¬à¤° à¤à¥à¤¡à¤¼à¤¾ à¤à¤¯à¤¾')));
       _loadData();
     }
   }
@@ -121,7 +122,7 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('${member.email} की भूमिका बदलें'),
+        title: Text('${member.email} à¤à¥ à¤­à¥à¤®à¤¿à¤à¤¾ à¤¬à¤¦à¤²à¥à¤'),
         content: StatefulBuilder(
           builder: (context, setLocalState) {
             return SegmentedButton<String>(
@@ -140,11 +141,11 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('रद्द करें'),
+            child: const Text('à¤°à¤¦à¥à¤¦ à¤à¤°à¥à¤'),
           ),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('सेव करें'),
+            child: const Text('à¤¸à¥à¤µ à¤à¤°à¥à¤'),
           ),
         ],
       ),
@@ -156,7 +157,7 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
     setState(() => _saving = false);
     if (!mounted) return;
     if (res['error'] != null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('त्रुटि: ${res['error']}')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('à¤¤à¥à¤°à¥à¤à¤¿: ${res['error']}')));
     } else {
       _loadData();
     }
@@ -167,17 +168,17 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('मेम्बर हटाएं'),
-        content: Text('क्या आप ${member.email} को हटाना चाहते हैं?'),
+        title: const Text('à¤®à¥à¤®à¥à¤¬à¤° à¤¹à¤à¤¾à¤à¤'),
+        content: Text('à¤à¥à¤¯à¤¾ à¤à¤ª ${member.email} à¤à¥ à¤¹à¤à¤¾à¤¨à¤¾ à¤à¤¾à¤¹à¤¤à¥ à¤¹à¥à¤?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('रद्द करें'),
+            child: const Text('à¤°à¤¦à¥à¤¦ à¤à¤°à¥à¤'),
           ),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(true),
             style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
-            child: const Text('हटाएं'),
+            child: const Text('à¤¹à¤à¤¾à¤à¤'),
           ),
         ],
       ),
@@ -188,7 +189,7 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
     setState(() => _saving = false);
     if (!mounted) return;
     if (res['error'] != null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('त्रुटि: ${res['error']}')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('à¤¤à¥à¤°à¥à¤à¤¿: ${res['error']}')));
     } else {
       _loadData();
     }
@@ -198,7 +199,7 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('वर्कस्पेस प्रबंधन'),
+        title: const Text('à¤µà¤°à¥à¤à¤¸à¥à¤ªà¥à¤¸ à¤ªà¥à¤°à¤¬à¤à¤§à¤¨'),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -213,7 +214,7 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       const Text(
-                        'मेम्बर्स',
+                        'à¤®à¥à¤®à¥à¤¬à¤°à¥à¤¸',
                         style: TextStyle(
                           color: AppColors.textPrimary,
                           fontSize: 16,
@@ -224,7 +225,7 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
                         TextButton.icon(
                           onPressed: _showAddMemberDialog,
                           icon: const Icon(Icons.person_add_alt_1_rounded, size: 18),
-                          label: const Text('जोड़ें'),
+                          label: const Text('à¤à¥à¤¡à¤¼à¥à¤'),
                         ),
                     ],
                   ),
@@ -305,8 +306,8 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
     if (_members.isEmpty) {
       return const EmptyState(
         icon: Icons.people_outline_rounded,
-        title: 'कोई मेम्बर नहीं',
-        subtitle: 'इस workspace में अभी कोई सदस्य नहीं है।',
+        title: 'à¤à¥à¤ à¤®à¥à¤®à¥à¤¬à¤° à¤¨à¤¹à¥à¤',
+        subtitle: 'à¤à¤¸ workspace à¤®à¥à¤ à¤à¤­à¥ à¤à¥à¤ à¤¸à¤¦à¤¸à¥à¤¯ à¤¨à¤¹à¥à¤ à¤¹à¥à¥¤',
       );
     }
     return Container(
@@ -361,7 +362,7 @@ class _MemberTile extends StatelessWidget {
         ),
       ),
       subtitle: Text(
-        '${member.email} • ${member.role.toUpperCase()}${isMe ? ' (You)' : ''}',
+        '${member.email} â¢ ${member.role.toUpperCase()}${isMe ? ' (You)' : ''}',
         style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
       ),
       trailing: canManage && !isMe
@@ -373,8 +374,8 @@ class _MemberTile extends StatelessWidget {
                 if (value == 'remove') onRemove(member);
               },
               itemBuilder: (_) => [
-                const PopupMenuItem(value: 'role', child: Text('भूमिका बदलें')),
-                const PopupMenuItem(value: 'remove', child: Text('हटाएं')),
+                const PopupMenuItem(value: 'role', child: Text('à¤­à¥à¤®à¤¿à¤à¤¾ à¤¬à¤¦à¤²à¥à¤')),
+                const PopupMenuItem(value: 'remove', child: Text('à¤¹à¤à¤¾à¤à¤')),
               ],
             )
           : null,
