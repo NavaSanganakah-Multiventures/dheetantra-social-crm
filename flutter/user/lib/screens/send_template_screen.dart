@@ -53,17 +53,28 @@ class _SendTemplateScreenState extends State<SendTemplateScreen> {
     }
   }
 
+  bool get _canSendTemplate {
+    final role = ApiService().currentUser?['role']?.toString().toLowerCase();
+    return role == 'owner' || role == 'admin';
+  }
+
   Future<void> _send() async {
     final recipient = _recipientController.text.trim();
+    if (!_canSendTemplate) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('सिर्फ़ owner या admin WhatsApp template भेज सकता है')),
+      );
+      return;
+    }
     if (_selectedTemplate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('कृपया टेम्प्लेट चुनें')),
+        const SnackBar(content: Text('à¤à¥à¤ªà¤¯à¤¾ à¤à¥à¤®à¥à¤ªà¥à¤²à¥à¤ à¤à¥à¤¨à¥à¤')),
       );
       return;
     }
     if (recipient.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('कृपया प्राप्तकर्ता का नंबर दर्ज करें')),
+        const SnackBar(content: Text('à¤à¥à¤ªà¤¯à¤¾ à¤ªà¥à¤°à¤¾à¤ªà¥à¤¤à¤à¤°à¥à¤¤à¤¾ à¤à¤¾ à¤¨à¤à¤¬à¤° à¤¦à¤°à¥à¤ à¤à¤°à¥à¤')),
       );
       return;
     }
@@ -82,11 +93,11 @@ class _SendTemplateScreenState extends State<SendTemplateScreen> {
     if (!mounted) return;
     if (res['error'] != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('त्रुटि: ${res['error']}')),
+        SnackBar(content: Text('à¤¤à¥à¤°à¥à¤à¤¿: ${res['error']}')),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('टेम्प्लेट भेजा गया')),
+        const SnackBar(content: Text('à¤à¥à¤®à¥à¤ªà¥à¤²à¥à¤ à¤­à¥à¤à¤¾ à¤à¤¯à¤¾')),
       );
       Navigator.of(context).pop();
     }
@@ -96,7 +107,7 @@ class _SendTemplateScreenState extends State<SendTemplateScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('WhatsApp टेम्प्लेट भेजें'),
+        title: const Text('WhatsApp à¤à¥à¤®à¥à¤ªà¥à¤²à¥à¤ à¤­à¥à¤à¥à¤'),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -105,14 +116,14 @@ class _SendTemplateScreenState extends State<SendTemplateScreen> {
               children: [
                 if (_templates.isEmpty)
                   const Text(
-                    'कोई टेम्प्लेट उपलब्ध नहीं। कृपया पहले Meta Dashboard से टेम्प्लेट बनाएं।',
+                    'à¤à¥à¤ à¤à¥à¤®à¥à¤ªà¥à¤²à¥à¤ à¤à¤ªà¤²à¤¬à¥à¤§ à¤¨à¤¹à¥à¤à¥¤ à¤à¥à¤ªà¤¯à¤¾ à¤ªà¤¹à¤²à¥ Meta Dashboard à¤¸à¥ à¤à¥à¤®à¥à¤ªà¥à¤²à¥à¤ à¤¬à¤¨à¤¾à¤à¤à¥¤',
                     style: TextStyle(color: AppColors.textMuted),
                   )
                 else
                   DropdownButtonFormField<dynamic>(
                     value: _selectedTemplate,
                     dropdownColor: AppColors.surfaceAlt,
-                    decoration: const InputDecoration(labelText: 'टेम्प्लेट चुनें'),
+                    decoration: const InputDecoration(labelText: 'à¤à¥à¤®à¥à¤ªà¥à¤²à¥à¤ à¤à¥à¤¨à¥à¤'),
                     items: _templates
                         .map((t) => DropdownMenuItem(
                               value: t,
@@ -132,7 +143,7 @@ class _SendTemplateScreenState extends State<SendTemplateScreen> {
                   DropdownButtonFormField<WhatsAppConfig>(
                     value: _selectedConfig,
                     dropdownColor: AppColors.surfaceAlt,
-                    decoration: const InputDecoration(labelText: 'WhatsApp खाता चुनें'),
+                    decoration: const InputDecoration(labelText: 'WhatsApp à¤à¤¾à¤¤à¤¾ à¤à¥à¤¨à¥à¤'),
                     items: _configs
                         .map((c) => DropdownMenuItem(
                               value: c,
@@ -149,14 +160,14 @@ class _SendTemplateScreenState extends State<SendTemplateScreen> {
                   controller: _recipientController,
                   keyboardType: TextInputType.phone,
                   decoration: const InputDecoration(
-                    labelText: 'प्राप्तकर्ता का नंबर',
+                    labelText: 'à¤ªà¥à¤°à¤¾à¤ªà¥à¤¤à¤à¤°à¥à¤¤à¤¾ à¤à¤¾ à¤¨à¤à¤¬à¤°',
                     hintText: '+919876543210',
                   ),
                 ),
                 if (_paramControllers.isNotEmpty) ...[
                   const SizedBox(height: 20),
                   const Text(
-                    'टेम्प्लेट पैरामीटर',
+                    'à¤à¥à¤®à¥à¤ªà¥à¤²à¥à¤ à¤ªà¥à¤°à¤¾à¤®à¥à¤à¤°',
                     style: TextStyle(
                       color: AppColors.textPrimary,
                       fontSize: 15,
@@ -168,7 +179,7 @@ class _SendTemplateScreenState extends State<SendTemplateScreen> {
                     TextField(
                       controller: _paramControllers[i],
                       decoration: InputDecoration(
-                        labelText: 'मान ${i + 1} ({{${i + 1}}})',
+                        labelText: 'à¤®à¤¾à¤¨ ${i + 1} ({{${i + 1}}})',
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -187,7 +198,7 @@ class _SendTemplateScreenState extends State<SendTemplateScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          'पूर्वावलोकन',
+                          'à¤ªà¥à¤°à¥à¤µà¤¾à¤µà¤²à¥à¤à¤¨',
                           style: TextStyle(color: AppColors.textMuted, fontSize: 12),
                         ),
                         const SizedBox(height: 6),
@@ -201,15 +212,35 @@ class _SendTemplateScreenState extends State<SendTemplateScreen> {
                     ),
                   ),
                 const SizedBox(height: 24),
+                if (!_canSendTemplate)
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.warning.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.lock_outline, color: AppColors.warning, size: 18),
+                        SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'सिर्फ़ owner या admin ही WhatsApp template भेज सकते हैं।',
+                            style: TextStyle(color: AppColors.warning, fontSize: 13),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 FilledButton(
-                  onPressed: _sending || _templates.isEmpty ? null : _send,
+                  onPressed: _sending || _templates.isEmpty || !_canSendTemplate ? null : _send,
                   child: _sending
                       ? const SizedBox(
                           width: 20,
                           height: 20,
                           child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                         )
-                      : const Text('टेम्प्लेट भेजें'),
+                      : const Text('à¤à¥à¤®à¥à¤ªà¥à¤²à¥à¤ à¤­à¥à¤à¥à¤'),
                 ),
               ],
             ),
