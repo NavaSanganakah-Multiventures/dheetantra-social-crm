@@ -647,6 +647,140 @@ router.post('/api/contact', async (c) => {
   }
 });
 
+
+// ==========================================
+// WORKSPACE MEMBERS MANAGEMENT
+// ==========================================
+
+router.get('/api/workspace/members', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+  if (!c.env.DB) return c.json({ error: 'Database not connected' }, 500);
+
+  try {
+    const { results } = await c.env.DB.prepare(
+      `SELECT u.id, u.email, u.name, wm.role, wm.joined_at
+       FROM workspace_members wm
+       JOIN users u ON wm.user_id = u.id
+       WHERE wm.workspace_id = ?
+       ORDER BY CASE wm.role WHEN 'owner' THEN 1 WHEN 'admin' THEN 2 ELSE 3 END, u.name`
+    ).bind(workspaceId).all();
+    return c.json({ members: results || [] });
+  } catch (err: any) {
+    console.error('Failed to list workspace members:', err);
+    return c.json({ error: err.message || 'Failed to list members' }, 500);
+  }
+});
+
+router.post('/api/workspace/members', requireRole('owner', 'admin'), async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+  if (!c.env.DB) return c.json({ error: 'Database not connected' }, 500);
+
+  const { email, role = 'member' } = await c.req.json();
+  if (!email) return c.json({ error: 'Email is required' }, 400);
+  if (!['owner', 'admin', 'member'].includes(role)) {
+    return c.json({ error: 'Invalid role. Use owner, admin, or member' }, 400);
+  }
+
+  const currentRole = c.get('workspaceRole');
+  if (role === 'owner' && currentRole !== 'owner') {
+    return c.json({ error: 'Only workspace owners can assign owner role' }, 403);
+  }
+
+  try {
+    const user = await c.env.DB.prepare('SELECT id, name FROM users WHERE email = ?').bind(email.toLowerCase().trim()).first<{ id: string; name: string }>();
+    if (!user) {
+      return c.json({ error: 'User not found. Ask them to register first.' }, 404);
+    }
+
+    const existing = await c.env.DB.prepare('SELECT role FROM workspace_members WHERE workspace_id = ? AND user_id = ?')
+      .bind(workspaceId, user.id).first();
+    if (existing) {
+      return c.json({ error: 'User is already a member of this workspace' }, 400);
+    }
+
+    await c.env.DB.prepare('INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (?, ?, ?)')
+      .bind(workspaceId, user.id, role).run();
+
+    return c.json({ success: true, member: { id: user.id, email: email.toLowerCase().trim(), name: user.name, role } });
+  } catch (err: any) {
+    console.error('Failed to add workspace member:', err);
+    return c.json({ error: err.message || 'Failed to add member' }, 500);
+  }
+});
+
+router.put('/api/workspace/members/:userId', requireRole('owner', 'admin'), async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+  if (!c.env.DB) return c.json({ error: 'Database not connected' }, 500);
+
+  const targetUserId = c.req.param('userId');
+  const { role } = await c.req.json();
+  if (!['owner', 'admin', 'member'].includes(role)) {
+    return c.json({ error: 'Invalid role' }, 400);
+  }
+
+  const currentRole = c.get('workspaceRole');
+
+  try {
+    const target = await c.env.DB.prepare('SELECT role FROM workspace_members WHERE workspace_id = ? AND user_id = ?')
+      .bind(workspaceId, targetUserId).first<{ role: string }>();
+    if (!target) return c.json({ error: 'Member not found' }, 404);
+
+    if (target.role === 'owner' && currentRole !== 'owner') {
+      return c.json({ error: 'Only workspace owners can modify owners' }, 403);
+    }
+    if (role === 'owner' && currentRole !== 'owner') {
+      return c.json({ error: 'Only workspace owners can promote to owner' }, 403);
+    }
+
+    await c.env.DB.prepare('UPDATE workspace_members SET role = ? WHERE workspace_id = ? AND user_id = ?')
+      .bind(role, workspaceId, targetUserId).run();
+
+    return c.json({ success: true });
+  } catch (err: any) {
+    console.error('Failed to update member role:', err);
+    return c.json({ error: err.message || 'Failed to update role' }, 500);
+  }
+});
+
+router.delete('/api/workspace/members/:userId', requireRole('owner', 'admin'), async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+  if (!c.env.DB) return c.json({ error: 'Database not connected' }, 500);
+
+  const targetUserId = c.req.param('userId');
+  const currentRole = c.get('workspaceRole');
+
+  try {
+    const target = await c.env.DB.prepare('SELECT role FROM workspace_members WHERE workspace_id = ? AND user_id = ?')
+      .bind(workspaceId, targetUserId).first<{ role: string }>();
+    if (!target) return c.json({ error: 'Member not found' }, 404);
+
+    if (target.role === 'owner' && currentRole !== 'owner') {
+      return c.json({ error: 'Only workspace owners can remove owners' }, 403);
+    }
+
+    if (target.role === 'owner') {
+      const ownerCount = await c.env.DB.prepare(
+        'SELECT COUNT(*) as count FROM workspace_members WHERE workspace_id = ? AND role = ?'
+      ).bind(workspaceId, 'owner').first<{ count: number }>();
+      if ((ownerCount?.count || 0) <= 1) {
+        return c.json({ error: 'Cannot remove the last owner. Transfer ownership first.' }, 400);
+      }
+    }
+
+    await c.env.DB.prepare('DELETE FROM workspace_members WHERE workspace_id = ? AND user_id = ?')
+      .bind(workspaceId, targetUserId).run();
+
+    return c.json({ success: true });
+  } catch (err: any) {
+    console.error('Failed to remove workspace member:', err);
+    return c.json({ error: err.message || 'Failed to remove member' }, 500);
+  }
+});
+
 // ==========================================
 // FALLBACK HANDLER
 // ==========================================
