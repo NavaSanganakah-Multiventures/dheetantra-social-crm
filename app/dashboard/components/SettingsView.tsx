@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Bot, MessageSquare, Megaphone, Settings, User, Phone, PhoneCall, Trash2, Edit, Instagram, Facebook, CreditCard, CalendarClock, RefreshCw, Sparkles } from 'lucide-react';
+import { Bot, MessageSquare, Megaphone, Settings, User, Users, UserPlus, UserX, Phone, PhoneCall, Trash2, Edit, Instagram, Facebook, CreditCard, CalendarClock, RefreshCw, Sparkles } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { formatUserDateOnly } from '../lib/dates';
 import { SubscriptionModal } from './SubscriptionModal';
@@ -21,6 +21,14 @@ export function SettingsView() {
     const [userTimezone, setUserTimezone] = useState("Asia/Kolkata");
     const [savingProfile, setSavingProfile] = useState(false);
     const [profileMessage, setProfileMessage] = useState("");
+
+    // Workspace Members
+    const [members, setMembers] = useState<any[]>([]);
+    const [loadingMembers, setLoadingMembers] = useState(false);
+    const [newMemberEmail, setNewMemberEmail] = useState("");
+    const [newMemberRole, setNewMemberRole] = useState<'admin' | 'member'>('member');
+    const [addingMember, setAddingMember] = useState(false);
+    const [currentRole, setCurrentRole] = useState<string>('');
 
     const saveUserProfile = async () => {
       setSavingProfile(true);
@@ -54,6 +62,91 @@ export function SettingsView() {
     const [billingLoading, setBillingLoading] = useState(true);
     const [cancelling, setCancelling] = useState(false);
     const [showSubscription, setShowSubscription] = useState(false);
+
+
+    const loadMembers = async () => {
+      const wId = localStorage.getItem('workspaceId');
+      if (!wId) return;
+      setLoadingMembers(true);
+      try {
+        const res = await fetch('/api/workspace/members', {
+          headers: { 'x-workspace-id': wId }
+        });
+        const data: any = await res.json();
+        if (data.members) {
+          setMembers(data.members);
+        }
+      } catch (e) {
+        console.error("Failed to load members:", e);
+      } finally {
+        setLoadingMembers(false);
+      }
+    };
+
+    const addMember = async () => {
+      const wId = localStorage.getItem('workspaceId');
+      if (!wId || !newMemberEmail.trim()) return;
+      setAddingMember(true);
+      try {
+        const res = await fetch('/api/workspace/members', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-workspace-id': wId },
+          body: JSON.stringify({ email: newMemberEmail.trim(), role: newMemberRole })
+        });
+        const data: any = await res.json();
+        if (res.ok) {
+          setNewMemberEmail("");
+          setNewMemberRole('member');
+          loadMembers();
+        } else {
+          alert(data.error || "सदस्य जोड़ने में विफलता");
+        }
+      } catch (e) {
+        alert("सदस्य जोड़ने में विफलता");
+      } finally {
+        setAddingMember(false);
+      }
+    };
+
+    const changeRole = async (userId: string, role: string) => {
+      const wId = localStorage.getItem('workspaceId');
+      if (!wId) return;
+      try {
+        const res = await fetch(`/api/workspace/members/${userId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'x-workspace-id': wId },
+          body: JSON.stringify({ role })
+        });
+        const data: any = await res.json();
+        if (res.ok) {
+          loadMembers();
+        } else {
+          alert(data.error || "भूमिका बदलने में विफलता");
+        }
+      } catch (e) {
+        alert("भूमिका बदलने में विफलता");
+      }
+    };
+
+    const removeMember = async (userId: string) => {
+      if (!confirm("क्या आप वाकई इस सदस्य को हटाना चाहते हैं?")) return;
+      const wId = localStorage.getItem('workspaceId');
+      if (!wId) return;
+      try {
+        const res = await fetch(`/api/workspace/members/${userId}`, {
+          method: 'DELETE',
+          headers: { 'x-workspace-id': wId }
+        });
+        const data: any = await res.json();
+        if (res.ok) {
+          loadMembers();
+        } else {
+          alert(data.error || "हटाने में विफलता");
+        }
+      } catch (e) {
+        alert("हटाने में विफलता");
+      }
+    };
 
     const loadBilling = () => {
       const wId = localStorage.getItem('workspaceId');
@@ -328,6 +421,12 @@ export function SettingsView() {
       }
     };
 
+    useEffect(() => {
+      setCurrentRole(localStorage.getItem('workspaceRole') || '');
+      loadMembers();
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
     if (loading) return <div className="p-8">लोड हो रहा है...</div>;
 
     return (
@@ -449,6 +548,118 @@ export function SettingsView() {
                  </div>
              </div>
              
+             {/* Workspace Members Section */}
+             <div className="bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 rounded-3xl overflow-hidden shadow-sm">
+                 <div className="p-8">
+                     <h3 className="font-bold text-lg mb-2 text-surface-900 dark:text-white font-display flex items-center gap-2">
+                       <Users className="w-5 h-5 text-primary-500" /> वर्कस्पेस सदस्य
+                     </h3>
+                     <p className="text-sm text-surface-500 mb-6">इस वर्कस्पेस में जुड़े सदस्य और उनकी भूमिकाएँ देखें। केवल Owner/Admin नए सदस्य जोड़ सकते हैं, Role बदल सकते हैं या हटा सकते हैं।</p>
+
+                     <div className="flex items-center gap-2 mb-6">
+                       <span className="text-sm text-surface-500">आपकी भूमिका:</span>
+                       <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wide ${
+                         currentRole === 'owner' ? 'bg-violet-50 text-violet-700 dark:bg-violet-950/30 dark:text-violet-400' :
+                         currentRole === 'admin' ? 'bg-primary-50 text-primary-700 dark:bg-primary-950/30 dark:text-primary-400' :
+                         'bg-surface-100 text-surface-700 dark:bg-surface-800 dark:text-surface-400'
+                       }`}>
+                         {currentRole === 'owner' ? 'मालिक' : currentRole === 'admin' ? 'एडमिन' : currentRole === 'member' ? 'सदस्य' : '—'}
+                       </span>
+                     </div>
+
+                     {(currentRole === 'owner' || currentRole === 'admin') && (
+                       <div className="flex flex-col sm:flex-row gap-3 mb-6">
+                         <input
+                           type="email"
+                           value={newMemberEmail}
+                           onChange={e => setNewMemberEmail(e.target.value)}
+                           placeholder="सदस्य का ईमेल"
+                           className="flex-1 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-surface-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-primary-500"
+                         />
+                         <select
+                           value={newMemberRole}
+                           onChange={e => setNewMemberRole(e.target.value as 'admin' | 'member')}
+                           className="bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-surface-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-primary-500"
+                         >
+                           <option value="admin">एडमिन</option>
+                           <option value="member">सदस्य</option>
+                           {currentRole === 'owner' && <option value="owner">मालिक</option>}
+                         </select>
+                         <button
+                           onClick={addMember}
+                           disabled={addingMember || !newMemberEmail.trim()}
+                           className="bg-primary-600 hover:bg-primary-700 disabled:bg-surface-400 text-white px-6 py-3 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                         >
+                           {addingMember ? 'जोड़ा जा रहा है...' : (<><UserPlus className="w-4 h-4" /> सदस्य जोड़ें</>)}
+                         </button>
+                       </div>
+                     )}
+
+                     {loadingMembers ? (
+                       <div className="text-sm text-surface-500 py-6">सदस्य लोड हो रहे हैं...</div>
+                     ) : members.length === 0 ? (
+                       <div className="text-center text-surface-400 border border-dashed border-surface-200 dark:border-surface-800 rounded-2xl py-8">
+                         कोई सदस्य नहीं मिला।
+                       </div>
+                     ) : (
+                       <div className="overflow-x-auto border border-surface-200 dark:border-surface-800 rounded-2xl">
+                         <table className="w-full text-left text-sm border-collapse">
+                           <thead>
+                             <tr className="bg-surface-50 dark:bg-surface-900 border-b border-surface-200 dark:border-surface-800 text-surface-400 font-semibold text-xs">
+                               <th className="p-4">नाम</th>
+                               <th className="p-4">ईमेल</th>
+                               <th className="p-4">भूमिका</th>
+                               {(currentRole === 'owner' || currentRole === 'admin') && <th className="p-4 text-right">कार्रवाई</th>}
+                             </tr>
+                           </thead>
+                           <tbody>
+                             {members.map((m: any) => (
+                               <tr key={m.id} className="border-b border-surface-100 dark:border-surface-900 hover:bg-surface-50/50">
+                                 <td className="p-4 font-medium text-surface-900 dark:text-white">{m.name || '—'}</td>
+                                 <td className="p-4 text-surface-600 dark:text-surface-400 text-xs">{m.email}</td>
+                                 <td className="p-4">
+                                   {(currentRole === 'owner' || (currentRole === 'admin' && m.role !== 'owner')) ? (
+                                     <select
+                                       value={m.role}
+                                       onChange={e => changeRole(m.id, e.target.value)}
+                                       className="bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-surface-800 rounded-lg px-2 py-1 text-xs outline-none"
+                                     >
+                                       <option value="member">सदस्य</option>
+                                       <option value="admin">एडमिन</option>
+                                       {currentRole === 'owner' && <option value="owner">मालिक</option>}
+                                     </select>
+                                   ) : (
+                                     <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold ${
+                                       m.role === 'owner' ? 'bg-violet-50 text-violet-700 dark:bg-violet-950/30 dark:text-violet-400' :
+                                       m.role === 'admin' ? 'bg-primary-50 text-primary-700 dark:bg-primary-950/30 dark:text-primary-400' :
+                                       'bg-surface-100 text-surface-700 dark:bg-surface-800 dark:text-surface-400'
+                                     }`}>
+                                       {m.role === 'owner' ? 'मालिक' : m.role === 'admin' ? 'एडमिन' : 'सदस्य'}
+                                     </span>
+                                   )}
+                                 </td>
+                                 {(currentRole === 'owner' || currentRole === 'admin') && (
+                                   <td className="p-4 text-right">
+                                     {(currentRole === 'owner' || m.role !== 'owner') && (
+                                       <button
+                                         onClick={() => removeMember(m.id)}
+                                         className="p-2 text-surface-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-all"
+                                         title="हटाएँ"
+                                       >
+                                         <UserX className="w-4 h-4" />
+                                       </button>
+                                     )}
+                                   </td>
+                                 )}
+                               </tr>
+                             ))}
+                           </tbody>
+                         </table>
+                       </div>
+                     )}
+                 </div>
+             </div>
+
              {/* User Profile Section */}
              <div className="bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 rounded-3xl overflow-hidden shadow-sm">
                  <div className="p-8">
