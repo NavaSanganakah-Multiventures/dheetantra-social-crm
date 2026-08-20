@@ -23,8 +23,7 @@ export function SettingsView() {
     const [profileMessage, setProfileMessage] = useState("");
 
     // Workspace Members
-    const [members, setMembers] = useState<any[]>([]);
-    const [loadingMembers, setLoadingMembers] = useState(false);
+    const [members, setMembers] = useState<any[] | null>(null);
     const [newMemberEmail, setNewMemberEmail] = useState("");
     const [newMemberRole, setNewMemberRole] = useState<'admin' | 'member'>('member');
     const [addingMember, setAddingMember] = useState(false);
@@ -64,22 +63,18 @@ export function SettingsView() {
     const [showSubscription, setShowSubscription] = useState(false);
 
 
-    const loadMembers = async (showLoading = true) => {
+    const loadMembers = async () => {
       const wId = localStorage.getItem('workspaceId');
       if (!wId) return;
-      if (showLoading) setLoadingMembers(true);
       try {
         const res = await fetch('/api/workspace/members', {
           headers: { 'x-workspace-id': wId }
         });
         const data: any = await res.json();
-        if (data.members) {
-          setMembers(data.members);
-        }
+        setMembers(data.members || []);
       } catch (e) {
         console.error("Failed to load members:", e);
-      } finally {
-        if (showLoading) setLoadingMembers(false);
+        setMembers([]);
       }
     };
 
@@ -422,7 +417,7 @@ export function SettingsView() {
     };
 
     useEffect(() => {
-      loadMembers(false);
+      loadMembers();
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -594,7 +589,7 @@ export function SettingsView() {
                        </div>
                      )}
 
-                     {loadingMembers ? (
+                     {members === null ? (
                        <div className="text-sm text-surface-500 py-6">सदस्य लोड हो रहे हैं...</div>
                      ) : members.length === 0 ? (
                        <div className="text-center text-surface-400 border border-dashed border-surface-200 dark:border-surface-800 rounded-2xl py-8">
@@ -612,7 +607,7 @@ export function SettingsView() {
                              </tr>
                            </thead>
                            <tbody>
-                             {members.map((m: any) => (
+                             {members?.map((m: any) => (
                                <tr key={m.id} className="border-b border-surface-100 dark:border-surface-900 hover:bg-surface-50/50">
                                  <td className="p-4 font-medium text-surface-900 dark:text-white">{m.name || '—'}</td>
                                  <td className="p-4 text-surface-600 dark:text-surface-400 text-xs">{m.email}</td>
