@@ -622,7 +622,7 @@ export function SettingsView() {
                                  <td className="p-4 font-medium text-surface-900 dark:text-white">{m.name || '—'}</td>
                                  <td className="p-4 text-surface-600 dark:text-surface-400 text-xs">{m.email}</td>
                                  <td className="p-4">
-                                   {(currentRole === 'owner' || (currentRole === 'admin' && m.role !== 'owner')) ? (
+                                   {currentRole === 'owner' ? (
                                      <select
                                        value={m.role}
                                        onChange={e => changeRole(m.id, e.target.value)}
@@ -630,7 +630,16 @@ export function SettingsView() {
                                      >
                                        <option value="member">सदस्य</option>
                                        <option value="admin">एडमिन</option>
-                                       {currentRole === 'owner' && <option value="owner">मालिक</option>}
+                                       <option value="owner">मालिक</option>
+                                     </select>
+                                   ) : currentRole === 'admin' && m.role !== 'owner' ? (
+                                     <select
+                                       value={m.role}
+                                       onChange={e => changeRole(m.id, e.target.value)}
+                                       className="bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-surface-800 rounded-lg px-2 py-1 text-xs outline-none"
+                                     >
+                                       <option value="member">सदस्य</option>
+                                       <option value="admin">एडमिन</option>
                                      </select>
                                    ) : (
                                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold ${
