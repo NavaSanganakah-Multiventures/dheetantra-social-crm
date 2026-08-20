@@ -417,7 +417,17 @@ export function SettingsView() {
     };
 
     useEffect(() => {
-      loadMembers();
+      const wId = localStorage.getItem('workspaceId');
+      if (!wId) return;
+      fetch('/api/workspace/members', {
+        headers: { 'x-workspace-id': wId }
+      })
+        .then(r => r.json())
+        .then((data: any) => setMembers(data.members || []))
+        .catch((e) => {
+          console.error("Failed to load members:", e);
+          setMembers([]);
+        });
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
