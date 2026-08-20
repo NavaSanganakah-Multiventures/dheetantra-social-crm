@@ -347,7 +347,7 @@ class ApiService {
 
   Future<Map<String, dynamic>> getDashboardStats() async {
     try {
-      // Dono calls parallel chalao — sequential hone se dashboard load me
+      // Dono calls parallel chalao â sequential hone se dashboard load me
       // 2x delay aa raha tha.
       final results = await Future.wait<dynamic>([
         getContacts(),
@@ -385,12 +385,197 @@ class ApiService {
     }
   }
 
+  // ========== WORKSPACE MEMBERS ==========
+
+  Future<List<dynamic>> getWorkspaceMembers() async {
+    try {
+      final res = await _dio.get('/api/workspace/members');
+      final data = res.data as Map<String, dynamic>;
+      return data['members'] ?? [];
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> addWorkspaceMember(String email, {String role = 'member'}) async {
+    try {
+      final res = await _dio.post('/api/workspace/members', data: {
+        'email': email.trim().toLowerCase(),
+        'role': role,
+      });
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> updateWorkspaceMember(String userId, String role) async {
+    try {
+      final res = await _dio.put('/api/workspace/members/$userId', data: {'role': role});
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> removeWorkspaceMember(String userId) async {
+    try {
+      final res = await _dio.delete('/api/workspace/members/$userId');
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  // ========== WHATSAPP CONFIGS ==========
+
+  Future<Map<String, dynamic>?> getWhatsAppConfigs() async {
+    try {
+      final res = await _dio.get('/api/whatsapp/config');
+      return res.data as Map<String, dynamic>;
+    } on DioException {
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>> saveWhatsAppConfig(Map<String, dynamic> configData) async {
+    try {
+      final res = await _dio.post('/api/whatsapp/config', data: configData);
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> deleteWhatsAppConfig(String id) async {
+    try {
+      final res = await _dio.delete('/api/whatsapp/config/$id');
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  // ========== SEND WHATSAPP TO NEW NUMBER ==========
+
+  Future<Map<String, dynamic>> sendWhatsAppToNewNumber({
+    required String name,
+    required String phone,
+    required String text,
+  }) async {
+    try {
+      final cleanedPhone = phone.replaceAll(RegExp(r'[^0-9+]'), '');
+      final existing = await _dio.get('/api/crm/contacts');
+      final contacts = (existing.data['contacts'] as List?) ?? [];
+      String? contactId;
+      String displayName = name;
+      for (final c in contacts) {
+        final cPhone = _cleanPhone(c['phone'] ?? c['platform_contact_id'] ?? '');
+        if (cPhone == cleanedPhone.replaceAll('+', '')) {
+          contactId = c['id'] as String?;
+          if ((c['name'] ?? '').toString().isNotEmpty) displayName = c['name'].toString();
+          break;
+        }
+      }
+
+      if (contactId == null) {
+        final created = await createContact({
+          'name': displayName,
+          'phone': cleanedPhone,
+          'platform': 'whatsapp',
+        });
+        if (created['error'] != null) return created;
+        contactId = created['contact']?['id'] ?? created['id'];
+      }
+
+      if (contactId == null || contactId.toString().isEmpty) {
+        return {'error': 'Contact could not be created'};
+      }
+
+      final conv = await initiateConversation(contactId.toString());
+      if (conv['error'] != null) return conv;
+      final conversation = conv['conversation'] as Map<String, dynamic>?;
+      if (conversation == null || conversation['id'] == null) {
+        return {'error': 'Conversation could not be created'};
+      }
+
+      return await sendMessage(
+        to: cleanedPhone,
+        text: text,
+        conversationId: conversation['id'].toString(),
+        platform: 'whatsapp',
+      );
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  String _cleanPhone(dynamic phone) {
+    return phone.toString().replaceAll(RegExp(r'[^0-9]'), '');
+  }
+
+  // ========== WHATSAPP TEMPLATES SEND ==========
+
+  Future<Map<String, dynamic>> sendTemplate({
+    required String to,
+    required String templateName,
+    String languageCode = 'en_US',
+    List<String> parameters = const [],
+    String? phoneNumberId,
+  }) async {
+    try {
+      final body = <String, dynamic>{
+        'to': to,
+        'templateName': templateName,
+        'languageCode': languageCode,
+        if (parameters.isNotEmpty) 'parameters': parameters,
+        if (phoneNumberId != null && phoneNumberId.isNotEmpty) 'phoneNumberId': phoneNumberId,
+      };
+      final res = await _dio.post('/api/whatsapp/templates/send', data: body);
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  // ========== EMAIL ==========
+
+  Future<List<dynamic>> getEmailMailboxes() async {
+    try {
+      final res = await _dio.get('/api/email/mailboxes');
+      final data = res.data as Map<String, dynamic>;
+      return data['mailboxes'] ?? [];
+    } on DioException {
+      return [];
+    }
+  }
+
+  Future<Map<String, dynamic>> sendEmail({
+    required String to,
+    required String subject,
+    required String body,
+    String? fromAddress,
+  }) async {
+    try {
+      final res = await _dio.post('/api/email/send', data: {
+        'to': to.trim(),
+        'subject': subject.trim(),
+        'text': body,
+        'html': body.replaceAll('\n', '<br/>'),
+        if (fromAddress != null && fromAddress.isNotEmpty) 'fromAddress': fromAddress,
+      });
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
   // ========== HELPERS ==========
 
   Map<String, dynamic> _handleError(DioException e) {
     if (e.response != null && e.response!.data is Map) {
       return e.response!.data;
     }
-    return {'error': e.message ?? 'कुछ गड़बड़ हो गई'};
+    return {'error': e.message ?? 'à¤à¥à¤ à¤à¤¡à¤¼à¤¬à¤¡à¤¼ à¤¹à¥ à¤à¤'};
   }
 }

@@ -20,9 +20,9 @@ String _safeString(dynamic value) {
           continue;
         }
       }
-      // Lone high surrogate — skip.
+      // Lone high surrogate â skip.
     } else if (c >= 0xDC00 && c <= 0xDFFF) {
-      // Lone low surrogate — skip.
+      // Lone low surrogate â skip.
     } else {
       buffer.write(String.fromCharCode(c));
     }
@@ -93,12 +93,12 @@ class Contact {
   static List<String> _parseTags(Map<String, dynamic> json) {
     final tags = <String>[];
     if (json['is_lead'] == 1 || json['is_lead'] == true) {
-      tags.add('लीड');
+      tags.add('à¤²à¥à¤¡');
       if (json['lead_status'] != null && json['lead_status'] != 'new') {
         tags.add(_safeString(json['lead_status']));
       }
     } else {
-      tags.add('ग्राहक');
+      tags.add('à¤à¥à¤°à¤¾à¤¹à¤');
     }
     return tags;
   }
@@ -357,6 +357,145 @@ class Broadcast {
       delivered: json['delivered'] ?? json['delivered_count'] ?? 0,
       sentAt: _parseUtcDateTime(json['sent_at'] ?? json['created_at']) ?? DateTime.now(),
       channel: _safeString(json['channel'] ?? 'WhatsApp'),
+    );
+  }
+}
+
+class WorkspaceMember {
+  final String id;
+  final String email;
+  final String? name;
+  final String role;
+  final DateTime? joinedAt;
+
+  const WorkspaceMember({
+    required this.id,
+    required this.email,
+    this.name,
+    required this.role,
+    this.joinedAt,
+  });
+
+  factory WorkspaceMember.fromJson(Map<String, dynamic> json) {
+    return WorkspaceMember(
+      id: _safeString(json['id'] ?? json['user_id']),
+      email: _safeString(json['email']),
+      name: _safeString(json['name']),
+      role: _safeString(json['role'] ?? 'member'),
+      joinedAt: _parseUtcDateTime(json['joined_at']),
+    );
+  }
+}
+
+class WhatsAppConfig {
+  final String id;
+  final String phoneNumberId;
+  final String? wabaId;
+  final String? accessToken;
+  final String? verifyToken;
+  final String replyMode;
+  final bool callingEnabled;
+  final String? aiProvider;
+  final String? aiVoiceInstructions;
+  final String about;
+  final String description;
+  final String website;
+  final String email;
+  final String address;
+  final String username;
+  final String? profilePictureUrl;
+
+  const WhatsAppConfig({
+    required this.id,
+    required this.phoneNumberId,
+    this.wabaId,
+    this.accessToken,
+    this.verifyToken,
+    this.replyMode = 'manual',
+    this.callingEnabled = true,
+    this.aiProvider,
+    this.aiVoiceInstructions,
+    this.about = '',
+    this.description = '',
+    this.website = '',
+    this.email = '',
+    this.address = '',
+    this.username = '',
+    this.profilePictureUrl,
+  });
+
+  factory WhatsAppConfig.fromJson(Map<String, dynamic> json) {
+    return WhatsAppConfig(
+      id: _safeString(json['id']),
+      phoneNumberId: _safeString(json['phone_number_id']),
+      wabaId: _safeString(json['waba_id']),
+      accessToken: json['access_token'] != null ? _safeString(json['access_token']) : null,
+      verifyToken: _safeString(json['verify_token']),
+      replyMode: _safeString(json['reply_mode'] ?? 'manual'),
+      callingEnabled: json['calling_enabled'] == 1 || json['calling_enabled'] == true,
+      aiProvider: _safeString(json['ai_provider']),
+      aiVoiceInstructions: _safeString(json['ai_voice_instructions']),
+      about: _safeString(json['about']),
+      description: _safeString(json['description']),
+      website: _safeString(json['website']),
+      email: _safeString(json['email']),
+      address: _safeString(json['address']),
+      username: _safeString(json['username']),
+      profilePictureUrl: _safeString(json['profile_picture_url']),
+    );
+  }
+
+  Map<String, dynamic> toJson({String? accessTokenOverride, bool includeToken = true}) {
+    return {
+      if (id.isNotEmpty) 'id': id,
+      'phone_number_id': phoneNumberId,
+      if (wabaId != null && wabaId!.isNotEmpty) 'waba_id': wabaId,
+      if (includeToken && (accessTokenOverride ?? accessToken) != null)
+        'access_token': accessTokenOverride ?? accessToken,
+      if (verifyToken != null && verifyToken!.isNotEmpty) 'verify_token': verifyToken,
+      'reply_mode': replyMode,
+      'calling_enabled': callingEnabled ? 1 : 0,
+      if (aiProvider != null && aiProvider!.isNotEmpty) 'ai_provider': aiProvider,
+      if (aiVoiceInstructions != null && aiVoiceInstructions!.isNotEmpty)
+        'ai_voice_instructions': aiVoiceInstructions,
+      'about': about,
+      'description': description,
+      'website': website,
+      'email': email,
+      'address': address,
+      'username': username,
+    };
+  }
+}
+
+class EmailMailbox {
+  final String id;
+  final String emailAddress;
+  final String? forwardTo;
+  final bool isDefault;
+  final String domainId;
+  final String domainName;
+  final String? domainStatus;
+
+  const EmailMailbox({
+    required this.id,
+    required this.emailAddress,
+    this.forwardTo,
+    required this.isDefault,
+    required this.domainId,
+    required this.domainName,
+    this.domainStatus,
+  });
+
+  factory EmailMailbox.fromJson(Map<String, dynamic> json) {
+    return EmailMailbox(
+      id: _safeString(json['id']),
+      emailAddress: _safeString(json['email_address']),
+      forwardTo: _safeString(json['forward_to']),
+      isDefault: json['is_default'] == 1 || json['is_default'] == true,
+      domainId: _safeString(json['domain_id']),
+      domainName: _safeString(json['domain_name']),
+      domainStatus: _safeString(json['domain_status']),
     );
   }
 }
