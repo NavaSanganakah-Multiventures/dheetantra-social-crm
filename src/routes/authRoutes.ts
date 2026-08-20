@@ -17,9 +17,12 @@ router.get('/api/auth/me', async (c) => {
       if (c.env.DB && user?.id) {
         try {
           const wm = await c.env.DB.prepare(
-            'SELECT workspace_id FROM workspace_members WHERE user_id = ?'
-          ).bind(user.id).first<{ workspace_id: string }>();
-          if (wm) user.workspace_id = wm.workspace_id;
+            'SELECT workspace_id, role FROM workspace_members WHERE user_id = ?'
+          ).bind(user.id).first<{ workspace_id: string; role: string }>();
+          if (wm) {
+            user.workspace_id = wm.workspace_id;
+            user.role = wm.role;
+          }
         } catch (e) {
           console.error('Failed to resolve workspace_id for /api/auth/me:', e);
         }
@@ -241,15 +244,19 @@ router.post('/api/auth/verify-otp', async (c) => {
         }
 
         // Check or create workspace
-        const workspace: any = await c.env.DB.prepare('SELECT workspace_id FROM workspace_members WHERE user_id = ?').bind(user.id).first();
+        const workspace: any = await c.env.DB.prepare('SELECT workspace_id, role FROM workspace_members WHERE user_id = ?').bind(user.id).first();
         const freePlanId = await getFreePlanId(c.env);
         if (workspace) {
           defaultWorkspaceId = workspace.workspace_id;
+          user.workspace_id = workspace.workspace_id;
+          user.role = workspace.role;
         } else {
           await c.env.DB.prepare('INSERT INTO workspaces (id, name, plan_id) VALUES (?, ?, ?)')
             .bind(defaultWorkspaceId, `${user.name || 'My'} Workspace`, freePlanId).run();
           await c.env.DB.prepare('INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (?, ?, ?)')
             .bind(defaultWorkspaceId, user.id, 'owner').run();
+          user.workspace_id = defaultWorkspaceId;
+          user.role = 'owner';
         }
       } else {
         // Fallback user creation if not exists in DB yet (e.g. bypass or DB schema updated)
@@ -263,6 +270,8 @@ router.post('/api/auth/verify-otp', async (c) => {
           .bind(defaultWorkspaceId, `My Workspace`, freePlanId).run();
         await c.env.DB.prepare('INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (?, ?, ?)')
           .bind(defaultWorkspaceId, userId, 'owner').run();
+        user.workspace_id = defaultWorkspaceId;
+        user.role = 'owner';
       }
     } catch (err) {
       // NEVER proceed with a random-UUID user when the DB is configured but
