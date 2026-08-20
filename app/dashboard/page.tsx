@@ -44,6 +44,9 @@ export default function DashboardWrapper() {
              if (data.user.workspace_id) {
                localStorage.setItem('workspaceId', data.user.workspace_id);
              }
+             if (data.user.role) {
+               localStorage.setItem('workspaceRole', data.user.role);
+             }
          } else {
              router.push('/login');
          }

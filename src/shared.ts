@@ -62,7 +62,14 @@ export function requireRole(...roles: string[]) {
   return async (c: any, next: any) => {
     const role = c.get('workspaceRole');
     if (!role) {
-      return c.json({ error: 'Forbidden: workspace role required' }, 403);
+      // authMiddleware only sets workspaceRole when an x-workspace-id header is
+      // present and the user belongs to that workspace. If we reach here with no
+      // role, the caller likely forgot to send (or sent an empty) workspace id.
+      const workspaceId = c.req.header('x-workspace-id');
+      if (!workspaceId) {
+        return c.json({ error: 'Bad Request: x-workspace-id header is required to determine workspace role' }, 400);
+      }
+      return c.json({ error: 'Forbidden: workspace role not resolved' }, 403);
     }
     if (!allowed.includes(role)) {
       return c.json({ error: 'Forbidden: only ' + allowed.join('/') + ' can perform this action' }, 403);
