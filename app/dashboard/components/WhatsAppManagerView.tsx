@@ -392,6 +392,11 @@ export function WhatsAppManagerView() {
     setSavingConfig(true);
     setMessage("");
     try {
+      const wId = localStorage.getItem('workspaceId');
+      if (!wId) {
+        setMessage("Workspace ID नहीं मिली। कृप्या पेज रीफ़्रेश करें या दोबारा लॉगिन करें।");
+        return;
+      }
       const payload: any = {
         id: editingConfig?.id || null,
         phone_number_id: phoneNumberId,
@@ -428,7 +433,7 @@ export function WhatsAppManagerView() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-workspace-id': localStorage.getItem('workspaceId') || ''
+          'x-workspace-id': wId
         },
         body: JSON.stringify(payload)
       });
