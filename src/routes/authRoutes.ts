@@ -4,6 +4,15 @@ import { EmailMessage } from 'cloudflare:email';
 import { Env } from '../types';
 import { getFreePlanId } from '../services/subscriptionService';
 
+type SessionUser = {
+  id: string;
+  email: string;
+  name: string;
+  timezone: string;
+  workspace_id?: string;
+  role?: string;
+};
+
 const router = new Hono<{ Bindings: Env }>();
 
 router.get('/api/auth/me', async (c) => {
@@ -13,7 +22,7 @@ router.get('/api/auth/me', async (c) => {
   if (c.env.SECRETS_KV) {
     const userDataStr = await c.env.SECRETS_KV.get(`SESSION:${sessionId}`);
     if (userDataStr) {
-      const user = JSON.parse(userDataStr);
+      const user: SessionUser = JSON.parse(userDataStr);
       if (c.env.DB && user?.id) {
         try {
           const wm = await c.env.DB.prepare(
@@ -224,7 +233,7 @@ router.post('/api/auth/verify-otp', async (c) => {
     await c.env.SECRETS_KV.delete(attemptKey);
   }
 
-  let user: any = { id: crypto.randomUUID(), email, name: '', timezone: 'Asia/Kolkata' };
+  let user: SessionUser = { id: crypto.randomUUID(), email, name: '', timezone: 'Asia/Kolkata' };
   let defaultWorkspaceId = crypto.randomUUID();
 
   const freePlanId = c.env.DB ? await getFreePlanId(c.env) : null;
