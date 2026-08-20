@@ -4,7 +4,7 @@ import { requireRole, pagination } from '../shared';
 
 const router = new Hono<{ Bindings: Env }>();
 
-router.post('/api/whatsapp/config', requireRole('owner', 'admin'), async (c) => {
+router.post('/api/whatsapp/config', requireRole('owner', 'admin', 'member'), async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
