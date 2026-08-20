@@ -64,10 +64,10 @@ export function SettingsView() {
     const [showSubscription, setShowSubscription] = useState(false);
 
 
-    const loadMembers = async () => {
+    const loadMembers = async (showLoading = true) => {
       const wId = localStorage.getItem('workspaceId');
       if (!wId) return;
-      setLoadingMembers(true);
+      if (showLoading) setLoadingMembers(true);
       try {
         const res = await fetch('/api/workspace/members', {
           headers: { 'x-workspace-id': wId }
@@ -79,7 +79,7 @@ export function SettingsView() {
       } catch (e) {
         console.error("Failed to load members:", e);
       } finally {
-        setLoadingMembers(false);
+        if (showLoading) setLoadingMembers(false);
       }
     };
 
@@ -422,7 +422,7 @@ export function SettingsView() {
     };
 
     useEffect(() => {
-      loadMembers();
+      loadMembers(false);
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
