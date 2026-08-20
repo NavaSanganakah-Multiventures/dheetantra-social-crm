@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { getCookie } from 'hono/cookie';
 import { Env } from '../types';
-import { requireRole, pagination } from '../shared';
+import { authMiddleware, requireRole, pagination } from '../shared';
 
 const router = new Hono<{ Bindings: Env; Variables: { user: any; workspaceRole?: string } }>();
 
@@ -652,7 +652,7 @@ router.post('/api/contact', async (c) => {
 // WORKSPACE MEMBERS MANAGEMENT
 // ==========================================
 
-router.get('/api/workspace/members', async (c) => {
+router.get('/api/workspace/members', authMiddleware, async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
   if (!c.env.DB) return c.json({ error: 'Database not connected' }, 500);
@@ -672,7 +672,7 @@ router.get('/api/workspace/members', async (c) => {
   }
 });
 
-router.post('/api/workspace/members', requireRole('owner', 'admin'), async (c) => {
+router.post('/api/workspace/members', authMiddleware, requireRole('owner', 'admin'), async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
   if (!c.env.DB) return c.json({ error: 'Database not connected' }, 500);
@@ -710,7 +710,7 @@ router.post('/api/workspace/members', requireRole('owner', 'admin'), async (c) =
   }
 });
 
-router.put('/api/workspace/members/:userId', requireRole('owner', 'admin'), async (c) => {
+router.put('/api/workspace/members/:userId', authMiddleware, requireRole('owner', 'admin'), async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
   if (!c.env.DB) return c.json({ error: 'Database not connected' }, 500);
@@ -745,7 +745,7 @@ router.put('/api/workspace/members/:userId', requireRole('owner', 'admin'), asyn
   }
 });
 
-router.delete('/api/workspace/members/:userId', requireRole('owner', 'admin'), async (c) => {
+router.delete('/api/workspace/members/:userId', authMiddleware, requireRole('owner', 'admin'), async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
   if (!c.env.DB) return c.json({ error: 'Database not connected' }, 500);
