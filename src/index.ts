@@ -262,6 +262,7 @@ app.use('/api/inbox/*', authMiddleware);
 app.use('/api/media/upload', authMiddleware);
 app.use('/api/broadcast', authMiddleware);
 app.use('/api/broadcast/*', authMiddleware);
+app.use('/api/workspace', authMiddleware);
 app.use('/api/workspace/*', authMiddleware);
 app.use('/api/domains', authMiddleware);
 app.use('/api/domains/*', authMiddleware);
