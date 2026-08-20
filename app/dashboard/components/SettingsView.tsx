@@ -28,7 +28,7 @@ export function SettingsView() {
     const [newMemberEmail, setNewMemberEmail] = useState("");
     const [newMemberRole, setNewMemberRole] = useState<'admin' | 'member'>('member');
     const [addingMember, setAddingMember] = useState(false);
-    const [currentRole, setCurrentRole] = useState<string>('');
+    const [currentRole, setCurrentRole] = useState<string>(() => (typeof window !== 'undefined' ? localStorage.getItem('workspaceRole') || '' : ''));
 
     const saveUserProfile = async () => {
       setSavingProfile(true);
@@ -422,7 +422,6 @@ export function SettingsView() {
     };
 
     useEffect(() => {
-      setCurrentRole(localStorage.getItem('workspaceRole') || '');
       loadMembers();
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
