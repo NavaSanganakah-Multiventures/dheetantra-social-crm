@@ -173,11 +173,24 @@ class _ChatScreenState extends State<ChatScreen> {
       setState(() {
         _messages.removeWhere((m) => m.id == tempMsgId);
       });
-    } else if (res['data'] != null && mounted) {
+    } else if (mounted) {
+      // Backend response shape varies ({data:{id}}, {message:{id}}, or {id}) —
+      // handle all so the optimistic temp message gets its real id.
+      Object? serverId;
+      final d = res['data'];
+      if (d is Map) serverId = d['id'];
+      if (serverId == null) {
+        final m = res['message'];
+        if (m is Map) serverId = m['id'];
+      }
+      serverId ??= res['id'];
       setState(() {
         final idx = _messages.indexWhere((m) => m.id == tempMsgId);
         if (idx != -1) {
-          _messages[idx] = _messages[idx].copyWith(id: res['data']['id'], status: 'sent');
+          _messages[idx] = _messages[idx].copyWith(
+            id: serverId?.toString() ?? tempMsgId,
+            status: 'sent',
+          );
         }
       });
     }
