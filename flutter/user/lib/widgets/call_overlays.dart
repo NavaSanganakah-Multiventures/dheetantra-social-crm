@@ -38,7 +38,7 @@ class _GlobalCallOverlayState extends State<GlobalCallOverlay> {
     _initAudioRenderer();
     WebSocketService().connect();
 
-    _wsIncomingSub = WebSocketService().onIncomingCall.listen((callData) {
+    _wsIncomingSub = WebSocketService().onIncomingCall.listen((callData) async {
       // Outgoing calls we start ourselves also come back over the same channel
       // (callRoutes broadcasts `incoming_call` to every socket) — never show
       // an "incoming" overlay for a call this device initiated.
@@ -46,6 +46,13 @@ class _GlobalCallOverlayState extends State<GlobalCallOverlay> {
       if (direction == 'outgoing' || direction == 'BUSINESS_INITIATED') return;
 
       final callId = callData['id']?.toString() ?? callData['callId']?.toString() ?? '';
+      // Respect the "कॉलिंग सक्षम" toggle (settings).
+      if (!await CallKitService().isCallingEnabled()) {
+        try {
+          WebRTCService().rejectCall(Map<String, dynamic>.from(callData));
+        } catch (_) {}
+        return;
+      }
       // Agar FCM/plugin wali isi call ki ring pehle se chal rahi hai (CallKit
       // registry mein) toh double ring + double UI mat dikhao — plugin wala
       // native UI hi accept/decline karega.
@@ -195,6 +202,7 @@ class _GlobalCallOverlayState extends State<GlobalCallOverlay> {
     CallKitService().unregisterInAppCall(incomingId);
     setState(() {
       _incomingCall = null;
+      _activeCall = callData;
       _callStatus = 'connecting';
     });
 
