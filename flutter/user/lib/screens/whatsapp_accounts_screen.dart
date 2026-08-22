@@ -237,7 +237,7 @@ class _WhatsAppAccountsScreenState extends State<WhatsAppAccountsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('WhatsApp अकाउंट्स'),
+        title: const Text('WhatsApp खाते'),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
