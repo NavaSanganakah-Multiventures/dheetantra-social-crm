@@ -35,8 +35,8 @@ export const dict: Record<string, { en: string; hi: string }> = {
 
   // ---------- Home: features ----------
   'home.features.badge': { en: 'Features', hi: 'विशेषताएं' },
-  'home.features.title1': { en: 'Everything you need to', hi: 'स्केल करने के लिए' },
-  'home.features.title2': { en: 'scale', hi: 'आपको बस यही चाहिए' },
+  'home.features.title1': { en: 'Everything you need to', hi: 'बढ़ने के लिए' },
+  'home.features.title2': { en: 'scale', hi: 'सब कुछ चाहिए' },
   'home.features.subtitle': {
     en: 'Powerful features designed to help your team respond faster, automate workflows, and close more deals.',
     hi: 'शक्तिशाली विशेषताएं जो आपकी टीम को तेज़ी से जवाब देने, वर्कफ़्लो स्वचालित करने और अधिक सौदे पूरे करने में मदद करती हैं।',
@@ -61,7 +61,7 @@ export const dict: Record<string, { en: string; hi: string }> = {
     en: 'Connect your domain and route customer emails directly into your DheeTantra workspace.',
     hi: 'अपना डोमेन कनेक्ट करें और ग्राहकों के ईमेल सीधे अपने DheeTantra वर्कस्पेस में रूट करें।',
   },
-  'home.features.analytics.title': { en: 'Actionable Analytics', hi: 'एक्शनेबल एनालिटिक्स' },
+  'home.features.analytics.title': { en: 'Actionable Analytics', hi: 'कार्यात्मक विश्लेषण' },
   'home.features.analytics.desc': {
     en: 'Track response times, campaign ROI, and team performance with beautiful visual reports.',
     hi: 'सुंदर विज़ुअल रिपोर्ट्स के साथ रिस्पॉन्स टाइम, कैंपेन ROI और टीम प्रदर्शन ट्रैक करें।',
@@ -164,7 +164,7 @@ export const dict: Record<string, { en: string; hi: string }> = {
     hi: 'अपने व्यवसाय के अनुकूल प्लान चुनें। पे-एज़-यू-गो दरों के साथ आवर्ती सब्सक्रिप्शन और वन-टाइम विकल्प।',
   },
   'pricing.mostPopular': { en: 'Most Popular', hi: 'सबसे लोकप्रिय' },
-  'pricing.oneTime': { en: 'one-time', hi: 'वन-टाइम' },
+  'pricing.oneTime': { en: 'one-time', hi: 'एकमुश्त' },
   'pricing.year': { en: 'year', hi: 'वर्ष' },
   'pricing.week': { en: 'week', hi: 'सप्ताह' },
   'pricing.month': { en: 'month', hi: 'महीना' },
@@ -215,7 +215,7 @@ export const dict: Record<string, { en: string; hi: string }> = {
   'about.valuesTitle': { en: 'What drives us', hi: 'हमें क्या प्रेरित करता है' },
   'about.value1.title': { en: 'Customer First', hi: 'ग्राहक पहले' },
   'about.value1.desc': { en: 'Every feature we build starts with a real customer problem.', hi: 'हमारी हर सुविधा एक वास्तविक ग्राहक समस्या से शुरू होती है।' },
-  'about.value2.title': { en: 'Edge Performance', hi: 'एज परफॉर्मेंस' },
+  'about.value2.title': { en: 'Edge Performance', hi: 'एज प्रदर्शन' },
   'about.value2.desc': { en: 'Built on Cloudflare Workers for global 0ms latency at scale.', hi: 'स्केल पर वैश्विक 0ms लेटेंसी के लिए Cloudflare Workers पर निर्मित।' },
   'about.value3.title': { en: 'Trust & Security', hi: 'विश्वास और सुरक्षा' },
   'about.value3.desc': { en: 'Enterprise-grade encryption and compliance for your data.', hi: 'आपके डेटा के लिए एंटरप्राइज़-ग्रेड एन्क्रिप्शन और कंप्लायंस।' },
