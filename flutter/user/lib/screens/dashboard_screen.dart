@@ -212,7 +212,7 @@ class _QuickActions extends StatelessWidget {
       ),
       _QuickActionData(
         icon: Icons.call_outlined,
-        label: 'कॉल लॉग्स',
+        label: 'कॉल इतिहास',
         onTap: () {
           Navigator.of(context).push(
             MaterialPageRoute(builder: (_) => const CallsScreen()),
@@ -238,7 +238,7 @@ class _QuickActions extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionHeader(title: 'क्विक एक्शन्स'),
+        const SectionHeader(title: 'त्वरित कार्रवाइयाँ'),
         const SizedBox(height: 12),
         // Responsive: grid on wide screens, horizontal scroll on narrow ones.
         LayoutBuilder(
