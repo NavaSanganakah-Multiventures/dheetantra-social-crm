@@ -277,16 +277,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               onChanged: _setCallsEnabled,
             ),
             const Divider(height: 1, indent: 52),
-            _SettingsTile(
-              icon: Icons.battery_charging_full_outlined,
-              title: 'बैटरी ऑप्टिमाइज़ेशन',
-              subtitle: 'Background में चालू रखने के लिए',
-              trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
-              onTap: () {
-                BatteryOptimizationService().showOptimizationDialog(context);
-              },
-            ),
-            const Divider(height: 1, indent: 52),
             const _SettingsTile(
               icon: Icons.dark_mode_outlined,
               title: 'थीम',

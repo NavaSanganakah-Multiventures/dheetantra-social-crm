@@ -10,6 +10,7 @@ import 'package:flutter_callkit_incoming/entities/notification_params.dart';
 import '../core/app_navigator.dart';
 import '../screens/call_screen.dart';
 import 'webrtc_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class CallKitService {
   static final CallKitService _instance = CallKitService._internal();
@@ -17,6 +18,7 @@ class CallKitService {
   CallKitService._internal();
 
   bool _initialized = false;
+  bool? _callsEnabledCache;
 
   // This map keeps track of the currently active/ringing calls.
   final Map<String, Map<String, dynamic>> _activeCalls = {};
@@ -270,7 +272,28 @@ class CallKitService {
     });
   }
 
+  /// Reflects the user-facing "कॉलिंग सक्षम" toggle (settings_screen). When off,
+  /// incoming calls are auto-rejected so the caller gets a busy tone and this
+  /// device stays quiet. Server-side gating (per WhatsAppConfig.calling_enabled)
+  /// is independent and still applies.
+  Future<bool> isCallingEnabled() async {
+    if (_callsEnabledCache != null) return _callsEnabledCache!;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _callsEnabledCache = prefs.getBool('calls_enabled') ?? true;
+    } catch (_) {
+      _callsEnabledCache = true;
+    }
+    return _callsEnabledCache!;
+  }
+
   Future<void> showIncomingCall(Map<String, dynamic> data) async {
+    if (!await isCallingEnabled()) {
+      try {
+        await WebRTCService().rejectCall(Map<String, dynamic>.from(data));
+      } catch (_) {}
+      return;
+    }
     final String uuid = data['id']?.toString() ?? 'unknown-call-id';
 
     // Duplicate guard: agar ye call pehle se dikh rahi hai (WebSocket overlay
@@ -357,7 +380,8 @@ class CallKitService {
         // par full-screen intent permission ke bina activity turant FSI
         // settings screen khol deti hai. isFullScreen=false (notification
         // path) hi एकमात्र reliable ring hai — permission request login ke
-        // baad requestPermissions() se ho jati hai.        isFullScreen: false,
+        // baad requestPermissions() se ho jati hai.
+        isFullScreen: false,
         isImportant: true,
         ringtonePath: 'system_ringtone_default',
         backgroundColor: '#0955fa',

@@ -294,7 +294,7 @@ class _CampaignCard extends StatelessWidget {
         statusLabel = 'प्रोसेसिंग';
     }
 
-    final createdAt = DateTime.tryParse(campaign['created_at'] ?? '');
+    final createdAt = DateTime.tryParse(campaign['created_at'] ?? '')?.toLocal();
     final progress = total > 0 ? (sent + failed) / total : 0.0;
 
     return Container(

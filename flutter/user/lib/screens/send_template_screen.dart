@@ -68,13 +68,13 @@ class _SendTemplateScreenState extends State<SendTemplateScreen> {
     }
     if (_selectedTemplate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('à¤à¥à¤ªà¤¯à¤¾ à¤à¥à¤®à¥à¤ªà¥à¤²à¥à¤ à¤à¥à¤¨à¥à¤')),
+        const SnackBar(content: Text('कृपया टेम्प्लेट चुनें')),
       );
       return;
     }
     if (recipient.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('à¤à¥à¤ªà¤¯à¤¾ à¤ªà¥à¤°à¤¾à¤ªà¥à¤¤à¤à¤°à¥à¤¤à¤¾ à¤à¤¾ à¤¨à¤à¤¬à¤° à¤¦à¤°à¥à¤ à¤à¤°à¥à¤')),
+        const SnackBar(content: Text('कृपया प्राप्तकर्ता का नंबर दर्ज करें')),
       );
       return;
     }
@@ -93,11 +93,11 @@ class _SendTemplateScreenState extends State<SendTemplateScreen> {
     if (!mounted) return;
     if (res['error'] != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('à¤¤à¥à¤°à¥à¤à¤¿: ${res['error']}')),
+        SnackBar(content: Text('त्रुटि: ${res['error']}')),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('à¤à¥à¤®à¥à¤ªà¥à¤²à¥à¤ à¤­à¥à¤à¤¾ à¤à¤¯à¤¾')),
+        const SnackBar(content: Text('टेम्प्लेट भेजा गया')),
       );
       Navigator.of(context).pop();
     }
@@ -107,7 +107,7 @@ class _SendTemplateScreenState extends State<SendTemplateScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('WhatsApp à¤à¥à¤®à¥à¤ªà¥à¤²à¥à¤ à¤­à¥à¤à¥à¤'),
+        title: const Text('WhatsApp टेम्प्लेट भेजें'),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -116,14 +116,14 @@ class _SendTemplateScreenState extends State<SendTemplateScreen> {
               children: [
                 if (_templates.isEmpty)
                   const Text(
-                    'à¤à¥à¤ à¤à¥à¤®à¥à¤ªà¥à¤²à¥à¤ à¤à¤ªà¤²à¤¬à¥à¤§ à¤¨à¤¹à¥à¤à¥¤ à¤à¥à¤ªà¤¯à¤¾ à¤ªà¤¹à¤²à¥ Meta Dashboard à¤¸à¥ à¤à¥à¤®à¥à¤ªà¥à¤²à¥à¤ à¤¬à¤¨à¤¾à¤à¤à¥¤',
+                    'कोई टेम्प्लेट उपलब्ध नहीं। कृपया पहले Meta Dashboard से टेम्प्लेट बनाएं।',
                     style: TextStyle(color: AppColors.textMuted),
                   )
                 else
                   DropdownButtonFormField<dynamic>(
                     value: _selectedTemplate,
                     dropdownColor: AppColors.surfaceAlt,
-                    decoration: const InputDecoration(labelText: 'à¤à¥à¤®à¥à¤ªà¥à¤²à¥à¤ à¤à¥à¤¨à¥à¤'),
+                    decoration: const InputDecoration(labelText: 'टेम्प्लेट चुनें'),
                     items: _templates
                         .map((t) => DropdownMenuItem(
                               value: t,
@@ -143,7 +143,7 @@ class _SendTemplateScreenState extends State<SendTemplateScreen> {
                   DropdownButtonFormField<WhatsAppConfig>(
                     value: _selectedConfig,
                     dropdownColor: AppColors.surfaceAlt,
-                    decoration: const InputDecoration(labelText: 'WhatsApp à¤à¤¾à¤¤à¤¾ à¤à¥à¤¨à¥à¤'),
+                    decoration: const InputDecoration(labelText: 'WhatsApp खाता चुनें'),
                     items: _configs
                         .map((c) => DropdownMenuItem(
                               value: c,
@@ -160,14 +160,14 @@ class _SendTemplateScreenState extends State<SendTemplateScreen> {
                   controller: _recipientController,
                   keyboardType: TextInputType.phone,
                   decoration: const InputDecoration(
-                    labelText: 'à¤ªà¥à¤°à¤¾à¤ªà¥à¤¤à¤à¤°à¥à¤¤à¤¾ à¤à¤¾ à¤¨à¤à¤¬à¤°',
+                    labelText: 'प्राप्तकर्ता का नंबर',
                     hintText: '+919876543210',
                   ),
                 ),
                 if (_paramControllers.isNotEmpty) ...[
                   const SizedBox(height: 20),
                   const Text(
-                    'à¤à¥à¤®à¥à¤ªà¥à¤²à¥à¤ à¤ªà¥à¤°à¤¾à¤®à¥à¤à¤°',
+                    'टेम्प्लेट पैरामीटर',
                     style: TextStyle(
                       color: AppColors.textPrimary,
                       fontSize: 15,
@@ -179,7 +179,7 @@ class _SendTemplateScreenState extends State<SendTemplateScreen> {
                     TextField(
                       controller: _paramControllers[i],
                       decoration: InputDecoration(
-                        labelText: 'à¤®à¤¾à¤¨ ${i + 1} ({{${i + 1}}})',
+                        labelText: 'मान ${i + 1} ({{${i + 1}}})',
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -198,7 +198,7 @@ class _SendTemplateScreenState extends State<SendTemplateScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          'à¤ªà¥à¤°à¥à¤µà¤¾à¤µà¤²à¥à¤à¤¨',
+                          'पूर्वावलोकन',
                           style: TextStyle(color: AppColors.textMuted, fontSize: 12),
                         ),
                         const SizedBox(height: 6),
@@ -240,7 +240,7 @@ class _SendTemplateScreenState extends State<SendTemplateScreen> {
                           height: 20,
                           child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                         )
-                      : const Text('à¤à¥à¤®à¥à¤ªà¥à¤²à¥à¤ à¤­à¥à¤à¥à¤'),
+                      : const Text('टेम्प्लेट भेजें'),
                 ),
               ],
             ),
