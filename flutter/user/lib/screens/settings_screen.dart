@@ -217,7 +217,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           children: [
             _SettingsTile(
               icon: Icons.business_center_outlined,
-              title: 'मेरा वर्कस्पेस',
+              title: 'मेरा कार्यक्षेत्र',
               subtitle: ApiService().workspaceId != null
                   ? 'ID: ${ApiService().workspaceId!.substring(0, 8)}...'
                   : 'कनेक्ट नहीं',
@@ -243,8 +243,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const Divider(height: 1, indent: 52),
             _SettingsTile(
               icon: Icons.integration_instructions_outlined,
-              title: 'टूल्स और इंटीग्रेशन्स',
-              subtitle: 'Email, Template, नया WhatsApp',
+              title: 'उपकरण और एकीकरण',
+              subtitle: 'ईमेल, टेम्पलेट, नया WhatsApp',
               trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
               onTap: () {
                 Navigator.of(context).push(
@@ -261,7 +261,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           children: [
             _SettingsSwitchTile(
               icon: Icons.notifications_outlined,
-              title: 'नोटिफिकेशन्स',
+              title: 'सूचनाएं',
               subtitle: _savingNotifications
                   ? 'सिंक हो रहा है...'
                   : 'नई बातचीत और कॉल्स की पुश सूचना',
@@ -280,14 +280,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const _SettingsTile(
               icon: Icons.dark_mode_outlined,
               title: 'थीम',
-              subtitle: 'डार्क मोड (डिफ़ॉल्ट)',
+              subtitle: 'गहरा मोड (पूर्वनिर्धारित)',
               trailing: Icon(Icons.check_rounded, color: AppColors.accent, size: 20),
               onTap: null,
             ),
             const Divider(height: 1, indent: 52),
             _SettingsTile(
               icon: Icons.battery_saver_outlined,
-              title: 'बैटरी ऑप्टिमाइज़ेशन',
+              title: 'बैटरी अनुकूलन',
               subtitle: 'ऐप बंद होने पर भी नोटिफिकेशन पाने के लिए',
               trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
               onTap: _requestBatteryOptimization,
@@ -296,7 +296,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _SettingsTile(
               icon: Icons.notifications_active_outlined,
               title: 'टेस्ट पुश नोटिफिकेशन',
-              subtitle: 'FCM push instantly check करें',
+              subtitle: 'FCM पुश सूचना तुरंत जांचें',
               trailing: _testingPush
                   ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
                   : const Icon(Icons.send_outlined, color: AppColors.textMuted),
@@ -339,7 +339,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             side: BorderSide(color: AppColors.danger.withValues(alpha: 0.5)),
           ),
           icon: const Icon(Icons.logout_rounded, size: 18),
-          label: const Text('लॉगआउट'),
+          label: const Text('बाहर निकलें'),
         ),
         const SizedBox(height: 16),
         const Center(
