@@ -264,7 +264,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               title: 'सूचनाएं',
               subtitle: _savingNotifications
                   ? 'सिंक हो रहा है...'
-                  : 'नई बातचीत और कॉल्स की पुश सूचना',
+                  : 'नई बातचीत और कॉल की पुश सूचना',
               value: _notifications,
               onChanged: _savingNotifications ? (_) {} : _setNotifications,
             ),
@@ -288,14 +288,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _SettingsTile(
               icon: Icons.battery_saver_outlined,
               title: 'बैटरी अनुकूलन',
-              subtitle: 'ऐप बंद होने पर भी नोटिफिकेशन पाने के लिए',
+              subtitle: 'ऐप बंद होने पर भी सूचनाएं पाने के लिए',
               trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
               onTap: _requestBatteryOptimization,
             ),
             const Divider(height: 1, indent: 52),
             _SettingsTile(
               icon: Icons.notifications_active_outlined,
-              title: 'टेस्ट पुश नोटिफिकेशन',
+              title: 'पुश सूचना जांच',
               subtitle: 'FCM पुश सूचना तुरंत जांचें',
               trailing: _testingPush
                   ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
