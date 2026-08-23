@@ -197,26 +197,41 @@ router.post('/api/crm/contacts/import', async (c) => {
 
   try {
     let imported = 0;
+    let skipped = 0;
+    let errored = 0;
     for (const contact of contacts) {
-      if (!contact.phone && !contact.Phone) continue;
+      try {
+        if (!contact.phone && !contact.Phone) { skipped++; continue; }
 
-      let rawPhone = contact.phone || contact.Phone || "";
-      rawPhone = rawPhone.toString().replace(/\D/g, ''); // Remove non-numeric
-      if (!rawPhone) continue;
+        let rawPhone = contact.phone || contact.Phone || "";
+        rawPhone = rawPhone.toString().replace(/\D/g, ''); // Remove non-numeric
+        if (!rawPhone) { skipped++; continue; }
 
-      const contactId = crypto.randomUUID();
-      const name = contact.name || contact.Name || `Contact ${rawPhone}`;
-      const email = contact.email || contact.Email || null;
-      const platformContactId = rawPhone;
+        const contactId = crypto.randomUUID();
+        const name = contact.name || contact.Name || `Contact ${rawPhone}`;
+        const email = contact.email || contact.Email || null;
+        const platformContactId = rawPhone;
 
-      await c.env.DB.prepare(
-        'INSERT OR IGNORE INTO contacts (id, workspace_id, platform, platform_contact_id, name, phone, email) VALUES (?, ?, ?, ?, ?, ?, ?)'
-      ).bind(contactId, workspaceId, 'whatsapp', platformContactId, name, rawPhone, email).run();
+        const ins = await c.env.DB.prepare(
+          'INSERT OR IGNORE INTO contacts (id, workspace_id, platform, platform_contact_id, name, phone, email) VALUES (?, ?, ?, ?, ?, ?, ?)'
+        ).bind(contactId, workspaceId, 'whatsapp', platformContactId, name, rawPhone, email).run();
 
-      imported++;
+        // Only count rows that were actually inserted. INSERT OR IGNORE leaves
+        // duplicates in place (meta.changes === 0); previously we counted every
+        // iteration as imported, inflating the reported number. A single bad
+        // row no longer aborts the whole import (per-row try/catch).
+        if (ins?.meta?.changes && ins.meta.changes > 0) {
+          imported++;
+        } else {
+          skipped++;
+        }
+      } catch (rowErr) {
+        errored++;
+        console.error('Contact import row failed:', rowErr);
+      }
     }
 
-    return c.json({ success: true, imported });
+    return c.json({ success: true, imported, skipped, errored });
   } catch (err: any) {
     return c.json({ error: err.message }, 500);
   }
