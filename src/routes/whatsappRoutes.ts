@@ -160,8 +160,21 @@ router.get('/api/whatsapp/config', async (c) => {
 
 
     const { results } = await c.env.DB.prepare('SELECT id, phone_number_id, waba_id, access_token, verify_token, reply_mode, calling_enabled, ai_provider, ai_voice_instructions, about, description, website, email, address, username, profile_picture_url, call_schedule, created_at FROM whatsapp_configs WHERE workspace_id = ?').bind(workspaceId).all();
-    const config = results && results.length > 0 ? results[0] : null;
-    return c.json({ config: config || null, configs: results || [] });
+    // Mask the access token before returning it to the client. This route is
+    // behind authMiddleware but NOT requireRole, so any workspace 'member'
+    // can call it. Returning the raw permanent WhatsApp token would let a
+    // member exfiltrate the owner's credentials and use them directly against
+    // the Meta API. The client only ever sends a NEW token on save and never
+    // needs to read the stored one, so masking is safe.
+    const maskToken = (t: any) => (t ? `••••••••${String(t).slice(-4)}` : '');
+    const maskRow = (r: any) => {
+      if (!r) return r;
+      const { access_token, ...rest } = r;
+      return { ...rest, access_token_masked: maskToken(access_token) };
+    };
+    const masked = (results || []).map(maskRow);
+    const config = masked.length > 0 ? masked[0] : null;
+    return c.json({ config, configs: masked });
   } catch (err: any) {
     return c.json({ error: err.message }, 500);
   }

@@ -267,7 +267,8 @@ router.post('/api/auth/verify-otp', async (c) => {
 
         // Check or create workspace
         const workspace: any = await c.env.DB.prepare('SELECT workspace_id, role FROM workspace_members WHERE user_id = ?').bind(user.id).first();
-        const freePlanId = await getFreePlanId(c.env);
+        // freePlanId was already resolved above (outer scope); reuse it
+        // instead of shadowing with a second redundant getFreePlanId() DB call.
         if (workspace) {
           defaultWorkspaceId = workspace.workspace_id;
           user.workspace_id = workspace.workspace_id;

@@ -272,6 +272,12 @@ app.use('/api/email/*', authMiddleware);
 app.use('/api/domain-emails/*', authMiddleware);
 app.use('/api/whatsapp/upload', authMiddleware);
 app.use('/api/whatsapp/media', authMiddleware);
+// TURN/ICE credentials cost money (Cloudflare Calls); require auth so anonymous
+// callers cannot mint long-lived (24h) credentials.
+app.use('/api/webrtc/*', authMiddleware);
+// /api/campaigns/schedule is guarded by requireRole, which reads workspaceRole
+// set by authMiddleware. Without this the route always 403s.
+app.use('/api/campaigns/*', authMiddleware);
 app.use('/api/fcm/*', authMiddleware);
 
 // Billing endpoints are authenticated except the Razorpay webhook
