@@ -106,8 +106,8 @@ router.post('/api/whatsapp/calls/:id/answer', async (c) => {
   const { sdp, phoneNumberId } = await c.req.json();
 
   // Find config by phoneNumberId first, then fallback to workspace
-  let config = await c.env.DB.prepare('SELECT access_token FROM whatsapp_configs WHERE phone_number_id = ?')
-    .bind(phoneNumberId).first<{ access_token: string }>();
+  let config = await c.env.DB.prepare('SELECT access_token FROM whatsapp_configs WHERE workspace_id = ? AND phone_number_id = ?')
+    .bind(workspaceId, phoneNumberId).first<{ access_token: string }>();
   if (!config) {
     config = await c.env.DB.prepare('SELECT access_token FROM whatsapp_configs WHERE workspace_id = ?')
       .bind(workspaceId).first<{ access_token: string }>();
@@ -157,8 +157,8 @@ router.post('/api/whatsapp/calls/:id/terminate', async (c) => {
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
   const { phoneNumberId } = await c.req.json();
-  let config = await c.env.DB.prepare('SELECT access_token FROM whatsapp_configs WHERE phone_number_id = ?')
-    .bind(phoneNumberId).first<{ access_token: string }>();
+  let config = await c.env.DB.prepare('SELECT access_token FROM whatsapp_configs WHERE workspace_id = ? AND phone_number_id = ?')
+    .bind(workspaceId, phoneNumberId).first<{ access_token: string }>();
   if (!config) {
     config = await c.env.DB.prepare('SELECT access_token FROM whatsapp_configs WHERE workspace_id = ?')
       .bind(workspaceId).first<{ access_token: string }>();
@@ -193,8 +193,8 @@ router.post('/api/whatsapp/calls/:id/reject', async (c) => {
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
   const { phoneNumberId } = await c.req.json();
-  let config = await c.env.DB.prepare('SELECT access_token FROM whatsapp_configs WHERE phone_number_id = ?')
-    .bind(phoneNumberId).first<{ access_token: string }>();
+  let config = await c.env.DB.prepare('SELECT access_token FROM whatsapp_configs WHERE workspace_id = ? AND phone_number_id = ?')
+    .bind(workspaceId, phoneNumberId).first<{ access_token: string }>();
   if (!config) {
     config = await c.env.DB.prepare('SELECT access_token FROM whatsapp_configs WHERE workspace_id = ?')
       .bind(workspaceId).first<{ access_token: string }>();
