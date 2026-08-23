@@ -25,9 +25,22 @@ router.get('/api/auth/me', async (c) => {
       const user: SessionUser = JSON.parse(userDataStr);
       if (c.env.DB && user?.id) {
         try {
-          const wm = await c.env.DB.prepare(
-            'SELECT workspace_id, role FROM workspace_members WHERE user_id = ?'
-          ).bind(user.id).first<{ workspace_id: string; role: string }>();
+          // Prefer the active workspace (x-workspace-id header) so the role
+          // returned reflects the caller's membership in THAT workspace, not an
+          // arbitrary first row. Falls back to the first membership when no
+          // header is sent (e.g. right after login, before a workspace is chosen).
+          const activeWorkspaceId = c.req.header('x-workspace-id');
+          let wm: { workspace_id: string; role: string } | null = null;
+          if (activeWorkspaceId) {
+            wm = await c.env.DB.prepare(
+              'SELECT workspace_id, role FROM workspace_members WHERE workspace_id = ? AND user_id = ?'
+            ).bind(activeWorkspaceId, user.id).first<{ workspace_id: string; role: string }>();
+          }
+          if (!wm) {
+            wm = await c.env.DB.prepare(
+              'SELECT workspace_id, role FROM workspace_members WHERE user_id = ?'
+            ).bind(user.id).first<{ workspace_id: string; role: string }>();
+          }
           if (wm) {
             user.workspace_id = wm.workspace_id;
             user.role = wm.role;
@@ -57,10 +70,10 @@ router.post('/api/auth/send-otp', async (c) => {
       const isRegistered = existingUser ? existingUser.is_registered === 1 : false;
 
       if (type === 'login' && !isRegistered) {
-        return c.json({ error: 'à¤à¤®à¤¾à¤¨à¥à¤¯ à¤à¥à¤°à¥à¤¡à¥à¤à¤¶à¤¿à¤¯à¤²' }, 401);
+        return c.json({ error: 'Ã Â¤ÂÃ Â¤Â®Ã Â¤Â¾Ã Â¤Â¨Ã Â¥ÂÃ Â¤Â¯ Ã Â¤ÂÃ Â¥ÂÃ Â¤Â°Ã Â¥ÂÃ Â¤Â¡Ã Â¥ÂÃ Â¤ÂÃ Â¤Â¶Ã Â¤Â¿Ã Â¤Â¯Ã Â¤Â²' }, 401);
       }
       if (type === 'register' && isRegistered) {
-        return c.json({ error: 'à¤¯à¤¹ à¤à¤®à¥à¤² à¤ªà¤¹à¤²à¥ à¤¸à¥ à¤ªà¤à¤à¥à¤à¥à¤¤ à¤¹à¥à¥¤' }, 400);
+        return c.json({ error: 'Ã Â¤Â¯Ã Â¤Â¹ Ã Â¤ÂÃ Â¤Â®Ã Â¥ÂÃ Â¤Â² Ã Â¤ÂªÃ Â¤Â¹Ã Â¤Â²Ã Â¥Â Ã Â¤Â¸Ã Â¥Â Ã Â¤ÂªÃ Â¤ÂÃ Â¤ÂÃ Â¥ÂÃ Â¤ÂÃ Â¥ÂÃ Â¤Â¤ Ã Â¤Â¹Ã Â¥ÂÃ Â¥Â¤' }, 400);
       }
 
       // If registering and user doesn't exist, create user with is_registered = 0
@@ -83,7 +96,7 @@ router.post('/api/auth/send-otp', async (c) => {
     const cooldownKey = `OTP_COOLDOWN:${email}`;
     const inCooldown = await c.env.SECRETS_KV.get(cooldownKey);
     if (inCooldown) {
-      return c.json({ error: 'à¤à¥à¤ªà¤¯à¤¾ à¤à¤ à¤à¤° OTP à¤à¤¾ à¤à¤¨à¥à¤°à¥à¤§ à¤à¤°à¤¨à¥ à¤¸à¥ à¤ªà¤¹à¤²à¥ 60 à¤¸à¥à¤à¤à¤¡ à¤ªà¥à¤°à¤¤à¥à¤à¥à¤·à¤¾ à¤à¤°à¥à¤à¥¤' }, 429);
+      return c.json({ error: 'Ã Â¤ÂÃ Â¥ÂÃ Â¤ÂªÃ Â¤Â¯Ã Â¤Â¾ Ã Â¤ÂÃ Â¤Â Ã Â¤ÂÃ Â¤Â° OTP Ã Â¤ÂÃ Â¤Â¾ Ã Â¤ÂÃ Â¤Â¨Ã Â¥ÂÃ Â¤Â°Ã Â¥ÂÃ Â¤Â§ Ã Â¤ÂÃ Â¤Â°Ã Â¤Â¨Ã Â¥Â Ã Â¤Â¸Ã Â¥Â Ã Â¤ÂªÃ Â¤Â¹Ã Â¤Â²Ã Â¥Â 60 Ã Â¤Â¸Ã Â¥ÂÃ Â¤ÂÃ Â¤ÂÃ Â¤Â¡ Ã Â¤ÂªÃ Â¥ÂÃ Â¤Â°Ã Â¤Â¤Ã Â¥ÂÃ Â¤ÂÃ Â¥ÂÃ Â¤Â·Ã Â¤Â¾ Ã Â¤ÂÃ Â¤Â°Ã Â¥ÂÃ Â¤ÂÃ Â¥Â¤' }, 429);
     }
     await c.env.SECRETS_KV.put(cooldownKey, '1', { expirationTtl: 60 });
   }
@@ -132,7 +145,7 @@ router.post('/api/auth/send-otp', async (c) => {
     }
   } else {
     // Fallback for local development
-    console.log(`\n\n=== ð OTP FOR ${email} (${type}) ===\n${otp}\n========================\n\n`);
+    console.log(`\n\n=== Ã°ÂÂÂ OTP FOR ${email} (${type}) ===\n${otp}\n========================\n\n`);
   }
 
   return c.json({ success: true, message: 'OTP Sent' });
@@ -225,7 +238,7 @@ router.post('/api/auth/verify-otp', async (c) => {
       const attempts = parseInt(await c.env.SECRETS_KV.get(attemptKey) || '0', 10) + 1;
       await c.env.SECRETS_KV.put(attemptKey, String(attempts), { expirationTtl: 900 });
     }
-    return c.json({ error: 'à¤à¤®à¤¾à¤¨à¥à¤¯ à¤à¥à¤°à¥à¤¡à¥à¤à¤¶à¤¿à¤¯à¤²' }, 401);
+    return c.json({ error: 'Ã Â¤ÂÃ Â¤Â®Ã Â¤Â¾Ã Â¤Â¨Ã Â¥ÂÃ Â¤Â¯ Ã Â¤ÂÃ Â¥ÂÃ Â¤Â°Ã Â¥ÂÃ Â¤Â¡Ã Â¥ÂÃ Â¤ÂÃ Â¤Â¶Ã Â¤Â¿Ã Â¤Â¯Ã Â¤Â²' }, 401);
   }
 
   // Reset attempt counter on success

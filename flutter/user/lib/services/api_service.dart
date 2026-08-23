@@ -347,7 +347,7 @@ class ApiService {
 
   Future<Map<String, dynamic>> getDashboardStats() async {
     try {
-      // Dono calls parallel chalao — sequential hone se dashboard load me
+      // Dono calls parallel chalao â sequential hone se dashboard load me
       // 2x delay aa raha tha.
       final results = await Future.wait<dynamic>([
         getContacts(),
@@ -392,8 +392,10 @@ class ApiService {
       final res = await _dio.get('/api/workspace/members');
       final data = res.data as Map<String, dynamic>;
       return data['members'] ?? [];
-    } on DioException catch (e) {
-      return _handleError(e);
+    } on DioException {
+      // _handleError returns a Map, but this method's return type is
+      // Future<List<dynamic>>; return an empty list on failure instead.
+      return [];
     }
   }
 
@@ -576,6 +578,6 @@ class ApiService {
     if (e.response != null && e.response!.data is Map) {
       return e.response!.data;
     }
-    return {'error': e.message ?? 'कुछ गड़बड़ हो गई'};
+    return {'error': e.message ?? 'à¤à¥à¤ à¤à¤¡à¤¼à¤¬à¤¡à¤¼ à¤¹à¥ à¤à¤'};
   }
 }

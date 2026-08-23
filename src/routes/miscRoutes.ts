@@ -158,7 +158,7 @@ router.post('/api/whatsapp/webhook/subscribe', async (c) => {
     ).bind(workspaceId).first<{ waba_id: string; access_token: string }>();
 
     if (!config || !config.waba_id) {
-      return c.json({ error: 'WABA ID Ã Â¤Â¨Ã Â¤Â¹Ã Â¥ÂÃ Â¤Â Ã Â¤Â®Ã Â¤Â¿Ã Â¤Â²Ã Â¤Â¾Ã Â¥Â¤ Ã Â¤ÂÃ Â¥ÂÃ Â¤ÂªÃ Â¤Â¯Ã Â¤Â¾ Ã Â¤ÂªÃ Â¤Â¹Ã Â¤Â²Ã Â¥Â WhatsApp Config Ã Â¤Â®Ã Â¥ÂÃ Â¤Â WABA ID Ã Â¤Â¸Ã Â¥ÂÃ Â¤Âµ Ã Â¤ÂÃ Â¤Â°Ã Â¥ÂÃ Â¤ÂÃ Â¥Â¤' }, 400);
+      return c.json({ error: 'WABA ID ÃÂ ÃÂ¤ÃÂ¨ÃÂ ÃÂ¤ÃÂ¹ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ ÃÂ ÃÂ¤ÃÂ®ÃÂ ÃÂ¤ÃÂ¿ÃÂ ÃÂ¤ÃÂ²ÃÂ ÃÂ¤ÃÂ¾ÃÂ ÃÂ¥ÃÂ¤ ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂªÃÂ ÃÂ¤ÃÂ¯ÃÂ ÃÂ¤ÃÂ¾ ÃÂ ÃÂ¤ÃÂªÃÂ ÃÂ¤ÃÂ¹ÃÂ ÃÂ¤ÃÂ²ÃÂ ÃÂ¥ÃÂ WhatsApp Config ÃÂ ÃÂ¤ÃÂ®ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ WABA ID ÃÂ ÃÂ¤ÃÂ¸ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂµ ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂ°ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¥ÃÂ¤' }, 400);
     }
 
     const subsRes = await fetch(`https://graph.facebook.com/v20.0/${config.waba_id}/subscribed_apps`, {
@@ -173,7 +173,7 @@ router.post('/api/whatsapp/webhook/subscribe', async (c) => {
     console.log(`[Webhook Subscribe] Manual subscription for WABA ${config.waba_id}:`, subsData);
 
     if (subsData.success === true) {
-      return c.json({ success: true, message: 'Webhook fields (messages + calls) Ã Â¤Â¸Ã Â¤Â«Ã Â¤Â²Ã Â¤Â¤Ã Â¤Â¾Ã Â¤ÂªÃ Â¥ÂÃ Â¤Â°Ã Â¥ÂÃ Â¤ÂµÃ Â¤Â subscribe Ã Â¤Â¹Ã Â¥Â Ã Â¤ÂÃ Â¤Â!' });
+      return c.json({ success: true, message: 'Webhook fields (messages + calls) ÃÂ ÃÂ¤ÃÂ¸ÃÂ ÃÂ¤ÃÂ«ÃÂ ÃÂ¤ÃÂ²ÃÂ ÃÂ¤ÃÂ¤ÃÂ ÃÂ¤ÃÂ¾ÃÂ ÃÂ¤ÃÂªÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ°ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂµÃÂ ÃÂ¤ÃÂ subscribe ÃÂ ÃÂ¤ÃÂ¹ÃÂ ÃÂ¥ÃÂ ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂ!' });
     } else {
       return c.json({ error: 'Subscription failed', details: subsData }, 400);
     }
@@ -183,7 +183,7 @@ router.post('/api/whatsapp/webhook/subscribe', async (c) => {
   }
 });
 
-// Broadcast Campaign Ã¢ÂÂ list campaigns for the workspace
+// Broadcast Campaign ÃÂ¢ÃÂÃÂ list campaigns for the workspace
 router.get('/api/broadcast', async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
@@ -201,7 +201,7 @@ router.get('/api/broadcast', async (c) => {
   }
 });
 
-// Broadcast Campaign Ã¢ÂÂ Create campaign and queue messages.
+// Broadcast Campaign ÃÂ¢ÃÂÃÂ Create campaign and queue messages.
 // Supports two modes:
 //   1. Template mode: { campaignName, templateName, languageCode, parameters, contactIds, phoneNumberId }
 //   2. Text mode (free-form): { message, audience: 'all'|'leads'|'customers', contactIds?, phoneNumberId? }
@@ -214,7 +214,7 @@ router.post('/api/broadcast', requireRole('owner', 'admin'), async (c) => {
   // Resolve contact IDs for text mode when audience is given instead of explicit IDs
   let resolvedContactIds: string[] = Array.isArray(contactIds) ? contactIds : [];
   if (resolvedContactIds.length === 0 && !templateName && message) {
-    // Text-mode broadcasts go out over WhatsApp only Ã¢ÂÂ email contacts have an
+    // Text-mode broadcasts go out over WhatsApp only ÃÂ¢ÃÂÃÂ email contacts have an
     // email address as platform_contact_id and would fail (or worse) at Meta.
     let where = 'workspace_id = ? AND platform = \'whatsapp\'';
     const binds: any[] = [workspaceId];
@@ -273,7 +273,7 @@ router.post('/api/broadcast', requireRole('owner', 'admin'), async (c) => {
     let queued = 0;
     const queueAvailable = !!c.env.BROADCAST_QUEUE;
     if (!queueAvailable) {
-      console.error('[broadcast] BROADCAST_QUEUE binding not configured Ã¢ÂÂ skipping queue');
+      console.error('[broadcast] BROADCAST_QUEUE binding not configured ÃÂ¢ÃÂÃÂ skipping queue');
     }
     for (let i = 0; i < contacts.length; i += 25) {
       const batch = contacts.slice(i, i + 25);
@@ -460,7 +460,7 @@ router.get('/api/plans', async (c) => {
 });
 
 // Get workspace analytics, details, and statistics
-router.get('/api/workspace', async (c) => {
+router.get('/api/workspace', authMiddleware, async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
   if (!c.env.DB) return c.json({ error: 'Database not connected' }, 500);
@@ -491,7 +491,10 @@ router.get('/api/workspace', async (c) => {
         totalContacts: contactsCount?.count || 0,
         openConversations: openConversationsCount?.count || 0,
         broadcastsSent: broadcastsCount?.count || 0
-      }
+      },
+      // Authoritative role of the caller in THIS workspace, resolved from
+      // workspace_members by authMiddleware (not a stale cached value).
+      currentRole: c.get('workspaceRole') || null,
     });
   } catch (err: any) {
     console.error("Error fetching workspace stats:", err);
