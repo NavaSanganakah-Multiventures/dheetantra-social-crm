@@ -13,6 +13,7 @@ class MainActivity: FlutterActivity() {
         super.onCreate(savedInstanceState)
 
         CallerIdChannel.initContext(this)
+        CallerIdChannel.setInitialIntent(intent)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             setShowWhenLocked(true)
