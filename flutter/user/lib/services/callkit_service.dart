@@ -48,13 +48,15 @@ class CallKitService {
     }
     _handledAcceptIds.add(id);
     _currentCallId = id;
-    // Agar navigator ready hai toh turant open karo, warna pending mein save
+    // HomeShell ready hone par (navigator bhi ready) turant open karo,
+    // warna pending mein save
     // karo taaki HomeShell shuru hone par route kar sake. CallScreen apne
     // aap permission check karke answerCall karega.
-    if (appNavigatorKey.currentState != null) {
-      _openCallScreen(data);
+    if (appNavigatorKey.currentState != null && _homeShellReady) {
+      debugPrint('CALLKIT: navigator ready, opening CallScreen');
+      CallScreen.push(appNavigatorKey.currentContext!, data);
     } else {
-      debugPrint('CALLKIT: navigator not ready, queuing accepted call');
+      debugPrint('CALLKIT: navigator / HomeShell not ready, queuing accepted call');
       _pendingAcceptCall = data;
     }
     return true;
@@ -74,7 +76,7 @@ class CallKitService {
       if (event == null) return;
 
       if (event is CallEventActionCallAccept) {
-        debugPrint('CALLKIT: actionCallAccept');
+        debugPrint('CALLKIT: onEvent actionCallAccept id=${event.callKitParams.id}');
         final params = event.callKitParams;
         final callData = _activeCalls[params.id] ?? params.extra;
         if (callData != null) {
@@ -82,7 +84,7 @@ class CallKitService {
           _handleAccept(params.id, data);
         }
       } else if (event is CallEventActionCallDecline) {
-        debugPrint('CALLKIT: actionCallDecline');
+        debugPrint('CALLKIT: onEvent actionCallDecline id=${event.callKitParams.id}');
         final params = event.callKitParams;
         _currentCallId = null;
         _handledAcceptIds.remove(params.id);
@@ -94,13 +96,13 @@ class CallKitService {
           WebRTCService().rejectCall(Map<String, dynamic>.from(callData));
         }
       } else if (event is CallEventActionCallEnded) {
-        debugPrint('CALLKIT: actionCallEnded');
+        debugPrint('CALLKIT: onEvent actionCallEnded id=${event.callKitParams.id}');
         final params = event.callKitParams;
         _currentCallId = null;
         _handledAcceptIds.remove(params.id);
         _activeCalls.remove(params.id);
       } else if (event is CallEventActionCallTimeout) {
-        debugPrint('CALLKIT: actionCallTimeout');
+        debugPrint('CALLKIT: onEvent actionCallTimeout id=${event.id}');
         _currentCallId = null;
         _handledAcceptIds.remove(event.id);
         _activeCalls.remove(event.id);
@@ -200,6 +202,12 @@ class CallKitService {
 
   /// Request Android 13+ notification permission and Android 14+ full-screen
   /// intent permission. Call after the user is logged in.
+  /// HomeShell ke ready hone par true karo. Accept event tab tak queue mein
+  /// rahega jab tak HomeShell ready nahi ho jata.
+  void markHomeShellReady() {
+    _homeShellReady = true;
+  }
+
   /// Returns any call accepted while the app was not yet initialized/navigated
   /// to HomeShell. The caller must then route to [CallScreen] and answer the
   /// WebRTC call. Returns null after the first read.
