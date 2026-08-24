@@ -1,4 +1,3 @@
-import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 
 import '../models/models.dart';
@@ -26,23 +25,16 @@ class _CallDetailScreenState extends State<CallDetailScreen> {
   Map<String, dynamic> _call = {};
   final TextEditingController _notesController = TextEditingController();
   bool _saving = false;
-  final AudioPlayer _player = AudioPlayer();
-  bool _isPlaying = false;
-  bool _audioLoading = false;
   String _error = '';
 
   @override
   void initState() {
     super.initState();
     _load();
-    _player.onPlayerStateChanged.listen((s) {
-      if (mounted) setState(() => _isPlaying = s == PlayerState.playing);
-    });
   }
 
   @override
   void dispose() {
-    _player.dispose();
     _notesController.dispose();
     super.dispose();
   }
@@ -69,30 +61,6 @@ class _CallDetailScreenState extends State<CallDetailScreen> {
       _load();
     } else {
       _showSnack('Failed to save notes');
-    }
-  }
-
-  Future<void> _togglePlayback() async {
-    if (_isPlaying) {
-      await _player.pause();
-      return;
-    }
-    final hasUrl = _call['recording_url'] != null && _call['recording_url'].toString().isNotEmpty;
-    if (!hasUrl) return;
-    setState(() => _audioLoading = true);
-    try {
-      final url = '${ApiService.baseUrl}/api/calls/${widget.callId}/recording';
-      final headers = <String, String>{
-        'x-workspace-id': ApiService().workspaceId ?? '',
-        if (ApiService().sessionId != null)
-          'Cookie': 'auth_session=${ApiService().sessionId}',
-      };
-      await _player.setSource(UrlSource(url, headers: headers));
-      await _player.resume();
-    } catch (e) {
-      if (mounted) _showSnack('Recording play failed: $e');
-    } finally {
-      if (mounted) setState(() => _audioLoading = false);
     }
   }
 
@@ -127,6 +95,7 @@ class _CallDetailScreenState extends State<CallDetailScreen> {
     final status = (_call['status'] ?? '').toString();
     final duration = _toInt(_call['duration'] ?? _call['duration_seconds'] ?? 0);
     final createdAt = _parseDate(_call['created_at'] ?? _call['started_at']);
+    final createdAtLocal = createdAt;
     final hasRecording = _call['recording_url'] != null && _call['recording_url'].toString().isNotEmpty;
     final summary = _call['summary']?.toString();
 
@@ -153,12 +122,10 @@ class _CallDetailScreenState extends State<CallDetailScreen> {
             const SizedBox(height: 20),
             if (hasRecording)
               _ActionCard(
-                icon: _audioLoading
-                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                    : Icon(_isPlaying ? Icons.pause : Icons.play_arrow, color: AppColors.accent),
-                title: _isPlaying ? 'Pause recording' : 'Play recording',
-                subtitle: 'Tap to listen to the attached recording',
-                onTap: _audioLoading ? null : _togglePlayback,
+                icon: const Icon(Icons.mic, color: AppColors.accent),
+                title: 'Recording attached',
+                subtitle: 'This call has a recording on the server',
+                onTap: () => _showSnack('Recording playback via authenticated stream coming soon'),
               ),
             if (summary != null && summary.isNotEmpty) ...[
               const SizedBox(height: 12),
@@ -255,6 +222,7 @@ class _HeaderCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isGsm = source == 'gsm';
+    final createdLocal = createdAt;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -318,7 +286,6 @@ class _HeaderCard extends StatelessWidget {
               ),
             ],
           ),
-          final createdLocal = createdAt;
           if (createdLocal != null) ...[
             const SizedBox(height: 12),
             Text(
