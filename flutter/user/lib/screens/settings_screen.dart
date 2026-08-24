@@ -34,6 +34,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _loading = true;
   bool _savingNotifications = false;
   bool _testingPush = false;
+  bool _diagnosingPush = false;
   String _userName = '';
   String _userEmail = '';
   String _userRole = 'member';
@@ -78,7 +79,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() => _savingNotifications = false);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(enabled ? 'पुश नोटिफिकेशन्स चालू' : 'पुश नोटिफिकेशन्स बंद'),
+        content: Text(enabled ? 'Ã Â¤ÂªÃ Â¥ÂÃ Â¤Â¶ Ã Â¤Â¨Ã Â¥ÂÃ Â¤ÂÃ Â¤Â¿Ã Â¤Â«Ã Â¤Â¿Ã Â¤ÂÃ Â¥ÂÃ Â¤Â¶Ã Â¤Â¨Ã Â¥ÂÃ Â¤Â¸ Ã Â¤ÂÃ Â¤Â¾Ã Â¤Â²Ã Â¥Â' : 'Ã Â¤ÂªÃ Â¥ÂÃ Â¤Â¶ Ã Â¤Â¨Ã Â¥ÂÃ Â¤ÂÃ Â¤Â¿Ã Â¤Â«Ã Â¤Â¿Ã Â¤ÂÃ Â¥ÂÃ Â¤Â¶Ã Â¤Â¨Ã Â¥ÂÃ Â¤Â¸ Ã Â¤Â¬Ã Â¤ÂÃ Â¤Â¦'),
       ),
     );
   }
@@ -100,8 +101,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           SnackBar(
             content: Text(
               result.isGranted
-                  ? 'बैटरी ऑप्टिमाइज़ेशन बंद कर दिया गया'
-                  : 'सेटिंग्स से बैटरी ऑप्टिमाइज़ेशन बंद करें',
+                  ? 'Ã Â¤Â¬Ã Â¥ÂÃ Â¤ÂÃ Â¤Â°Ã Â¥Â Ã Â¤ÂÃ Â¤ÂªÃ Â¥ÂÃ Â¤ÂÃ Â¤Â¿Ã Â¤Â®Ã Â¤Â¾Ã Â¤ÂÃ Â¤ÂÃ Â¤Â¼Ã Â¥ÂÃ Â¤Â¶Ã Â¤Â¨ Ã Â¤Â¬Ã Â¤ÂÃ Â¤Â¦ Ã Â¤ÂÃ Â¤Â° Ã Â¤Â¦Ã Â¤Â¿Ã Â¤Â¯Ã Â¤Â¾ Ã Â¤ÂÃ Â¤Â¯Ã Â¤Â¾'
+                  : 'Ã Â¤Â¸Ã Â¥ÂÃ Â¤ÂÃ Â¤Â¿Ã Â¤ÂÃ Â¤ÂÃ Â¥ÂÃ Â¤Â¸ Ã Â¤Â¸Ã Â¥Â Ã Â¤Â¬Ã Â¥ÂÃ Â¤ÂÃ Â¤Â°Ã Â¥Â Ã Â¤ÂÃ Â¤ÂªÃ Â¥ÂÃ Â¤ÂÃ Â¤Â¿Ã Â¤Â®Ã Â¤Â¾Ã Â¤ÂÃ Â¤ÂÃ Â¤Â¼Ã Â¥ÂÃ Â¤Â¶Ã Â¤Â¨ Ã Â¤Â¬Ã Â¤ÂÃ Â¤Â¦ Ã Â¤ÂÃ Â¤Â°Ã Â¥ÂÃ Â¤Â',
             ),
           ),
         );
@@ -112,6 +113,46 @@ class _SettingsScreenState extends State<SettingsScreen> {
       debugPrint('Battery optimization request error: $e');
       await openAppSettings();
     }
+  }
+
+  Future<void> _diagnosePush() async {
+    setState(() => _diagnosingPush = true);
+    final result = await ApiService().diagnosePush();
+    if (!mounted) return;
+    setState(() => _diagnosingPush = false);
+
+    String fmt(dynamic v) {
+      if (v is Map) {
+        return v.entries.map((e) => '  ${e.key}: ${fmt(e.value)}').join('\n');
+      }
+      if (v is List) {
+        return '[${v.join(', ')}]';
+      }
+      return v.toString();
+    }
+    final report = result.entries.map((e) => '${e.key}: ${fmt(e.value)}').join('\n');
+
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Push Diagnostics'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: SingleChildScrollView(
+            child: SelectableText(
+              report,
+              style: const TextStyle(fontSize: 12, height: 1.4),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _sendTestPush() async {
@@ -127,8 +168,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       SnackBar(
         content: Text(
           success
-              ? 'टेस्ट push भेजा गया ($count token)'
-              : 'टेस्ट push failed: ${error ?? 'unknown'}',
+              ? 'Ã Â¤ÂÃ Â¥ÂÃ Â¤Â¸Ã Â¥ÂÃ Â¤Â push Ã Â¤Â­Ã Â¥ÂÃ Â¤ÂÃ Â¤Â¾ Ã Â¤ÂÃ Â¤Â¯Ã Â¤Â¾ ($count token)'
+              : 'Ã Â¤ÂÃ Â¥ÂÃ Â¤Â¸Ã Â¥ÂÃ Â¤Â push failed: ${error ?? 'unknown'}',
         ),
       ),
     );
@@ -211,16 +252,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
         const SizedBox(height: 24),
-        const _SectionLabel('वर्कस्पेस'),
+        const _SectionLabel('Ã Â¤ÂµÃ Â¤Â°Ã Â¥ÂÃ Â¤ÂÃ Â¤Â¸Ã Â¥ÂÃ Â¤ÂªÃ Â¥ÂÃ Â¤Â¸'),
         const SizedBox(height: 10),
         _SettingsCard(
           children: [
             _SettingsTile(
               icon: Icons.business_center_outlined,
-              title: 'मेरा वर्कस्पेस',
+              title: 'Ã Â¤Â®Ã Â¥ÂÃ Â¤Â°Ã Â¤Â¾ Ã Â¤ÂµÃ Â¤Â°Ã Â¥ÂÃ Â¤ÂÃ Â¤Â¸Ã Â¥ÂÃ Â¤ÂªÃ Â¥ÂÃ Â¤Â¸',
               subtitle: ApiService().workspaceId != null
                   ? 'ID: ${ApiService().workspaceId!.substring(0, 8)}...'
-                  : 'कनेक्ट नहीं',
+                  : 'Ã Â¤ÂÃ Â¤Â¨Ã Â¥ÂÃ Â¤ÂÃ Â¥ÂÃ Â¤Â Ã Â¤Â¨Ã Â¤Â¹Ã Â¥ÂÃ Â¤Â',
               trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
               onTap: () {
                 Navigator.of(context).push(
@@ -231,8 +272,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const Divider(height: 1, indent: 52),
             _SettingsTile(
               icon: Icons.smartphone_outlined,
-              title: 'WhatsApp अकाउंट्स',
-              subtitle: _canManageWorkspace ? 'जोड़ें, संपादित करें, हटाएं' : 'सिर्फ़ देखें',
+              title: 'WhatsApp Ã Â¤ÂÃ Â¤ÂÃ Â¤Â¾Ã Â¤ÂÃ Â¤ÂÃ Â¤ÂÃ Â¥ÂÃ Â¤Â¸',
+              subtitle: _canManageWorkspace ? 'Ã Â¤ÂÃ Â¥ÂÃ Â¤Â¡Ã Â¤Â¼Ã Â¥ÂÃ Â¤Â, Ã Â¤Â¸Ã Â¤ÂÃ Â¤ÂªÃ Â¤Â¾Ã Â¤Â¦Ã Â¤Â¿Ã Â¤Â¤ Ã Â¤ÂÃ Â¤Â°Ã Â¥ÂÃ Â¤Â, Ã Â¤Â¹Ã Â¤ÂÃ Â¤Â¾Ã Â¤ÂÃ Â¤Â' : 'Ã Â¤Â¸Ã Â¤Â¿Ã Â¤Â°Ã Â¥ÂÃ Â¤Â«Ã Â¤Â¼ Ã Â¤Â¦Ã Â¥ÂÃ Â¤ÂÃ Â¥ÂÃ Â¤Â',
               trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
               onTap: () {
                 Navigator.of(context).push(
@@ -243,8 +284,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const Divider(height: 1, indent: 52),
             _SettingsTile(
               icon: Icons.integration_instructions_outlined,
-              title: 'टूल्स और इंटीग्रेशन्स',
-              subtitle: 'Email, Template, नया WhatsApp',
+              title: 'Ã Â¤ÂÃ Â¥ÂÃ Â¤Â²Ã Â¥ÂÃ Â¤Â¸ Ã Â¤ÂÃ Â¤Â° Ã Â¤ÂÃ Â¤ÂÃ Â¤ÂÃ Â¥ÂÃ Â¤ÂÃ Â¥ÂÃ Â¤Â°Ã Â¥ÂÃ Â¤Â¶Ã Â¤Â¨Ã Â¥ÂÃ Â¤Â¸',
+              subtitle: 'Email, Template, Ã Â¤Â¨Ã Â¤Â¯Ã Â¤Â¾ WhatsApp',
               trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
               onTap: () {
                 Navigator.of(context).push(
@@ -255,77 +296,87 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ],
         ),
         const SizedBox(height: 24),
-        const _SectionLabel('सामान्य'),
+        const _SectionLabel('Ã Â¤Â¸Ã Â¤Â¾Ã Â¤Â®Ã Â¤Â¾Ã Â¤Â¨Ã Â¥ÂÃ Â¤Â¯'),
         const SizedBox(height: 10),
         _SettingsCard(
           children: [
             _SettingsSwitchTile(
               icon: Icons.notifications_outlined,
-              title: 'नोटिफिकेशन्स',
+              title: 'Ã Â¤Â¨Ã Â¥ÂÃ Â¤ÂÃ Â¤Â¿Ã Â¤Â«Ã Â¤Â¿Ã Â¤ÂÃ Â¥ÂÃ Â¤Â¶Ã Â¤Â¨Ã Â¥ÂÃ Â¤Â¸',
               subtitle: _savingNotifications
-                  ? 'सिंक हो रहा है...'
-                  : 'नई बातचीत और कॉल्स की पुश सूचना',
+                  ? 'Ã Â¤Â¸Ã Â¤Â¿Ã Â¤ÂÃ Â¤Â Ã Â¤Â¹Ã Â¥Â Ã Â¤Â°Ã Â¤Â¹Ã Â¤Â¾ Ã Â¤Â¹Ã Â¥Â...'
+                  : 'Ã Â¤Â¨Ã Â¤Â Ã Â¤Â¬Ã Â¤Â¾Ã Â¤Â¤Ã Â¤ÂÃ Â¥ÂÃ Â¤Â¤ Ã Â¤ÂÃ Â¤Â° Ã Â¤ÂÃ Â¥ÂÃ Â¤Â²Ã Â¥ÂÃ Â¤Â¸ Ã Â¤ÂÃ Â¥Â Ã Â¤ÂªÃ Â¥ÂÃ Â¤Â¶ Ã Â¤Â¸Ã Â¥ÂÃ Â¤ÂÃ Â¤Â¨Ã Â¤Â¾',
               value: _notifications,
               onChanged: _savingNotifications ? (_) {} : _setNotifications,
             ),
             const Divider(height: 1, indent: 52),
             _SettingsSwitchTile(
               icon: Icons.call_outlined,
-              title: 'कॉलिंग सक्षम',
-              subtitle: 'WhatsApp कॉल्स प्राप्त करें',
+              title: 'Ã Â¤ÂÃ Â¥ÂÃ Â¤Â²Ã Â¤Â¿Ã Â¤ÂÃ Â¤Â Ã Â¤Â¸Ã Â¤ÂÃ Â¥ÂÃ Â¤Â·Ã Â¤Â®',
+              subtitle: 'WhatsApp Ã Â¤ÂÃ Â¥ÂÃ Â¤Â²Ã Â¥ÂÃ Â¤Â¸ Ã Â¤ÂªÃ Â¥ÂÃ Â¤Â°Ã Â¤Â¾Ã Â¤ÂªÃ Â¥ÂÃ Â¤Â¤ Ã Â¤ÂÃ Â¤Â°Ã Â¥ÂÃ Â¤Â',
               value: _callsEnabled,
               onChanged: _setCallsEnabled,
             ),
             const Divider(height: 1, indent: 52),
             const _SettingsTile(
               icon: Icons.dark_mode_outlined,
-              title: 'थीम',
-              subtitle: 'डार्क मोड (डिफ़ॉल्ट)',
+              title: 'Ã Â¤Â¥Ã Â¥ÂÃ Â¤Â®',
+              subtitle: 'Ã Â¤Â¡Ã Â¤Â¾Ã Â¤Â°Ã Â¥ÂÃ Â¤Â Ã Â¤Â®Ã Â¥ÂÃ Â¤Â¡ (Ã Â¤Â¡Ã Â¤Â¿Ã Â¤Â«Ã Â¤Â¼Ã Â¥ÂÃ Â¤Â²Ã Â¥ÂÃ Â¤Â)',
               trailing: Icon(Icons.check_rounded, color: AppColors.accent, size: 20),
               onTap: null,
             ),
             const Divider(height: 1, indent: 52),
             _SettingsTile(
               icon: Icons.battery_saver_outlined,
-              title: 'बैटरी ऑप्टिमाइज़ेशन',
-              subtitle: 'ऐप बंद होने पर भी नोटिफिकेशन पाने के लिए',
+              title: 'Ã Â¤Â¬Ã Â¥ÂÃ Â¤ÂÃ Â¤Â°Ã Â¥Â Ã Â¤ÂÃ Â¤ÂªÃ Â¥ÂÃ Â¤ÂÃ Â¤Â¿Ã Â¤Â®Ã Â¤Â¾Ã Â¤ÂÃ Â¤ÂÃ Â¤Â¼Ã Â¥ÂÃ Â¤Â¶Ã Â¤Â¨',
+              subtitle: 'Ã Â¤ÂÃ Â¤Âª Ã Â¤Â¬Ã Â¤ÂÃ Â¤Â¦ Ã Â¤Â¹Ã Â¥ÂÃ Â¤Â¨Ã Â¥Â Ã Â¤ÂªÃ Â¤Â° Ã Â¤Â­Ã Â¥Â Ã Â¤Â¨Ã Â¥ÂÃ Â¤ÂÃ Â¤Â¿Ã Â¤Â«Ã Â¤Â¿Ã Â¤ÂÃ Â¥ÂÃ Â¤Â¶Ã Â¤Â¨ Ã Â¤ÂªÃ Â¤Â¾Ã Â¤Â¨Ã Â¥Â Ã Â¤ÂÃ Â¥Â Ã Â¤Â²Ã Â¤Â¿Ã Â¤Â',
               trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
               onTap: _requestBatteryOptimization,
             ),
             const Divider(height: 1, indent: 52),
             _SettingsTile(
               icon: Icons.notifications_active_outlined,
-              title: 'टेस्ट पुश नोटिफिकेशन',
-              subtitle: 'FCM push instantly check करें',
+              title: 'Ã Â¤ÂÃ Â¥ÂÃ Â¤Â¸Ã Â¥ÂÃ Â¤Â Ã Â¤ÂªÃ Â¥ÂÃ Â¤Â¶ Ã Â¤Â¨Ã Â¥ÂÃ Â¤ÂÃ Â¤Â¿Ã Â¤Â«Ã Â¤Â¿Ã Â¤ÂÃ Â¥ÂÃ Â¤Â¶Ã Â¤Â¨',
+              subtitle: 'FCM push instantly check Ã Â¤ÂÃ Â¤Â°Ã Â¥ÂÃ Â¤Â',
               trailing: _testingPush
                   ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
                   : const Icon(Icons.send_outlined, color: AppColors.textMuted),
               onTap: _testingPush ? null : _sendTestPush,
             ),
+            const Divider(height: 1, indent: 52),
+            _SettingsTile(
+              icon: Icons.health_and_safety_outlined,
+              title: 'Push Diagnostics',
+              subtitle: 'WhatsApp/email push kyun nahi aata - check',
+              trailing: _diagnosingPush
+                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.insights_outlined, color: AppColors.textMuted),
+              onTap: _diagnosingPush ? null : _diagnosePush,
+            ),
           ],
         ),
         const SizedBox(height: 24),
-        const _SectionLabel('सहायता'),
+        const _SectionLabel('Ã Â¤Â¸Ã Â¤Â¹Ã Â¤Â¾Ã Â¤Â¯Ã Â¤Â¤Ã Â¤Â¾'),
         const SizedBox(height: 10),
         _SettingsCard(
           children: [
             _SettingsTile(
               icon: Icons.help_outline_rounded,
-              title: 'सहायता केंद्र',
+              title: 'Ã Â¤Â¸Ã Â¤Â¹Ã Â¤Â¾Ã Â¤Â¯Ã Â¤Â¤Ã Â¤Â¾ Ã Â¤ÂÃ Â¥ÂÃ Â¤ÂÃ Â¤Â¦Ã Â¥ÂÃ Â¤Â°',
               trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
               onTap: () {},
             ),
             const Divider(height: 1, indent: 52),
             _SettingsTile(
               icon: Icons.assignment_outlined,
-              title: 'नियम और शर्तें',
+              title: 'Ã Â¤Â¨Ã Â¤Â¿Ã Â¤Â¯Ã Â¤Â® Ã Â¤ÂÃ Â¤Â° Ã Â¤Â¶Ã Â¤Â°Ã Â¥ÂÃ Â¤Â¤Ã Â¥ÂÃ Â¤Â',
               trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
               onTap: () {},
             ),
             const Divider(height: 1, indent: 52),
             _SettingsTile(
               icon: Icons.privacy_tip_outlined,
-              title: 'गोपनीयता नीति',
+              title: 'Ã Â¤ÂÃ Â¥ÂÃ Â¤ÂªÃ Â¤Â¨Ã Â¥ÂÃ Â¤Â¯Ã Â¤Â¤Ã Â¤Â¾ Ã Â¤Â¨Ã Â¥ÂÃ Â¤Â¤Ã Â¤Â¿',
               trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
               onTap: () {},
             ),
@@ -339,7 +390,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             side: BorderSide(color: AppColors.danger.withValues(alpha: 0.5)),
           ),
           icon: const Icon(Icons.logout_rounded, size: 18),
-          label: const Text('लॉगआउट'),
+          label: const Text('Ã Â¤Â²Ã Â¥ÂÃ Â¤ÂÃ Â¤ÂÃ Â¤ÂÃ Â¤Â'),
         ),
         const SizedBox(height: 16),
         const Center(

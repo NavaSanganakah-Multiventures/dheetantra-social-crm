@@ -172,12 +172,101 @@ router.post('/api/fcm/test', async (c) => {
 });
 
 
+// Diagnostic: replicate the WhatsApp/email webhook's exact FCM fan-out for
+// the caller's workspace and report every step, so a missing push can be
+// pinpointed from the app in one call (no wrangler tail needed).
+router.get('/api/fcm/diagnose', async (c) => {
+  const userId = await resolveUserId(c);
+  if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+  if (!c.env.DB) return c.json({ error: 'DB not configured' }, 500);
+
+  const workspaceId = c.req.header('x-workspace-id');
+  const out: any = {
+    userId,
+    workspaceId: workspaceId || null,
+    fcmServiceAccountConfigured: false,
+    fcmProjectId: null,
+    fcmConfigError: null,
+    myTokenCount: 0,
+    workspaceMemberCount: 0,
+    workspaceTokenCount: 0,
+    memberUserIdsPreview: [] as string[],
+    iAmWorkspaceMember: false,
+    testSend: null,
+  };
+
+  // 1. FCM server-side config presence + project id (mirrors lib/fcm.ts).
+  try {
+    if (c.env.SECRETS_KV) {
+      const raw = await c.env.SECRETS_KV.get('FCM_SERVICE_ACCOUNT_JSON');
+      if (raw) {
+        out.fcmServiceAccountConfigured = true;
+        let json = raw;
+        if (!raw.trim().startsWith('{')) json = atob(raw.trim());
+        const sa = JSON.parse(json);
+        const pid = await c.env.SECRETS_KV.get('FCM_PROJECT_ID');
+        out.fcmProjectId = pid || sa.project_id || null;
+      } else {
+        out.fcmConfigError = 'FCM_SERVICE_ACCOUNT_JSON not set in SECRETS_KV';
+      }
+    } else {
+      out.fcmConfigError = 'SECRETS_KV binding missing on the Worker';
+    }
+  } catch (e: any) {
+    out.fcmConfigError = 'config parse error: ' + (e.message || String(e));
+  }
+
+  // 2. The caller's own registered tokens (same lookup as /api/fcm/test).
+  try {
+    const mine = await c.env.DB.prepare('SELECT COUNT(*) as n FROM fcm_tokens WHERE user_id = ?').bind(userId).first();
+    out.myTokenCount = mine?.n ?? 0;
+  } catch (e: any) {
+    out.myTokenCount = -1;
+  }
+
+  // 3. The EXACT fan-out the WhatsApp/email webhook runs for this workspace.
+  if (workspaceId) {
+    try {
+      const members: any = await c.env.DB.prepare('SELECT user_id FROM workspace_members WHERE workspace_id = ?').bind(workspaceId).all();
+      const userIds = (members.results || []).map((m: any) => m.user_id);
+      out.workspaceMemberCount = userIds.length;
+      out.memberUserIdsPreview = userIds.slice(0, 15);
+      out.iAmWorkspaceMember = userIds.includes(userId);
+      if (userIds.length) {
+        const placeholders = userIds.map(() => '?').join(',');
+        const tokens: any = await c.env.DB.prepare('SELECT token FROM fcm_tokens WHERE user_id IN (' + placeholders + ')').bind(...userIds).all();
+        out.workspaceTokenCount = (tokens.results || []).length;
+        if (tokens.results && tokens.results.length > 0) {
+          const { sendPushNotification } = await import('../../lib/fcm');
+          out.testSend = await sendPushNotification(
+            c.env,
+            tokens.results[0].token,
+            'DheeTantra push diagnose',
+            'Fan-out token pe real send test',
+            { type: 'diagnostics' }
+          );
+        } else {
+          out.testSend = { success: false, error: 'No FCM tokens for this workspace members - webhook will log No FCM tokens push skipped' };
+        }
+      } else {
+        out.testSend = { success: false, error: 'Workspace has no rows in workspace_members' };
+      }
+    } catch (e: any) {
+      out.testSend = { success: false, error: 'fan-out query error: ' + (e.message || String(e)) };
+    }
+  } else {
+    out.testSend = { success: false, error: 'x-workspace-id header missing - app not tied to a workspace; webhook fan-out cannot be simulated' };
+  }
+
+  return c.json(out);
+});
+
 // 2. CRM & Social Media Data (D1 Database)
 router.get('/api/crm/contacts', async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
-  // Fetch from D1 (Relational Data) — paginated; frontend already sends limit=
+  // Fetch from D1 (Relational Data) â paginated; frontend already sends limit=
   const { limit, offset } = pagination(c, 500);
   const { results } = await c.env.DB.prepare(
     'SELECT * FROM contacts WHERE workspace_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?'
@@ -258,8 +347,8 @@ router.post('/api/crm/contacts', async (c) => {
     lead_value
   } = body;
 
-  if (!name) return c.json({ error: 'नाम आवश्यक है (Name is required)' }, 400);
-  if (!phone) return c.json({ error: 'फ़ोन नंबर आवश्यक है (Phone is required)' }, 400);
+  if (!name) return c.json({ error: 'à¤¨à¤¾à¤® à¤à¤µà¤¶à¥à¤¯à¤ à¤¹à¥ (Name is required)' }, 400);
+  if (!phone) return c.json({ error: 'à¤«à¤¼à¥à¤¨ à¤¨à¤à¤¬à¤° à¤à¤µà¤¶à¥à¤¯à¤ à¤¹à¥ (Phone is required)' }, 400);
   if (String(name).length > 200) return c.json({ error: 'Name is too long (max 200 characters)' }, 400);
   if (notes && String(notes).length > 5000) return c.json({ error: 'Notes are too long (max 5000 characters)' }, 400);
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email))) {
@@ -274,7 +363,7 @@ router.post('/api/crm/contacts', async (c) => {
   ).bind(workspaceId, platformContactId).first();
 
   if (existing) {
-    return c.json({ error: 'इस फ़ोन नंबर वाला संपर्क पहले से मौजूद है।' }, 400);
+    return c.json({ error: 'à¤à¤¸ à¤«à¤¼à¥à¤¨ à¤¨à¤à¤¬à¤° à¤µà¤¾à¤²à¤¾ à¤¸à¤à¤ªà¤°à¥à¤ à¤ªà¤¹à¤²à¥ à¤¸à¥ à¤®à¥à¤à¥à¤¦ à¤¹à¥à¥¤' }, 400);
   }
 
   const id = crypto.randomUUID();
@@ -331,15 +420,15 @@ router.put('/api/crm/contacts/:contactId', async (c) => {
     lead_value
   } = body;
 
-  if (!name) return c.json({ error: 'नाम आवश्यक है' }, 400);
-  if (!phone) return c.json({ error: 'फ़ोन नंबर आवश्यक है' }, 400);
+  if (!name) return c.json({ error: 'à¤¨à¤¾à¤® à¤à¤µà¤¶à¥à¤¯à¤ à¤¹à¥' }, 400);
+  if (!phone) return c.json({ error: 'à¤«à¤¼à¥à¤¨ à¤¨à¤à¤¬à¤° à¤à¤µà¤¶à¥à¤¯à¤ à¤¹à¥' }, 400);
 
   const platformContactId = phone.replace(/[^0-9]/g, '');
 
   const existing = await c.env.DB.prepare(
     'SELECT id FROM contacts WHERE id = ? AND workspace_id = ?'
   ).bind(contactId, workspaceId).first();
-  if (!existing) return c.json({ error: 'संपर्क नहीं मिला' }, 404);
+  if (!existing) return c.json({ error: 'à¤¸à¤à¤ªà¤°à¥à¤ à¤¨à¤¹à¥à¤ à¤®à¤¿à¤²à¤¾' }, 404);
 
   await c.env.DB.prepare(`
     UPDATE contacts SET
@@ -389,7 +478,7 @@ router.delete('/api/crm/contacts/:contactId', async (c) => {
   const existing = await c.env.DB.prepare(
     'SELECT id FROM contacts WHERE id = ? AND workspace_id = ?'
   ).bind(contactId, workspaceId).first();
-  if (!existing) return c.json({ error: 'संपर्क नहीं मिला' }, 404);
+  if (!existing) return c.json({ error: 'à¤¸à¤à¤ªà¤°à¥à¤ à¤¨à¤¹à¥à¤ à¤®à¤¿à¤²à¤¾' }, 404);
 
   // Delete conversations and messages associated with this contact
   const convs = await c.env.DB.prepare('SELECT id FROM conversations WHERE contact_id = ?').bind(contactId).all<{ id: string }>();

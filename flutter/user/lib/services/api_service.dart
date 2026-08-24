@@ -181,6 +181,22 @@ class ApiService {
   }
 
   /// Diagnostic: ask the backend to send a test FCM push to this device.
+  /// Diagnostic: replicate the backend WhatsApp/email webhook push fan-out
+  /// for the current workspace and return a full report (token counts, FCM
+  /// config status, a real test send). Shown in Settings -> Push Diagnostics.
+  Future<Map<String, dynamic>> diagnosePush() async {
+    try {
+      final res = await _dio.get('/api/fcm/diagnose');
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      final data = e.response?.data;
+      if (data is Map<String, dynamic>) return data;
+      return {'error': e.message ?? 'Unknown error'};
+    } catch (e) {
+      return {'error': e.toString()};
+    }
+  }
+
   Future<Map<String, dynamic>> testPushNotification() async {
     try {
       final res = await _dio.post('/api/fcm/test');
@@ -347,7 +363,7 @@ class ApiService {
 
   Future<Map<String, dynamic>> getDashboardStats() async {
     try {
-      // Dono calls parallel chalao â sequential hone se dashboard load me
+      // Dono calls parallel chalao Ã¢ÂÂ sequential hone se dashboard load me
       // 2x delay aa raha tha.
       final results = await Future.wait<dynamic>([
         getContacts(),
@@ -518,7 +534,7 @@ class ApiService {
 
   /// Meta WhatsApp Cloud API expects the recipient as digits only (no '+',
   /// spaces or dashes). Inputs from the Send New Message and template screens
-  /// often contain a leading '+', which Meta rejects — so sends from those
+  /// often contain a leading '+', which Meta rejects â so sends from those
   /// screens silently failed. Always normalize before hitting the WhatsApp API.
   String _normalizePhoneForWhatsapp(String phone) {
     return phone.replaceAll(RegExp(r'[^0-9]'), '');
@@ -586,6 +602,6 @@ class ApiService {
     if (e.response != null && e.response!.data is Map) {
       return e.response!.data;
     }
-    return {'error': e.message ?? 'à¤à¥à¤ à¤à¤¡à¤¼à¤¬à¤¡à¤¼ à¤¹à¥ à¤à¤'};
+    return {'error': e.message ?? 'Ã Â¤ÂÃ Â¥ÂÃ Â¤Â Ã Â¤ÂÃ Â¤Â¡Ã Â¤Â¼Ã Â¤Â¬Ã Â¤Â¡Ã Â¤Â¼ Ã Â¤Â¹Ã Â¥Â Ã Â¤ÂÃ Â¤Â'};
   }
 }
