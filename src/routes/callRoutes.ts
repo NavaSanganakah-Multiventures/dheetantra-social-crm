@@ -529,7 +529,7 @@ async function findOrCreateGsmContact(db: any, workspaceId: string, phone: strin
   const normalizedPhone = phone.replace(/[^0-9+]/g, '');
   const existing = await db.prepare(
     'SELECT id, name FROM contacts WHERE workspace_id = ? AND platform = ? AND platform_contact_id = ?'
-  ).bind(workspaceId, 'gsm', normalizedPhone).first<{ id: string; name: string }>();
+  ).bind(workspaceId, 'gsm', normalizedPhone).first() as { id: string; name: string } | null;
   if (existing) return existing.id;
   const id = crypto.randomUUID();
   await db.prepare(
