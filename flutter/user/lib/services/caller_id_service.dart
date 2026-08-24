@@ -24,14 +24,15 @@ class CallerIdService {
     }
   }
 
-  static Future<bool> storeAuthToken(String token, String workspaceId) async {
+  static Future<bool> storeSession(String sessionId, String workspaceId) async {
+    if (!Platform.isAndroid) return false;
     try {
-      return await _channel.invokeMethod('storeAuthToken', {
-        'token': token,
+      return await _channel.invokeMethod('storeSession', {
+        'sessionId': sessionId,
         'workspaceId': workspaceId,
       }) == true;
     } catch (e) {
-      debugPrint('storeAuthToken error: $e');
+      debugPrint('storeSession error: $e');
       return false;
     }
   }
