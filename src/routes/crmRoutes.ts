@@ -672,4 +672,73 @@ router.post('/api/crm/contacts/find-or-create', async (c) => {
   ).bind(id, workspaceId, 'gsm', normalizedPhone, name || normalizedPhone).run();
   return c.json({ contactId: id, created: true });
 });
+
+// ==========================================
+// CALLER ID CARD - TRUECALLER-STYLE PROFILE
+// ==========================================
+function normalizePhoneForMatch(phone: string): string {
+  return phone.replace(/[^0-9]/g, '');
+}
+
+router.get('/api/crm/caller-card', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  const phone = c.req.query('phone');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+  if (!phone) return c.json({ error: 'phone required' }, 400);
+  const digits = normalizePhoneForMatch(phone);
+
+  // Find contact by normalized phone digits on platform_contact_id or phone column
+  const contact = await c.env.DB.prepare(`
+    SELECT * FROM contacts
+    WHERE workspace_id = ?
+      AND (REPLACE(REPLACE(REPLACE(platform_contact_id, '+', ''), '-', ''), ' ', '') = ?
+        OR REPLACE(REPLACE(REPLACE(phone, '+', ''), '-', ''), ' ', '') = ?)
+    ORDER BY created_at DESC
+    LIMIT 1
+  `).bind(workspaceId, digits, digits).first<any>();
+
+  if (!contact) {
+    return c.json({ found: false, phone, digits });
+  }
+
+  // Last message across all conversations for this contact
+  const lastMessage = await c.env.DB.prepare(`
+    SELECT m.content, m.message_type, m.created_at, c.platform
+    FROM messages m
+    JOIN conversations c ON m.conversation_id = c.id
+    WHERE c.contact_id = ?
+    ORDER BY m.created_at DESC
+    LIMIT 1
+  `).bind(contact.id).first<{ content: string; message_type: string; created_at: string; platform: string }>();
+
+  // Call stats for this contact
+  const callStats = await c.env.DB.prepare(`
+    SELECT COUNT(*) as total_calls, COALESCE(SUM(duration), 0) as total_duration_seconds, MAX(created_at) as last_call_at
+    FROM calls
+    WHERE workspace_id = ? AND contact_id = ?
+  `).bind(workspaceId, contact.id).first<{ total_calls: number; total_duration_seconds: number; last_call_at: string }>();
+
+  return c.json({
+    found: true,
+    contactId: contact.id,
+    name: contact.name,
+    phone: contact.platform_contact_id || contact.phone || phone,
+    email: contact.email || null,
+    leadStatus: contact.lead_status || null,
+    tags: contact.tags || [],
+    notes: contact.notes || null,
+    lastMessage: lastMessage ? {
+      content: lastMessage.content,
+      platform: lastMessage.platform,
+      type: lastMessage.message_type,
+      createdAt: lastMessage.created_at
+    } : null,
+    callStats: {
+      totalCalls: callStats?.total_calls || 0,
+      totalDurationSeconds: callStats?.total_duration_seconds || 0,
+      lastCallAt: callStats?.last_call_at || null
+    }
+  });
+});
+
 export default router;
