@@ -79,7 +79,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() => _savingNotifications = false);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(enabled ? 'Ã Â¤ÂªÃ Â¥ÂÃ Â¤Â¶ Ã Â¤Â¨Ã Â¥ÂÃ Â¤ÂÃ Â¤Â¿Ã Â¤Â«Ã Â¤Â¿Ã Â¤ÂÃ Â¥ÂÃ Â¤Â¶Ã Â¤Â¨Ã Â¥ÂÃ Â¤Â¸ Ã Â¤ÂÃ Â¤Â¾Ã Â¤Â²Ã Â¥Â' : 'Ã Â¤ÂªÃ Â¥ÂÃ Â¤Â¶ Ã Â¤Â¨Ã Â¥ÂÃ Â¤ÂÃ Â¤Â¿Ã Â¤Â«Ã Â¤Â¿Ã Â¤ÂÃ Â¥ÂÃ Â¤Â¶Ã Â¤Â¨Ã Â¥ÂÃ Â¤Â¸ Ã Â¤Â¬Ã Â¤ÂÃ Â¤Â¦'),
+        content: Text(enabled ? 'ÃÂ ÃÂ¤ÃÂªÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ¶ ÃÂ ÃÂ¤ÃÂ¨ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂ¿ÃÂ ÃÂ¤ÃÂ«ÃÂ ÃÂ¤ÃÂ¿ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ¶ÃÂ ÃÂ¤ÃÂ¨ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ¸ ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂ¾ÃÂ ÃÂ¤ÃÂ²ÃÂ ÃÂ¥ÃÂ' : 'ÃÂ ÃÂ¤ÃÂªÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ¶ ÃÂ ÃÂ¤ÃÂ¨ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂ¿ÃÂ ÃÂ¤ÃÂ«ÃÂ ÃÂ¤ÃÂ¿ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ¶ÃÂ ÃÂ¤ÃÂ¨ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ¸ ÃÂ ÃÂ¤ÃÂ¬ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂ¦'),
       ),
     );
   }
@@ -101,8 +101,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           SnackBar(
             content: Text(
               result.isGranted
-                  ? 'Ã Â¤Â¬Ã Â¥ÂÃ Â¤ÂÃ Â¤Â°Ã Â¥Â Ã Â¤ÂÃ Â¤ÂªÃ Â¥ÂÃ Â¤ÂÃ Â¤Â¿Ã Â¤Â®Ã Â¤Â¾Ã Â¤ÂÃ Â¤ÂÃ Â¤Â¼Ã Â¥ÂÃ Â¤Â¶Ã Â¤Â¨ Ã Â¤Â¬Ã Â¤ÂÃ Â¤Â¦ Ã Â¤ÂÃ Â¤Â° Ã Â¤Â¦Ã Â¤Â¿Ã Â¤Â¯Ã Â¤Â¾ Ã Â¤ÂÃ Â¤Â¯Ã Â¤Â¾'
-                  : 'Ã Â¤Â¸Ã Â¥ÂÃ Â¤ÂÃ Â¤Â¿Ã Â¤ÂÃ Â¤ÂÃ Â¥ÂÃ Â¤Â¸ Ã Â¤Â¸Ã Â¥Â Ã Â¤Â¬Ã Â¥ÂÃ Â¤ÂÃ Â¤Â°Ã Â¥Â Ã Â¤ÂÃ Â¤ÂªÃ Â¥ÂÃ Â¤ÂÃ Â¤Â¿Ã Â¤Â®Ã Â¤Â¾Ã Â¤ÂÃ Â¤ÂÃ Â¤Â¼Ã Â¥ÂÃ Â¤Â¶Ã Â¤Â¨ Ã Â¤Â¬Ã Â¤ÂÃ Â¤Â¦ Ã Â¤ÂÃ Â¤Â°Ã Â¥ÂÃ Â¤Â',
+                  ? 'ÃÂ ÃÂ¤ÃÂ¬ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂ°ÃÂ ÃÂ¥ÃÂ ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂªÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂ¿ÃÂ ÃÂ¤ÃÂ®ÃÂ ÃÂ¤ÃÂ¾ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂ¼ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ¶ÃÂ ÃÂ¤ÃÂ¨ ÃÂ ÃÂ¤ÃÂ¬ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂ¦ ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂ° ÃÂ ÃÂ¤ÃÂ¦ÃÂ ÃÂ¤ÃÂ¿ÃÂ ÃÂ¤ÃÂ¯ÃÂ ÃÂ¤ÃÂ¾ ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂ¯ÃÂ ÃÂ¤ÃÂ¾'
+                  : 'ÃÂ ÃÂ¤ÃÂ¸ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂ¿ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ¸ ÃÂ ÃÂ¤ÃÂ¸ÃÂ ÃÂ¥ÃÂ ÃÂ ÃÂ¤ÃÂ¬ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂ°ÃÂ ÃÂ¥ÃÂ ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂªÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂ¿ÃÂ ÃÂ¤ÃÂ®ÃÂ ÃÂ¤ÃÂ¾ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂ¼ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ¶ÃÂ ÃÂ¤ÃÂ¨ ÃÂ ÃÂ¤ÃÂ¬ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂ¦ ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂ°ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ',
             ),
           ),
         );
@@ -157,7 +157,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _sendTestPush() async {
     setState(() => _testingPush = true);
-    final result = await ApiService().testPushNotification();
+    var result = await ApiService().testPushNotification();
+    // Self-heal: if no token received the push (all stale/unregistered, which
+    // happens on a fresh first install), force a fresh FCM token + re-register,
+    // then retry the test once. Fixes the 'first install test push fails, only
+    // works after clearing data & reopening' issue.
+    if (result['success'] != true) {
+      await FcmService().forceRefreshAndRegister();
+      result = await ApiService().testPushNotification();
+    }
     if (!mounted) return;
     setState(() => _testingPush = false);
 
@@ -168,8 +176,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       SnackBar(
         content: Text(
           success
-              ? 'Ã Â¤ÂÃ Â¥ÂÃ Â¤Â¸Ã Â¥ÂÃ Â¤Â push Ã Â¤Â­Ã Â¥ÂÃ Â¤ÂÃ Â¤Â¾ Ã Â¤ÂÃ Â¤Â¯Ã Â¤Â¾ ($count token)'
-              : 'Ã Â¤ÂÃ Â¥ÂÃ Â¤Â¸Ã Â¥ÂÃ Â¤Â push failed: ${error ?? 'unknown'}',
+              ? 'ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ¸ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ push ÃÂ ÃÂ¤ÃÂ­ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂ¾ ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂ¯ÃÂ ÃÂ¤ÃÂ¾ ($count token)'
+              : 'ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ¸ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ push failed: ${error ?? 'unknown'}',
         ),
       ),
     );
@@ -252,16 +260,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
         const SizedBox(height: 24),
-        const _SectionLabel('Ã Â¤ÂµÃ Â¤Â°Ã Â¥ÂÃ Â¤ÂÃ Â¤Â¸Ã Â¥ÂÃ Â¤ÂªÃ Â¥ÂÃ Â¤Â¸'),
+        const _SectionLabel('ÃÂ ÃÂ¤ÃÂµÃÂ ÃÂ¤ÃÂ°ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂ¸ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂªÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ¸'),
         const SizedBox(height: 10),
         _SettingsCard(
           children: [
             _SettingsTile(
               icon: Icons.business_center_outlined,
-              title: 'Ã Â¤Â®Ã Â¥ÂÃ Â¤Â°Ã Â¤Â¾ Ã Â¤ÂµÃ Â¤Â°Ã Â¥ÂÃ Â¤ÂÃ Â¤Â¸Ã Â¥ÂÃ Â¤ÂªÃ Â¥ÂÃ Â¤Â¸',
+              title: 'ÃÂ ÃÂ¤ÃÂ®ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ°ÃÂ ÃÂ¤ÃÂ¾ ÃÂ ÃÂ¤ÃÂµÃÂ ÃÂ¤ÃÂ°ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂ¸ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂªÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ¸',
               subtitle: ApiService().workspaceId != null
                   ? 'ID: ${ApiService().workspaceId!.substring(0, 8)}...'
-                  : 'Ã Â¤ÂÃ Â¤Â¨Ã Â¥ÂÃ Â¤ÂÃ Â¥ÂÃ Â¤Â Ã Â¤Â¨Ã Â¤Â¹Ã Â¥ÂÃ Â¤Â',
+                  : 'ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂ¨ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ ÃÂ ÃÂ¤ÃÂ¨ÃÂ ÃÂ¤ÃÂ¹ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ',
               trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
               onTap: () {
                 Navigator.of(context).push(
@@ -272,8 +280,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const Divider(height: 1, indent: 52),
             _SettingsTile(
               icon: Icons.smartphone_outlined,
-              title: 'WhatsApp Ã Â¤ÂÃ Â¤ÂÃ Â¤Â¾Ã Â¤ÂÃ Â¤ÂÃ Â¤ÂÃ Â¥ÂÃ Â¤Â¸',
-              subtitle: _canManageWorkspace ? 'Ã Â¤ÂÃ Â¥ÂÃ Â¤Â¡Ã Â¤Â¼Ã Â¥ÂÃ Â¤Â, Ã Â¤Â¸Ã Â¤ÂÃ Â¤ÂªÃ Â¤Â¾Ã Â¤Â¦Ã Â¤Â¿Ã Â¤Â¤ Ã Â¤ÂÃ Â¤Â°Ã Â¥ÂÃ Â¤Â, Ã Â¤Â¹Ã Â¤ÂÃ Â¤Â¾Ã Â¤ÂÃ Â¤Â' : 'Ã Â¤Â¸Ã Â¤Â¿Ã Â¤Â°Ã Â¥ÂÃ Â¤Â«Ã Â¤Â¼ Ã Â¤Â¦Ã Â¥ÂÃ Â¤ÂÃ Â¥ÂÃ Â¤Â',
+              title: 'WhatsApp ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂ¾ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ¸',
+              subtitle: _canManageWorkspace ? 'ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ¡ÃÂ ÃÂ¤ÃÂ¼ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ, ÃÂ ÃÂ¤ÃÂ¸ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂªÃÂ ÃÂ¤ÃÂ¾ÃÂ ÃÂ¤ÃÂ¦ÃÂ ÃÂ¤ÃÂ¿ÃÂ ÃÂ¤ÃÂ¤ ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂ°ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ, ÃÂ ÃÂ¤ÃÂ¹ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂ¾ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂ' : 'ÃÂ ÃÂ¤ÃÂ¸ÃÂ ÃÂ¤ÃÂ¿ÃÂ ÃÂ¤ÃÂ°ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ«ÃÂ ÃÂ¤ÃÂ¼ ÃÂ ÃÂ¤ÃÂ¦ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ',
               trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
               onTap: () {
                 Navigator.of(context).push(
@@ -284,8 +292,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const Divider(height: 1, indent: 52),
             _SettingsTile(
               icon: Icons.integration_instructions_outlined,
-              title: 'Ã Â¤ÂÃ Â¥ÂÃ Â¤Â²Ã Â¥ÂÃ Â¤Â¸ Ã Â¤ÂÃ Â¤Â° Ã Â¤ÂÃ Â¤ÂÃ Â¤ÂÃ Â¥ÂÃ Â¤ÂÃ Â¥ÂÃ Â¤Â°Ã Â¥ÂÃ Â¤Â¶Ã Â¤Â¨Ã Â¥ÂÃ Â¤Â¸',
-              subtitle: 'Email, Template, Ã Â¤Â¨Ã Â¤Â¯Ã Â¤Â¾ WhatsApp',
+              title: 'ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ²ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ¸ ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂ° ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ°ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ¶ÃÂ ÃÂ¤ÃÂ¨ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ¸',
+              subtitle: 'Email, Template, ÃÂ ÃÂ¤ÃÂ¨ÃÂ ÃÂ¤ÃÂ¯ÃÂ ÃÂ¤ÃÂ¾ WhatsApp',
               trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
               onTap: () {
                 Navigator.of(context).push(
@@ -296,48 +304,48 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ],
         ),
         const SizedBox(height: 24),
-        const _SectionLabel('Ã Â¤Â¸Ã Â¤Â¾Ã Â¤Â®Ã Â¤Â¾Ã Â¤Â¨Ã Â¥ÂÃ Â¤Â¯'),
+        const _SectionLabel('ÃÂ ÃÂ¤ÃÂ¸ÃÂ ÃÂ¤ÃÂ¾ÃÂ ÃÂ¤ÃÂ®ÃÂ ÃÂ¤ÃÂ¾ÃÂ ÃÂ¤ÃÂ¨ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ¯'),
         const SizedBox(height: 10),
         _SettingsCard(
           children: [
             _SettingsSwitchTile(
               icon: Icons.notifications_outlined,
-              title: 'Ã Â¤Â¨Ã Â¥ÂÃ Â¤ÂÃ Â¤Â¿Ã Â¤Â«Ã Â¤Â¿Ã Â¤ÂÃ Â¥ÂÃ Â¤Â¶Ã Â¤Â¨Ã Â¥ÂÃ Â¤Â¸',
+              title: 'ÃÂ ÃÂ¤ÃÂ¨ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂ¿ÃÂ ÃÂ¤ÃÂ«ÃÂ ÃÂ¤ÃÂ¿ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ¶ÃÂ ÃÂ¤ÃÂ¨ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ¸',
               subtitle: _savingNotifications
-                  ? 'Ã Â¤Â¸Ã Â¤Â¿Ã Â¤ÂÃ Â¤Â Ã Â¤Â¹Ã Â¥Â Ã Â¤Â°Ã Â¤Â¹Ã Â¤Â¾ Ã Â¤Â¹Ã Â¥Â...'
-                  : 'Ã Â¤Â¨Ã Â¤Â Ã Â¤Â¬Ã Â¤Â¾Ã Â¤Â¤Ã Â¤ÂÃ Â¥ÂÃ Â¤Â¤ Ã Â¤ÂÃ Â¤Â° Ã Â¤ÂÃ Â¥ÂÃ Â¤Â²Ã Â¥ÂÃ Â¤Â¸ Ã Â¤ÂÃ Â¥Â Ã Â¤ÂªÃ Â¥ÂÃ Â¤Â¶ Ã Â¤Â¸Ã Â¥ÂÃ Â¤ÂÃ Â¤Â¨Ã Â¤Â¾',
+                  ? 'ÃÂ ÃÂ¤ÃÂ¸ÃÂ ÃÂ¤ÃÂ¿ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂ ÃÂ ÃÂ¤ÃÂ¹ÃÂ ÃÂ¥ÃÂ ÃÂ ÃÂ¤ÃÂ°ÃÂ ÃÂ¤ÃÂ¹ÃÂ ÃÂ¤ÃÂ¾ ÃÂ ÃÂ¤ÃÂ¹ÃÂ ÃÂ¥ÃÂ...'
+                  : 'ÃÂ ÃÂ¤ÃÂ¨ÃÂ ÃÂ¤ÃÂ ÃÂ ÃÂ¤ÃÂ¬ÃÂ ÃÂ¤ÃÂ¾ÃÂ ÃÂ¤ÃÂ¤ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ¤ ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂ° ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ²ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ¸ ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¥ÃÂ ÃÂ ÃÂ¤ÃÂªÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ¶ ÃÂ ÃÂ¤ÃÂ¸ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂ¨ÃÂ ÃÂ¤ÃÂ¾',
               value: _notifications,
               onChanged: _savingNotifications ? (_) {} : _setNotifications,
             ),
             const Divider(height: 1, indent: 52),
             _SettingsSwitchTile(
               icon: Icons.call_outlined,
-              title: 'Ã Â¤ÂÃ Â¥ÂÃ Â¤Â²Ã Â¤Â¿Ã Â¤ÂÃ Â¤Â Ã Â¤Â¸Ã Â¤ÂÃ Â¥ÂÃ Â¤Â·Ã Â¤Â®',
-              subtitle: 'WhatsApp Ã Â¤ÂÃ Â¥ÂÃ Â¤Â²Ã Â¥ÂÃ Â¤Â¸ Ã Â¤ÂªÃ Â¥ÂÃ Â¤Â°Ã Â¤Â¾Ã Â¤ÂªÃ Â¥ÂÃ Â¤Â¤ Ã Â¤ÂÃ Â¤Â°Ã Â¥ÂÃ Â¤Â',
+              title: 'ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ²ÃÂ ÃÂ¤ÃÂ¿ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂ ÃÂ ÃÂ¤ÃÂ¸ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ·ÃÂ ÃÂ¤ÃÂ®',
+              subtitle: 'WhatsApp ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ²ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ¸ ÃÂ ÃÂ¤ÃÂªÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ°ÃÂ ÃÂ¤ÃÂ¾ÃÂ ÃÂ¤ÃÂªÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ¤ ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂ°ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ',
               value: _callsEnabled,
               onChanged: _setCallsEnabled,
             ),
             const Divider(height: 1, indent: 52),
             const _SettingsTile(
               icon: Icons.dark_mode_outlined,
-              title: 'Ã Â¤Â¥Ã Â¥ÂÃ Â¤Â®',
-              subtitle: 'Ã Â¤Â¡Ã Â¤Â¾Ã Â¤Â°Ã Â¥ÂÃ Â¤Â Ã Â¤Â®Ã Â¥ÂÃ Â¤Â¡ (Ã Â¤Â¡Ã Â¤Â¿Ã Â¤Â«Ã Â¤Â¼Ã Â¥ÂÃ Â¤Â²Ã Â¥ÂÃ Â¤Â)',
+              title: 'ÃÂ ÃÂ¤ÃÂ¥ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ®',
+              subtitle: 'ÃÂ ÃÂ¤ÃÂ¡ÃÂ ÃÂ¤ÃÂ¾ÃÂ ÃÂ¤ÃÂ°ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ ÃÂ ÃÂ¤ÃÂ®ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ¡ (ÃÂ ÃÂ¤ÃÂ¡ÃÂ ÃÂ¤ÃÂ¿ÃÂ ÃÂ¤ÃÂ«ÃÂ ÃÂ¤ÃÂ¼ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ²ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ)',
               trailing: Icon(Icons.check_rounded, color: AppColors.accent, size: 20),
               onTap: null,
             ),
             const Divider(height: 1, indent: 52),
             _SettingsTile(
               icon: Icons.battery_saver_outlined,
-              title: 'Ã Â¤Â¬Ã Â¥ÂÃ Â¤ÂÃ Â¤Â°Ã Â¥Â Ã Â¤ÂÃ Â¤ÂªÃ Â¥ÂÃ Â¤ÂÃ Â¤Â¿Ã Â¤Â®Ã Â¤Â¾Ã Â¤ÂÃ Â¤ÂÃ Â¤Â¼Ã Â¥ÂÃ Â¤Â¶Ã Â¤Â¨',
-              subtitle: 'Ã Â¤ÂÃ Â¤Âª Ã Â¤Â¬Ã Â¤ÂÃ Â¤Â¦ Ã Â¤Â¹Ã Â¥ÂÃ Â¤Â¨Ã Â¥Â Ã Â¤ÂªÃ Â¤Â° Ã Â¤Â­Ã Â¥Â Ã Â¤Â¨Ã Â¥ÂÃ Â¤ÂÃ Â¤Â¿Ã Â¤Â«Ã Â¤Â¿Ã Â¤ÂÃ Â¥ÂÃ Â¤Â¶Ã Â¤Â¨ Ã Â¤ÂªÃ Â¤Â¾Ã Â¤Â¨Ã Â¥Â Ã Â¤ÂÃ Â¥Â Ã Â¤Â²Ã Â¤Â¿Ã Â¤Â',
+              title: 'ÃÂ ÃÂ¤ÃÂ¬ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂ°ÃÂ ÃÂ¥ÃÂ ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂªÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂ¿ÃÂ ÃÂ¤ÃÂ®ÃÂ ÃÂ¤ÃÂ¾ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂ¼ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ¶ÃÂ ÃÂ¤ÃÂ¨',
+              subtitle: 'ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂª ÃÂ ÃÂ¤ÃÂ¬ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂ¦ ÃÂ ÃÂ¤ÃÂ¹ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ¨ÃÂ ÃÂ¥ÃÂ ÃÂ ÃÂ¤ÃÂªÃÂ ÃÂ¤ÃÂ° ÃÂ ÃÂ¤ÃÂ­ÃÂ ÃÂ¥ÃÂ ÃÂ ÃÂ¤ÃÂ¨ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂ¿ÃÂ ÃÂ¤ÃÂ«ÃÂ ÃÂ¤ÃÂ¿ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ¶ÃÂ ÃÂ¤ÃÂ¨ ÃÂ ÃÂ¤ÃÂªÃÂ ÃÂ¤ÃÂ¾ÃÂ ÃÂ¤ÃÂ¨ÃÂ ÃÂ¥ÃÂ ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¥ÃÂ ÃÂ ÃÂ¤ÃÂ²ÃÂ ÃÂ¤ÃÂ¿ÃÂ ÃÂ¤ÃÂ',
               trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
               onTap: _requestBatteryOptimization,
             ),
             const Divider(height: 1, indent: 52),
             _SettingsTile(
               icon: Icons.notifications_active_outlined,
-              title: 'Ã Â¤ÂÃ Â¥ÂÃ Â¤Â¸Ã Â¥ÂÃ Â¤Â Ã Â¤ÂªÃ Â¥ÂÃ Â¤Â¶ Ã Â¤Â¨Ã Â¥ÂÃ Â¤ÂÃ Â¤Â¿Ã Â¤Â«Ã Â¤Â¿Ã Â¤ÂÃ Â¥ÂÃ Â¤Â¶Ã Â¤Â¨',
-              subtitle: 'FCM push instantly check Ã Â¤ÂÃ Â¤Â°Ã Â¥ÂÃ Â¤Â',
+              title: 'ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ¸ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ ÃÂ ÃÂ¤ÃÂªÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ¶ ÃÂ ÃÂ¤ÃÂ¨ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂ¿ÃÂ ÃÂ¤ÃÂ«ÃÂ ÃÂ¤ÃÂ¿ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ¶ÃÂ ÃÂ¤ÃÂ¨',
+              subtitle: 'FCM push instantly check ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂ°ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ',
               trailing: _testingPush
                   ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
                   : const Icon(Icons.send_outlined, color: AppColors.textMuted),
@@ -356,27 +364,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ],
         ),
         const SizedBox(height: 24),
-        const _SectionLabel('Ã Â¤Â¸Ã Â¤Â¹Ã Â¤Â¾Ã Â¤Â¯Ã Â¤Â¤Ã Â¤Â¾'),
+        const _SectionLabel('ÃÂ ÃÂ¤ÃÂ¸ÃÂ ÃÂ¤ÃÂ¹ÃÂ ÃÂ¤ÃÂ¾ÃÂ ÃÂ¤ÃÂ¯ÃÂ ÃÂ¤ÃÂ¤ÃÂ ÃÂ¤ÃÂ¾'),
         const SizedBox(height: 10),
         _SettingsCard(
           children: [
             _SettingsTile(
               icon: Icons.help_outline_rounded,
-              title: 'Ã Â¤Â¸Ã Â¤Â¹Ã Â¤Â¾Ã Â¤Â¯Ã Â¤Â¤Ã Â¤Â¾ Ã Â¤ÂÃ Â¥ÂÃ Â¤ÂÃ Â¤Â¦Ã Â¥ÂÃ Â¤Â°',
+              title: 'ÃÂ ÃÂ¤ÃÂ¸ÃÂ ÃÂ¤ÃÂ¹ÃÂ ÃÂ¤ÃÂ¾ÃÂ ÃÂ¤ÃÂ¯ÃÂ ÃÂ¤ÃÂ¤ÃÂ ÃÂ¤ÃÂ¾ ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂ¦ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ°',
               trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
               onTap: () {},
             ),
             const Divider(height: 1, indent: 52),
             _SettingsTile(
               icon: Icons.assignment_outlined,
-              title: 'Ã Â¤Â¨Ã Â¤Â¿Ã Â¤Â¯Ã Â¤Â® Ã Â¤ÂÃ Â¤Â° Ã Â¤Â¶Ã Â¤Â°Ã Â¥ÂÃ Â¤Â¤Ã Â¥ÂÃ Â¤Â',
+              title: 'ÃÂ ÃÂ¤ÃÂ¨ÃÂ ÃÂ¤ÃÂ¿ÃÂ ÃÂ¤ÃÂ¯ÃÂ ÃÂ¤ÃÂ® ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂ° ÃÂ ÃÂ¤ÃÂ¶ÃÂ ÃÂ¤ÃÂ°ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ¤ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ',
               trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
               onTap: () {},
             ),
             const Divider(height: 1, indent: 52),
             _SettingsTile(
               icon: Icons.privacy_tip_outlined,
-              title: 'Ã Â¤ÂÃ Â¥ÂÃ Â¤ÂªÃ Â¤Â¨Ã Â¥ÂÃ Â¤Â¯Ã Â¤Â¤Ã Â¤Â¾ Ã Â¤Â¨Ã Â¥ÂÃ Â¤Â¤Ã Â¤Â¿',
+              title: 'ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂªÃÂ ÃÂ¤ÃÂ¨ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ¯ÃÂ ÃÂ¤ÃÂ¤ÃÂ ÃÂ¤ÃÂ¾ ÃÂ ÃÂ¤ÃÂ¨ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ¤ÃÂ ÃÂ¤ÃÂ¿',
               trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
               onTap: () {},
             ),
@@ -390,7 +398,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             side: BorderSide(color: AppColors.danger.withValues(alpha: 0.5)),
           ),
           icon: const Icon(Icons.logout_rounded, size: 18),
-          label: const Text('Ã Â¤Â²Ã Â¥ÂÃ Â¤ÂÃ Â¤ÂÃ Â¤ÂÃ Â¤Â'),
+          label: const Text('ÃÂ ÃÂ¤ÃÂ²ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂ'),
         ),
         const SizedBox(height: 16),
         const Center(
