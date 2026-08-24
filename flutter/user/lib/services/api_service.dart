@@ -4,6 +4,8 @@ import 'package:cookie_jar/cookie_jar.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path_provider/path_provider.dart';
+import 'dart:io';
+import 'package:path/path.dart' as path;
 
 class ApiService {
   static const String baseUrl = 'https://dheetantra.navasanganakah.com';
@@ -310,6 +312,41 @@ class ApiService {
       return [];
     }
   }
+
+
+  // ========== CALLER ID / AFTER-CALL CRM ==========
+
+  Future<Map<String, dynamic>> getCallerCard(String phone) async {
+    try {
+      final res = await _dio.get('/api/crm/caller-card', queryParameters: {'phone': phone});
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> summarizeCall(String callId) async {
+    try {
+      final res = await _dio.post('/api/calls/$callId/summarize');
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> uploadCallRecording(String callId, File file) async {
+    try {
+      final fileName = path.basename(file.path);
+      final form = FormData.fromMap({
+        'recording': await MultipartFile.fromFile(file.path, filename: fileName),
+      });
+      final res = await _dio.post('/api/calls/$callId/recording', data: form);
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
 
   // ========== BROADCAST ==========
 
