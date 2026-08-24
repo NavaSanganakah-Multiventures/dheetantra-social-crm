@@ -336,6 +336,49 @@ class ApiService {
 
 
 
+
+
+  // ========== UNIFIED CRM CALLS ==========
+
+  Future<List<dynamic>> getUnifiedCalls({String? source, String? search, int limit = 100, int offset = 0}) async {
+    try {
+      final query = <String, dynamic>{'limit': limit, 'offset': offset};
+      if (source != null && source != 'all') query['source'] = source;
+      final res = await _dio.get('/api/calls', queryParameters: query);
+      final data = res.data as Map<String, dynamic>;
+      final calls = data['calls'] as List? ?? [];
+      if (search != null && search.trim().isNotEmpty) {
+        final term = search.trim().toLowerCase();
+        return calls.where((c) {
+          final map = c as Map<String, dynamic>;
+          final name = (map['contact_name'] ?? map['name'] ?? '').toString().toLowerCase();
+          final phone = (map['phone'] ?? map['caller_number'] ?? '').toString().toLowerCase();
+          return name.contains(term) || phone.contains(term);
+        }).toList();
+      }
+      return calls;
+    } on DioException {
+      return [];
+    }
+  }
+
+  Future<Map<String, dynamic>> getCallDetail(String callId) async {
+    try {
+      final res = await _dio.get('/api/calls/$callId');
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> updateCallNotes(String callId, String notes) async {
+    try {
+      final res = await _dio.post('/api/calls/$callId/status', data: {'notes': notes});
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
   Future<Map<String, dynamic>> createGsmCall({required String phone, required String direction, int duration = 0}) async {
     try {
       final res = await _dio.post('/api/calls', data: {
