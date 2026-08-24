@@ -77,12 +77,19 @@ class CallLogObserverService : Service() {
                 lastProcessedId = id
 
                 val number = it.getString(it.getColumnIndexOrThrow(CallLog.Calls.NUMBER)) ?: return
+                val duration = it.getLong(it.getColumnIndexOrThrow(CallLog.Calls.DURATION))
+                val type = it.getInt(it.getColumnIndexOrThrow(CallLog.Calls.TYPE))
+                val direction = when (type) {
+                    CallLog.Calls.OUTGOING_TYPE -> "outgoing"
+                    CallLog.Calls.INCOMING_TYPE -> "incoming"
+                    else -> "incoming"
+                }
                 val date = it.getLong(it.getColumnIndexOrThrow(CallLog.Calls.DATE))
                 val now = System.currentTimeMillis()
                 // Only process calls ended within last 2 minutes
                 if (now - date > 2 * 60 * 1000) return
 
-                showAfterCallNotification(number)
+                showAfterCallNotification(number, duration, direction)
             }
         } catch (e: SecurityException) {
             e.printStackTrace()
@@ -91,7 +98,7 @@ class CallLogObserverService : Service() {
         }
     }
 
-    private fun showAfterCallNotification(phoneNumber: String) {
+    private fun showAfterCallNotification(phoneNumber: String, durationSeconds: Long, direction: String) {
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
@@ -106,6 +113,8 @@ class CallLogObserverService : Service() {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             putExtra("route", "/after-call")
             putExtra("phone", phoneNumber)
+            putExtra("durationSeconds", durationSeconds.toInt())
+            putExtra("direction", direction)
         }
         val pendingIntent = PendingIntent.getActivity(
             this,
