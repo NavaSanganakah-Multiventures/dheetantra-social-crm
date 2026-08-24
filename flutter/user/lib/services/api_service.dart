@@ -184,9 +184,10 @@ class ApiService {
   /// Diagnostic: replicate the backend WhatsApp/email webhook push fan-out
   /// for the current workspace and return a full report (token counts, FCM
   /// config status, a real test send). Shown in Settings -> Push Diagnostics.
-  Future<Map<String, dynamic>> diagnosePush() async {
+  Future<Map<String, dynamic>> diagnosePush({String? deviceToken}) async {
     try {
-      final res = await _dio.get('/api/fcm/diagnose');
+      final data = deviceToken != null ? {'deviceToken': deviceToken} : null;
+      final res = await _dio.post('/api/fcm/diagnose', data: data);
       return res.data as Map<String, dynamic>;
     } on DioException catch (e) {
       final data = e.response?.data;
@@ -363,7 +364,7 @@ class ApiService {
 
   Future<Map<String, dynamic>> getDashboardStats() async {
     try {
-      // Dono calls parallel chalao Ã¢ÂÂ sequential hone se dashboard load me
+      // Dono calls parallel chalao ÃÂ¢ÃÂÃÂ sequential hone se dashboard load me
       // 2x delay aa raha tha.
       final results = await Future.wait<dynamic>([
         getContacts(),
@@ -534,7 +535,7 @@ class ApiService {
 
   /// Meta WhatsApp Cloud API expects the recipient as digits only (no '+',
   /// spaces or dashes). Inputs from the Send New Message and template screens
-  /// often contain a leading '+', which Meta rejects â so sends from those
+  /// often contain a leading '+', which Meta rejects Ã¢ÂÂ so sends from those
   /// screens silently failed. Always normalize before hitting the WhatsApp API.
   String _normalizePhoneForWhatsapp(String phone) {
     return phone.replaceAll(RegExp(r'[^0-9]'), '');
@@ -602,6 +603,6 @@ class ApiService {
     if (e.response != null && e.response!.data is Map) {
       return e.response!.data;
     }
-    return {'error': e.message ?? 'Ã Â¤ÂÃ Â¥ÂÃ Â¤Â Ã Â¤ÂÃ Â¤Â¡Ã Â¤Â¼Ã Â¤Â¬Ã Â¤Â¡Ã Â¤Â¼ Ã Â¤Â¹Ã Â¥Â Ã Â¤ÂÃ Â¤Â'};
+    return {'error': e.message ?? 'ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂ¡ÃÂ ÃÂ¤ÃÂ¼ÃÂ ÃÂ¤ÃÂ¬ÃÂ ÃÂ¤ÃÂ¡ÃÂ ÃÂ¤ÃÂ¼ ÃÂ ÃÂ¤ÃÂ¹ÃÂ ÃÂ¥ÃÂ ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂ'};
   }
 }

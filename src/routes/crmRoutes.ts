@@ -183,7 +183,7 @@ router.post('/api/fcm/test', async (c) => {
 // Diagnostic: replicate the WhatsApp/email webhook's exact FCM fan-out for
 // the caller's workspace and report every step, so a missing push can be
 // pinpointed from the app in one call (no wrangler tail needed).
-router.get('/api/fcm/diagnose', async (c) => {
+const diagnoseHandler = async (c: any) => {
   const userId = await resolveUserId(c);
   if (!userId) return c.json({ error: 'Unauthorized' }, 401);
   if (!c.env.DB) return c.json({ error: 'DB not configured' }, 500);
@@ -278,15 +278,54 @@ router.get('/api/fcm/diagnose', async (c) => {
     out.testSend = { success: false, error: 'x-workspace-id header missing - app not tied to a workspace; webhook fan-out cannot be simulated' };
   }
 
+
+  // Optional: verify the calling device's own token. This catches the case where
+  // a valid token exists in the DB but belongs to some other device/install.
+  try {
+    let body: any = {};
+    if (c.req.method === 'POST') {
+      body = await c.req.json().catch(() => ({}));
+    }
+    const deviceToken = c.req.query('deviceToken') ?? body.deviceToken ?? null;
+    if (deviceToken) {
+      const row: any = await c.env.DB.prepare('SELECT token, user_id FROM fcm_tokens WHERE token = ?').bind(deviceToken).first();
+      out.currentDeviceTokenPreview = deviceToken.toString().slice(0, 30) + '...';
+      out.currentDeviceTokenFound = !!row;
+      out.currentDeviceTokenUserIdMatch = row ? row.user_id === userId : false;
+      if (row && row.user_id === userId) {
+        const { sendPushNotification } = await import('../../lib/fcm');
+        const r = await sendPushNotification(
+          c.env,
+          deviceToken,
+          'DheeTantra current device diag',
+          'Verify current device token',
+          { type: 'diagnostics' }
+        );
+        out.currentDeviceTokenSendSuccess = r.success;
+        out.currentDeviceTokenSendError = r.error || (r.unregistered ? 'UNREGISTERED' : null);
+      } else {
+        out.currentDeviceTokenSendSuccess = false;
+        out.currentDeviceTokenSendError = row ? 'Token belongs to a different user' : 'Token not registered in fcm_tokens';
+      }
+    }
+  } catch (e: any) {
+    out.currentDeviceTokenSendError = 'device-token check error: ' + (e.message || String(e));
+  }
+
   return c.json(out);
 });
+
+// Support both GET (curl/browser) and POST (app sends deviceToken in body).
+router.get('/api/fcm/diagnose', diagnoseHandler);
+router.post('/api/fcm/diagnose', diagnoseHandler);
+
 
 // 2. CRM & Social Media Data (D1 Database)
 router.get('/api/crm/contacts', async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
-  // Fetch from D1 (Relational Data) Ã¢ÂÂ paginated; frontend already sends limit=
+  // Fetch from D1 (Relational Data) ÃÂ¢ÃÂÃÂ paginated; frontend already sends limit=
   const { limit, offset } = pagination(c, 500);
   const { results } = await c.env.DB.prepare(
     'SELECT * FROM contacts WHERE workspace_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?'
@@ -367,8 +406,8 @@ router.post('/api/crm/contacts', async (c) => {
     lead_value
   } = body;
 
-  if (!name) return c.json({ error: 'Ã Â¤Â¨Ã Â¤Â¾Ã Â¤Â® Ã Â¤ÂÃ Â¤ÂµÃ Â¤Â¶Ã Â¥ÂÃ Â¤Â¯Ã Â¤Â Ã Â¤Â¹Ã Â¥Â (Name is required)' }, 400);
-  if (!phone) return c.json({ error: 'Ã Â¤Â«Ã Â¤Â¼Ã Â¥ÂÃ Â¤Â¨ Ã Â¤Â¨Ã Â¤ÂÃ Â¤Â¬Ã Â¤Â° Ã Â¤ÂÃ Â¤ÂµÃ Â¤Â¶Ã Â¥ÂÃ Â¤Â¯Ã Â¤Â Ã Â¤Â¹Ã Â¥Â (Phone is required)' }, 400);
+  if (!name) return c.json({ error: 'ÃÂ ÃÂ¤ÃÂ¨ÃÂ ÃÂ¤ÃÂ¾ÃÂ ÃÂ¤ÃÂ® ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂµÃÂ ÃÂ¤ÃÂ¶ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ¯ÃÂ ÃÂ¤ÃÂ ÃÂ ÃÂ¤ÃÂ¹ÃÂ ÃÂ¥ÃÂ (Name is required)' }, 400);
+  if (!phone) return c.json({ error: 'ÃÂ ÃÂ¤ÃÂ«ÃÂ ÃÂ¤ÃÂ¼ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ¨ ÃÂ ÃÂ¤ÃÂ¨ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂ¬ÃÂ ÃÂ¤ÃÂ° ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂµÃÂ ÃÂ¤ÃÂ¶ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ¯ÃÂ ÃÂ¤ÃÂ ÃÂ ÃÂ¤ÃÂ¹ÃÂ ÃÂ¥ÃÂ (Phone is required)' }, 400);
   if (String(name).length > 200) return c.json({ error: 'Name is too long (max 200 characters)' }, 400);
   if (notes && String(notes).length > 5000) return c.json({ error: 'Notes are too long (max 5000 characters)' }, 400);
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email))) {
@@ -383,7 +422,7 @@ router.post('/api/crm/contacts', async (c) => {
   ).bind(workspaceId, platformContactId).first();
 
   if (existing) {
-    return c.json({ error: 'Ã Â¤ÂÃ Â¤Â¸ Ã Â¤Â«Ã Â¤Â¼Ã Â¥ÂÃ Â¤Â¨ Ã Â¤Â¨Ã Â¤ÂÃ Â¤Â¬Ã Â¤Â° Ã Â¤ÂµÃ Â¤Â¾Ã Â¤Â²Ã Â¤Â¾ Ã Â¤Â¸Ã Â¤ÂÃ Â¤ÂªÃ Â¤Â°Ã Â¥ÂÃ Â¤Â Ã Â¤ÂªÃ Â¤Â¹Ã Â¤Â²Ã Â¥Â Ã Â¤Â¸Ã Â¥Â Ã Â¤Â®Ã Â¥ÂÃ Â¤ÂÃ Â¥ÂÃ Â¤Â¦ Ã Â¤Â¹Ã Â¥ÂÃ Â¥Â¤' }, 400);
+    return c.json({ error: 'ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂ¸ ÃÂ ÃÂ¤ÃÂ«ÃÂ ÃÂ¤ÃÂ¼ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ¨ ÃÂ ÃÂ¤ÃÂ¨ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂ¬ÃÂ ÃÂ¤ÃÂ° ÃÂ ÃÂ¤ÃÂµÃÂ ÃÂ¤ÃÂ¾ÃÂ ÃÂ¤ÃÂ²ÃÂ ÃÂ¤ÃÂ¾ ÃÂ ÃÂ¤ÃÂ¸ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂªÃÂ ÃÂ¤ÃÂ°ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ ÃÂ ÃÂ¤ÃÂªÃÂ ÃÂ¤ÃÂ¹ÃÂ ÃÂ¤ÃÂ²ÃÂ ÃÂ¥ÃÂ ÃÂ ÃÂ¤ÃÂ¸ÃÂ ÃÂ¥ÃÂ ÃÂ ÃÂ¤ÃÂ®ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ¦ ÃÂ ÃÂ¤ÃÂ¹ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¥ÃÂ¤' }, 400);
   }
 
   const id = crypto.randomUUID();
@@ -440,15 +479,15 @@ router.put('/api/crm/contacts/:contactId', async (c) => {
     lead_value
   } = body;
 
-  if (!name) return c.json({ error: 'Ã Â¤Â¨Ã Â¤Â¾Ã Â¤Â® Ã Â¤ÂÃ Â¤ÂµÃ Â¤Â¶Ã Â¥ÂÃ Â¤Â¯Ã Â¤Â Ã Â¤Â¹Ã Â¥Â' }, 400);
-  if (!phone) return c.json({ error: 'Ã Â¤Â«Ã Â¤Â¼Ã Â¥ÂÃ Â¤Â¨ Ã Â¤Â¨Ã Â¤ÂÃ Â¤Â¬Ã Â¤Â° Ã Â¤ÂÃ Â¤ÂµÃ Â¤Â¶Ã Â¥ÂÃ Â¤Â¯Ã Â¤Â Ã Â¤Â¹Ã Â¥Â' }, 400);
+  if (!name) return c.json({ error: 'ÃÂ ÃÂ¤ÃÂ¨ÃÂ ÃÂ¤ÃÂ¾ÃÂ ÃÂ¤ÃÂ® ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂµÃÂ ÃÂ¤ÃÂ¶ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ¯ÃÂ ÃÂ¤ÃÂ ÃÂ ÃÂ¤ÃÂ¹ÃÂ ÃÂ¥ÃÂ' }, 400);
+  if (!phone) return c.json({ error: 'ÃÂ ÃÂ¤ÃÂ«ÃÂ ÃÂ¤ÃÂ¼ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ¨ ÃÂ ÃÂ¤ÃÂ¨ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂ¬ÃÂ ÃÂ¤ÃÂ° ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂµÃÂ ÃÂ¤ÃÂ¶ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ¯ÃÂ ÃÂ¤ÃÂ ÃÂ ÃÂ¤ÃÂ¹ÃÂ ÃÂ¥ÃÂ' }, 400);
 
   const platformContactId = phone.replace(/[^0-9]/g, '');
 
   const existing = await c.env.DB.prepare(
     'SELECT id FROM contacts WHERE id = ? AND workspace_id = ?'
   ).bind(contactId, workspaceId).first();
-  if (!existing) return c.json({ error: 'Ã Â¤Â¸Ã Â¤ÂÃ Â¤ÂªÃ Â¤Â°Ã Â¥ÂÃ Â¤Â Ã Â¤Â¨Ã Â¤Â¹Ã Â¥ÂÃ Â¤Â Ã Â¤Â®Ã Â¤Â¿Ã Â¤Â²Ã Â¤Â¾' }, 404);
+  if (!existing) return c.json({ error: 'ÃÂ ÃÂ¤ÃÂ¸ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂªÃÂ ÃÂ¤ÃÂ°ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ ÃÂ ÃÂ¤ÃÂ¨ÃÂ ÃÂ¤ÃÂ¹ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ ÃÂ ÃÂ¤ÃÂ®ÃÂ ÃÂ¤ÃÂ¿ÃÂ ÃÂ¤ÃÂ²ÃÂ ÃÂ¤ÃÂ¾' }, 404);
 
   await c.env.DB.prepare(`
     UPDATE contacts SET
@@ -498,7 +537,7 @@ router.delete('/api/crm/contacts/:contactId', async (c) => {
   const existing = await c.env.DB.prepare(
     'SELECT id FROM contacts WHERE id = ? AND workspace_id = ?'
   ).bind(contactId, workspaceId).first();
-  if (!existing) return c.json({ error: 'Ã Â¤Â¸Ã Â¤ÂÃ Â¤ÂªÃ Â¤Â°Ã Â¥ÂÃ Â¤Â Ã Â¤Â¨Ã Â¤Â¹Ã Â¥ÂÃ Â¤Â Ã Â¤Â®Ã Â¤Â¿Ã Â¤Â²Ã Â¤Â¾' }, 404);
+  if (!existing) return c.json({ error: 'ÃÂ ÃÂ¤ÃÂ¸ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂªÃÂ ÃÂ¤ÃÂ°ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ ÃÂ ÃÂ¤ÃÂ¨ÃÂ ÃÂ¤ÃÂ¹ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ ÃÂ ÃÂ¤ÃÂ®ÃÂ ÃÂ¤ÃÂ¿ÃÂ ÃÂ¤ÃÂ²ÃÂ ÃÂ¤ÃÂ¾' }, 404);
 
   // Delete conversations and messages associated with this contact
   const convs = await c.env.DB.prepare('SELECT id FROM conversations WHERE contact_id = ?').bind(contactId).all<{ id: string }>();
