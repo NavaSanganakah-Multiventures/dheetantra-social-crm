@@ -151,5 +151,76 @@ object CallerIdChannel : MethodChannel.MethodCallHandler {
         context.stopService(Intent(context, CallLogObserverService::class.java))
     }
 
+
+    private fun scanRecordings(phone: String, afterMs: Long, beforeMs: Long): List<Map<String, Any>> {
+        val context = appContext ?: return emptyList()
+        val hasPermission = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            ContextCompat.checkSelfPermission(context, Manifest.permission.READ_MEDIA_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        } else {
+            ContextCompat.checkSelfPermission(context, Manifest.permission.READ_EXTERNAL_STORAGE) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        }
+        if (!hasPermission) return emptyList()
+
+        val normalizedPhone = phone.replace(Regex("[^0-9]"), "")
+        val candidates = mutableListOf<Map<String, Any>>()
+        val uri: Uri = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+        val projection = arrayOf(
+            MediaStore.Audio.Media._ID,
+            MediaStore.Audio.Media.DISPLAY_NAME,
+            MediaStore.Audio.Media.DATE_MODIFIED,
+            MediaStore.Audio.Media.DURATION,
+            MediaStore.Audio.Media.RELATIVE_PATH,
+            MediaStore.Audio.Media.DATA
+        )
+        val selection = "${MediaStore.Audio.Media.DATE_MODIFIED} > ? AND ${MediaStore.Audio.Media.DATE_MODIFIED} < ?"
+        val selectionArgs = arrayOf(
+            ((afterMs / 1000) - 120).toString(),
+            ((beforeMs / 1000) + 60).toString()
+        )
+        val cursor: Cursor? = context.contentResolver.query(
+            uri,
+            projection,
+            selection,
+            selectionArgs,
+            "${MediaStore.Audio.Media.DATE_MODIFIED} DESC"
+        )
+        cursor?.use { c ->
+            val idIdx = c.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
+            val nameIdx = c.getColumnIndexOrThrow(MediaStore.Audio.Media.DISPLAY_NAME)
+            val dateIdx = c.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_MODIFIED)
+            val durationIdx = c.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
+            val pathIdx = c.getColumnIndexOrThrow(MediaStore.Audio.Media.RELATIVE_PATH)
+            val dataIdx = c.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
+            while (c.moveToNext()) {
+                val id = c.getLong(idIdx)
+                val name = c.getString(nameIdx) ?: ""
+                val dt = c.getLong(dateIdx)
+                val dur = c.getLong(durationIdx)
+                val relPath = c.getString(pathIdx) ?: ""
+                val dataPath = c.getString(dataIdx) ?: ""
+                val contentUri = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id).toString()
+                val combined = "$relPath/$dataPath".lowercase()
+
+                var score = 0
+                val lowerName = name.lowercase()
+                if (combined.contains("call_rec") || combined.contains("callrecord") || combined.contains("phone record") || combined.contains("phonerecord")) score += 100
+                if (normalizedPhone.isNotEmpty() && (lowerName.contains(normalizedPhone) || combined.replace(Regex("[^0-9]"), "").contains(normalizedPhone))) score += 60
+                if (dur > 0) score += 10
+
+                candidates.add(mapOf(
+                    "id" to id,
+                    "name" to name,
+                    "uri" to contentUri,
+                    "path" to dataPath,
+                    "durationMs" to dur,
+                    "modifiedAt" to (dt * 1000L),
+                    "score" to score
+                ))
+            }
+        }
+        cursor?.close()
+        return candidates.sortedByDescending { (it["score"] as? Int) ?: 0 }.take(5)
+    }
+
     private const val REQUEST_ROLE = 9001
 }
