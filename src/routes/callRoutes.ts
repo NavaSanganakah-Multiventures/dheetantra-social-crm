@@ -654,7 +654,7 @@ router.post('/api/calls/:id/recording', async (c) => {
   if (!call) return c.json({ error: 'Call not found' }, 404);
 
   try {
-    const body = await c.req.parseBody({ limit: '100mb' });
+    const body = await c.req.parseBody();
     const file = body['recording'];
     if (!file || typeof (file as any).arrayBuffer !== 'function') {
       return c.json({ error: 'No audio file provided' }, 400);
