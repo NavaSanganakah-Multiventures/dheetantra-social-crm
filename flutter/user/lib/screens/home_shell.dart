@@ -37,6 +37,9 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   bool _wsConnected = false;
   bool _wsInitialized = false;
   int _unread = 0;
+  // Cold-start / killed-state accept par HomeScreen ka flash na dikhe, isliye
+  // pending accept process hone tak blank dark screen rakhte hain.
+  bool _isLaunchingCall = true;
   StreamSubscription? _wsConnSub;
   StreamSubscription? _wsMsgSub;
   StreamSubscription? _wsCallSub;
@@ -56,6 +59,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
       if (mounted) setState(() => _unread = NotificationCenter().unread);
     });
     _notifRouterSub = NotificationRouter().onNotification.listen(_handlePushTap);
+    CallKitService().markHomeShellReady();
     _checkPendingAcceptedCall();
   }
 
@@ -243,6 +247,13 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    // Cold-start accept ke waqt HomeScreen flash na dikhe.
+    if (_isLaunchingCall) {
+      return const Scaffold(
+        backgroundColor: AppColors.background,
+        body: SizedBox.expand(),
+      );
+    }
     final screens = [
       DashboardScreen(
         onOpenInbox: () => setState(() => _index = 1),
