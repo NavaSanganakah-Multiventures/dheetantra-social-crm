@@ -5,6 +5,7 @@ import '../services/callkit_service.dart';
 import '../services/webrtc_service.dart';
 import '../services/websocket_service.dart';
 import '../theme/app_theme.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../widgets/common.dart';
 
 /// Alag full-screen call screen jo call attend hone par dikhna chahiye.
@@ -31,6 +32,9 @@ class _CallScreenState extends State<CallScreen> {
     super.initState();
     _rtcStateSub = WebRTCService().onCallState.listen(_onCallState);
     _wsStatusSub = WebSocketService().onCallStatusUpdated.listen(_onCallStatus);
+    if ((widget.callData['sdp']?.toString() ?? '').isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _requestPermissionAndAnswer());
+    }
   }
 
   void _onCallState(String state) {
@@ -90,6 +94,66 @@ class _CallScreenState extends State<CallScreen> {
     if (mounted) {
       Navigator.of(context).pop();
     }
+  }
+
+  Future<void> _requestPermissionAndAnswer() async {
+    if (!mounted) return;
+
+    final status = await Permission.microphone.status;
+    if (status.isGranted) {
+      await _startAnswer();
+      return;
+    }
+
+    if (status.isPermanentlyDenied) {
+      _showMicPermissionDialog(permanent: true);
+      return;
+    }
+
+    final result = await Permission.microphone.request();
+    if (result.isGranted) {
+      await _startAnswer();
+    } else if (result.isPermanentlyDenied) {
+      _showMicPermissionDialog(permanent: true);
+    } else {
+      _showMicPermissionDialog(permanent: false);
+    }
+  }
+
+  Future<void> _startAnswer() async {
+    try {
+      await WebRTCService().answerCall(widget.callData);
+    } catch (e) {
+      debugPrint('CallScreen answerCall error: $e');
+    }
+  }
+
+  void _showMicPermissionDialog({required bool permanent}) {
+    if (!mounted) return;
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text('माइक्रोफ़ोनPermission चाहिए'),
+        content: const Text('कॉल उठाने के लिए माइक्रोफ़ोन की अनुमति ज़रूरी है।'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              if (mounted) Navigator.of(context).pop();
+            },
+            child: const Text('बंद करें'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              openAppSettings();
+            },
+            child: const Text('Settings खोलें'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _hangup() async {
