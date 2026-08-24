@@ -320,12 +320,89 @@ router.get('/api/fcm/diagnose', diagnoseHandler);
 router.post('/api/fcm/diagnose', diagnoseHandler);
 
 
+// Simulate the exact WhatsApp webhook push path for the caller's workspace.
+// This endpoint is synchronous (unlike the async waitUntil in the real webhook),
+// so its result is visible to the app without needing wrangler tail.
+router.get('/api/fcm/simulate-whatsapp-push', async (c) => {
+  const userId = await resolveUserId(c);
+  if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+  if (!c.env.DB) return c.json({ error: 'DB not configured' }, 500);
+
+  const workspaceId = c.req.header('x-workspace-id');
+  if (!workspaceId) return c.json({ error: 'x-workspace-id required' }, 400);
+
+  const out: any = {
+    userId,
+    appWorkspaceId: workspaceId,
+    configFound: false,
+    phoneNumberId: null,
+    configWorkspaceId: null,
+    workspaceIdMatches: false,
+    memberCount: 0,
+    tokenCount: 0,
+    sendResults: [],
+    error: null,
+  };
+
+  try {
+    const config: any = await c.env.DB.prepare('SELECT workspace_id, phone_number_id FROM whatsapp_configs WHERE workspace_id = ? LIMIT 1').bind(workspaceId).first();
+    out.configFound = !!config;
+    if (!config) {
+      out.error = 'No whatsapp_configs row found for x-workspace-id';
+      return c.json(out);
+    }
+    out.phoneNumberId = config.phone_number_id;
+    out.configWorkspaceId = config.workspace_id;
+    out.workspaceIdMatches = config.workspace_id === workspaceId;
+
+    const members: any = await c.env.DB.prepare('SELECT user_id FROM workspace_members WHERE workspace_id = ?').bind(config.workspace_id).all();
+    const userIds = (members.results || []).map((m: any) => m.user_id);
+    out.memberCount = userIds.length;
+    if (userIds.length === 0) {
+      out.error = 'No workspace members for this WhatsApp config workspace';
+      return c.json(out);
+    }
+
+    const placeholders = userIds.map(() => '?').join(',');
+    const tokens: any = await c.env.DB.prepare('SELECT token FROM fcm_tokens WHERE user_id IN (' + placeholders + ')').bind(...userIds).all();
+    out.tokenCount = (tokens.results || []).length;
+
+    if (tokens.results && tokens.results.length > 0) {
+      const { sendPushNotification } = await import('../../lib/fcm');
+      for (const row of tokens.results) {
+        const r = await sendPushNotification(
+          c.env,
+          row.token,
+          'DheeTantra simulate WhatsApp push',
+          'Webhook push simulation test',
+          {
+            workspaceId: config.workspace_id,
+            contactName: 'Simulation',
+            type: 'new_message',
+            from: '',
+            messageId: '',
+            conversation_id: '',
+          }
+        );
+        out.sendResults.push({ tokenPreview: row.token.slice(0, 20) + '...', success: r.success, unregistered: r.unregistered, error: r.error || null });
+      }
+    } else {
+      out.error = 'No FCM tokens for workspace members';
+    }
+  } catch (e: any) {
+    out.error = 'simulation exception: ' + (e.message || String(e));
+  }
+
+  return c.json(out);
+});
+
+
 // 2. CRM & Social Media Data (D1 Database)
 router.get('/api/crm/contacts', async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
-  // Fetch from D1 (Relational Data) ÃÂ¢ÃÂÃÂ paginated; frontend already sends limit=
+  // Fetch from D1 (Relational Data) ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ paginated; frontend already sends limit=
   const { limit, offset } = pagination(c, 500);
   const { results } = await c.env.DB.prepare(
     'SELECT * FROM contacts WHERE workspace_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?'
@@ -406,8 +483,8 @@ router.post('/api/crm/contacts', async (c) => {
     lead_value
   } = body;
 
-  if (!name) return c.json({ error: 'ÃÂ ÃÂ¤ÃÂ¨ÃÂ ÃÂ¤ÃÂ¾ÃÂ ÃÂ¤ÃÂ® ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂµÃÂ ÃÂ¤ÃÂ¶ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ¯ÃÂ ÃÂ¤ÃÂ ÃÂ ÃÂ¤ÃÂ¹ÃÂ ÃÂ¥ÃÂ (Name is required)' }, 400);
-  if (!phone) return c.json({ error: 'ÃÂ ÃÂ¤ÃÂ«ÃÂ ÃÂ¤ÃÂ¼ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ¨ ÃÂ ÃÂ¤ÃÂ¨ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂ¬ÃÂ ÃÂ¤ÃÂ° ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂµÃÂ ÃÂ¤ÃÂ¶ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ¯ÃÂ ÃÂ¤ÃÂ ÃÂ ÃÂ¤ÃÂ¹ÃÂ ÃÂ¥ÃÂ (Phone is required)' }, 400);
+  if (!name) return c.json({ error: 'ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¨ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¾ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ® ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂµÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¶ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¯ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¹ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂ (Name is required)' }, 400);
+  if (!phone) return c.json({ error: 'ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ«ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¼ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¨ ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¨ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¬ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ° ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂµÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¶ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¯ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¹ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂ (Phone is required)' }, 400);
   if (String(name).length > 200) return c.json({ error: 'Name is too long (max 200 characters)' }, 400);
   if (notes && String(notes).length > 5000) return c.json({ error: 'Notes are too long (max 5000 characters)' }, 400);
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email))) {
@@ -422,7 +499,7 @@ router.post('/api/crm/contacts', async (c) => {
   ).bind(workspaceId, platformContactId).first();
 
   if (existing) {
-    return c.json({ error: 'ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂ¸ ÃÂ ÃÂ¤ÃÂ«ÃÂ ÃÂ¤ÃÂ¼ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ¨ ÃÂ ÃÂ¤ÃÂ¨ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂ¬ÃÂ ÃÂ¤ÃÂ° ÃÂ ÃÂ¤ÃÂµÃÂ ÃÂ¤ÃÂ¾ÃÂ ÃÂ¤ÃÂ²ÃÂ ÃÂ¤ÃÂ¾ ÃÂ ÃÂ¤ÃÂ¸ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂªÃÂ ÃÂ¤ÃÂ°ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ ÃÂ ÃÂ¤ÃÂªÃÂ ÃÂ¤ÃÂ¹ÃÂ ÃÂ¤ÃÂ²ÃÂ ÃÂ¥ÃÂ ÃÂ ÃÂ¤ÃÂ¸ÃÂ ÃÂ¥ÃÂ ÃÂ ÃÂ¤ÃÂ®ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ¦ ÃÂ ÃÂ¤ÃÂ¹ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¥ÃÂ¤' }, 400);
+    return c.json({ error: 'ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¸ ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ«ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¼ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¨ ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¨ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¬ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ° ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂµÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¾ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ²ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¾ ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¸ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂªÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ°ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂªÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¹ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ²ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂ ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¸ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂ ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ®ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¦ ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¹ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂ¤' }, 400);
   }
 
   const id = crypto.randomUUID();
@@ -479,15 +556,15 @@ router.put('/api/crm/contacts/:contactId', async (c) => {
     lead_value
   } = body;
 
-  if (!name) return c.json({ error: 'ÃÂ ÃÂ¤ÃÂ¨ÃÂ ÃÂ¤ÃÂ¾ÃÂ ÃÂ¤ÃÂ® ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂµÃÂ ÃÂ¤ÃÂ¶ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ¯ÃÂ ÃÂ¤ÃÂ ÃÂ ÃÂ¤ÃÂ¹ÃÂ ÃÂ¥ÃÂ' }, 400);
-  if (!phone) return c.json({ error: 'ÃÂ ÃÂ¤ÃÂ«ÃÂ ÃÂ¤ÃÂ¼ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ¨ ÃÂ ÃÂ¤ÃÂ¨ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂ¬ÃÂ ÃÂ¤ÃÂ° ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂµÃÂ ÃÂ¤ÃÂ¶ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ¯ÃÂ ÃÂ¤ÃÂ ÃÂ ÃÂ¤ÃÂ¹ÃÂ ÃÂ¥ÃÂ' }, 400);
+  if (!name) return c.json({ error: 'ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¨ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¾ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ® ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂµÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¶ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¯ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¹ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂ' }, 400);
+  if (!phone) return c.json({ error: 'ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ«ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¼ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¨ ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¨ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¬ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ° ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂµÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¶ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¯ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¹ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂ' }, 400);
 
   const platformContactId = phone.replace(/[^0-9]/g, '');
 
   const existing = await c.env.DB.prepare(
     'SELECT id FROM contacts WHERE id = ? AND workspace_id = ?'
   ).bind(contactId, workspaceId).first();
-  if (!existing) return c.json({ error: 'ÃÂ ÃÂ¤ÃÂ¸ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂªÃÂ ÃÂ¤ÃÂ°ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ ÃÂ ÃÂ¤ÃÂ¨ÃÂ ÃÂ¤ÃÂ¹ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ ÃÂ ÃÂ¤ÃÂ®ÃÂ ÃÂ¤ÃÂ¿ÃÂ ÃÂ¤ÃÂ²ÃÂ ÃÂ¤ÃÂ¾' }, 404);
+  if (!existing) return c.json({ error: 'ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¸ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂªÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ°ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¨ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¹ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ®ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¿ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ²ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¾' }, 404);
 
   await c.env.DB.prepare(`
     UPDATE contacts SET
@@ -537,7 +614,7 @@ router.delete('/api/crm/contacts/:contactId', async (c) => {
   const existing = await c.env.DB.prepare(
     'SELECT id FROM contacts WHERE id = ? AND workspace_id = ?'
   ).bind(contactId, workspaceId).first();
-  if (!existing) return c.json({ error: 'ÃÂ ÃÂ¤ÃÂ¸ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂªÃÂ ÃÂ¤ÃÂ°ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ ÃÂ ÃÂ¤ÃÂ¨ÃÂ ÃÂ¤ÃÂ¹ÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ ÃÂ ÃÂ¤ÃÂ®ÃÂ ÃÂ¤ÃÂ¿ÃÂ ÃÂ¤ÃÂ²ÃÂ ÃÂ¤ÃÂ¾' }, 404);
+  if (!existing) return c.json({ error: 'ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¸ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂªÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ°ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¨ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¹ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ®ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¿ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ²ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¾' }, 404);
 
   // Delete conversations and messages associated with this contact
   const convs = await c.env.DB.prepare('SELECT id FROM conversations WHERE contact_id = ?').bind(contactId).all<{ id: string }>();
