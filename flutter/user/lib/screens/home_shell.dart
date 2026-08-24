@@ -257,7 +257,11 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
       );
     } else if (route == '/after-call') {
       Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => AfterCallScreen(phone: phone)),
+        MaterialPageRoute(builder: (_) => AfterCallScreen(
+          phone: phone,
+          durationSeconds: (event['durationSeconds'] as num?)?.toInt() ?? 0,
+          direction: event['direction']?.toString() ?? 'incoming',
+        )),
       );
     }
   }
