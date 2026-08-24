@@ -21,6 +21,15 @@ object CallerIdChannel : MethodChannel.MethodCallHandler {
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         val context = getContext()
         when (call.method) {
+            "getInitialIntent" -> {
+                val intent = initialIntent
+                result.success(intent?.let {
+                    mapOf(
+                        "route" to (it.getStringExtra("route") ?: ""),
+                        "phone" to (it.getStringExtra("phone") ?: "")
+                    )
+                } ?: emptyMap<String, String>())
+            }
             "storeSession" -> {
                 val sessionId = call.argument<String>("sessionId") ?: ""
                 val workspaceId = call.argument<String>("workspaceId") ?: ""
@@ -64,9 +73,15 @@ object CallerIdChannel : MethodChannel.MethodCallHandler {
     }
 
     private var appContext: Context? = null
+    @Volatile
+    private var initialIntent: Intent? = null
 
     fun initContext(context: Context) {
         appContext = context.applicationContext
+    }
+
+    fun setInitialIntent(intent: Intent?) {
+        initialIntent = intent
     }
 
     private fun checkRoleHeld(context: Context): Boolean {
