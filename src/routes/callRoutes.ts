@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { Env } from '../types';
-import { requireRole, pagination } from '../shared';
+import { requireRole, pagination, sqliteNow } from '../shared';
 
 const router = new Hono<{ Bindings: Env }>();
 
@@ -30,7 +30,7 @@ router.post('/api/whatsapp/calls', async (c) => {
   if (!contactId) return c.json({ error: 'Contact ID required' }, 400);
 
   const callId = crypto.randomUUID();
-  const callCreatedAt = new Date().toISOString();
+  const callCreatedAt = sqliteNow();
   await c.env.DB.prepare(`
     INSERT INTO calls (id, workspace_id, contact_id, type, direction, status, duration, created_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
