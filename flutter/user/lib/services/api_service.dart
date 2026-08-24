@@ -287,7 +287,7 @@ class ApiService {
         return res.data;
       } else {
         final res = await _dio.post('/api/whatsapp/send', data: {
-          'to': to,
+          'to': _normalizePhoneForWhatsapp(to),
           'text': text,
           'conversationId': conversationId,
           'type': type,
@@ -347,7 +347,7 @@ class ApiService {
 
   Future<Map<String, dynamic>> getDashboardStats() async {
     try {
-      // Dono calls parallel chalao — sequential hone se dashboard load me
+      // Dono calls parallel chalao â sequential hone se dashboard load me
       // 2x delay aa raha tha.
       final results = await Future.wait<dynamic>([
         getContacts(),
@@ -466,7 +466,7 @@ class ApiService {
     required String text,
   }) async {
     try {
-      final cleanedPhone = phone.replaceAll(RegExp(r'[^0-9+]'), '');
+      final cleanedPhone = phone.replaceAll(RegExp(r'[^0-9]'), '');
       final existing = await _dio.get('/api/crm/contacts');
       final contacts = (existing.data['contacts'] as List?) ?? [];
       String? contactId;
@@ -516,6 +516,14 @@ class ApiService {
     return phone.toString().replaceAll(RegExp(r'[^0-9]'), '');
   }
 
+  /// Meta WhatsApp Cloud API expects the recipient as digits only (no '+',
+  /// spaces or dashes). Inputs from the Send New Message and template screens
+  /// often contain a leading '+', which Meta rejects — so sends from those
+  /// screens silently failed. Always normalize before hitting the WhatsApp API.
+  String _normalizePhoneForWhatsapp(String phone) {
+    return phone.replaceAll(RegExp(r'[^0-9]'), '');
+  }
+
   // ========== WHATSAPP TEMPLATES SEND ==========
 
   Future<Map<String, dynamic>> sendTemplate({
@@ -527,7 +535,7 @@ class ApiService {
   }) async {
     try {
       final body = <String, dynamic>{
-        'to': to,
+        'to': _normalizePhoneForWhatsapp(to),
         'templateName': templateName,
         'languageCode': languageCode,
         if (parameters.isNotEmpty) 'parameters': parameters,
@@ -578,6 +586,6 @@ class ApiService {
     if (e.response != null && e.response!.data is Map) {
       return e.response!.data;
     }
-    return {'error': e.message ?? 'कुछ गड़बड़ हो गई'};
+    return {'error': e.message ?? 'à¤à¥à¤ à¤à¤¡à¤¼à¤¬à¤¡à¤¼ à¤¹à¥ à¤à¤'};
   }
 }
