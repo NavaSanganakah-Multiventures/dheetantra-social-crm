@@ -210,7 +210,8 @@ class _GlobalCallOverlayState extends State<GlobalCallOverlay> {
       _callStatus = 'connecting';
     });
 
-    // Alag full-screen call screen khol lo.
+    // Alag full-screen call screen khol lo. CallScreen permission check
+    // aur answerCall apne aap karega.
     if (mounted) {
       Navigator.of(context).push(
         MaterialPageRoute(
@@ -218,8 +219,6 @@ class _GlobalCallOverlayState extends State<GlobalCallOverlay> {
         ),
       );
     }
-
-    await WebRTCService().answerCall(callData);
   }
 
   Future<void> _rejectCall() async {
