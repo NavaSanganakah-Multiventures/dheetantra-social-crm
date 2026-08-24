@@ -114,7 +114,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       Permission.phone,
       Permission.contacts,
       Permission.storage,
-      if (Platform.version.contains('13') || Platform.version.contains('14') || Platform.version.contains('15')) Permission.audio,
+      Permission.audio,
     ].request();
     return statuses.values.every((s) => s.isGranted || s.isLimited);
   }
