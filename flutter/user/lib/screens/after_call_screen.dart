@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../services/api_service.dart';
+import '../services/caller_id_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
 
@@ -35,6 +36,9 @@ class _AfterCallScreenState extends State<AfterCallScreen> {
   bool _uploading = false;
   bool _summarizing = false;
   String? _summary;
+  List<Map<String, dynamic>> _scannedRecordings = [];
+  String? _selectedRecordingPath;
+  bool _scanning = false;
 
   final List<String> _dispositions = [
     'Interested',
@@ -68,6 +72,25 @@ class _AfterCallScreenState extends State<AfterCallScreen> {
     if (mounted) {
       setState(() { _card = card; _creating = false; });
     }
+    await _scanRecordings();
+  }
+
+
+  Future<void> _scanRecordings() async {
+    setState(() => _scanning = true);
+    final candidates = await CallerIdService.scanRecordings(widget.phone);
+    if (!mounted) return;
+    final valid = candidates.where((c) {
+      final p = c['path']?.toString();
+      return p != null && p.isNotEmpty && File(p).existsSync();
+    }).toList();
+    setState(() {
+      _scannedRecordings = valid;
+      if (valid.isNotEmpty && _selectedRecordingPath == null) {
+        _selectedRecordingPath = valid.first['path']?.toString();
+      }
+      _scanning = false;
+    });
   }
 
   Future<void> _pickRecording() async {
@@ -83,7 +106,10 @@ class _AfterCallScreenState extends State<AfterCallScreen> {
 
   Future<void> _uploadRecording() async {
     final callId = _callId;
-    final file = _pickedRecording;
+    File? file = _pickedRecording;
+    if (file == null && _selectedRecordingPath != null) {
+      file = File(_selectedRecordingPath!);
+    }
     if (callId == null || file == null) return;
     setState(() => _uploading = true);
     final res = await ApiService().uploadCallRecording(callId, file);
@@ -228,6 +254,53 @@ class _AfterCallScreenState extends State<AfterCallScreen> {
                       ],
                     ),
                   ),
+                  if (_scanning || _scannedRecordings.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                'Auto-found recordings',
+                                style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w700),
+                              ),
+                              if (_scanning)
+                                const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          ..._scannedRecordings.map((r) {
+                            final path = r['path']?.toString() ?? '';
+                            final dur = r['durationMs'] ?? 0;
+                            final name = r['name']?.toString() ?? path.split('/').last;
+                            final selected = _selectedRecordingPath == path;
+                            return RadioListTile<String>(
+                              value: path,
+                              groupValue: _selectedRecordingPath,
+                              onChanged: (v) => setState(() => _selectedRecordingPath = v),
+                              title: Text(name, style: const TextStyle(color: AppColors.textPrimary, fontSize: 13)),
+                              subtitle: Text('Duration: ${_fmtDuration((dur / 1000).round())}', style: const TextStyle(color: AppColors.textMuted, fontSize: 11)),
+                              activeColor: AppColors.accent,
+                              controlAffinity: ListTileControlAffinity.trailing,
+                              contentPadding: EdgeInsets.zero,
+                            );
+                          }).toList(),
+                          if (!_scanning && _scannedRecordings.isEmpty)
+                            const Text('No recording found', style: TextStyle(color: AppColors.textMuted)),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 20),
                   Wrap(
                     spacing: 8,
