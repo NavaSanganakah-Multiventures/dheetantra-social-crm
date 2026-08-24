@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
+import '../models/models.dart';
 import '../widgets/common.dart';
 
 class CallerCardScreen extends StatefulWidget {
@@ -131,11 +132,12 @@ class _CallerCardScreenState extends State<CallerCardScreen> {
                             final contactId = _card['contactId']?.toString();
                             if (contactId == null) return;
                             final result = await ApiService().initiateConversation(contactId);
-                            if (result['conversation']?['id'] != null && mounted) {
-                              // ignore: use_build_context_synchronously
-                              Navigator.pushReplacementNamed(
+                            if (!mounted) return;
+                            final conv = result['conversation'];
+                            if (conv is Map<String, dynamic>) {
+                              Navigator.push(
                                 context,
-                                '/chat/${result['conversation']['id']}',
+                                MaterialPageRoute(builder: (_) => ChatScreen(conversation: Conversation.fromJson(conv))),
                               );
                             }
                           },
