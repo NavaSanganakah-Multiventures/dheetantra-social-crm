@@ -50,6 +50,12 @@ dependencies:
   flutter_callkit_incoming: ^3.1.5
   flutter_ringtone_player: ^4.0.0+4
   flutter_foreground_task: ^8.12.0
+  # Caller ID / after-call CRM native bridge
+  flutter_secure_storage: ^9.2.4
+  # Device info for recording path analytics
+  device_info_plus: ^11.3.0
+  # Manual recording file selection
+  file_picker: ^10.1.7
 
 dev_dependencies:
   flutter_test:
