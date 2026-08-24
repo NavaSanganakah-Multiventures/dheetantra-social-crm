@@ -74,6 +74,26 @@ class CallerIdService {
   }
 
 
+
+  static Future<List<Map<String, dynamic>>> scanRecordings(String phone, {DateTime? after, DateTime? before}) async {
+    if (!Platform.isAndroid) return [];
+    try {
+      final now = DateTime.now();
+      final result = await _channel.invokeMethod('scanRecordings', {
+        'phone': phone,
+        'afterMs': (after ?? now.subtract(const Duration(minutes: 30))).millisecondsSinceEpoch,
+        'beforeMs': (before ?? now.add(const Duration(minutes: 5))).millisecondsSinceEpoch,
+      });
+      if (result is List) {
+        return result.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+      }
+      return [];
+    } catch (e) {
+      debugPrint('scanRecordings error: $e');
+      return [];
+    }
+  }
+
   static Future<Map<String, dynamic>> getInitialIntent() async {
     if (!Platform.isAndroid) return {};
     try {
