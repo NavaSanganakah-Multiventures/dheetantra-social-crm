@@ -334,6 +334,21 @@ class ApiService {
     }
   }
 
+
+
+  Future<Map<String, dynamic>> createGsmCall({required String phone, required String direction, int duration = 0}) async {
+    try {
+      final res = await _dio.post('/api/calls', data: {
+        'phone': phone,
+        'direction': direction,
+        'status': 'ended',
+        'duration': duration,
+      });
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
   Future<Map<String, dynamic>> uploadCallRecording(String callId, File file) async {
     try {
       final fileName = path.basename(file.path);
