@@ -41,8 +41,13 @@ class WebRTCService {
   bool _speakerOn = false;
   bool get isSpeakerOn => _speakerOn;
 
-  Future<void> requestPermissions() async {
-    await [Permission.microphone].request();
+  Future<PermissionStatus> get _microphoneStatus => Permission.microphone.status;
+
+  Future<bool> ensureMicrophonePermission() async {
+    final status = await _microphoneStatus;
+    if (status.isGranted) return true;
+    final requested = await Permission.microphone.request();
+    return requested.isGranted;
   }
 
   Future<List<Map<String, dynamic>>> _getIceServers() async {
@@ -73,7 +78,9 @@ class WebRTCService {
         attempts++;
       }
 
-      await requestPermissions();
+      if (!await ensureMicrophonePermission()) {
+        throw Exception('Microphone permission is required to answer calls');
+      }
 
       final iceServers = await _getIceServers();
       final configuration = {
