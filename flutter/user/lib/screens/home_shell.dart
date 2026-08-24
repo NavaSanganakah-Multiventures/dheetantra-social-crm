@@ -68,9 +68,6 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
             builder: (_) => CallScreen(callData: pending),
           ),
         );
-        Future.delayed(const Duration(milliseconds: 300), () {
-          WebRTCService().answerCall(pending);
-        });
       }
     });
   }
@@ -92,6 +89,10 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     FcmService().setupForUser();
     // Android 13+ notification aur Android 14+ full-screen intent permissions.
     CallKitService().requestPermissions();
+    // Call permission: app start/login ke baad hi maang lo taaki call aane
+    // par mic access pehle se ho. Deny hone par bhi CallScreen permission UI
+    // dikhayega.
+    unawaited(WebRTCService().ensureMicrophonePermission());
     BatteryOptimizationService().checkAndPrompt(context);
     
     // Start persistent connection service
@@ -173,11 +174,6 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
           builder: (_) => CallScreen(callData: callData),
         ),
       );
-      if ((data['sdp']?.toString() ?? '').isNotEmpty) {
-        Future.delayed(const Duration(milliseconds: 300), () {
-          WebRTCService().answerCall(callData);
-        });
-      }
     } else if (type == 'missed_call') {
       final phone = data['phone'] ?? '';
       if (mounted) {

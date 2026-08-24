@@ -49,12 +49,10 @@ class CallKitService {
     _handledAcceptIds.add(id);
     _currentCallId = id;
     // Agar navigator ready hai toh turant open karo, warna pending mein save
-    // karo taaki HomeShell shuru hone par route kar sake.
+    // karo taaki HomeShell shuru hone par route kar sake. CallScreen apne
+    // aap permission check karke answerCall karega.
     if (appNavigatorKey.currentState != null) {
       _openCallScreen(data);
-      Future.delayed(const Duration(milliseconds: 300), () {
-        WebRTCService().answerCall(data);
-      });
     } else {
       debugPrint('CALLKIT: navigator not ready, queuing accepted call');
       _pendingAcceptCall = data;
