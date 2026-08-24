@@ -344,14 +344,23 @@ app.post('/api/whatsapp/webhook', async (c) => {
     // incoming message (no DB save, no realtime broadcast, no push), which is
     // worse than accepting unverified webhooks until the operator sets the
     // secret. Set WHATSAPP_APP_SECRET to restore strict verification.
-    const appSecret = await c.env.SECRETS_KV?.get('WHATSAPP_APP_SECRET');
+    const appSecretRaw = await c.env.SECRETS_KV?.get('WHATSAPP_APP_SECRET');
+    const appSecret = appSecretRaw?.trim();
     const rawBody = await c.req.text();
     if (appSecret) {
       const signature = c.req.header('x-hub-signature-256') || '';
       const expected = 'sha256=' + await hmacSha256Hex(appSecret, rawBody);
       if (!constantTimeEqual(signature, expected)) {
-        console.warn('[WhatsApp] Webhook signature mismatch â ignoring event');
-        return c.json({ error: 'Invalid signature' }, 403);
+        console.warn('[WhatsApp] Webhook signature mismatch — ignoring event', {
+          secretLength: appSecret.length,
+          signatureLength: signature.length,
+          expectedLength: expected.length,
+          hint: 'Make sure WHATSAPP_APP_SECRET in SECRETS_KV is the Meta App Secret (not the access token).',
+        });
+        return c.json({
+          error: 'Webhook signature mismatch',
+          detail: 'WHATSAPP_APP_SECRET in SECRETS_KV does not match the secret used by Meta to sign this webhook. Verify the App Secret in your Meta App > App Settings > Basic.'
+        }, 403);
       }
     } else {
       console.error('[WhatsApp] WHATSAPP_APP_SECRET missing in SECRETS_KV â accepting webhook WITHOUT signature verification. Add WHATSAPP_APP_SECRET (Meta App Secret) to SECRETS_KV to enable verification.');
