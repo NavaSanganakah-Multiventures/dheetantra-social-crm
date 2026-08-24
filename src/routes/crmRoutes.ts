@@ -633,4 +633,43 @@ router.delete('/api/crm/contacts/:contactId', async (c) => {
 
 // Initiate conversation from contact list
 
+
+// ==========================================
+// USER DEFAULT-DIALER SETTING
+// ==========================================
+router.get('/api/crm/user/settings', async (c) => {
+  const user = c.get('user');
+  if (!user?.id) return c.json({ error: 'Unauthorized' }, 401);
+  const row = await c.env.DB.prepare('SELECT default_dialer_enabled FROM users WHERE id = ?').bind(user.id).first<{ default_dialer_enabled: number }>();
+  return c.json({ default_dialer_enabled: row ? row.default_dialer_enabled === 1 : false });
+});
+
+router.patch('/api/crm/user/settings', async (c) => {
+  const user = c.get('user');
+  if (!user?.id) return c.json({ error: 'Unauthorized' }, 401);
+  const { default_dialer_enabled } = await c.req.json();
+  await c.env.DB.prepare('UPDATE users SET default_dialer_enabled = ? WHERE id = ?')
+    .bind(default_dialer_enabled ? 1 : 0, user.id).run();
+  return c.json({ success: true, default_dialer_enabled: !!default_dialer_enabled });
+});
+
+// ==========================================
+// FIND OR CREATE GSM CONTACT BY PHONE
+// ==========================================
+router.post('/api/crm/contacts/find-or-create', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+  const { phone, name } = await c.req.json();
+  if (!phone) return c.json({ error: 'phone required' }, 400);
+  const normalizedPhone = phone.replace(/[^0-9+]/g, '');
+  const existing = await c.env.DB.prepare(
+    'SELECT id, name FROM contacts WHERE workspace_id = ? AND platform = ? AND platform_contact_id = ?'
+  ).bind(workspaceId, 'gsm', normalizedPhone).first<{ id: string; name: string }>();
+  if (existing) return c.json({ contactId: existing.id, created: false });
+  const id = crypto.randomUUID();
+  await c.env.DB.prepare(
+    'INSERT INTO contacts (id, workspace_id, platform, platform_contact_id, name) VALUES (?, ?, ?, ?, ?)'
+  ).bind(id, workspaceId, 'gsm', normalizedPhone, name || normalizedPhone).run();
+  return c.json({ contactId: id, created: true });
+});
 export default router;
