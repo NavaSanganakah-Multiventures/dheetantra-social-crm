@@ -151,7 +151,7 @@ router.post('/api/fcm/test', async (c) => {
     }
 
     const { sendPushNotification } = await import('../../lib/fcm');
-    const results = await Promise.all(
+    const settled = await Promise.allSettled(
       tokens.results.map(async (row) => {
         const result = await sendPushNotification(
           c.env,
@@ -160,11 +160,19 @@ router.post('/api/fcm/test', async (c) => {
           'Agar yeh notification dikhta hai toh FCM push sahi kaam kar raha hai.',
           { type: 'test_push' }
         );
+        // Clean stale tokens so future sends do not waste attempts on them.
+        if (result.unregistered) {
+          try { await c.env.DB.prepare('DELETE FROM fcm_tokens WHERE token = ?').bind(row.token).run(); } catch (e) {}
+        }
         return { tokenPreview: row.token.slice(0, 20) + '...', ...result };
       })
     );
-
-    return c.json({ success: true, count: results.length, results });
+    const results = settled.map((s) => s.status === 'fulfilled' ? s.value : { success: false, error: String(s.reason) });
+    // Aggregate: success only if at least one token actually received the push.
+    // Previously this was always true, so the app's "test push" snackbar said
+    // success even when every send failed (e.g. all stale tokens).
+    const anySuccess = results.some((r) => r.success);
+    return c.json({ success: anySuccess, count: results.length, results });
   } catch (e: any) {
     console.error('[FCM Test] Failed:', e);
     return c.json({ error: e.message || 'Failed to send test push' }, 500);
@@ -238,15 +246,27 @@ router.get('/api/fcm/diagnose', async (c) => {
         out.workspaceTokenCount = (tokens.results || []).length;
         if (tokens.results && tokens.results.length > 0) {
           const { sendPushNotification } = await import('../../lib/fcm');
-          out.testSend = await sendPushNotification(
-            c.env,
-            tokens.results[0].token,
-            'DheeTantra push diagnose',
-            'Fan-out token pe real send test',
-            { type: 'diagnostics' }
-          );
+          const perToken: any[] = [];
+          let validCount = 0;
+          for (const row of tokens.results) {
+            const r = await sendPushNotification(
+              c.env,
+              row.token,
+              'DheeTantra push diagnose',
+              'Fan-out token pe real send test',
+              { type: 'diagnostics' }
+            );
+            perToken.push({ tokenPreview: row.token.slice(0, 20) + '...', success: r.success, unregistered: r.unregistered, error: r.error || null });
+            if (r.success) validCount++;
+            // Clean stale tokens in-place so the next real webhook send is not
+            // wasted on dead tokens (mirrors the webhook's own cleanup).
+            if (r.unregistered) {
+              try { await c.env.DB.prepare('DELETE FROM fcm_tokens WHERE token = ?').bind(row.token).run(); } catch (e) {}
+            }
+          }
+          out.testSend = { validTokenCount: validCount, totalTested: perToken.length, perToken };
         } else {
-          out.testSend = { success: false, error: 'No FCM tokens for this workspace members - webhook will log No FCM tokens push skipped' };
+          out.testSend = { validTokenCount: 0, totalTested: 0, perToken: [], error: 'No FCM tokens for this workspace members - webhook will log No FCM tokens push skipped' };
         }
       } else {
         out.testSend = { success: false, error: 'Workspace has no rows in workspace_members' };
@@ -266,7 +286,7 @@ router.get('/api/crm/contacts', async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
-  // Fetch from D1 (Relational Data) â paginated; frontend already sends limit=
+  // Fetch from D1 (Relational Data) Ã¢ÂÂ paginated; frontend already sends limit=
   const { limit, offset } = pagination(c, 500);
   const { results } = await c.env.DB.prepare(
     'SELECT * FROM contacts WHERE workspace_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?'
@@ -347,8 +367,8 @@ router.post('/api/crm/contacts', async (c) => {
     lead_value
   } = body;
 
-  if (!name) return c.json({ error: 'à¤¨à¤¾à¤® à¤à¤µà¤¶à¥à¤¯à¤ à¤¹à¥ (Name is required)' }, 400);
-  if (!phone) return c.json({ error: 'à¤«à¤¼à¥à¤¨ à¤¨à¤à¤¬à¤° à¤à¤µà¤¶à¥à¤¯à¤ à¤¹à¥ (Phone is required)' }, 400);
+  if (!name) return c.json({ error: 'Ã Â¤Â¨Ã Â¤Â¾Ã Â¤Â® Ã Â¤ÂÃ Â¤ÂµÃ Â¤Â¶Ã Â¥ÂÃ Â¤Â¯Ã Â¤Â Ã Â¤Â¹Ã Â¥Â (Name is required)' }, 400);
+  if (!phone) return c.json({ error: 'Ã Â¤Â«Ã Â¤Â¼Ã Â¥ÂÃ Â¤Â¨ Ã Â¤Â¨Ã Â¤ÂÃ Â¤Â¬Ã Â¤Â° Ã Â¤ÂÃ Â¤ÂµÃ Â¤Â¶Ã Â¥ÂÃ Â¤Â¯Ã Â¤Â Ã Â¤Â¹Ã Â¥Â (Phone is required)' }, 400);
   if (String(name).length > 200) return c.json({ error: 'Name is too long (max 200 characters)' }, 400);
   if (notes && String(notes).length > 5000) return c.json({ error: 'Notes are too long (max 5000 characters)' }, 400);
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email))) {
@@ -363,7 +383,7 @@ router.post('/api/crm/contacts', async (c) => {
   ).bind(workspaceId, platformContactId).first();
 
   if (existing) {
-    return c.json({ error: 'à¤à¤¸ à¤«à¤¼à¥à¤¨ à¤¨à¤à¤¬à¤° à¤µà¤¾à¤²à¤¾ à¤¸à¤à¤ªà¤°à¥à¤ à¤ªà¤¹à¤²à¥ à¤¸à¥ à¤®à¥à¤à¥à¤¦ à¤¹à¥à¥¤' }, 400);
+    return c.json({ error: 'Ã Â¤ÂÃ Â¤Â¸ Ã Â¤Â«Ã Â¤Â¼Ã Â¥ÂÃ Â¤Â¨ Ã Â¤Â¨Ã Â¤ÂÃ Â¤Â¬Ã Â¤Â° Ã Â¤ÂµÃ Â¤Â¾Ã Â¤Â²Ã Â¤Â¾ Ã Â¤Â¸Ã Â¤ÂÃ Â¤ÂªÃ Â¤Â°Ã Â¥ÂÃ Â¤Â Ã Â¤ÂªÃ Â¤Â¹Ã Â¤Â²Ã Â¥Â Ã Â¤Â¸Ã Â¥Â Ã Â¤Â®Ã Â¥ÂÃ Â¤ÂÃ Â¥ÂÃ Â¤Â¦ Ã Â¤Â¹Ã Â¥ÂÃ Â¥Â¤' }, 400);
   }
 
   const id = crypto.randomUUID();
@@ -420,15 +440,15 @@ router.put('/api/crm/contacts/:contactId', async (c) => {
     lead_value
   } = body;
 
-  if (!name) return c.json({ error: 'à¤¨à¤¾à¤® à¤à¤µà¤¶à¥à¤¯à¤ à¤¹à¥' }, 400);
-  if (!phone) return c.json({ error: 'à¤«à¤¼à¥à¤¨ à¤¨à¤à¤¬à¤° à¤à¤µà¤¶à¥à¤¯à¤ à¤¹à¥' }, 400);
+  if (!name) return c.json({ error: 'Ã Â¤Â¨Ã Â¤Â¾Ã Â¤Â® Ã Â¤ÂÃ Â¤ÂµÃ Â¤Â¶Ã Â¥ÂÃ Â¤Â¯Ã Â¤Â Ã Â¤Â¹Ã Â¥Â' }, 400);
+  if (!phone) return c.json({ error: 'Ã Â¤Â«Ã Â¤Â¼Ã Â¥ÂÃ Â¤Â¨ Ã Â¤Â¨Ã Â¤ÂÃ Â¤Â¬Ã Â¤Â° Ã Â¤ÂÃ Â¤ÂµÃ Â¤Â¶Ã Â¥ÂÃ Â¤Â¯Ã Â¤Â Ã Â¤Â¹Ã Â¥Â' }, 400);
 
   const platformContactId = phone.replace(/[^0-9]/g, '');
 
   const existing = await c.env.DB.prepare(
     'SELECT id FROM contacts WHERE id = ? AND workspace_id = ?'
   ).bind(contactId, workspaceId).first();
-  if (!existing) return c.json({ error: 'à¤¸à¤à¤ªà¤°à¥à¤ à¤¨à¤¹à¥à¤ à¤®à¤¿à¤²à¤¾' }, 404);
+  if (!existing) return c.json({ error: 'Ã Â¤Â¸Ã Â¤ÂÃ Â¤ÂªÃ Â¤Â°Ã Â¥ÂÃ Â¤Â Ã Â¤Â¨Ã Â¤Â¹Ã Â¥ÂÃ Â¤Â Ã Â¤Â®Ã Â¤Â¿Ã Â¤Â²Ã Â¤Â¾' }, 404);
 
   await c.env.DB.prepare(`
     UPDATE contacts SET
@@ -478,7 +498,7 @@ router.delete('/api/crm/contacts/:contactId', async (c) => {
   const existing = await c.env.DB.prepare(
     'SELECT id FROM contacts WHERE id = ? AND workspace_id = ?'
   ).bind(contactId, workspaceId).first();
-  if (!existing) return c.json({ error: 'à¤¸à¤à¤ªà¤°à¥à¤ à¤¨à¤¹à¥à¤ à¤®à¤¿à¤²à¤¾' }, 404);
+  if (!existing) return c.json({ error: 'Ã Â¤Â¸Ã Â¤ÂÃ Â¤ÂªÃ Â¤Â°Ã Â¥ÂÃ Â¤Â Ã Â¤Â¨Ã Â¤Â¹Ã Â¥ÂÃ Â¤Â Ã Â¤Â®Ã Â¤Â¿Ã Â¤Â²Ã Â¤Â¾' }, 404);
 
   // Delete conversations and messages associated with this contact
   const convs = await c.env.DB.prepare('SELECT id FROM conversations WHERE contact_id = ?').bind(contactId).all<{ id: string }>();
