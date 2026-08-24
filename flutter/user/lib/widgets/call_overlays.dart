@@ -199,6 +199,10 @@ class _GlobalCallOverlayState extends State<GlobalCallOverlay> {
     final incomingId = callData['id']?.toString() ??
         callData['callId']?.toString() ??
         '';
+    // CallKit plugin ka native incoming UI band karo aur duplicate accept
+    // event ko block karo — warna overlay accept ke baad plugin accept se
+    // dobara CallScreen + double answerCall ho sakta hai.
+    CallKitService().markAnsweredByApp(incomingId);
     CallKitService().unregisterInAppCall(incomingId);
     setState(() {
       _incomingCall = null;
@@ -220,12 +224,16 @@ class _GlobalCallOverlayState extends State<GlobalCallOverlay> {
 
   Future<void> _rejectCall() async {
     final callData = _incomingCall;
+    final rejectedId = callData?['id']?.toString() ??
+        callData?['callId']?.toString() ??
+        '';
     if (callData != null) {
       await WebRTCService().rejectCall(callData);
-      CallKitService().unregisterInAppCall(
-        callData['id']?.toString() ?? callData['callId']?.toString() ?? '',
-      );
     }
+    // Plugin ki native incoming UI bhi band kar do taaki reject ke baad
+    // notification/ringing na baje.
+    CallKitService().handleCallEnded(rejectedId);
+    CallKitService().unregisterInAppCall(rejectedId);
     _stopRingtone();
     setState(() {
       _incomingCall = null;
