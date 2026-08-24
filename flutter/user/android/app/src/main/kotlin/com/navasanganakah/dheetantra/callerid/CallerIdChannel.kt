@@ -38,9 +38,11 @@ object CallerIdChannel : MethodChannel.MethodCallHandler {
                 result.success(intent?.let {
                     mapOf(
                         "route" to (it.getStringExtra("route") ?: ""),
-                        "phone" to (it.getStringExtra("phone") ?: "")
+                        "phone" to (it.getStringExtra("phone") ?: ""),
+                        "durationSeconds" to (it.getIntExtra("durationSeconds", 0)),
+                        "direction" to (it.getStringExtra("direction") ?: "incoming"),
                     )
-                } ?: emptyMap<String, String>())
+                } ?: emptyMap<String, Any>())
             }
             "storeSession" -> {
                 val sessionId = call.argument<String>("sessionId") ?: ""
