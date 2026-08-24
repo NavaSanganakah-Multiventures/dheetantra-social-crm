@@ -87,7 +87,7 @@ class _CallDetailScreenState extends State<CallDetailScreen> {
         if (ApiService().sessionId != null)
           'Cookie': 'auth_session=${ApiService().sessionId}',
       };
-      await _player.setSourceUrl(url, headers: headers);
+      await _player.setSource(UrlSource(url, headers: headers));
       await _player.resume();
     } catch (e) {
       if (mounted) _showSnack('Recording play failed: $e');
@@ -318,10 +318,11 @@ class _HeaderCard extends StatelessWidget {
               ),
             ],
           ),
-          if (createdAt != null) ...[
+          final createdLocal = createdAt;
+          if (createdLocal != null) ...[
             const SizedBox(height: 12),
             Text(
-              '${createdAt.toLocal()}',
+              '${createdLocal.toLocal()}',
               style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
             ),
           ],
