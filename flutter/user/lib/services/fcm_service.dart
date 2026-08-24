@@ -29,7 +29,7 @@ class FcmService {
   final FlutterLocalNotificationsPlugin _local = FlutterLocalNotificationsPlugin();
   final FirebaseMessaging _messaging = FirebaseMessaging.instance;
 
-  /// Monotonic notification ID â avoids Android ID collisions when two
+  /// Monotonic notification ID Ã¢ÂÂ avoids Android ID collisions when two
   /// notifications land in the same second (epoch-seconds IDs replace each
   /// other in the tray).
   int _notificationId = 0;
@@ -53,11 +53,11 @@ class FcmService {
       if (Firebase.apps.isNotEmpty) {
         _available = true;
       } else {
-        debugPrint('Firebase not initialized â push disabled');
+        debugPrint('Firebase not initialized Ã¢ÂÂ push disabled');
         return;
       }
     } catch (e) {
-      // google-services.json missing/placeholder â push disabled, app continues.
+      // google-services.json missing/placeholder Ã¢ÂÂ push disabled, app continues.
       debugPrint('Firebase init skipped: $e');
       return;
     }
@@ -65,11 +65,11 @@ class FcmService {
     try {
       await _initLocalNotifications();
     } catch (e) {
-      // Local notification plugin failure â push still works, tray won't.
+      // Local notification plugin failure Ã¢ÂÂ push still works, tray won't.
       debugPrint('Local notifications init failed: $e');
     }
 
-    // Foreground messages â local notification (system tray already shows
+    // Foreground messages Ã¢ÂÂ local notification (system tray already shows
     // background/terminated messages from the notification payload).
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       _handleForegroundMessage(message);
@@ -93,7 +93,7 @@ class FcmService {
       final prefs = await SharedPreferences.getInstance();
       final oldToken = prefs.getString('fcm_token');
       _token = newToken;
-      // Respect the notifications toggle â a token rotation must not silently
+      // Respect the notifications toggle Ã¢ÂÂ a token rotation must not silently
       // re-enable pushes the user disabled.
       if (await isEnabled()) {
         final success = await _registerToken(newToken, oldToken: oldToken);
@@ -122,9 +122,9 @@ class FcmService {
         _defaultTitle(type);
     final body = message.notification?.body ??
         message.data['body'] ??
-        'à¤¨à¤¯à¤¾ à¤à¤ªà¤¡à¥à¤ à¤ªà¥à¤°à¤¾à¤ªà¥à¤¤ à¤¹à¥à¤';
+        'Ã Â¤Â¨Ã Â¤Â¯Ã Â¤Â¾ Ã Â¤ÂÃ Â¤ÂªÃ Â¤Â¡Ã Â¥ÂÃ Â¤Â Ã Â¤ÂªÃ Â¥ÂÃ Â¤Â°Ã Â¤Â¾Ã Â¤ÂªÃ Â¥ÂÃ Â¤Â¤ Ã Â¤Â¹Ã Â¥ÂÃ Â¤Â';
 
-    // Bell badge aur notification screen bhi update karo â websocket band ho toh
+    // Bell badge aur notification screen bhi update karo Ã¢ÂÂ websocket band ho toh
     // bhi user ko missed calls/messages ka pata chale.
     _addToNotificationCenter(title, body, type, message.data);
 
@@ -243,7 +243,7 @@ class FcmService {
       final oldToken = prefs.getString('fcm_token');
       await _messaging.deleteToken();
       _token = await _messaging.getToken();
-      debugPrint('[FCM] Force-refreshed token: \${_token?.substring(0, 20)}...');
+      debugPrint('[FCM] Force-refreshed token: ${_token?.substring(0, 20)}...');
       if (_token != null) {
         bool success = await _registerToken(_token!, oldToken: oldToken);
         for (int attempt = 1; !success && attempt <= 3; attempt++) {
@@ -259,7 +259,7 @@ class FcmService {
     }
   }
 
-    Future<bool> _registerToken(String token, {String? oldToken}) async {
+  Future<bool> _registerToken(String token, {String? oldToken}) async {
     String deviceType = 'android';
     if (!kIsWeb && Platform.isIOS) deviceType = 'ios';
     return ApiService().registerFcmToken(token, deviceType: deviceType, oldToken: oldToken);
@@ -277,11 +277,11 @@ class FcmService {
   String _defaultTitle(String type) {
     switch (type) {
       case 'new_message':
-        return 'à¤¨à¤¯à¤¾ à¤¸à¤à¤¦à¥à¤¶';
+        return 'Ã Â¤Â¨Ã Â¤Â¯Ã Â¤Â¾ Ã Â¤Â¸Ã Â¤ÂÃ Â¤Â¦Ã Â¥ÂÃ Â¤Â¶';
       case 'missed_call':
-        return 'à¤®à¤¿à¤¸à¥à¤¡ à¤à¥à¤²';
+        return 'Ã Â¤Â®Ã Â¤Â¿Ã Â¤Â¸Ã Â¥ÂÃ Â¤Â¡ Ã Â¤ÂÃ Â¥ÂÃ Â¤Â²';
       case 'incoming_call':
-        return 'à¤à¤¨à¤à¤®à¤¿à¤à¤ à¤à¥à¤²';
+        return 'Ã Â¤ÂÃ Â¤Â¨Ã Â¤ÂÃ Â¤Â®Ã Â¤Â¿Ã Â¤ÂÃ Â¤Â Ã Â¤ÂÃ Â¥ÂÃ Â¤Â²';
       default:
         return 'DheeTantra';
     }
@@ -336,7 +336,7 @@ class FcmService {
       // Foreground mein bhi incoming call dikhana chahiye; CallKit native UI
       // sabse reliable hai, aur saath mein notification center mein bhi record.
       _addToNotificationCenter(
-        message.data['callerName'] ?? 'à¤à¤¨à¤à¤®à¤¿à¤à¤ à¤à¥à¤²',
+        message.data['callerName'] ?? 'Ã Â¤ÂÃ Â¤Â¨Ã Â¤ÂÃ Â¤Â®Ã Â¤Â¿Ã Â¤ÂÃ Â¤Â Ã Â¤ÂÃ Â¥ÂÃ Â¤Â²',
         message.data['callerNumber'] ?? '',
         'call',
         message.data,
@@ -345,14 +345,14 @@ class FcmService {
       return;
     }
 
-    // Har message/call ka notification dikhana chahiye â foreground mein bhi.
+    // Har message/call ka notification dikhana chahiye Ã¢ÂÂ foreground mein bhi.
     // Agar backend sirf data bhejta hai toh bhi local tray pe dikhayenge.
     final title = message.notification?.title ??
         message.data['title'] ??
         _defaultTitle(type);
     final body = message.notification?.body ??
         message.data['body'] ??
-        'à¤¨à¤¯à¤¾ à¤à¤ªà¤¡à¥à¤ à¤ªà¥à¤°à¤¾à¤ªà¥à¤¤ à¤¹à¥à¤';
+        'Ã Â¤Â¨Ã Â¤Â¯Ã Â¤Â¾ Ã Â¤ÂÃ Â¤ÂªÃ Â¤Â¡Ã Â¥ÂÃ Â¤Â Ã Â¤ÂªÃ Â¥ÂÃ Â¤Â°Ã Â¤Â¾Ã Â¤ÂªÃ Â¥ÂÃ Â¤Â¤ Ã Â¤Â¹Ã Â¥ÂÃ Â¤Â';
 
     // Bell badge aur list hamesha update karo, chahe websocket connected ho ya na ho.
     _addToNotificationCenter(title, body, type, message.data);
