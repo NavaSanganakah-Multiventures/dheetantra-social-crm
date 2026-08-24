@@ -507,8 +507,8 @@ app.post('/api/whatsapp/webhook', async (c) => {
 
                 // ==========================================
                 // LINE-BUSY CHECK (WhatsApp-style busy)
-                // Agar is workspace mein pehle se koi call active hai (ringing
-                // ya in_progress) toh nayi incoming call ko turant Meta ko
+                // Agar is workspace mein pehle se koi call 'ringing' mein hai toh
+                // nayi incoming call ko turant Meta ko
                 // reject bhej dete hain â caller ko busy tone milega, app par
                 // ring/push nahi aayegi. Ye "oldest wins" hai: do calls ek
                 // saath aayein (race) toh jo pehle insert hui wo ring karegi,
@@ -533,7 +533,7 @@ app.post('/api/whatsapp/webhook', async (c) => {
 
                   const activeCall = await c.env.DB.prepare(`
                     SELECT id, status FROM calls
-                    WHERE workspace_id = ? AND status IN ('ringing', 'in_progress') AND id != ?
+                    WHERE workspace_id = ? AND status = 'ringing' AND id != ?
                     ORDER BY strftime('%s', created_at) ASC LIMIT 1
                   `).bind(config.workspace_id, callId).first<{ id: string; status: string }>();
 
