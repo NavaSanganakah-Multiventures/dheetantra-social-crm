@@ -4,6 +4,11 @@ import android.app.role.RoleManager
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.Manifest
+import android.provider.MediaStore
+import android.database.Cursor
+import android.net.Uri
+import androidx.core.content.ContextCompat
 import android.widget.Toast
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodCall
@@ -21,6 +26,12 @@ object CallerIdChannel : MethodChannel.MethodCallHandler {
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         val context = getContext()
         when (call.method) {
+            "scanRecordings" -> {
+                val phone = call.argument<String>("phone") ?: ""
+                val afterMs = call.argument<Long>("afterMs") ?: 0L
+                val beforeMs = call.argument<Long>("beforeMs") ?: System.currentTimeMillis()
+                result.success(scanRecordings(phone, afterMs, beforeMs))
+            }
             "getInitialIntent" -> {
                 val intent = initialIntent
                 result.success(intent?.let {
