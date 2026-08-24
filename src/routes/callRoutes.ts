@@ -713,8 +713,8 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
   return btoa(binary);
 }
 
-async function summarizeWithGemini(audioBytes: ArrayBuffer, mimeType: string): Promise<string | null> {
-  const key = await c.env.SECRETS_KV.get('GEMINI_API_KEY');
+async function summarizeWithGemini(audioBytes: ArrayBuffer, mimeType: string, env: Env): Promise<string | null> {
+  const key = await env.SECRETS_KV.get('GEMINI_API_KEY');
   if (!key) return null;
 
   const prompt = `You are a CRM assistant. Summarize this phone call in the same language as the audio.
@@ -792,7 +792,7 @@ router.post('/api/calls/:id/summarize', async (c) => {
   let transcript: string | null = call.transcript || null;
 
   // Try Gemini first
-  summary = await summarizeWithGemini(audioBytes, mimeType);
+  summary = await summarizeWithGemini(audioBytes, mimeType, c.env);
   if (summary) {
     provider = 'gemini';
   } else {
