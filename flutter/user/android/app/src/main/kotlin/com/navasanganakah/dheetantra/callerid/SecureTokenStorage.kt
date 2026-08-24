@@ -6,7 +6,7 @@ import androidx.security.crypto.MasterKey
 
 object SecureTokenStorage {
     private const val PREFS_FILE = "dheetantra_secure_auth"
-    private const val KEY_TOKEN = "auth_token"
+    private const val KEY_SESSION_ID = "auth_session"
     private const val KEY_WORKSPACE_ID = "workspace_id"
     private const val KEY_CALLER_ID_ENABLED = "caller_id_enabled"
     private const val KEY_AFTER_CALL_ENABLED = "after_call_crm_enabled"
@@ -29,14 +29,14 @@ object SecureTokenStorage {
         return prefs!!
     }
 
-    fun storeAuth(context: Context, token: String, workspaceId: String) {
+    fun storeSession(context: Context, sessionId: String, workspaceId: String) {
         getPrefs(context).edit()
-            .putString(KEY_TOKEN, token)
+            .putString(KEY_SESSION_ID, sessionId)
             .putString(KEY_WORKSPACE_ID, workspaceId)
             .apply()
     }
 
-    fun getToken(context: Context): String? = getPrefs(context).getString(KEY_TOKEN, null)
+    fun getSessionId(context: Context): String? = getPrefs(context).getString(KEY_SESSION_ID, null)
     fun getWorkspaceId(context: Context): String? = getPrefs(context).getString(KEY_WORKSPACE_ID, null)
 
     fun setCallerIdEnabled(context: Context, enabled: Boolean) {
