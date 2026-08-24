@@ -638,18 +638,18 @@ router.delete('/api/crm/contacts/:contactId', async (c) => {
 // USER DEFAULT-DIALER SETTING
 // ==========================================
 router.get('/api/crm/user/settings', async (c) => {
-  const user = c.get('user');
-  if (!user?.id) return c.json({ error: 'Unauthorized' }, 401);
-  const row = await c.env.DB.prepare('SELECT default_dialer_enabled FROM users WHERE id = ?').bind(user.id).first<{ default_dialer_enabled: number }>();
+  const userId = await resolveUserId(c);
+  if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+  const row = await c.env.DB.prepare('SELECT default_dialer_enabled FROM users WHERE id = ?').bind(userId).first() as { default_dialer_enabled: number } | null;
   return c.json({ default_dialer_enabled: row ? row.default_dialer_enabled === 1 : false });
 });
 
 router.patch('/api/crm/user/settings', async (c) => {
-  const user = c.get('user');
-  if (!user?.id) return c.json({ error: 'Unauthorized' }, 401);
+  const userId = await resolveUserId(c);
+  if (!userId) return c.json({ error: 'Unauthorized' }, 401);
   const { default_dialer_enabled } = await c.req.json();
   await c.env.DB.prepare('UPDATE users SET default_dialer_enabled = ? WHERE id = ?')
-    .bind(default_dialer_enabled ? 1 : 0, user.id).run();
+    .bind(default_dialer_enabled ? 1 : 0, userId).run();
   return c.json({ success: true, default_dialer_enabled: !!default_dialer_enabled });
 });
 
