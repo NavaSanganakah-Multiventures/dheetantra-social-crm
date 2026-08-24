@@ -392,14 +392,10 @@ class CallKitService {
         isShowLogo: false,
         isShowCallID: true,
         isShowFullLockedScreen: true,
-        // IMPORTANT: isFullScreen=true hone par plugin sirf activity dikhata
-        // hai — notification nahi banati aur ringtone/vibration kabhi nahi
-        // bajta (sound sirf notification path mein play hota hai). Android 14+
-        // par full-screen intent permission ke bina activity turant FSI
-        // settings screen khol deti hai. isFullScreen=false (notification
-        // path) hi एकमात्र reliable ring hai — permission request login ke
-        // baad requestPermissions() se ho jati hai.
-        isFullScreen: false,
+        // WhatsApp-style full-screen incoming call UI dikhane ke liye.
+        // Android 14+ par full-screen intent permission zaroori hai;
+        // CallKitService.requestPermissions() use runtime mein maangta hai.
+        isFullScreen: true,
         isImportant: true,
         ringtonePath: 'system_ringtone_default',
         backgroundColor: '#0955fa',
