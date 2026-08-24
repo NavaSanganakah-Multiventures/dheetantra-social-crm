@@ -73,6 +73,18 @@ class CallerIdService {
     }
   }
 
+
+  static Future<Map<String, dynamic>> getInitialIntent() async {
+    if (!Platform.isAndroid) return {};
+    try {
+      final result = await _channel.invokeMethod('getInitialIntent');
+      return result is Map ? Map<String, dynamic>.from(result) : {};
+    } catch (e) {
+      debugPrint('getInitialIntent error: $e');
+      return {};
+    }
+  }
+
   static Future<bool> clearAuth() async {
     try {
       return await _channel.invokeMethod('clearAuth') == true;
