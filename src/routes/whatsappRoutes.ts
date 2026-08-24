@@ -166,7 +166,7 @@ router.get('/api/whatsapp/config', async (c) => {
     // member exfiltrate the owner's credentials and use them directly against
     // the Meta API. The client only ever sends a NEW token on save and never
     // needs to read the stored one, so masking is safe.
-    const maskToken = (t: any) => (t ? `••••••••${String(t).slice(-4)}` : '');
+    const maskToken = (t: any) => (t ? `â¢â¢â¢â¢â¢â¢â¢â¢${String(t).slice(-4)}` : '');
     const maskRow = (r: any) => {
       if (!r) return r;
       const { access_token, ...rest } = r;
@@ -507,7 +507,7 @@ router.get('/api/whatsapp/templates', async (c) => {
     let metaTemplates: any[] = [];
     let fetchError = null;
 
-    if (config && config.waba_id && config.access_token && config.access_token !== '••••••••••••••••') {
+    if (config && config.waba_id && config.access_token && config.access_token !== 'â¢â¢â¢â¢â¢â¢â¢â¢â¢â¢â¢â¢â¢â¢â¢â¢') {
       try {
         const res = await fetch(`https://graph.facebook.com/v19.0/${config.waba_id}/message_templates`, {
           headers: { 'Authorization': `Bearer ${config.access_token}` }
@@ -568,7 +568,7 @@ router.post('/api/whatsapp/templates', requireRole('owner', 'admin'), async (c) 
     let metaSuccess = false;
     let metaError = null;
 
-    if (config && config.waba_id && config.access_token && config.access_token !== '••••••••••••••••') {
+    if (config && config.waba_id && config.access_token && config.access_token !== 'â¢â¢â¢â¢â¢â¢â¢â¢â¢â¢â¢â¢â¢â¢â¢â¢') {
       try {
         const payload = {
           name: cleanName,
@@ -648,6 +648,10 @@ router.post('/api/whatsapp/templates/send', requireRole('owner', 'admin'), async
   const { to, templateName, languageCode, parameters, phoneNumberId } = await c.req.json();
   if (!to || !templateName) return c.json({ error: 'Missing to or templateName' }, 400);
 
+  // Same normalization as /api/whatsapp/send: Meta rejects '+'-prefixed numbers.
+  const normalizedTo = String(to).replace(/\D/g, '');
+  if (!normalizedTo) return c.json({ error: 'Invalid recipient phone number' }, 400);
+
   try {
     let config: any = null;
     if (phoneNumberId) {
@@ -672,7 +676,7 @@ router.post('/api/whatsapp/templates/send', requireRole('owner', 'admin'), async
     const payload = {
       messaging_product: 'whatsapp',
       recipient_type: 'individual',
-      to: to,
+      to: normalizedTo,
       type: 'template',
       template: {
         name: templateName,
@@ -698,7 +702,7 @@ router.post('/api/whatsapp/templates/send', requireRole('owner', 'admin'), async
     }
 
     // Save to database as a sent message
-    let contact = await c.env.DB.prepare('SELECT id FROM contacts WHERE workspace_id = ? AND platform_contact_id = ?').bind(workspaceId, to).first();
+    let contact = await c.env.DB.prepare('SELECT id FROM contacts WHERE workspace_id = ? AND platform_contact_id = ?').bind(workspaceId, normalizedTo).first();
     let contactId = contact?.id;
     if (!contactId) {
       contactId = crypto.randomUUID();
@@ -869,6 +873,13 @@ router.post('/api/whatsapp/send', async (c) => {
   const { to, text, conversationId, type = 'text', mediaUrl, r2Url, filename, location, contacts, phoneNumberId } = await c.req.json();
   if (!to || !conversationId) return c.json({ error: 'Missing required fields' }, 400);
 
+  // Meta Cloud API requires the recipient phone number as digits only (no '+',
+  // spaces or dashes). The Flutter Send New Message / template screens pass
+  // numbers like "+919876543210" unchanged; sending that to Meta made every
+  // outbound message fail. Normalize here so every client sends successfully.
+  const normalizedTo = String(to).replace(/\D/g, '');
+  if (!normalizedTo) return c.json({ error: 'Invalid recipient phone number' }, 400);
+
   try {
     // Verify conversation belongs to workspace
     const convCheck = await c.env.DB.prepare('SELECT id FROM conversations WHERE id = ? AND workspace_id = ?')
@@ -888,7 +899,7 @@ router.post('/api/whatsapp/send', async (c) => {
     let payload: any = {
       messaging_product: "whatsapp",
       recipient_type: "individual",
-      to: to,
+      to: normalizedTo,
       type: type
     };
 
