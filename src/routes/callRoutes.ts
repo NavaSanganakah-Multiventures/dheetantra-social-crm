@@ -698,4 +698,118 @@ router.get('/api/calls/:id/recording', async (c) => {
     }
   });
 });
+
+// ==========================================
+// AI SUMMARY FOR CALL RECORDINGS
+// Primary: Google AI Studio (Gemini)
+// Fallback: Cloudflare Workers AI (whisper + llama)
+// ==========================================
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
+async function summarizeWithGemini(audioBytes: ArrayBuffer, mimeType: string): Promise<string | null> {
+  const key = await c.env.SECRETS_KV.get('GEMINI_API_KEY');
+  if (!key) return null;
+
+  const prompt = `You are a CRM assistant. Summarize this phone call in the same language as the audio.
+Include:
+- Caller intent
+- Key discussion points
+- Action items / follow-ups
+- Sentiment (positive/neutral/negative)
+Keep it concise.`;
+
+  const body = {
+    contents: [
+      {
+        role: 'user',
+        parts: [
+          { text: prompt },
+          { inlineData: { mimeType, data: arrayBufferToBase64(audioBytes) } }
+        ]
+      }
+    ],
+    generationConfig: { maxOutputTokens: 2048, temperature: 0.3 }
+  };
+
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  if (!res.ok) {
+    const err = await res.text().catch(() => 'Gemini request failed');
+    console.error('[AI Summary] Gemini error:', err);
+    return null;
+  }
+  const data: any = await res.json();
+  return data?.candidates?.[0]?.content?.parts?.[0]?.text || null;
+}
+
+async function summarizeWithWorkersAI(audioBytes: ArrayBuffer, env: Env): Promise<string | null> {
+  try {
+    const transcriptResult: any = await env.AI.run('@cf/openai/whisper-large-v3-turbo', { audio: audioBytes });
+    const transcript = transcriptResult?.text || transcriptResult?.transcription || '';
+    if (!transcript) return null;
+
+    const summaryResult: any = await env.AI.run('@cf/meta/llama-3-8b-instruct', {
+      messages: [
+        { role: 'system', content: 'You are a CRM assistant. Summarize the following call transcript in the same language. Include intent, key points, action items, and sentiment.' },
+        { role: 'user', content: transcript }
+      ]
+    });
+    return summaryResult?.response || summaryResult?.summary || null;
+  } catch (e: any) {
+    console.error('[AI Summary] Workers AI error:', e);
+    return null;
+  }
+}
+
+router.post('/api/calls/:id/summarize', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  const callId = c.req.param('id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  const call = await c.env.DB.prepare(
+    'SELECT id, recording_url, transcript FROM calls WHERE id = ? AND workspace_id = ?'
+  ).bind(callId, workspaceId).first<{ id: string; recording_url: string | null; transcript: string | null }>();
+  if (!call) return c.json({ error: 'Call not found' }, 404);
+  if (!call.recording_url) return c.json({ error: 'No recording attached to this call' }, 400);
+
+  const obj = await c.env.MEDIA_BUCKET.get(call.recording_url);
+  if (!obj || !obj.body) return c.json({ error: 'Recording missing in storage' }, 404);
+  const audioBytes = await obj.arrayBuffer();
+  const mimeType = obj.httpMetadata?.contentType || 'audio/mpeg';
+
+  let summary: string | null = null;
+  let provider: string | null = null;
+  let transcript: string | null = call.transcript || null;
+
+  // Try Gemini first
+  summary = await summarizeWithGemini(audioBytes, mimeType);
+  if (summary) {
+    provider = 'gemini';
+  } else {
+    // Fallback to Workers AI transcription + summarization
+    summary = await summarizeWithWorkersAI(audioBytes, c.env);
+    if (summary) provider = 'workers_ai';
+  }
+
+  if (!summary) {
+    return c.json({ error: 'AI summary generation failed for this recording' }, 500);
+  }
+
+  await c.env.DB.prepare(
+    'UPDATE calls SET summary = ?, ai_summary_generated_at = ?, transcript = COALESCE(?, transcript) WHERE id = ? AND workspace_id = ?'
+  ).bind(summary, sqliteNow(), transcript || null, callId, workspaceId).run();
+
+  return c.json({ success: true, summary, provider });
+});
+
 export default router;
