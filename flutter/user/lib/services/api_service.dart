@@ -181,36 +181,6 @@ class ApiService {
   }
 
   /// Diagnostic: ask the backend to send a test FCM push to this device.
-  /// Diagnostic: replicate the backend WhatsApp/email webhook push fan-out
-  /// for the current workspace and return a full report (token counts, FCM
-  /// config status, a real test send). Shown in Settings -> Push Diagnostics.
-  Future<Map<String, dynamic>> simulateWhatsAppPush() async {
-    try {
-      final res = await _dio.get('/api/fcm/simulate-whatsapp-push');
-      return res.data as Map<String, dynamic>;
-    } on DioException catch (e) {
-      final data = e.response?.data;
-      if (data is Map<String, dynamic>) return data;
-      return {'error': e.message ?? 'Unknown error'};
-    } catch (e) {
-      return {'error': e.toString()};
-    }
-  }
-
-  Future<Map<String, dynamic>> diagnosePush({String? deviceToken}) async {
-    try {
-      final data = deviceToken != null ? {'deviceToken': deviceToken} : null;
-      final res = await _dio.post('/api/fcm/diagnose', data: data);
-      return res.data as Map<String, dynamic>;
-    } on DioException catch (e) {
-      final data = e.response?.data;
-      if (data is Map<String, dynamic>) return data;
-      return {'error': e.message ?? 'Unknown error'};
-    } catch (e) {
-      return {'error': e.toString()};
-    }
-  }
-
   Future<Map<String, dynamic>> testPushNotification() async {
     try {
       final res = await _dio.post('/api/fcm/test');
@@ -317,7 +287,7 @@ class ApiService {
         return res.data;
       } else {
         final res = await _dio.post('/api/whatsapp/send', data: {
-          'to': _normalizePhoneForWhatsapp(to),
+          'to': to,
           'text': text,
           'conversationId': conversationId,
           'type': type,
@@ -377,7 +347,7 @@ class ApiService {
 
   Future<Map<String, dynamic>> getDashboardStats() async {
     try {
-      // Dono calls parallel chalao ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ sequential hone se dashboard load me
+      // Dono calls parallel chalao — sequential hone se dashboard load me
       // 2x delay aa raha tha.
       final results = await Future.wait<dynamic>([
         getContacts(),
@@ -496,7 +466,7 @@ class ApiService {
     required String text,
   }) async {
     try {
-      final cleanedPhone = phone.replaceAll(RegExp(r'[^0-9]'), '');
+      final cleanedPhone = phone.replaceAll(RegExp(r'[^0-9+]'), '');
       final existing = await _dio.get('/api/crm/contacts');
       final contacts = (existing.data['contacts'] as List?) ?? [];
       String? contactId;
@@ -546,14 +516,6 @@ class ApiService {
     return phone.toString().replaceAll(RegExp(r'[^0-9]'), '');
   }
 
-  /// Meta WhatsApp Cloud API expects the recipient as digits only (no '+',
-  /// spaces or dashes). Inputs from the Send New Message and template screens
-  /// often contain a leading '+', which Meta rejects ÃÂ¢ÃÂÃÂ so sends from those
-  /// screens silently failed. Always normalize before hitting the WhatsApp API.
-  String _normalizePhoneForWhatsapp(String phone) {
-    return phone.replaceAll(RegExp(r'[^0-9]'), '');
-  }
-
   // ========== WHATSAPP TEMPLATES SEND ==========
 
   Future<Map<String, dynamic>> sendTemplate({
@@ -565,7 +527,7 @@ class ApiService {
   }) async {
     try {
       final body = <String, dynamic>{
-        'to': _normalizePhoneForWhatsapp(to),
+        'to': to,
         'templateName': templateName,
         'languageCode': languageCode,
         if (parameters.isNotEmpty) 'parameters': parameters,
@@ -616,6 +578,6 @@ class ApiService {
     if (e.response != null && e.response!.data is Map) {
       return e.response!.data;
     }
-    return {'error': e.message ?? 'ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¡ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¼ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¬ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¡ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¼ ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¹ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂ ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ'};
+    return {'error': e.message ?? 'कुछ गड़बड़ हो गई'};
   }
 }
