@@ -67,11 +67,13 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final pending = CallKitService().takePendingAcceptCall();
       if (pending != null && mounted) {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => CallScreen(callData: pending),
-          ),
-        );
+        debugPrint('[HomeShell] pending accepted call, opening CallScreen');
+        CallScreen.push(context, pending);
+      }
+      // Chahe pending ho ya na ho, first frame ke baad launch guard hata do.
+      // Warna app hamesha blank dark screen par atak jayegi.
+      if (mounted && _isLaunchingCall) {
+        setState(() => _isLaunchingCall = false);
       }
     });
   }
@@ -170,14 +172,8 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     } else if (type == 'incoming_call') {
       final callId = data['id']?.toString() ?? '';
       if (callId.isEmpty) return;
-      // Notification tap par full call screen dikhayein. Agar SDP abhi bhi valid
-      // hai toh turant answer karna possible hai, nahi toh user hangup kar sakta hai.
-      final callData = Map<String, dynamic>.from(data);
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => CallScreen(callData: callData),
-        ),
-      );
+      debugPrint('[HomeShell] notification tap incoming_call -> CallScreen');
+      CallScreen.push(context, Map<String, dynamic>.from(data));
     } else if (type == 'missed_call') {
       final phone = data['phone'] ?? '';
       if (mounted) {
