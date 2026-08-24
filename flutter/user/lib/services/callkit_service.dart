@@ -39,6 +39,10 @@ class CallKitService {
   // se duplicate CallScreen + double answerCall na ho isliye track karte hain.
   final Set<String> _appAnsweredIds = {};
 
+  // HomeShell ready hone tak accept event ko queue karo — warna Splash/Login
+  // screen ke upar CallScreen push ho sakta hai.
+  bool _homeShellReady = false;
+
   /// Ek accept event ko sirf ek baar process karta hai. Returns false agar
   /// ye call pehle hi accept ho chuki hai.
   bool _handleAccept(String id, Map<String, dynamic> data) {
