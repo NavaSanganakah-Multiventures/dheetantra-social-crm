@@ -44,7 +44,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   StreamSubscription? _notifCenterSub;
   StreamSubscription? _notifRouterSub;
 
-  static const _titles = ['à¤¡à¥à¤¶à¤¬à¥à¤°à¥à¤¡', 'à¤à¤¨à¤¬à¥à¤à¥à¤¸', 'à¤¸à¤à¤ªà¤°à¥à¤ à¤à¤° à¤²à¥à¤¡à¥à¤¸', 'à¤¬à¥à¤°à¥à¤¡à¤à¤¾à¤¸à¥à¤', 'à¤¸à¥à¤à¤¿à¤à¤à¥à¤¸'];
+  static const _titles = ['डैशबोर्ड', 'इनबॉक्स', 'संपर्क और लीड्स', 'ब्रॉडकास्ट', 'सेटिंग्स'];
 
   @override
   void initState() {
@@ -80,11 +80,8 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     // App background se wapas aaye to realtime reconnect ke baad data refresh
     // trigger karna chahiye. WebSocketService apne aap reconnect karta hai.
     if (state == AppLifecycleState.resumed) {
-      debugPrint('[HomeShell] app resumed â refresh trigger bhej rahe hain');
+      debugPrint('[HomeShell] app resumed — refresh trigger bhej rahe hain');
       DataRefreshService().trigger(RefreshReason.appResumed);
-      // Re-register FCM token on resume (idempotent upsert) so a stale/missing
-      // token from a failed first-launch registration gets re-registered.
-      FcmService().setupForUser();
       _checkPendingAcceptedCall();
     }
   }
@@ -109,16 +106,16 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
       });
     });
 
-    // New incoming message â notification center + unread badge.
+    // New incoming message → notification center + unread badge.
     _wsMsgSub = ws.onNewMessage.listen((data) {
       final msg = data['message'];
       if (msg == null) return;
       final convId = msg['conversation_id'] ?? '';
       final senderType = msg['sender_type'] ?? '';
-      final text = msg['content'] ?? '(à¤®à¥à¤¡à¤¿à¤¯à¤¾)';
+      final text = msg['content'] ?? '(मीडिया)';
       if (senderType == 'contact' || senderType == 'customer') {
         NotificationCenter().add(
-          title: 'à¤¨à¤¯à¤¾ à¤¸à¤à¤¦à¥à¤¶',
+          title: 'नया संदेश',
           body: text.toString(),
           type: 'message',
           data: {'conversation_id': convId, 'from': msg['from'] ?? ''},
@@ -130,22 +127,22 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
       final status = data['status'] ?? '';
       if (status == 'missed') {
         NotificationCenter().add(
-          title: 'à¤®à¤¿à¤¸à¥à¤¡ à¤à¥à¤²',
-          body: 'à¤à¤ WhatsApp à¤µà¥à¤¯à¤¸ à¤à¥à¤² à¤®à¤¿à¤¸ à¤¹à¥à¤',
+          title: 'मिस्ड कॉल',
+          body: 'एक WhatsApp वॉयस कॉल मिस हुई',
           type: 'call',
           data: {'call_id': data['call_id'] ?? ''},
         );
       }
     });
 
-    // Only surface user-relevant transitions â a reopened conversation. Routine
+    // Only surface user-relevant transitions — a reopened conversation. Routine
     // admin close/reassign events would otherwise flood the notification center.
     _wsConvStatusSub = ws.onConversationStatusUpdated.listen((data) {
       final status = data['status'] ?? '';
       if (status != 'open') return;
       NotificationCenter().add(
-        title: 'à¤¬à¤¾à¤¤à¤à¥à¤¤ à¤à¥à¤²à¥',
-        body: 'à¤à¤ªà¤à¥ à¤à¤ à¤¬à¤¾à¤¤à¤à¥à¤¤ à¤«à¤¿à¤° à¤¸à¥ à¤à¥à¤²à¥ à¤à¤',
+        title: 'बातचीत खुली',
+        body: 'आपकी एक बातचीत फिर से खोली गई',
         type: 'system',
         data: {'conversation_id': data['conversation_id'] ?? ''},
       );
@@ -187,12 +184,12 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
         showDialog<void>(
           context: context,
           builder: (ctx) => AlertDialog(
-            title: const Text('à¤®à¤¿à¤¸à¥à¤¡ à¤à¥à¤²'),
-            content: Text('à¤à¤ªà¤à¥ à¤à¤ WhatsApp à¤µà¥à¤¯à¤¸ à¤à¥à¤² à¤®à¤¿à¤¸ à¤¹à¥à¤${phone.isNotEmpty ? ' (+$phone)' : ''}à¥¤'),
+            title: const Text('मिस्ड कॉल'),
+            content: Text('आपकी एक WhatsApp वॉयस कॉल मिस हुई${phone.isNotEmpty ? ' (+$phone)' : ''}।'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(ctx).pop(),
-                child: const Text('à¤ à¥à¤ à¤¹à¥'),
+                child: const Text('ठीक है'),
               ),
             ],
           ),
@@ -286,27 +283,27 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
               NavigationDestination(
                 icon: Icon(Icons.dashboard_outlined),
                 selectedIcon: Icon(Icons.dashboard_rounded),
-                label: 'à¤¹à¥à¤®',
+                label: 'होम',
               ),
               NavigationDestination(
                 icon: Icon(Icons.chat_bubble_outline_rounded),
                 selectedIcon: Icon(Icons.chat_bubble_rounded),
-                label: 'à¤à¤¨à¤¬à¥à¤à¥à¤¸',
+                label: 'इनबॉक्स',
               ),
               NavigationDestination(
                 icon: Icon(Icons.people_alt_outlined),
                 selectedIcon: Icon(Icons.people_alt_rounded),
-                label: 'à¤¸à¤à¤ªà¤°à¥à¤',
+                label: 'संपर्क',
               ),
               NavigationDestination(
                 icon: Icon(Icons.campaign_outlined),
                 selectedIcon: Icon(Icons.campaign_rounded),
-                label: 'à¤¬à¥à¤°à¥à¤¡à¤à¤¾à¤¸à¥à¤',
+                label: 'ब्रॉडकास्ट',
               ),
               NavigationDestination(
                 icon: Icon(Icons.settings_outlined),
                 selectedIcon: Icon(Icons.settings_rounded),
-                label: 'à¤¸à¥à¤à¤¿à¤à¤à¥à¤¸',
+                label: 'सेटिंग्स',
               ),
             ],
           ),
@@ -373,7 +370,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
                 ),
                 const SizedBox(width: 5),
                 Text(
-                  connecting ? 'à¤à¤¨à¥à¤à¥à¤' : connected ? 'Live' : 'à¤à¤«à¤²à¤¾à¤à¤¨',
+                  connecting ? 'कनेक्ट' : connected ? 'Live' : 'ऑफलाइन',
                   style: TextStyle(
                     color: connected
                         ? AppColors.success
