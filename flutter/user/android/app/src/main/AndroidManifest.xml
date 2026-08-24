@@ -15,6 +15,13 @@
     <uses-permission android:name="android.permission.MANAGE_OWN_CALLS" />
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!-- Caller ID / after-call CRM permissions -->
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    <uses-permission android:name="android.permission.READ_CALL_LOG" />
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <application
         android:label="DheeTantra"
         android:name="${applicationName}"
@@ -75,6 +82,23 @@
         </receiver>
         <!-- FCM default notification channel & icon used when the app is
              killed/backgrounded and the system renders the notification. -->
+        <!-- Caller ID screening service (Android 10+) -->
+        <service
+            android:name=".callerid.CallerScreeningService"
+            android:permission="android.permission.BIND_SCREENING_SERVICE"
+            android:foregroundServiceType="phoneCall"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.telecom.CallScreeningService"/>
+            </intent-filter>
+        </service>
+
+        <!-- After-call log observer service -->
+        <service
+            android:name=".callerid.CallLogObserverService"
+            android:foregroundServiceType="phoneCall|dataSync"
+            android:exported="false" />
+
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="dheetantra_critical_alerts" />
