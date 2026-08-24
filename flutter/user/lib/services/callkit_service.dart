@@ -35,6 +35,10 @@ class CallKitService {
   // double answerCall race na ho isliye dedupe karte hain).
   final Set<String> _handledAcceptIds = {};
 
+  // In-app overlay ne answer kar liya hai — native CallKit accept event
+  // se duplicate CallScreen + double answerCall na ho isliye track karte hain.
+  final Set<String> _appAnsweredIds = {};
+
   /// Ek accept event ko sirf ek baar process karta hai. Returns false agar
   /// ye call pehle hi accept ho chuki hai.
   bool _handleAccept(String id, Map<String, dynamic> data) {
@@ -205,6 +209,20 @@ class CallKitService {
     final data = _pendingAcceptCall;
     _pendingAcceptCall = null;
     return data;
+  }
+
+  /// In-app overlay jab call answer karti hai, tab plugin ko bata do
+  /// aur CallKit accept event ka duplicate gracefully ignore karo.
+  void markAnsweredByApp(String id) {
+    if (id.isEmpty) return;
+    _handledAcceptIds.add(id);
+    _appAnsweredIds.add(id);
+    _currentCallId = id;
+    try {
+      FlutterCallkitIncoming.setCallConnected(id);
+    } catch (e) {
+      debugPrint('CALLKIT markAnsweredByApp setCallConnected error: $e');
+    }
   }
 
   Future<void> requestPermissions() async {
