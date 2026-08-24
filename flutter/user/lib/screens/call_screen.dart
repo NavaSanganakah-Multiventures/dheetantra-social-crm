@@ -15,6 +15,19 @@ class CallScreen extends StatefulWidget {
 
   const CallScreen({super.key, required this.callData});
 
+  /// Call screen ko bina animation ke turant foreground par lao — incoming
+  /// accept ke waqt HomeScreen ka flash nahi dikhna chahiye.
+  static void push(BuildContext context, Map<String, dynamic> callData) {
+    Navigator.of(context).push(
+      PageRouteBuilder<void>(
+        opaque: true,
+        transitionDuration: Duration.zero,
+        reverseTransitionDuration: Duration.zero,
+        pageBuilder: (_, __, ___) => CallScreen(callData: callData),
+      ),
+    );
+  }
+
   @override
   State<CallScreen> createState() => _CallScreenState();
 }
@@ -38,6 +51,7 @@ class _CallScreenState extends State<CallScreen> {
   }
 
   void _onCallState(String state) {
+    debugPrint('[CallScreen] WebRTC state: $state');
     if (!mounted) return;
     setState(() {
       if (state == 'connected') {
@@ -58,10 +72,12 @@ class _CallScreenState extends State<CallScreen> {
   void _onCallStatus(Map<String, dynamic> data) {
     final callId = data['call_id']?.toString();
     final currentId = widget.callData['id']?.toString();
+    debugPrint('[CallScreen] WS call status update: callId=$callId current=$currentId data=$data');
     if (callId == null || currentId == null || callId != currentId) return;
 
     final status = data['status']?.toString() ?? '';
-    if (status == 'completed' || status == 'ended' || status == 'declined') {
+    if (status == 'completed' || status == 'ended' || status == 'declined' || status == 'terminated') {
+      debugPrint('[CallScreen] remote ended the call — finishing');
       _finishCall();
     }
   }
@@ -79,6 +95,7 @@ class _CallScreenState extends State<CallScreen> {
   bool _finishCalled = false;
 
   void _finishCall() {
+    debugPrint('[CallScreen] _finishCall()');
     // 'ended' duplicate events (WebRTC watchdog + plugin Closed re-fire) se
     // double pop na ho — ek hi baar teardown chalega.
     if (_finishCalled) return;
@@ -97,9 +114,11 @@ class _CallScreenState extends State<CallScreen> {
   }
 
   Future<void> _requestPermissionAndAnswer() async {
+    debugPrint('[CallScreen] checking microphone permission');
     if (!mounted) return;
 
     final status = await Permission.microphone.status;
+    debugPrint('[CallScreen] microphone status: $status');
     if (status.isGranted) {
       await _startAnswer();
       return;
@@ -111,6 +130,7 @@ class _CallScreenState extends State<CallScreen> {
     }
 
     final result = await Permission.microphone.request();
+    debugPrint('[CallScreen] microphone request result: $result');
     if (result.isGranted) {
       await _startAnswer();
     } else if (result.isPermanentlyDenied) {
@@ -121,10 +141,11 @@ class _CallScreenState extends State<CallScreen> {
   }
 
   Future<void> _startAnswer() async {
+    debugPrint('[CallScreen] starting WebRTC answer');
     try {
       await WebRTCService().answerCall(widget.callData);
     } catch (e) {
-      debugPrint('CallScreen answerCall error: $e');
+      debugPrint('[CallScreen] answerCall error: $e');
     }
   }
 
@@ -134,7 +155,7 @@ class _CallScreenState extends State<CallScreen> {
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        title: const Text('माइक्रोफ़ोनPermission चाहिए'),
+        title: const Text('माइक्रोफ़ोन Permission चाहिए'),
         content: const Text('कॉल उठाने के लिए माइक्रोफ़ोन की अनुमति ज़रूरी है।'),
         actions: [
           TextButton(
