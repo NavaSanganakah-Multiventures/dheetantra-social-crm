@@ -64,6 +64,7 @@ class WebRTCService {
   }
 
   Future<void> answerCall(Map<String, dynamic> callData) async {
+    debugPrint('[WebRTC] answerCall started for call id: ${callData['id']}');
     try {
       _callStateController.add('connecting');
       _endEmitted = false;
@@ -79,8 +80,10 @@ class WebRTCService {
       }
 
       if (!await ensureMicrophonePermission()) {
+        debugPrint('[WebRTC] microphone permission denied — aborting answer');
         throw Exception('Microphone permission is required to answer calls');
       }
+      debugPrint('[WebRTC] microphone permission granted');
 
       final iceServers = await _getIceServers();
       final configuration = {
@@ -107,6 +110,7 @@ class WebRTCService {
       };
 
       _peerConnection!.onConnectionState = (state) {
+        debugPrint('[WebRTC] connectionState changed to: $state');
         if (state == RTCPeerConnectionState.RTCPeerConnectionStateConnected) {
           // Reconnected — disconnect watchdog cancel.
           _disconnectTimer?.cancel();
@@ -118,7 +122,7 @@ class WebRTCService {
           // grace ke baad ended + cleanup.
           _disconnectTimer ??= Timer(const Duration(seconds: 12), () {
             _disconnectTimer = null;
-            debugPrint('WebRTC: disconnected 12s — ending call');
+            debugPrint('[WebRTC] disconnected 12s — ending call');
             _emitEnded();
           });
         } else if (state == RTCPeerConnectionState.RTCPeerConnectionStateFailed ||
@@ -150,7 +154,7 @@ class WebRTCService {
         );
       }
     } catch (e) {
-      debugPrint('WebRTC Error: $e');
+      debugPrint('[WebRTC] answerCall error: $e');
       _callStateController.add('error: $e');
       cleanup();
     }
@@ -209,6 +213,7 @@ class WebRTCService {
   }
 
   void cleanup() {
+    debugPrint('[WebRTC] cleanup()');
     _disconnectTimer?.cancel();
     _disconnectTimer = null;
     _localStream?.getTracks().forEach((track) => track.stop());

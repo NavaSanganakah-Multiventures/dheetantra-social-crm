@@ -213,15 +213,13 @@ class _GlobalCallOverlayState extends State<GlobalCallOverlay> {
     // Alag full-screen call screen khol lo. CallScreen permission check
     // aur answerCall apne aap karega.
     if (mounted) {
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => CallScreen(callData: callData),
-        ),
-      );
+      debugPrint('[Overlay] user accepted call $incomingId -> CallScreen');
+      CallScreen.push(context, callData);
     }
   }
 
   Future<void> _rejectCall() async {
+    debugPrint('[Overlay] user rejected call');
     final callData = _incomingCall;
     final rejectedId = callData?['id']?.toString() ??
         callData?['callId']?.toString() ??
@@ -241,6 +239,7 @@ class _GlobalCallOverlayState extends State<GlobalCallOverlay> {
   }
 
   Future<void> _hangup() async {
+    debugPrint('[Overlay] hangup pressed');
     final callData = _activeCall;
     if (callData != null) {
       await WebRTCService().hangup(callData);
