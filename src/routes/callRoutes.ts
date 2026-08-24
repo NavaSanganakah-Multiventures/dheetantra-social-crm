@@ -609,6 +609,23 @@ router.post('/api/calls', async (c) => {
   return c.json({ success: true, callId });
 });
 
+
+// Get a single call by ID
+router.get('/api/calls/:id', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  const callId = c.req.param('id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  const call = await c.env.DB.prepare(`
+    SELECT cl.*, ct.name as contact_name, ct.platform_contact_id as phone, ct.lead_status, ct.email
+    FROM calls cl
+    LEFT JOIN contacts ct ON cl.contact_id = ct.id
+    WHERE cl.id = ? AND cl.workspace_id = ?
+  `).bind(callId, workspaceId).first();
+  if (!call) return c.json({ error: 'Call not found' }, 404);
+  return c.json({ call });
+});
+
 // Update a GSM call (status, duration, ended_at, notes).
 router.post('/api/calls/:id/status', async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
