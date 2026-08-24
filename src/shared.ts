@@ -6,7 +6,7 @@
 import { getCookie } from 'hono/cookie';
 
 // ---------------------------------------------------------------------------
-// Auth middleware â validates KV session + workspace membership, attaches
+// Auth middleware — validates KV session + workspace membership, attaches
 // user and workspaceRole to the Hono context.
 // ---------------------------------------------------------------------------
 
@@ -44,7 +44,7 @@ export async function authMiddleware(c: any, next: any) {
 }
 
 // ---------------------------------------------------------------------------
-// Pagination helper â parse `limit`/`offset` query params with sane bounds.
+// Pagination helper — parse `limit`/`offset` query params with sane bounds.
 // ---------------------------------------------------------------------------
 
 export function pagination(c: any, defaultLimit = 200, maxLimit = 1000) {
@@ -54,7 +54,7 @@ export function pagination(c: any, defaultLimit = 200, maxLimit = 1000) {
 }
 
 // ---------------------------------------------------------------------------
-// RBAC guard â workspace_members.role based (set by authMiddleware).
+// RBAC guard — workspace_members.role based (set by authMiddleware).
 // ---------------------------------------------------------------------------
 
 export function requireRole(...roles: string[]) {
@@ -285,7 +285,7 @@ export async function notifyDomainSuspended(env: any, domainId: string, reason: 
 const abuseScanInFlight = new Map<string, Promise<{ ok: boolean; message?: string }>>();
 
 // The 24h scan. Window start is max(last 24h, abuse_reset_at) so an admin
-// unsuspend gives the domain a fresh baseline â otherwise the still-hot old
+// unsuspend gives the domain a fresh baseline — otherwise the still-hot old
 // failures would deterministically re-suspend it on the very next send.
 export async function scanDomainAbuse(env: any, domainId: string, ctx?: any): Promise<{ ok: boolean; message?: string }> {
   const stats: any = await env.DB.prepare(

@@ -186,7 +186,7 @@ router.post('/api/domains/:id/verify', async (c) => {
   const { checkDomain } = await import('../services/emailService');
   // Full verification runs several Cloudflare calls and can take 5-15s.
   // Run it SYNCHRONOUSLY and return the FRESH status so the UI never shows a
-  // stale (pending) row after the user presses "Ã Â¤ÂÃ Â¤Â¾Ã Â¤ÂÃ Â¤ÂÃ Â¥ÂÃ Â¤Â". Previously the check
+  // stale (pending) row after the user presses "जांचें". Previously the check
   // ran in the background (waitUntil) while the response returned the OLD row,
   // so a verified/active domain kept displaying "Pending Verification".
   let verifyError: any = null;
@@ -209,7 +209,7 @@ router.post('/api/domains/:id/verify', async (c) => {
   if (fresh.status !== 'active') {
     // Zone exists but Cloudflare has not flipped it to active yet. This is
     // normal right after a nameserver change (propagation + CF polling can
-    // take minutes to hours) Ã¢ÂÂ return a clear message so the UI does not look
+    // take minutes to hours) — return a clear message so the UI does not look
     // like a failure.
     return c.json({
       success: true,
@@ -235,13 +235,13 @@ router.delete('/api/domains/:id', requireRole('owner', 'admin'), async (c) => {
   const { deleted, errors } = await removeDomain(c.env, row);
   if (!deleted) {
     // Cloudflare zone deletion failed or could not be confirmed (network,
-    // rate-limit, 5xx, permission, missing credentials). The row is kept Ã¢ÂÂ
-    // a live zone must never be orphaned Ã¢ÂÂ so the user can fix the cause
+    // rate-limit, 5xx, permission, missing credentials). The row is kept —
+    // a live zone must never be orphaned — so the user can fix the cause
     // (e.g. remove the zone in Cloudflare) and retry.
     return c.json({ success: false, error: 'Cloudflare cleanup failed — domain kept for retry', errors }, 502);
   }
   // Deleted. errors may still contain warnings (rule already gone, missing
-  // credentials) Ã¢ÂÂ surface them but the domain is removed.
+  // credentials) — surface them but the domain is removed.
   return c.json({ success: true, errors });
 });
 

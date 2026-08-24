@@ -258,7 +258,7 @@ export async function listKvKeys(env: any, namespaceId: string, opts: { limit?: 
   };
 }
 
-// KV values are raw text, not JSON â cfFetchCreds would mis-parse them, so
+// KV values are raw text, not JSON — cfFetchCreds would mis-parse them, so
 // these use the shared credential fetch with a plain-text body and explicit
 // timeouts instead.
 export async function getKvValue(env: any, namespaceId: string, key: string, creds?: CFCreds): Promise<string> {
