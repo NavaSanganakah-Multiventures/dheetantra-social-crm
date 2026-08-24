@@ -21,14 +21,14 @@ object CallerIdChannel : MethodChannel.MethodCallHandler {
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         val context = getContext()
         when (call.method) {
-            "storeAuthToken" -> {
-                val token = call.argument<String>("token") ?: ""
+            "storeSession" -> {
+                val sessionId = call.argument<String>("sessionId") ?: ""
                 val workspaceId = call.argument<String>("workspaceId") ?: ""
-                if (token.isNotBlank() && workspaceId.isNotBlank()) {
-                    SecureTokenStorage.storeAuth(context, token, workspaceId)
+                if (sessionId.isNotBlank() && workspaceId.isNotBlank()) {
+                    SecureTokenStorage.storeSession(context, sessionId, workspaceId)
                     result.success(true)
                 } else {
-                    result.error("INVALID_ARGS", "token and workspaceId required", null)
+                    result.error("INVALID_ARGS", "sessionId and workspaceId required", null)
                 }
             }
             "isCallerIdRoleHeld" -> {
