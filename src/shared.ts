@@ -54,6 +54,19 @@ export function pagination(c: any, defaultLimit = 200, maxLimit = 1000) {
 }
 
 // ---------------------------------------------------------------------------
+// SQLite-compatible UTC timestamp helper.
+// D1 stores created_at in various places as ISO strings (toISOString()) which
+// do NOT compare correctly with SQLite's datetime() function (2025-06-27T...Z
+// vs 2025-06-27 ...). Always use this helper when inserting into DATETIME
+// columns that are queried with SQLite time functions.
+// ---------------------------------------------------------------------------
+
+export function sqliteNow(): string {
+  return new Date().toISOString().slice(0, 19).replace('T', ' ');
+}
+
+
+// ---------------------------------------------------------------------------
 // RBAC guard — workspace_members.role based (set by authMiddleware).
 // ---------------------------------------------------------------------------
 
