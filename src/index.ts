@@ -253,11 +253,23 @@ app.use('/api/*', cors({
 // Authentication and Authorization Middleware
 
 app.use('/api/crm/*', authMiddleware);
-app.use('/api/whatsapp/config*', authMiddleware);
-app.use('/api/whatsapp/templates*', authMiddleware);
-app.use('/api/whatsapp/flows*', authMiddleware);
+// NOTE: Hono wildcards only match as a whole path segment ("/*"). A
+// pattern like "/api/whatsapp/config*" (star attached to a word) matches
+// NOTHING, so authMiddleware never ran for these routes. That left
+// requireRole() with no workspaceRole -> "Forbidden: workspace role not
+// resolved" on every owner/admin action (e.g. adding a WhatsApp account,
+// saving templates, publishing flows, re-enabling calls). Use the exact
+// path plus the "/*" sub-path form so the middleware actually applies.
+// /api/whatsapp/webhook (Meta callbacks) is intentionally NOT covered here.
+app.use('/api/whatsapp/config', authMiddleware);
+app.use('/api/whatsapp/config/*', authMiddleware);
+app.use('/api/whatsapp/templates', authMiddleware);
+app.use('/api/whatsapp/templates/*', authMiddleware);
+app.use('/api/whatsapp/flows', authMiddleware);
+app.use('/api/whatsapp/flows/*', authMiddleware);
 app.use('/api/whatsapp/send', authMiddleware);
-app.use('/api/whatsapp/calls*', authMiddleware);
+app.use('/api/whatsapp/calls', authMiddleware);
+app.use('/api/whatsapp/calls/*', authMiddleware);
 app.use('/api/inbox/*', authMiddleware);
 app.use('/api/media/upload', authMiddleware);
 app.use('/api/broadcast', authMiddleware);
@@ -270,6 +282,10 @@ app.use('/api/email-templates', authMiddleware);
 app.use('/api/email-templates/*', authMiddleware);
 app.use('/api/email/*', authMiddleware);
 app.use('/api/domain-emails/*', authMiddleware);
+app.use('/api/domain-emails', authMiddleware);
+// saasRoutes use requireRole but /api/saas had no authMiddleware coverage at
+// all, so create/delete domain actions returned "workspace role not resolved".
+app.use('/api/saas/*', authMiddleware);
 app.use('/api/whatsapp/upload', authMiddleware);
 app.use('/api/whatsapp/media', authMiddleware);
 // TURN/ICE credentials cost money (Cloudflare Calls); require auth so anonymous
