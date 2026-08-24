@@ -654,7 +654,7 @@ router.post('/api/calls/:id/recording', async (c) => {
   if (!call) return c.json({ error: 'Call not found' }, 404);
 
   try {
-    const body = await c.req.parseBody();
+    const body = await c.req.parseBody({ limit: '100mb' });
     const file = body['recording'];
     if (!file || typeof (file as any).arrayBuffer !== 'function') {
       return c.json({ error: 'No audio file provided' }, 400);
@@ -688,7 +688,7 @@ router.get('/api/calls/:id/recording', async (c) => {
   if (!call || !call.recording_url) return c.json({ error: 'Recording not found' }, 404);
 
   const obj = await c.env.MEDIA_BUCKET.get(call.recording_url);
-  if (!obj) return c.json({ error: 'Recording missing in storage' }, 404);
+  if (!obj || !obj.body) return c.json({ error: 'Recording missing in storage' }, 404);
 
   return new Response(obj.body, {
     headers: {
