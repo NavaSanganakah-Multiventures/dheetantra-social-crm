@@ -63,14 +63,14 @@ class CallerScreeningService : CallScreeningService() {
     }
 
     private fun fetchCallerCard(phoneNumber: String): JSONObject? {
-        val token = SecureTokenStorage.getToken(this) ?: return null
+        val sessionId = SecureTokenStorage.getSessionId(this) ?: return null
         val workspaceId = SecureTokenStorage.getWorkspaceId(this) ?: return null
         val baseUrl = getString(R.string.dheetantra_api_base) ?: "https://app.dhitantra.com"
 
         val url = URL("$baseUrl/api/crm/caller-card?phone=${Uri.encode(phoneNumber)}")
         val conn = url.openConnection() as HttpURLConnection
         conn.requestMethod = "GET"
-        conn.setRequestProperty("Authorization", "Bearer $token")
+        conn.setRequestProperty("Cookie", "auth_session=$sessionId")
         conn.setRequestProperty("x-workspace-id", workspaceId)
         conn.setRequestProperty("Accept", "application/json")
         conn.connectTimeout = 5000
