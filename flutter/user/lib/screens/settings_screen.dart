@@ -79,7 +79,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() => _savingNotifications = false);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(enabled ? 'à¤ªà¥à¤¶ à¤¨à¥à¤à¤¿à¤«à¤¿à¤à¥à¤¶à¤¨à¥à¤¸ à¤à¤¾à¤²à¥' : 'à¤ªà¥à¤¶ à¤¨à¥à¤à¤¿à¤«à¤¿à¤à¥à¤¶à¤¨à¥à¤¸ à¤¬à¤à¤¦'),
+        content: Text(enabled ? 'Ã Â¤ÂªÃ Â¥ÂÃ Â¤Â¶ Ã Â¤Â¨Ã Â¥ÂÃ Â¤ÂÃ Â¤Â¿Ã Â¤Â«Ã Â¤Â¿Ã Â¤ÂÃ Â¥ÂÃ Â¤Â¶Ã Â¤Â¨Ã Â¥ÂÃ Â¤Â¸ Ã Â¤ÂÃ Â¤Â¾Ã Â¤Â²Ã Â¥Â' : 'Ã Â¤ÂªÃ Â¥ÂÃ Â¤Â¶ Ã Â¤Â¨Ã Â¥ÂÃ Â¤ÂÃ Â¤Â¿Ã Â¤Â«Ã Â¤Â¿Ã Â¤ÂÃ Â¥ÂÃ Â¤Â¶Ã Â¤Â¨Ã Â¥ÂÃ Â¤Â¸ Ã Â¤Â¬Ã Â¤ÂÃ Â¤Â¦'),
       ),
     );
   }
@@ -101,8 +101,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           SnackBar(
             content: Text(
               result.isGranted
-                  ? 'à¤¬à¥à¤à¤°à¥ à¤à¤ªà¥à¤à¤¿à¤®à¤¾à¤à¤à¤¼à¥à¤¶à¤¨ à¤¬à¤à¤¦ à¤à¤° à¤¦à¤¿à¤¯à¤¾ à¤à¤¯à¤¾'
-                  : 'à¤¸à¥à¤à¤¿à¤à¤à¥à¤¸ à¤¸à¥ à¤¬à¥à¤à¤°à¥ à¤à¤ªà¥à¤à¤¿à¤®à¤¾à¤à¤à¤¼à¥à¤¶à¤¨ à¤¬à¤à¤¦ à¤à¤°à¥à¤',
+                  ? 'Ã Â¤Â¬Ã Â¥ÂÃ Â¤ÂÃ Â¤Â°Ã Â¥Â Ã Â¤ÂÃ Â¤ÂªÃ Â¥ÂÃ Â¤ÂÃ Â¤Â¿Ã Â¤Â®Ã Â¤Â¾Ã Â¤ÂÃ Â¤ÂÃ Â¤Â¼Ã Â¥ÂÃ Â¤Â¶Ã Â¤Â¨ Ã Â¤Â¬Ã Â¤ÂÃ Â¤Â¦ Ã Â¤ÂÃ Â¤Â° Ã Â¤Â¦Ã Â¤Â¿Ã Â¤Â¯Ã Â¤Â¾ Ã Â¤ÂÃ Â¤Â¯Ã Â¤Â¾'
+                  : 'Ã Â¤Â¸Ã Â¥ÂÃ Â¤ÂÃ Â¤Â¿Ã Â¤ÂÃ Â¤ÂÃ Â¥ÂÃ Â¤Â¸ Ã Â¤Â¸Ã Â¥Â Ã Â¤Â¬Ã Â¥ÂÃ Â¤ÂÃ Â¤Â°Ã Â¥Â Ã Â¤ÂÃ Â¤ÂªÃ Â¥ÂÃ Â¤ÂÃ Â¤Â¿Ã Â¤Â®Ã Â¤Â¾Ã Â¤ÂÃ Â¤ÂÃ Â¤Â¼Ã Â¥ÂÃ Â¤Â¶Ã Â¤Â¨ Ã Â¤Â¬Ã Â¤ÂÃ Â¤Â¦ Ã Â¤ÂÃ Â¤Â°Ã Â¥ÂÃ Â¤Â',
             ),
           ),
         );
@@ -123,14 +123,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     String fmt(dynamic v) {
       if (v is Map) {
-        return v.entries.map((e) => '  \${e.key}: \${fmt(e.value)}').join('\n');
+        return v.entries.map((e) => '  ${e.key}: ${fmt(e.value)}').join('\n');
       }
       if (v is List) {
-        return '[\${v.join(', ')}]';
+        return '[${v.join(', ')}]';
       }
       return v.toString();
     }
-    final report = result.entries.map((e) => '\${e.key}: \${fmt(e.value)}').join('\n');
+    final report = result.entries.map((e) => '${e.key}: ${fmt(e.value)}').join('\n');
 
     showDialog<void>(
       context: context,
@@ -168,8 +168,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       SnackBar(
         content: Text(
           success
-              ? 'à¤à¥à¤¸à¥à¤ push à¤­à¥à¤à¤¾ à¤à¤¯à¤¾ ($count token)'
-              : 'à¤à¥à¤¸à¥à¤ push failed: ${error ?? 'unknown'}',
+              ? 'Ã Â¤ÂÃ Â¥ÂÃ Â¤Â¸Ã Â¥ÂÃ Â¤Â push Ã Â¤Â­Ã Â¥ÂÃ Â¤ÂÃ Â¤Â¾ Ã Â¤ÂÃ Â¤Â¯Ã Â¤Â¾ ($count token)'
+              : 'Ã Â¤ÂÃ Â¥ÂÃ Â¤Â¸Ã Â¥ÂÃ Â¤Â push failed: ${error ?? 'unknown'}',
         ),
       ),
     );
@@ -252,16 +252,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
         const SizedBox(height: 24),
-        const _SectionLabel('à¤µà¤°à¥à¤à¤¸à¥à¤ªà¥à¤¸'),
+        const _SectionLabel('Ã Â¤ÂµÃ Â¤Â°Ã Â¥ÂÃ Â¤ÂÃ Â¤Â¸Ã Â¥ÂÃ Â¤ÂªÃ Â¥ÂÃ Â¤Â¸'),
         const SizedBox(height: 10),
         _SettingsCard(
           children: [
             _SettingsTile(
               icon: Icons.business_center_outlined,
-              title: 'à¤®à¥à¤°à¤¾ à¤µà¤°à¥à¤à¤¸à¥à¤ªà¥à¤¸',
+              title: 'Ã Â¤Â®Ã Â¥ÂÃ Â¤Â°Ã Â¤Â¾ Ã Â¤ÂµÃ Â¤Â°Ã Â¥ÂÃ Â¤ÂÃ Â¤Â¸Ã Â¥ÂÃ Â¤ÂªÃ Â¥ÂÃ Â¤Â¸',
               subtitle: ApiService().workspaceId != null
                   ? 'ID: ${ApiService().workspaceId!.substring(0, 8)}...'
-                  : 'à¤à¤¨à¥à¤à¥à¤ à¤¨à¤¹à¥à¤',
+                  : 'Ã Â¤ÂÃ Â¤Â¨Ã Â¥ÂÃ Â¤ÂÃ Â¥ÂÃ Â¤Â Ã Â¤Â¨Ã Â¤Â¹Ã Â¥ÂÃ Â¤Â',
               trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
               onTap: () {
                 Navigator.of(context).push(
@@ -272,8 +272,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const Divider(height: 1, indent: 52),
             _SettingsTile(
               icon: Icons.smartphone_outlined,
-              title: 'WhatsApp à¤à¤à¤¾à¤à¤à¤à¥à¤¸',
-              subtitle: _canManageWorkspace ? 'à¤à¥à¤¡à¤¼à¥à¤, à¤¸à¤à¤ªà¤¾à¤¦à¤¿à¤¤ à¤à¤°à¥à¤, à¤¹à¤à¤¾à¤à¤' : 'à¤¸à¤¿à¤°à¥à¤«à¤¼ à¤¦à¥à¤à¥à¤',
+              title: 'WhatsApp Ã Â¤ÂÃ Â¤ÂÃ Â¤Â¾Ã Â¤ÂÃ Â¤ÂÃ Â¤ÂÃ Â¥ÂÃ Â¤Â¸',
+              subtitle: _canManageWorkspace ? 'Ã Â¤ÂÃ Â¥ÂÃ Â¤Â¡Ã Â¤Â¼Ã Â¥ÂÃ Â¤Â, Ã Â¤Â¸Ã Â¤ÂÃ Â¤ÂªÃ Â¤Â¾Ã Â¤Â¦Ã Â¤Â¿Ã Â¤Â¤ Ã Â¤ÂÃ Â¤Â°Ã Â¥ÂÃ Â¤Â, Ã Â¤Â¹Ã Â¤ÂÃ Â¤Â¾Ã Â¤ÂÃ Â¤Â' : 'Ã Â¤Â¸Ã Â¤Â¿Ã Â¤Â°Ã Â¥ÂÃ Â¤Â«Ã Â¤Â¼ Ã Â¤Â¦Ã Â¥ÂÃ Â¤ÂÃ Â¥ÂÃ Â¤Â',
               trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
               onTap: () {
                 Navigator.of(context).push(
@@ -284,8 +284,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const Divider(height: 1, indent: 52),
             _SettingsTile(
               icon: Icons.integration_instructions_outlined,
-              title: 'à¤à¥à¤²à¥à¤¸ à¤à¤° à¤à¤à¤à¥à¤à¥à¤°à¥à¤¶à¤¨à¥à¤¸',
-              subtitle: 'Email, Template, à¤¨à¤¯à¤¾ WhatsApp',
+              title: 'Ã Â¤ÂÃ Â¥ÂÃ Â¤Â²Ã Â¥ÂÃ Â¤Â¸ Ã Â¤ÂÃ Â¤Â° Ã Â¤ÂÃ Â¤ÂÃ Â¤ÂÃ Â¥ÂÃ Â¤ÂÃ Â¥ÂÃ Â¤Â°Ã Â¥ÂÃ Â¤Â¶Ã Â¤Â¨Ã Â¥ÂÃ Â¤Â¸',
+              subtitle: 'Email, Template, Ã Â¤Â¨Ã Â¤Â¯Ã Â¤Â¾ WhatsApp',
               trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
               onTap: () {
                 Navigator.of(context).push(
@@ -296,48 +296,48 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ],
         ),
         const SizedBox(height: 24),
-        const _SectionLabel('à¤¸à¤¾à¤®à¤¾à¤¨à¥à¤¯'),
+        const _SectionLabel('Ã Â¤Â¸Ã Â¤Â¾Ã Â¤Â®Ã Â¤Â¾Ã Â¤Â¨Ã Â¥ÂÃ Â¤Â¯'),
         const SizedBox(height: 10),
         _SettingsCard(
           children: [
             _SettingsSwitchTile(
               icon: Icons.notifications_outlined,
-              title: 'à¤¨à¥à¤à¤¿à¤«à¤¿à¤à¥à¤¶à¤¨à¥à¤¸',
+              title: 'Ã Â¤Â¨Ã Â¥ÂÃ Â¤ÂÃ Â¤Â¿Ã Â¤Â«Ã Â¤Â¿Ã Â¤ÂÃ Â¥ÂÃ Â¤Â¶Ã Â¤Â¨Ã Â¥ÂÃ Â¤Â¸',
               subtitle: _savingNotifications
-                  ? 'à¤¸à¤¿à¤à¤ à¤¹à¥ à¤°à¤¹à¤¾ à¤¹à¥...'
-                  : 'à¤¨à¤ à¤¬à¤¾à¤¤à¤à¥à¤¤ à¤à¤° à¤à¥à¤²à¥à¤¸ à¤à¥ à¤ªà¥à¤¶ à¤¸à¥à¤à¤¨à¤¾',
+                  ? 'Ã Â¤Â¸Ã Â¤Â¿Ã Â¤ÂÃ Â¤Â Ã Â¤Â¹Ã Â¥Â Ã Â¤Â°Ã Â¤Â¹Ã Â¤Â¾ Ã Â¤Â¹Ã Â¥Â...'
+                  : 'Ã Â¤Â¨Ã Â¤Â Ã Â¤Â¬Ã Â¤Â¾Ã Â¤Â¤Ã Â¤ÂÃ Â¥ÂÃ Â¤Â¤ Ã Â¤ÂÃ Â¤Â° Ã Â¤ÂÃ Â¥ÂÃ Â¤Â²Ã Â¥ÂÃ Â¤Â¸ Ã Â¤ÂÃ Â¥Â Ã Â¤ÂªÃ Â¥ÂÃ Â¤Â¶ Ã Â¤Â¸Ã Â¥ÂÃ Â¤ÂÃ Â¤Â¨Ã Â¤Â¾',
               value: _notifications,
               onChanged: _savingNotifications ? (_) {} : _setNotifications,
             ),
             const Divider(height: 1, indent: 52),
             _SettingsSwitchTile(
               icon: Icons.call_outlined,
-              title: 'à¤à¥à¤²à¤¿à¤à¤ à¤¸à¤à¥à¤·à¤®',
-              subtitle: 'WhatsApp à¤à¥à¤²à¥à¤¸ à¤ªà¥à¤°à¤¾à¤ªà¥à¤¤ à¤à¤°à¥à¤',
+              title: 'Ã Â¤ÂÃ Â¥ÂÃ Â¤Â²Ã Â¤Â¿Ã Â¤ÂÃ Â¤Â Ã Â¤Â¸Ã Â¤ÂÃ Â¥ÂÃ Â¤Â·Ã Â¤Â®',
+              subtitle: 'WhatsApp Ã Â¤ÂÃ Â¥ÂÃ Â¤Â²Ã Â¥ÂÃ Â¤Â¸ Ã Â¤ÂªÃ Â¥ÂÃ Â¤Â°Ã Â¤Â¾Ã Â¤ÂªÃ Â¥ÂÃ Â¤Â¤ Ã Â¤ÂÃ Â¤Â°Ã Â¥ÂÃ Â¤Â',
               value: _callsEnabled,
               onChanged: _setCallsEnabled,
             ),
             const Divider(height: 1, indent: 52),
             const _SettingsTile(
               icon: Icons.dark_mode_outlined,
-              title: 'à¤¥à¥à¤®',
-              subtitle: 'à¤¡à¤¾à¤°à¥à¤ à¤®à¥à¤¡ (à¤¡à¤¿à¤«à¤¼à¥à¤²à¥à¤)',
+              title: 'Ã Â¤Â¥Ã Â¥ÂÃ Â¤Â®',
+              subtitle: 'Ã Â¤Â¡Ã Â¤Â¾Ã Â¤Â°Ã Â¥ÂÃ Â¤Â Ã Â¤Â®Ã Â¥ÂÃ Â¤Â¡ (Ã Â¤Â¡Ã Â¤Â¿Ã Â¤Â«Ã Â¤Â¼Ã Â¥ÂÃ Â¤Â²Ã Â¥ÂÃ Â¤Â)',
               trailing: Icon(Icons.check_rounded, color: AppColors.accent, size: 20),
               onTap: null,
             ),
             const Divider(height: 1, indent: 52),
             _SettingsTile(
               icon: Icons.battery_saver_outlined,
-              title: 'à¤¬à¥à¤à¤°à¥ à¤à¤ªà¥à¤à¤¿à¤®à¤¾à¤à¤à¤¼à¥à¤¶à¤¨',
-              subtitle: 'à¤à¤ª à¤¬à¤à¤¦ à¤¹à¥à¤¨à¥ à¤ªà¤° à¤­à¥ à¤¨à¥à¤à¤¿à¤«à¤¿à¤à¥à¤¶à¤¨ à¤ªà¤¾à¤¨à¥ à¤à¥ à¤²à¤¿à¤',
+              title: 'Ã Â¤Â¬Ã Â¥ÂÃ Â¤ÂÃ Â¤Â°Ã Â¥Â Ã Â¤ÂÃ Â¤ÂªÃ Â¥ÂÃ Â¤ÂÃ Â¤Â¿Ã Â¤Â®Ã Â¤Â¾Ã Â¤ÂÃ Â¤ÂÃ Â¤Â¼Ã Â¥ÂÃ Â¤Â¶Ã Â¤Â¨',
+              subtitle: 'Ã Â¤ÂÃ Â¤Âª Ã Â¤Â¬Ã Â¤ÂÃ Â¤Â¦ Ã Â¤Â¹Ã Â¥ÂÃ Â¤Â¨Ã Â¥Â Ã Â¤ÂªÃ Â¤Â° Ã Â¤Â­Ã Â¥Â Ã Â¤Â¨Ã Â¥ÂÃ Â¤ÂÃ Â¤Â¿Ã Â¤Â«Ã Â¤Â¿Ã Â¤ÂÃ Â¥ÂÃ Â¤Â¶Ã Â¤Â¨ Ã Â¤ÂªÃ Â¤Â¾Ã Â¤Â¨Ã Â¥Â Ã Â¤ÂÃ Â¥Â Ã Â¤Â²Ã Â¤Â¿Ã Â¤Â',
               trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
               onTap: _requestBatteryOptimization,
             ),
             const Divider(height: 1, indent: 52),
             _SettingsTile(
               icon: Icons.notifications_active_outlined,
-              title: 'à¤à¥à¤¸à¥à¤ à¤ªà¥à¤¶ à¤¨à¥à¤à¤¿à¤«à¤¿à¤à¥à¤¶à¤¨',
-              subtitle: 'FCM push instantly check à¤à¤°à¥à¤',
+              title: 'Ã Â¤ÂÃ Â¥ÂÃ Â¤Â¸Ã Â¥ÂÃ Â¤Â Ã Â¤ÂªÃ Â¥ÂÃ Â¤Â¶ Ã Â¤Â¨Ã Â¥ÂÃ Â¤ÂÃ Â¤Â¿Ã Â¤Â«Ã Â¤Â¿Ã Â¤ÂÃ Â¥ÂÃ Â¤Â¶Ã Â¤Â¨',
+              subtitle: 'FCM push instantly check Ã Â¤ÂÃ Â¤Â°Ã Â¥ÂÃ Â¤Â',
               trailing: _testingPush
                   ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
                   : const Icon(Icons.send_outlined, color: AppColors.textMuted),
@@ -356,27 +356,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ],
         ),
         const SizedBox(height: 24),
-        const _SectionLabel('à¤¸à¤¹à¤¾à¤¯à¤¤à¤¾'),
+        const _SectionLabel('Ã Â¤Â¸Ã Â¤Â¹Ã Â¤Â¾Ã Â¤Â¯Ã Â¤Â¤Ã Â¤Â¾'),
         const SizedBox(height: 10),
         _SettingsCard(
           children: [
             _SettingsTile(
               icon: Icons.help_outline_rounded,
-              title: 'à¤¸à¤¹à¤¾à¤¯à¤¤à¤¾ à¤à¥à¤à¤¦à¥à¤°',
+              title: 'Ã Â¤Â¸Ã Â¤Â¹Ã Â¤Â¾Ã Â¤Â¯Ã Â¤Â¤Ã Â¤Â¾ Ã Â¤ÂÃ Â¥ÂÃ Â¤ÂÃ Â¤Â¦Ã Â¥ÂÃ Â¤Â°',
               trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
               onTap: () {},
             ),
             const Divider(height: 1, indent: 52),
             _SettingsTile(
               icon: Icons.assignment_outlined,
-              title: 'à¤¨à¤¿à¤¯à¤® à¤à¤° à¤¶à¤°à¥à¤¤à¥à¤',
+              title: 'Ã Â¤Â¨Ã Â¤Â¿Ã Â¤Â¯Ã Â¤Â® Ã Â¤ÂÃ Â¤Â° Ã Â¤Â¶Ã Â¤Â°Ã Â¥ÂÃ Â¤Â¤Ã Â¥ÂÃ Â¤Â',
               trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
               onTap: () {},
             ),
             const Divider(height: 1, indent: 52),
             _SettingsTile(
               icon: Icons.privacy_tip_outlined,
-              title: 'à¤à¥à¤ªà¤¨à¥à¤¯à¤¤à¤¾ à¤¨à¥à¤¤à¤¿',
+              title: 'Ã Â¤ÂÃ Â¥ÂÃ Â¤ÂªÃ Â¤Â¨Ã Â¥ÂÃ Â¤Â¯Ã Â¤Â¤Ã Â¤Â¾ Ã Â¤Â¨Ã Â¥ÂÃ Â¤Â¤Ã Â¤Â¿',
               trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
               onTap: () {},
             ),
@@ -390,7 +390,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             side: BorderSide(color: AppColors.danger.withValues(alpha: 0.5)),
           ),
           icon: const Icon(Icons.logout_rounded, size: 18),
-          label: const Text('à¤²à¥à¤à¤à¤à¤'),
+          label: const Text('Ã Â¤Â²Ã Â¥ÂÃ Â¤ÂÃ Â¤ÂÃ Â¤ÂÃ Â¤Â'),
         ),
         const SizedBox(height: 16),
         const Center(
