@@ -462,6 +462,31 @@ class _MessageBubble extends StatelessWidget {
     }
   }
 
+  String _safeString(dynamic value) {
+    if (value == null) return '';
+    final input = value.toString();
+    final units = input.codeUnits;
+    final buffer = StringBuffer();
+    for (var i = 0; i < units.length; i++) {
+      final c = units[i];
+      if (c >= 0xD800 && c <= 0xDBFF) {
+        if (i + 1 < units.length) {
+          final next = units[i + 1];
+          if (next >= 0xDC00 && next <= 0xDFFF) {
+            buffer.write(String.fromCharCodes(<int>[c, next]));
+            i++;
+            continue;
+          }
+        }
+      } else if (c >= 0xDC00 && c <= 0xDFFF) {
+        // Lone low surrogate — skip.
+      } else {
+        buffer.write(String.fromCharCode(c));
+      }
+    }
+    return buffer.toString();
+  }
+
   // media_url à¤à¥ à¤à¤¨à¥à¤¸à¤¾à¤° media preview (image/sticker inline, à¤¬à¤¾à¤à¥
   // types à¤à¥ à¤²à¤¿à¤ tappable tile à¤à¥ à¤¬à¤¾à¤¹à¤°à¥ à¤à¤ª à¤®à¥à¤ à¤à¥à¤²à¤¤à¤¾ à¤¹à¥)
   Widget? _buildMedia(BuildContext context) {
