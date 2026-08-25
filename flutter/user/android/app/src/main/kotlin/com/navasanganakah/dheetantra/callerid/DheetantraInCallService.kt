@@ -17,7 +17,7 @@ import com.navasanganakah.dheetantra.R
  * Default-dialer in-call UI. The system binds this service for PSTN calls once
  * the app holds the default dialer role. Self-managed calls (the WhatsApp VoIP
  * calls driven by flutter_callkit_incoming's CallkitConnectionService) render
- * their own native UI, so we must skip them here — otherwise both UIs appear at
+ * their own native UI, so we must skip them here - otherwise both UIs appear at
  * once for the same call.
  */
 class DheetantraInCallService : InCallService() {
@@ -171,7 +171,7 @@ class DheetantraInCallService : InCallService() {
         val notification = NotificationCompat.Builder(this, AFTER_CALL_CHANNEL)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle("Call ended")
-            .setContentText("$phone • ${formatDuration(durationSec)}")
+            .setContentText("$phone - ${formatDuration(durationSec)}")
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .setContentIntent(pending)
