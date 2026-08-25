@@ -31,7 +31,7 @@ class MainActivity: FlutterActivity() {
         CallerIdChannel.register(flutterEngine, this)
     }
 
-    override fun onNewIntent(intent: Intent?) {
+    override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         CallerIdChannel.setInitialIntent(intent)
         CallerIdChannel.notifyIntent(intent)
