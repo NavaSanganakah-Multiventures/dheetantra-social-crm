@@ -63,7 +63,7 @@ class CallerCardActivity : Activity() {
             val intent = android.content.Intent(this, MainActivity::class.java).apply {
                 flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK or
                         android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP
-                putExtra("route", "/caller-card")
+                putExtra("route", "/after-call")
                 putExtra("phone", phone)
             }
             startActivity(intent)

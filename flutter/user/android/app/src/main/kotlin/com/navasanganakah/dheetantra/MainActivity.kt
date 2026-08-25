@@ -31,6 +31,12 @@ class MainActivity: FlutterActivity() {
         CallerIdChannel.register(flutterEngine, this)
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        CallerIdChannel.setInitialIntent(intent)
+        CallerIdChannel.notifyIntent(intent)
+    }
+
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         CallerIdChannel.onRoleResult(requestCode, resultCode)
