@@ -18,10 +18,24 @@ import kotlinx.coroutines.*
 
 object CallerIdChannel : MethodChannel.MethodCallHandler {
     private const val CHANNEL_NAME = "dheetantra/callerid"
+    private var methodChannel: MethodChannel? = null
 
     fun register(engine: FlutterEngine, context: Context) {
-        MethodChannel(engine.dartExecutor.binaryMessenger, CHANNEL_NAME)
-            .setMethodCallHandler(this)
+        methodChannel = MethodChannel(engine.dartExecutor.binaryMessenger, CHANNEL_NAME).apply {
+            setMethodCallHandler(this@CallerIdChannel)
+        }
+    }
+
+    fun notifyIntent(intent: Intent?) {
+        val payload = intent?.let {
+            mapOf(
+                "route" to (it.getStringExtra("route") ?: ""),
+                "phone" to (it.getStringExtra("phone") ?: ""),
+                "durationSeconds" to (it.getIntExtra("durationSeconds", 0)),
+                "direction" to (it.getStringExtra("direction") ?: "incoming"),
+            )
+        } ?: emptyMap<String, Any>()
+        methodChannel?.invokeMethod("onIntent", payload)
     }
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
