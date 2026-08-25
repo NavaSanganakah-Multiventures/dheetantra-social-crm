@@ -11,7 +11,6 @@ import android.database.Cursor
 import android.net.Uri
 import android.content.ContentUris
 import androidx.core.content.ContextCompat
-import android.widget.Toast
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
@@ -19,7 +18,8 @@ import kotlinx.coroutines.*
 
 object CallerIdChannel : MethodChannel.MethodCallHandler {
     private const val CHANNEL_NAME = "dheetantra/callerid"
-    private const val REQ_DEFAULT_DIALER = 9001
+    private const val REQUEST_CALLER_ID_ROLE = 9001
+    private const val REQUEST_DEFAULT_DIALER = 9002
     private var methodChannel: MethodChannel? = null
 
     fun register(engine: FlutterEngine, context: Context) {
@@ -33,7 +33,7 @@ object CallerIdChannel : MethodChannel.MethodCallHandler {
             mapOf(
                 "route" to (it.getStringExtra("route") ?: ""),
                 "phone" to (it.getStringExtra("phone") ?: ""),
-                "durationSeconds" to (it.getIntExtra("durationSeconds", 0)),
+                "durationSeconds" to it.getIntExtra("durationSeconds", 0),
                 "direction" to (it.getStringExtra("direction") ?: "incoming"),
             )
         } ?: emptyMap<String, Any>()
@@ -55,7 +55,7 @@ object CallerIdChannel : MethodChannel.MethodCallHandler {
                     mapOf(
                         "route" to (it.getStringExtra("route") ?: ""),
                         "phone" to (it.getStringExtra("phone") ?: ""),
-                        "durationSeconds" to (it.getIntExtra("durationSeconds", 0)),
+                        "durationSeconds" to it.getIntExtra("durationSeconds", 0),
                         "direction" to (it.getStringExtra("direction") ?: "incoming"),
                     )
                 } ?: emptyMap<String, Any>())
@@ -71,10 +71,10 @@ object CallerIdChannel : MethodChannel.MethodCallHandler {
                 }
             }
             "isCallerIdRoleHeld" -> {
-                result.success(checkRoleHeld(context))
+                result.success(checkCallerIdRoleHeld(context))
             }
             "requestCallerIdRole" -> {
-                requestRole(context) { granted -> result.success(granted) }
+                requestRole(context, RoleManager.ROLE_CALL_SCREENING, REQUEST_CALLER_ID_ROLE) { granted -> result.success(granted) }
             }
             "setCallerIdEnabled" -> {
                 val enabled = call.argument<Boolean>("enabled") ?: false
@@ -91,11 +91,20 @@ object CallerIdChannel : MethodChannel.MethodCallHandler {
                 result.success(isDefaultDialer(context))
             }
             "requestDefaultDialerRole" -> {
-                result.success(tryLaunchDefaultDialerRole(context))
+                requestDefaultDialerRole(context) { granted -> result.success(granted) }
             }
             "openDefaultDialerSettings" -> {
                 context.startActivity(Intent(android.provider.Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                 result.success(true)
+            }
+            "placeCall" -> {
+                val number = call.argument<String>("number") ?: ""
+                if (number.isNotBlank()) {
+                    placeCall(context, number)
+                    result.success(true)
+                } else {
+                    result.error("INVALID_ARGS", "number required", null)
+                }
             }
             "clearAuth" -> {
                 SecureTokenStorage.clear(context)
@@ -107,8 +116,6 @@ object CallerIdChannel : MethodChannel.MethodCallHandler {
     }
 
     private fun getContext(): Context {
-        // The channel is registered from MainActivity which provides application context.
-        // We keep a static ref below instead of passing Context around from handler.
         return appContext ?: throw IllegalStateException("CallerIdChannel not initialized with context")
     }
 
@@ -129,7 +136,7 @@ object CallerIdChannel : MethodChannel.MethodCallHandler {
         initialIntent = intent
     }
 
-    private fun checkRoleHeld(context: Context): Boolean {
+    private fun checkCallerIdRoleHeld(context: Context): Boolean {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             val roleManager = context.getSystemService(Context.ROLE_SERVICE) as RoleManager
             roleManager.isRoleHeld(RoleManager.ROLE_CALL_SCREENING)
@@ -138,17 +145,26 @@ object CallerIdChannel : MethodChannel.MethodCallHandler {
         }
     }
 
-    private fun requestRole(context: Context, callback: (Boolean) -> Unit) {
+    /**
+     * Generic RoleManager request. Used for both ROLE_CALL_SCREENING and
+     * ROLE_DIALER. Falls back to opening the default-apps settings page when no
+     * Activity is available to host the system dialog.
+     */
+    private fun requestRole(
+        context: Context,
+        role: String,
+        requestCode: Int,
+        callback: (Boolean) -> Unit
+    ) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             val roleManager = context.getSystemService(Context.ROLE_SERVICE) as RoleManager
-            if (roleManager.isRoleAvailable(RoleManager.ROLE_CALL_SCREENING)) {
-                val intent = roleManager.createRequestRoleIntent(RoleManager.ROLE_CALL_SCREENING)
+            if (roleManager.isRoleAvailable(role)) {
+                val intent = roleManager.createRequestRoleIntent(role)
                 val activity = currentActivity?.get()
                 if (activity != null) {
-                    activity.startActivityForResult(intent, REQUEST_ROLE)
-                    pendingRoleCallback = callback
+                    pendingRoleCallbacks[requestCode] = callback
+                    activity.startActivityForResult(intent, requestCode)
                 } else {
-                    // Cannot request role without an Activity; open default apps settings instead.
                     context.startActivity(Intent(android.provider.Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                     callback(false)
                 }
@@ -160,36 +176,91 @@ object CallerIdChannel : MethodChannel.MethodCallHandler {
         }
     }
 
-    private var pendingRoleCallback: ((Boolean) -> Unit)? = null
-
-    fun onRoleResult(requestCode: Int, resultCode: Int) {
-        if (requestCode == REQUEST_ROLE) {
-            val granted = resultCode == android.app.Activity.RESULT_OK
-            pendingRoleCallback?.invoke(granted)
-            pendingRoleCallback = null
+    /**
+     * Requests the system "default dialer" role. On Android Q+ uses
+     * RoleManager.ROLE_DIALER (recommended), on older versions falls back to the
+     * legacy ACTION_CHANGE_DEFAULT_DIALER intent. Returns the *actual* default
+     * dialer state (verified via TelecomManager) so the Flutter side reflects
+     * reality rather than the dialog result alone.
+     */
+    private fun requestDefaultDialerRole(context: Context, callback: (Boolean) -> Unit) {
+        val activity = currentActivity?.get()
+        if (activity == null) {
+            context.startActivity(Intent(android.provider.Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            callback(isDefaultDialer(context))
+            return
         }
-        if (requestCode == REQUEST_DEFAULT_DIALER) {
-            val activity = currentActivity?.get()
-            if (activity != null) {
-                SecureTokenStorage.setDefaultDialerEnabled(activity, resultCode == android.app.Activity.RESULT_OK)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val roleManager = context.getSystemService(Context.ROLE_SERVICE) as RoleManager
+            if (roleManager.isRoleAvailable(RoleManager.ROLE_DIALER)) {
+                pendingRoleCallbacks[REQUEST_DEFAULT_DIALER] = { granted ->
+                    // Verify against TelecomManager — the role grant is the source of truth.
+                    callback(if (granted) isDefaultDialer(context) else false)
+                }
+                activity.startActivityForResult(
+                    roleManager.createRequestRoleIntent(RoleManager.ROLE_DIALER),
+                    REQUEST_DEFAULT_DIALER
+                )
+            } else {
+                callback(isDefaultDialer(context))
             }
-        }
-    }
-
-    private fun tryLaunchDefaultDialerRole(context: Context): Boolean {
-        val activity = currentActivity?.get() ?: return false
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             try {
                 val intent = Intent(TelecomManager.ACTION_CHANGE_DEFAULT_DIALER).apply {
                     putExtra(TelecomManager.EXTRA_CHANGE_DEFAULT_DIALER_PACKAGE_NAME, context.packageName)
                 }
+                pendingRoleCallbacks[REQUEST_DEFAULT_DIALER] = { granted ->
+                    callback(if (granted) isDefaultDialer(context) else false)
+                }
                 activity.startActivityForResult(intent, REQUEST_DEFAULT_DIALER)
-                true
             } catch (e: Exception) {
-                false
+                callback(isDefaultDialer(context))
             }
         } else {
-            false
+            callback(false)
+        }
+    }
+
+    private val pendingRoleCallbacks = mutableMapOf<Int, ((Boolean) -> Unit)>()
+
+    fun onRoleResult(requestCode: Int, resultCode: Int) {
+        val granted = resultCode == android.app.Activity.RESULT_OK
+        val cb = pendingRoleCallbacks.remove(requestCode)
+        when (requestCode) {
+            REQUEST_DEFAULT_DIALER -> {
+                // For the dialer role, the dialog "OK" is not authoritative on all
+                // OEMs — always re-check the real default dialer package.
+                val activity = currentActivity?.get()
+                if (activity != null) {
+                    SecureTokenStorage.setDefaultDialerEnabled(activity, granted)
+                }
+                val realDefault = if (granted && appContext != null) isDefaultDialer(appContext!!) else false
+                cb?.invoke(realDefault)
+            }
+            REQUEST_CALLER_ID_ROLE -> {
+                cb?.invoke(granted)
+            }
+        }
+    }
+
+    /**
+     * Places an outgoing GSM/PSTN call through the platform TelecomManager. When
+     * this app is the default dialer the resulting call is delivered back to
+     * [DheetantraInCallService], which renders the outgoing-call UI. Requires
+     * CALL_PHONE permission (declared in the manifest) or the default-dialer role.
+     */
+    private fun placeCall(context: Context, number: String) {
+        try {
+            val uri = Uri.fromParts("tel", number, null)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                val tm = context.getSystemService(Context.TELECOM_SERVICE) as TelecomManager
+                tm.placeCall(uri, null)
+            } else {
+                val intent = Intent(Intent.ACTION_CALL, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                context.startActivity(intent)
+            }
+        } catch (e: SecurityException) {
+            e.printStackTrace()
         }
     }
 
@@ -276,7 +347,4 @@ object CallerIdChannel : MethodChannel.MethodCallHandler {
         cursor?.close()
         return candidates.sortedByDescending { (it["score"] as? Int) ?: 0 }.take(5)
     }
-
-    private const val REQUEST_ROLE = 9001
-    private const val REQUEST_DEFAULT_DIALER = 9002
 }
