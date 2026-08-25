@@ -15,6 +15,7 @@ import '../services/websocket_service.dart';
 import '../services/webrtc_service.dart';
 import '../services/caller_id_service.dart';
 import 'caller_card_screen.dart';
+import 'dialer_screen.dart';
 import 'after_call_screen.dart';
 import '../theme/app_theme.dart';
 import '../widgets/call_overlays.dart';
@@ -50,7 +51,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   StreamSubscription? _notifCenterSub;
   StreamSubscription? _notifRouterSub;
 
-  static const _titles = ['डैशबोर्ड', 'इनबॉक्स', 'संपर्क और लीड्स', 'ब्रॉडकास्ट', 'सेटिंग्स'];
+  static const _titles = ['à¤¡à¥à¤¶à¤¬à¥à¤°à¥à¤¡', 'à¤à¤¨à¤¬à¥à¤à¥à¤¸', 'à¤¸à¤à¤ªà¤°à¥à¤ à¤à¤° à¤²à¥à¤¡à¥à¤¸', 'à¤¬à¥à¤°à¥à¤¡à¤à¤¾à¤¸à¥à¤', 'à¤¸à¥à¤à¤¿à¤à¤à¥à¤¸'];
 
   @override
   void initState() {
@@ -63,6 +64,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     });
     _notifRouterSub = NotificationRouter().onNotification.listen(_handlePushTap);
     CallerIdService.events.listen(_handleCallerIdEvent);
+    _handleInitialIntent();
     CallKitService().markHomeShellReady();
     _checkPendingAcceptedCall();
   }
@@ -87,7 +89,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     // App background se wapas aaye to realtime reconnect ke baad data refresh
     // trigger karna chahiye. WebSocketService apne aap reconnect karta hai.
     if (state == AppLifecycleState.resumed) {
-      debugPrint('[HomeShell] app resumed — refresh trigger bhej rahe hain');
+      debugPrint('[HomeShell] app resumed â refresh trigger bhej rahe hain');
       DataRefreshService().trigger(RefreshReason.appResumed);
       _checkPendingAcceptedCall();
     }
@@ -117,16 +119,16 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
       });
     });
 
-    // New incoming message → notification center + unread badge.
+    // New incoming message â notification center + unread badge.
     _wsMsgSub = ws.onNewMessage.listen((data) {
       final msg = data['message'];
       if (msg == null) return;
       final convId = msg['conversation_id'] ?? '';
       final senderType = msg['sender_type'] ?? '';
-      final text = msg['content'] ?? '(मीडिया)';
+      final text = msg['content'] ?? '(à¤®à¥à¤¡à¤¿à¤¯à¤¾)';
       if (senderType == 'contact' || senderType == 'customer') {
         NotificationCenter().add(
-          title: 'नया संदेश',
+          title: 'à¤¨à¤¯à¤¾ à¤¸à¤à¤¦à¥à¤¶',
           body: text.toString(),
           type: 'message',
           data: {'conversation_id': convId, 'from': msg['from'] ?? ''},
@@ -138,22 +140,22 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
       final status = data['status'] ?? '';
       if (status == 'missed') {
         NotificationCenter().add(
-          title: 'मिस्ड कॉल',
-          body: 'एक WhatsApp वॉयस कॉल मिस हुई',
+          title: 'à¤®à¤¿à¤¸à¥à¤¡ à¤à¥à¤²',
+          body: 'à¤à¤ WhatsApp à¤µà¥à¤¯à¤¸ à¤à¥à¤² à¤®à¤¿à¤¸ à¤¹à¥à¤',
           type: 'call',
           data: {'call_id': data['call_id'] ?? ''},
         );
       }
     });
 
-    // Only surface user-relevant transitions — a reopened conversation. Routine
+    // Only surface user-relevant transitions â a reopened conversation. Routine
     // admin close/reassign events would otherwise flood the notification center.
     _wsConvStatusSub = ws.onConversationStatusUpdated.listen((data) {
       final status = data['status'] ?? '';
       if (status != 'open') return;
       NotificationCenter().add(
-        title: 'बातचीत खुली',
-        body: 'आपकी एक बातचीत फिर से खोली गई',
+        title: 'à¤¬à¤¾à¤¤à¤à¥à¤¤ à¤à¥à¤²à¥',
+        body: 'à¤à¤ªà¤à¥ à¤à¤ à¤¬à¤¾à¤¤à¤à¥à¤¤ à¤«à¤¿à¤° à¤¸à¥ à¤à¥à¤²à¥ à¤à¤',
         type: 'system',
         data: {'conversation_id': data['conversation_id'] ?? ''},
       );
@@ -184,12 +186,12 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
         showDialog<void>(
           context: context,
           builder: (ctx) => AlertDialog(
-            title: const Text('मिस्ड कॉल'),
-            content: Text('आपकी एक WhatsApp वॉयस कॉल मिस हुई${phone.isNotEmpty ? ' (+$phone)' : ''}।'),
+            title: const Text('à¤®à¤¿à¤¸à¥à¤¡ à¤à¥à¤²'),
+            content: Text('à¤à¤ªà¤à¥ à¤à¤ WhatsApp à¤µà¥à¤¯à¤¸ à¤à¥à¤² à¤®à¤¿à¤¸ à¤¹à¥à¤${phone.isNotEmpty ? ' (+$phone)' : ''}à¥¤'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(ctx).pop(),
-                child: const Text('ठीक है'),
+                child: const Text('à¤ à¥à¤ à¤¹à¥'),
               ),
             ],
           ),
@@ -246,6 +248,37 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   }
 
 
+  /// Handles the launch intent captured while the app was cold-started
+  /// (e.g. tapping an after-call notification or opening the app via
+  /// ACTION_DIAL). On warm starts [CallerIdService.events] already dispatches
+  /// via [_handleCallerIdEvent]; this covers the initial-intent case that would
+  /// otherwise be lost.
+  Future<void> _handleInitialIntent() async {
+    final intent = await CallerIdService.getInitialIntent();
+    if (intent.isEmpty) return;
+    final route = intent['route']?.toString() ?? '';
+    final phone = intent['phone']?.toString() ?? '';
+    if (route.isEmpty) return;
+    if (!mounted) return;
+    if (route == '/dialer') {
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => DialerScreen(initialNumber: phone)),
+      );
+    } else if (route == '/caller-card') {
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => CallerCardScreen(phone: phone)),
+      );
+    } else if (route == '/after-call') {
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => AfterCallScreen(
+          phone: phone,
+          durationSeconds: (intent['durationSeconds'] as num?)?.toInt() ?? 0,
+          direction: intent['direction']?.toString() ?? 'incoming',
+        )),
+      );
+    }
+  }
+
   void _handleCallerIdEvent(Map<String, dynamic> event) {
     final route = event['route']?.toString();
     final phone = event['phone']?.toString();
@@ -262,6 +295,11 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
           durationSeconds: (event['durationSeconds'] as num?)?.toInt() ?? 0,
           direction: event['direction']?.toString() ?? 'incoming',
         )),
+      );
+    }
+    else if (route == '/dialer') {
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => DialerScreen(initialNumber: phone)),
       );
     }
   }
@@ -311,27 +349,27 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
               NavigationDestination(
                 icon: Icon(Icons.dashboard_outlined),
                 selectedIcon: Icon(Icons.dashboard_rounded),
-                label: 'होम',
+                label: 'à¤¹à¥à¤®',
               ),
               NavigationDestination(
                 icon: Icon(Icons.chat_bubble_outline_rounded),
                 selectedIcon: Icon(Icons.chat_bubble_rounded),
-                label: 'इनबॉक्स',
+                label: 'à¤à¤¨à¤¬à¥à¤à¥à¤¸',
               ),
               NavigationDestination(
                 icon: Icon(Icons.people_alt_outlined),
                 selectedIcon: Icon(Icons.people_alt_rounded),
-                label: 'संपर्क',
+                label: 'à¤¸à¤à¤ªà¤°à¥à¤',
               ),
               NavigationDestination(
                 icon: Icon(Icons.campaign_outlined),
                 selectedIcon: Icon(Icons.campaign_rounded),
-                label: 'ब्रॉडकास्ट',
+                label: 'à¤¬à¥à¤°à¥à¤¡à¤à¤¾à¤¸à¥à¤',
               ),
               NavigationDestination(
                 icon: Icon(Icons.settings_outlined),
                 selectedIcon: Icon(Icons.settings_rounded),
-                label: 'सेटिंग्स',
+                label: 'à¤¸à¥à¤à¤¿à¤à¤à¥à¤¸',
               ),
             ],
           ),
@@ -398,7 +436,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
                 ),
                 const SizedBox(width: 5),
                 Text(
-                  connecting ? 'कनेक्ट' : connected ? 'Live' : 'ऑफलाइन',
+                  connecting ? 'à¤à¤¨à¥à¤à¥à¤' : connected ? 'Live' : 'à¤à¤«à¤²à¤¾à¤à¤¨',
                   style: TextStyle(
                     color: connected
                         ? AppColors.success
