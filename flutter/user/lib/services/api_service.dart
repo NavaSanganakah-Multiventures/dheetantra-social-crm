@@ -443,7 +443,7 @@ class ApiService {
 
   Future<Map<String, dynamic>> getDashboardStats() async {
     try {
-      // Dono calls parallel chalao — sequential hone se dashboard load me
+      // Dono calls parallel chalao â sequential hone se dashboard load me
       // 2x delay aa raha tha.
       final results = await Future.wait<dynamic>([
         getContacts(),
@@ -668,12 +668,134 @@ class ApiService {
     }
   }
 
+  // ========== CATALOGS ==========
+
+  Future<List<dynamic>> getCatalogs({String? status}) async {
+    try {
+      final query = <String, dynamic>{};
+      if (status != null && status != 'all') query['status'] = status;
+      final res = await _dio.get('/api/catalogs', queryParameters: query);
+      final data = res.data as Map<String, dynamic>;
+      return data['catalogs'] ?? [];
+    } on DioException {
+      return [];
+    }
+  }
+
+  Future<Map<String, dynamic>> createCatalog(Map<String, dynamic> data) async {
+    try {
+      final res = await _dio.post('/api/catalogs', data: data);
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getCatalog(String id) async {
+    try {
+      final res = await _dio.get('/api/catalogs/$id');
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> updateCatalog(String id, Map<String, dynamic> data) async {
+    try {
+      final res = await _dio.put('/api/catalogs/$id', data: data);
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> deleteCatalog(String id) async {
+    try {
+      final res = await _dio.delete('/api/catalogs/$id');
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  Future<List<dynamic>> getProducts(String catalogId) async {
+    try {
+      final res = await _dio.get('/api/catalogs/$catalogId/products');
+      final data = res.data as Map<String, dynamic>;
+      return data['products'] ?? [];
+    } on DioException {
+      return [];
+    }
+  }
+
+  Future<Map<String, dynamic>> createProduct(String catalogId, Map<String, dynamic> data) async {
+    try {
+      final res = await _dio.post('/api/catalogs/$catalogId/products', data: data);
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> updateProduct(String productId, Map<String, dynamic> data) async {
+    try {
+      final res = await _dio.put('/api/catalogs/products/$productId', data: data);
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> deleteProduct(String productId) async {
+    try {
+      final res = await _dio.delete('/api/catalogs/products/$productId');
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> shareCatalog({
+    required String conversationId,
+    required String type,
+    String? productId,
+    String? catalogId,
+    String? note,
+  }) async {
+    try {
+      final data = <String, dynamic>{
+        'conversationId': conversationId,
+        'type': type,
+        if (note != null && note.isNotEmpty) 'note': note,
+        if (type == 'product' && productId != null) 'productId': productId,
+        if (type == 'catalog' && catalogId != null) 'catalogId': catalogId,
+      };
+      final res = await _dio.post('/api/catalogs/share', data: data);
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> uploadImage(File file, {String field = 'file'}) async {
+    try {
+      final fileName = path.basename(file.path);
+      final form = FormData.fromMap({
+        field: await MultipartFile.fromFile(file.path, filename: fileName),
+      });
+      final res = await _dio.post('/api/media/upload', data: form);
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
   // ========== HELPERS ==========
 
   Map<String, dynamic> _handleError(DioException e) {
     if (e.response != null && e.response!.data is Map) {
       return e.response!.data;
     }
-    return {'error': e.message ?? 'कुछ गड़बड़ हो गई'};
+    return {'error': e.message ?? 'à¤à¥à¤ à¤à¤¡à¤¼à¤¬à¤¡à¤¼ à¤¹à¥ à¤à¤'};
   }
 }
