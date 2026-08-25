@@ -52,6 +52,10 @@ dependencies:
   flutter_foreground_task: ^8.12.0
   # Caller ID / after-call CRM native bridge
   flutter_secure_storage: ^9.2.4
+  # Media viewer / download / share
+  photo_view: ^0.15.0
+  flutter_pdfview: ^1.4.0
+  share_plus: ^10.0.0
   # Device info for recording path analytics
   device_info_plus: ^11.3.0
   # Manual recording file selection

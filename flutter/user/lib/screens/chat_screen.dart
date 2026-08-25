@@ -9,6 +9,7 @@ import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
 import '../services/websocket_service.dart';
+import 'media_viewer_screen.dart';
 
 class ChatScreen extends StatefulWidget {
   final Conversation conversation;
@@ -174,7 +175,7 @@ class _ChatScreenState extends State<ChatScreen> {
         _messages.removeWhere((m) => m.id == tempMsgId);
       });
     } else if (mounted) {
-      // Backend response shape varies ({data:{id}}, {message:{id}}, or {id}) â
+      // Backend response shape varies ({data:{id}}, {message:{id}}, or {id}) ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ
       // handle all so the optimistic temp message gets its real id.
       Object? serverId;
       final d = res['data'];
@@ -210,14 +211,14 @@ class _ChatScreenState extends State<ChatScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            res.data['success'] == true ? 'à¤à¥à¤² à¤¶à¥à¤°à¥ à¤à¥ à¤à¤' : 'à¤à¥à¤² à¤¶à¥à¤°à¥ à¤¨à¤¹à¥à¤ à¤¹à¥ à¤¸à¤à¥',
+            res.data['success'] == true ? 'ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ² ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¶ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ°ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂ ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂ ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ' : 'ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ² ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¶ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ°ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂ ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¨ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¹ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¹ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂ ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¸ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂ',
           ),
         ),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('à¤à¥à¤² à¤¶à¥à¤°à¥ à¤¨à¤¹à¥à¤ à¤¹à¥ à¤¸à¤à¥')),
+        const SnackBar(content: Text('ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ² ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¶ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ°ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂ ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¨ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¹ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¹ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂ ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¸ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂ')),
       );
     }
   }
@@ -227,7 +228,7 @@ class _ChatScreenState extends State<ChatScreen> {
     if (!mounted) return;
     if (templates.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('à¤à¥à¤ à¤à¥à¤®à¥à¤ªà¤²à¥à¤ à¤à¤ªà¤²à¤¬à¥à¤§ à¤¨à¤¹à¥à¤ à¤¹à¥')),
+        const SnackBar(content: Text('ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ®ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂªÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ²ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂªÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ²ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¬ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ§ ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¨ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¹ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¹ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂ')),
       );
       return;
     }
@@ -244,7 +245,7 @@ class _ChatScreenState extends State<ChatScreen> {
             const Padding(
               padding: EdgeInsets.all(16),
               child: Text(
-                'à¤à¥à¤®à¥à¤ªà¤²à¥à¤ à¤à¥à¤¨à¥à¤',
+                'ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ®ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂªÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ²ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¨ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ',
                 style: TextStyle(
                   color: AppColors.textPrimary,
                   fontSize: 16,
@@ -358,8 +359,8 @@ class _ChatScreenState extends State<ChatScreen> {
                     ? const Center(
                         child: EmptyState(
                           icon: Icons.chat_outlined,
-                          title: 'à¤à¥à¤ à¤¸à¤à¤¦à¥à¤¶ à¤¨à¤¹à¥à¤',
-                          subtitle: 'à¤¬à¤¾à¤¤à¤à¥à¤¤ à¤¶à¥à¤°à¥ à¤à¤°à¥à¤à¥¤',
+                          title: 'ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¸ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¦ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¶ ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¨ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¹ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ',
+                          subtitle: 'ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¬ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¾ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¤ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¤ ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¶ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ°ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂ ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ°ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂ¤',
                         ),
                       )
                     : ListView.builder(
@@ -392,7 +393,7 @@ class _ChatScreenState extends State<ChatScreen> {
           if (!isEmail)
             IconButton(
               onPressed: _showTemplatePicker,
-              tooltip: 'à¤à¥à¤®à¥à¤ªà¤²à¥à¤',
+              tooltip: 'ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ®ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂªÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ²ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ',
               icon: const Icon(Icons.description_outlined, color: AppColors.textMuted, size: 22),
             ),
           if (isEmail) const SizedBox(width: 8),
@@ -404,7 +405,7 @@ class _ChatScreenState extends State<ChatScreen> {
               textCapitalization: TextCapitalization.sentences,
               onSubmitted: (_) => _send(),
               decoration: InputDecoration(
-                hintText: isEmail ? 'à¤à¤®à¥à¤² à¤à¤¾ à¤à¤µà¤¾à¤¬ à¤¦à¥à¤...' : 'à¤¸à¤à¤¦à¥à¤¶ à¤²à¤¿à¤à¥à¤...',
+                hintText: isEmail ? 'ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ®ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ² ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¾ ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂµÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¾ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¬ ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¦ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ...' : 'ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¸ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¦ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¶ ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ²ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¿ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ...',
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
                 isDense: true,
               ),
@@ -434,24 +435,36 @@ class _MessageBubble extends StatelessWidget {
 
   const _MessageBubble({required this.message});
 
-  // à¤¹à¤¿à¤à¤¦à¥ à¤®à¥à¤ type label (web dashboard à¤à¥ MEDIA_LABELS à¤¸à¥ à¤®à¥à¤² à¤à¤¾à¤¤à¤¾ à¤¹à¥)
+  // ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¹ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¿ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¦ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂ ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ®ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ type label (web dashboard ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂ MEDIA_LABELS ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¸ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂ ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ®ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ² ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¾ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¤ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¾ ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¹ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂ)
   String? get _typeLabel {
     switch (message.messageType) {
-      case 'image': return 'à¤«à¤¼à¥à¤à¥';
-      case 'video': return 'à¤µà¥à¤¡à¤¿à¤¯à¥';
-      case 'audio': return 'à¤à¤¡à¤¿à¤¯à¥';
-      case 'document': return 'à¤¦à¤¸à¥à¤¤à¤¾à¤µà¥à¤à¤¼';
-      case 'sticker': return 'à¤¸à¥à¤à¤¿à¤à¤°';
-      case 'location': return 'à¤²à¥à¤à¥à¤¶à¤¨';
-      case 'contacts': return 'à¤à¥à¤¨à¥à¤à¥à¤à¥à¤';
-      case 'template': return 'à¤à¥à¤®à¥à¤ªà¤²à¥à¤';
-      case 'interactive': return 'à¤à¤à¤à¤°à¥à¤à¥à¤à¤¿à¤µ';
-      case 'reaction': return 'à¤°à¤¿à¤à¤à¥à¤¶à¤¨';
-      case 'order': return 'à¤à¤°à¥à¤¡à¤°';
-      case 'button': return 'à¤¬à¤à¤¨';
-      case 'system': return 'à¤¸à¤¿à¤¸à¥à¤à¤®';
+      case 'image': return 'ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ«ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¼ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂ';
+      case 'video': return 'ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂµÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¡ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¿ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¯ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂ';
+      case 'audio': return 'ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¡ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¿ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¯ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂ';
+      case 'document': return 'ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¦ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¸ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¤ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¾ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂµÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¼';
+      case 'sticker': return 'ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¸ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¿ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ°';
+      case 'location': return 'ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ²ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¶ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¨';
+      case 'contacts': return 'ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¨ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ';
+      case 'template': return 'ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ®ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂªÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ²ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ';
+      case 'interactive': return 'ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ°ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¿ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂµ';
+      case 'reaction': return 'ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ°ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¿ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¶ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¨';
+      case 'order': return 'ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ°ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¡ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ°';
+      case 'button': return 'ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¬ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¨';
+      case 'system': return 'ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¸ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¿ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¸ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ®';
       default: return message.messageType;
     }
+  }
+
+  void _openMedia(BuildContext context) {
+    final type = message.messageType;
+    if (type == null) return;
+    const mediaTypes = ['image', 'video', 'audio', 'document', 'sticker'];
+    if (!mediaTypes.contains(type)) return;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => MediaViewerScreen(message: message),
+      ),
+    );
   }
 
   Future<void> _openUrl(String url) async {
@@ -479,7 +492,7 @@ class _MessageBubble extends StatelessWidget {
           }
         }
       } else if (c >= 0xDC00 && c <= 0xDFFF) {
-        // Lone low surrogate — skip.
+        // Lone low surrogate ÃÂ¢ÃÂÃÂ skip.
       } else {
         buffer.write(String.fromCharCode(c));
       }
@@ -487,8 +500,8 @@ class _MessageBubble extends StatelessWidget {
     return buffer.toString();
   }
 
-  // media_url à¤à¥ à¤à¤¨à¥à¤¸à¤¾à¤° media preview (image/sticker inline, à¤¬à¤¾à¤à¥
-  // types à¤à¥ à¤²à¤¿à¤ tappable tile à¤à¥ à¤¬à¤¾à¤¹à¤°à¥ à¤à¤ª à¤®à¥à¤ à¤à¥à¤²à¤¤à¤¾ à¤¹à¥)
+  // media_url ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂ ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¨ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¸ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¾ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ° media preview (image/sticker inline, ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¬ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¾ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂ
+  // types ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂ ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ²ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¿ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ tappable tile ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂ ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¬ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¾ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¹ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ°ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂ ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂª ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ®ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ²ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¤ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¾ ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¹ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂ)
   Widget? _buildMedia(BuildContext context) {
     final type = message.messageType;
     final raw = message.mediaUrl;
@@ -513,7 +526,7 @@ class _MessageBubble extends StatelessWidget {
       final address = parsed['address'];
       return _mediaTile(
         icon: Icons.location_on,
-        title: (name != null && name.toString().isNotEmpty) ? name.toString() : 'à¤²à¥à¤à¥à¤¶à¤¨',
+        title: (name != null && name.toString().isNotEmpty) ? name.toString() : 'ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ²ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¶ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¨',
         subtitle: (address != null && address.toString().isNotEmpty)
             ? address.toString()
             : (lat != null && lng != null ? '$lat, $lng' : null),
@@ -600,12 +613,12 @@ class _MessageBubble extends StatelessWidget {
         final p = (c is Map && c['phones'] is List && (c['phones'] as List).isNotEmpty)
             ? ((c['phones'][0] is Map) ? c['phones'][0]['phone'] : c['phones'][0])
             : null;
-        return 'ð¤ ${n ?? 'à¤à¥à¤¨à¥à¤à¥à¤à¥à¤'}${p != null ? ' â $p' : ''}';
+        return 'ÃÂÃÂ°ÃÂÃÂÃÂÃÂÃÂÃÂ¤ ${n ?? 'ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¨ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ'}${p != null ? ' ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ $p' : ''}';
       }).toList();
       return _mediaTile(icon: Icons.contacts, title: rows.join('\n'), fg: fg);
     }
 
-    // Relative R2 paths à¤à¥ absolute à¤¬à¤¨à¤¾à¤à¤
+    // Relative R2 paths ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂ absolute ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¬ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¨ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¾ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ
     final url = raw.startsWith('/api/') ? '${ApiService.baseUrl}$raw' : raw;
     final isUrl = url.startsWith('http');
 
@@ -648,7 +661,7 @@ class _MessageBubble extends StatelessWidget {
         child: Image.network(
           url,
           fit: BoxFit.contain,
-          errorBuilder: (ctx, e, st) => Text('ð', style: const TextStyle(fontSize: 44)),
+          errorBuilder: (ctx, e, st) => Text('ÃÂÃÂ°ÃÂÃÂÃÂÃÂÃÂÃÂ', style: const TextStyle(fontSize: 44)),
         ),
       );
     }
@@ -656,7 +669,7 @@ class _MessageBubble extends StatelessWidget {
     if (type == 'video' && isUrl) {
       return _mediaTile(
         icon: Icons.play_circle_fill,
-        title: 'à¤µà¥à¤¡à¤¿à¤¯à¥',
+        title: 'ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂµÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¡ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¿ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¯ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂ',
         fg: fg,
         onTap: () => _openUrl(url),
       );
@@ -665,9 +678,9 @@ class _MessageBubble extends StatelessWidget {
     if (type == 'audio' && isUrl) {
       return _mediaTile(
         icon: Icons.mic,
-        title: message.text.contains('Voice') || message.text.contains('à¤µà¥à¤¯à¤¸')
-            ? 'à¤µà¥à¤¯à¤¸ à¤¨à¥à¤'
-            : 'à¤à¤¡à¤¿à¤¯à¥',
+        title: message.text.contains('Voice') || message.text.contains('ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂµÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¯ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¸')
+            ? 'ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂµÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¯ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¸ ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¨ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ'
+            : 'ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¡ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¿ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¯ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂ',
         fg: fg,
         onTap: () => _openUrl(url),
       );
@@ -678,7 +691,7 @@ class _MessageBubble extends StatelessWidget {
         icon: Icons.description,
         title: (message.text.isNotEmpty && message.text != 'Document Message')
             ? message.text
-            : 'à¤¦à¤¸à¥à¤¤à¤¾à¤µà¥à¤à¤¼',
+            : 'ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¦ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¸ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¤ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¾ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂµÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¼',
         fg: fg,
         onTap: () => _openUrl(url),
       );
@@ -741,6 +754,7 @@ class _MessageBubble extends StatelessWidget {
     // Responsive: bubble never wider than 76% of a narrow phone, capped at 480
     // on tablets/desktop so lines stay readable.
     final maxBubbleWidth = MediaQuery.of(context).size.width * 0.76;
+    final mediaWidget = _buildMedia(context);
     return Align(
       alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
@@ -783,8 +797,13 @@ class _MessageBubble extends StatelessWidget {
               const SizedBox(height: 6),
             ],
             // Media (image/sticker inline, video/audio/document/location/
-            // contacts tiles) â text/caption à¤à¤¸à¤à¥ à¤¨à¥à¤à¥
-            ...(_buildMedia(context) != null ? [_buildMedia(context)!] : const <Widget>[]),
+            // contacts tiles) ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ text/caption ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¸ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂ ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¨ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂ
+            if (mediaWidget != null)
+              GestureDetector(
+                onTap: () => _openMedia(context),
+                behavior: HitTestBehavior.translucent,
+                child: mediaWidget,
+              ),
             SizedBox(
               width: double.infinity,
               child: Text(
@@ -803,7 +822,7 @@ class _MessageBubble extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(top: 2),
                 child: Text(
-                  'ð ${_typeLabel ?? message.messageType}',
+                  'ÃÂÃÂ°ÃÂÃÂÃÂÃÂÃÂÃÂ ${_typeLabel ?? message.messageType}',
                   style: TextStyle(
                     color: mine ? Colors.white.withValues(alpha: 0.7) : AppColors.textMuted,
                     fontSize: 10,
