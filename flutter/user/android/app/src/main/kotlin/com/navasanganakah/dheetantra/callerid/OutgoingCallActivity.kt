@@ -13,6 +13,14 @@ import android.widget.Button
 import android.widget.TextView
 import com.navasanganakah.dheetantra.R
 
+/**
+ * Outgoing-call UI shown by [DheetantraInCallService] when the system reports a
+ * DIALING/CONNECTING call. The actual call placement is now done either by the
+ * system (when launched from the contacts app) or by [DialerRouterActivity] /
+ * the Flutter dialpad via TelecomManager.placeCall — so this activity no longer
+ * tries to place a call itself (the old `shouldPlaceCall` path produced a
+ * second outgoing screen on top of the one the InCallService already shows).
+ */
 class OutgoingCallActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -38,16 +46,6 @@ class OutgoingCallActivity : Activity() {
 
         val phone = intent.getStringExtra("phone") ?: ""
         val callId = intent.getStringExtra("callId")
-
-        // If opened directly from dialer router (no active InCallService call yet), place it.
-        if (intent.getBooleanExtra("shouldPlaceCall", false) && phone.isNotBlank()) {
-            try {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    val tm = getSystemService(TELECOM_SERVICE) as android.telecom.TelecomManager
-                    tm.placeCall(android.net.Uri.fromParts("tel", phone, null), null)
-                }
-            } catch (e: SecurityException) { e.printStackTrace() }
-        }
 
         findViewById<TextView>(R.id.tvNumber).text = phone
 
