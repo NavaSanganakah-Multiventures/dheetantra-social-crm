@@ -36,6 +36,11 @@ class CallerScreeningService : CallScreeningService() {
         // Allow the call by default immediately so we never block normal calling.
         respondToCall(callDetails, buildResponse(true, false))
 
+        // Do not show caller ID card for outgoing calls.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            if (callDetails.callDirection == Call.Details.DIRECTION_OUTGOING) return
+        }
+
         if (phoneNumber.isBlank()) return
         if (!SecureTokenStorage.isCallerIdEnabled(this)) return
 
@@ -132,6 +137,22 @@ class CallerScreeningService : CallScreeningService() {
             .setContentIntent(pendingIntent)
             .setFullScreenIntent(pendingIntent, true)
             .build()
+
+        try {
+            val overlayIntent = Intent(this, CallerCardActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                        Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or
+                        Intent.FLAG_ACTIVITY_NO_HISTORY or
+                        Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS
+                putExtra("phone", phoneNumber)
+                putExtra("name", name)
+                if (!leadStatus.isNullOrBlank()) putExtra("leadStatus", leadStatus)
+                if (!lastMessage.isNullOrBlank()) putExtra("lastMessage", lastMessage)
+            }
+            startActivity(overlayIntent)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
 
         manager.notify(NOTIFICATION_TAG, phoneNumber.hashCode(), notification)
     }
