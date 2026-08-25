@@ -10,6 +10,12 @@ import '../theme/app_theme.dart';
 import '../widgets/common.dart';
 import '../services/websocket_service.dart';
 
+// Local helper to safely stringify dynamic JSON values.
+String _safeString(dynamic value) {
+  if (value == null) return '';
+  return value.toString();
+}
+
 class ChatScreen extends StatefulWidget {
   final Conversation conversation;
 
@@ -174,7 +180,7 @@ class _ChatScreenState extends State<ChatScreen> {
         _messages.removeWhere((m) => m.id == tempMsgId);
       });
     } else if (mounted) {
-      // Backend response shape varies ({data:{id}}, {message:{id}}, or {id}) â
+      // Backend response shape varies ({data:{id}}, {message:{id}}, or {id}) Ã¢ÂÂ
       // handle all so the optimistic temp message gets its real id.
       Object? serverId;
       final d = res['data'];
@@ -210,14 +216,14 @@ class _ChatScreenState extends State<ChatScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            res.data['success'] == true ? 'à¤à¥à¤² à¤¶à¥à¤°à¥ à¤à¥ à¤à¤' : 'à¤à¥à¤² à¤¶à¥à¤°à¥ à¤¨à¤¹à¥à¤ à¤¹à¥ à¤¸à¤à¥',
+            res.data['success'] == true ? 'Ã Â¤ÂÃ Â¥ÂÃ Â¤Â² Ã Â¤Â¶Ã Â¥ÂÃ Â¤Â°Ã Â¥Â Ã Â¤ÂÃ Â¥Â Ã Â¤ÂÃ Â¤Â' : 'Ã Â¤ÂÃ Â¥ÂÃ Â¤Â² Ã Â¤Â¶Ã Â¥ÂÃ Â¤Â°Ã Â¥Â Ã Â¤Â¨Ã Â¤Â¹Ã Â¥ÂÃ Â¤Â Ã Â¤Â¹Ã Â¥Â Ã Â¤Â¸Ã Â¤ÂÃ Â¥Â',
           ),
         ),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('à¤à¥à¤² à¤¶à¥à¤°à¥ à¤¨à¤¹à¥à¤ à¤¹à¥ à¤¸à¤à¥')),
+        const SnackBar(content: Text('Ã Â¤ÂÃ Â¥ÂÃ Â¤Â² Ã Â¤Â¶Ã Â¥ÂÃ Â¤Â°Ã Â¥Â Ã Â¤Â¨Ã Â¤Â¹Ã Â¥ÂÃ Â¤Â Ã Â¤Â¹Ã Â¥Â Ã Â¤Â¸Ã Â¤ÂÃ Â¥Â')),
       );
     }
   }
@@ -227,7 +233,7 @@ class _ChatScreenState extends State<ChatScreen> {
     if (!mounted) return;
     if (templates.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('à¤à¥à¤ à¤à¥à¤®à¥à¤ªà¤²à¥à¤ à¤à¤ªà¤²à¤¬à¥à¤§ à¤¨à¤¹à¥à¤ à¤¹à¥')),
+        const SnackBar(content: Text('Ã Â¤ÂÃ Â¥ÂÃ Â¤Â Ã Â¤ÂÃ Â¥ÂÃ Â¤Â®Ã Â¥ÂÃ Â¤ÂªÃ Â¤Â²Ã Â¥ÂÃ Â¤Â Ã Â¤ÂÃ Â¤ÂªÃ Â¤Â²Ã Â¤Â¬Ã Â¥ÂÃ Â¤Â§ Ã Â¤Â¨Ã Â¤Â¹Ã Â¥ÂÃ Â¤Â Ã Â¤Â¹Ã Â¥Â')),
       );
       return;
     }
@@ -244,7 +250,7 @@ class _ChatScreenState extends State<ChatScreen> {
             const Padding(
               padding: EdgeInsets.all(16),
               child: Text(
-                'à¤à¥à¤®à¥à¤ªà¤²à¥à¤ à¤à¥à¤¨à¥à¤',
+                'Ã Â¤ÂÃ Â¥ÂÃ Â¤Â®Ã Â¥ÂÃ Â¤ÂªÃ Â¤Â²Ã Â¥ÂÃ Â¤Â Ã Â¤ÂÃ Â¥ÂÃ Â¤Â¨Ã Â¥ÂÃ Â¤Â',
                 style: TextStyle(
                   color: AppColors.textPrimary,
                   fontSize: 16,
@@ -358,8 +364,8 @@ class _ChatScreenState extends State<ChatScreen> {
                     ? const Center(
                         child: EmptyState(
                           icon: Icons.chat_outlined,
-                          title: 'à¤à¥à¤ à¤¸à¤à¤¦à¥à¤¶ à¤¨à¤¹à¥à¤',
-                          subtitle: 'à¤¬à¤¾à¤¤à¤à¥à¤¤ à¤¶à¥à¤°à¥ à¤à¤°à¥à¤à¥¤',
+                          title: 'Ã Â¤ÂÃ Â¥ÂÃ Â¤Â Ã Â¤Â¸Ã Â¤ÂÃ Â¤Â¦Ã Â¥ÂÃ Â¤Â¶ Ã Â¤Â¨Ã Â¤Â¹Ã Â¥ÂÃ Â¤Â',
+                          subtitle: 'Ã Â¤Â¬Ã Â¤Â¾Ã Â¤Â¤Ã Â¤ÂÃ Â¥ÂÃ Â¤Â¤ Ã Â¤Â¶Ã Â¥ÂÃ Â¤Â°Ã Â¥Â Ã Â¤ÂÃ Â¤Â°Ã Â¥ÂÃ Â¤ÂÃ Â¥Â¤',
                         ),
                       )
                     : ListView.builder(
@@ -392,7 +398,7 @@ class _ChatScreenState extends State<ChatScreen> {
           if (!isEmail)
             IconButton(
               onPressed: _showTemplatePicker,
-              tooltip: 'à¤à¥à¤®à¥à¤ªà¤²à¥à¤',
+              tooltip: 'Ã Â¤ÂÃ Â¥ÂÃ Â¤Â®Ã Â¥ÂÃ Â¤ÂªÃ Â¤Â²Ã Â¥ÂÃ Â¤Â',
               icon: const Icon(Icons.description_outlined, color: AppColors.textMuted, size: 22),
             ),
           if (isEmail) const SizedBox(width: 8),
@@ -404,7 +410,7 @@ class _ChatScreenState extends State<ChatScreen> {
               textCapitalization: TextCapitalization.sentences,
               onSubmitted: (_) => _send(),
               decoration: InputDecoration(
-                hintText: isEmail ? 'à¤à¤®à¥à¤² à¤à¤¾ à¤à¤µà¤¾à¤¬ à¤¦à¥à¤...' : 'à¤¸à¤à¤¦à¥à¤¶ à¤²à¤¿à¤à¥à¤...',
+                hintText: isEmail ? 'Ã Â¤ÂÃ Â¤Â®Ã Â¥ÂÃ Â¤Â² Ã Â¤ÂÃ Â¤Â¾ Ã Â¤ÂÃ Â¤ÂµÃ Â¤Â¾Ã Â¤Â¬ Ã Â¤Â¦Ã Â¥ÂÃ Â¤Â...' : 'Ã Â¤Â¸Ã Â¤ÂÃ Â¤Â¦Ã Â¥ÂÃ Â¤Â¶ Ã Â¤Â²Ã Â¤Â¿Ã Â¤ÂÃ Â¥ÂÃ Â¤Â...',
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
                 isDense: true,
               ),
@@ -434,22 +440,22 @@ class _MessageBubble extends StatelessWidget {
 
   const _MessageBubble({required this.message});
 
-  // à¤¹à¤¿à¤à¤¦à¥ à¤®à¥à¤ type label (web dashboard à¤à¥ MEDIA_LABELS à¤¸à¥ à¤®à¥à¤² à¤à¤¾à¤¤à¤¾ à¤¹à¥)
+  // Ã Â¤Â¹Ã Â¤Â¿Ã Â¤ÂÃ Â¤Â¦Ã Â¥Â Ã Â¤Â®Ã Â¥ÂÃ Â¤Â type label (web dashboard Ã Â¤ÂÃ Â¥Â MEDIA_LABELS Ã Â¤Â¸Ã Â¥Â Ã Â¤Â®Ã Â¥ÂÃ Â¤Â² Ã Â¤ÂÃ Â¤Â¾Ã Â¤Â¤Ã Â¤Â¾ Ã Â¤Â¹Ã Â¥Â)
   String? get _typeLabel {
     switch (message.messageType) {
-      case 'image': return 'à¤«à¤¼à¥à¤à¥';
-      case 'video': return 'à¤µà¥à¤¡à¤¿à¤¯à¥';
-      case 'audio': return 'à¤à¤¡à¤¿à¤¯à¥';
-      case 'document': return 'à¤¦à¤¸à¥à¤¤à¤¾à¤µà¥à¤à¤¼';
-      case 'sticker': return 'à¤¸à¥à¤à¤¿à¤à¤°';
-      case 'location': return 'à¤²à¥à¤à¥à¤¶à¤¨';
-      case 'contacts': return 'à¤à¥à¤¨à¥à¤à¥à¤à¥à¤';
-      case 'template': return 'à¤à¥à¤®à¥à¤ªà¤²à¥à¤';
-      case 'interactive': return 'à¤à¤à¤à¤°à¥à¤à¥à¤à¤¿à¤µ';
-      case 'reaction': return 'à¤°à¤¿à¤à¤à¥à¤¶à¤¨';
-      case 'order': return 'à¤à¤°à¥à¤¡à¤°';
-      case 'button': return 'à¤¬à¤à¤¨';
-      case 'system': return 'à¤¸à¤¿à¤¸à¥à¤à¤®';
+      case 'image': return 'Ã Â¤Â«Ã Â¤Â¼Ã Â¥ÂÃ Â¤ÂÃ Â¥Â';
+      case 'video': return 'Ã Â¤ÂµÃ Â¥ÂÃ Â¤Â¡Ã Â¤Â¿Ã Â¤Â¯Ã Â¥Â';
+      case 'audio': return 'Ã Â¤ÂÃ Â¤Â¡Ã Â¤Â¿Ã Â¤Â¯Ã Â¥Â';
+      case 'document': return 'Ã Â¤Â¦Ã Â¤Â¸Ã Â¥ÂÃ Â¤Â¤Ã Â¤Â¾Ã Â¤ÂµÃ Â¥ÂÃ Â¤ÂÃ Â¤Â¼';
+      case 'sticker': return 'Ã Â¤Â¸Ã Â¥ÂÃ Â¤ÂÃ Â¤Â¿Ã Â¤ÂÃ Â¤Â°';
+      case 'location': return 'Ã Â¤Â²Ã Â¥ÂÃ Â¤ÂÃ Â¥ÂÃ Â¤Â¶Ã Â¤Â¨';
+      case 'contacts': return 'Ã Â¤ÂÃ Â¥ÂÃ Â¤Â¨Ã Â¥ÂÃ Â¤ÂÃ Â¥ÂÃ Â¤ÂÃ Â¥ÂÃ Â¤Â';
+      case 'template': return 'Ã Â¤ÂÃ Â¥ÂÃ Â¤Â®Ã Â¥ÂÃ Â¤ÂªÃ Â¤Â²Ã Â¥ÂÃ Â¤Â';
+      case 'interactive': return 'Ã Â¤ÂÃ Â¤ÂÃ Â¤ÂÃ Â¤Â°Ã Â¥ÂÃ Â¤ÂÃ Â¥ÂÃ Â¤ÂÃ Â¤Â¿Ã Â¤Âµ';
+      case 'reaction': return 'Ã Â¤Â°Ã Â¤Â¿Ã Â¤ÂÃ Â¤ÂÃ Â¥ÂÃ Â¤Â¶Ã Â¤Â¨';
+      case 'order': return 'Ã Â¤ÂÃ Â¤Â°Ã Â¥ÂÃ Â¤Â¡Ã Â¤Â°';
+      case 'button': return 'Ã Â¤Â¬Ã Â¤ÂÃ Â¤Â¨';
+      case 'system': return 'Ã Â¤Â¸Ã Â¤Â¿Ã Â¤Â¸Ã Â¥ÂÃ Â¤ÂÃ Â¤Â®';
       default: return message.messageType;
     }
   }
@@ -462,8 +468,8 @@ class _MessageBubble extends StatelessWidget {
     }
   }
 
-  // media_url à¤à¥ à¤à¤¨à¥à¤¸à¤¾à¤° media preview (image/sticker inline, à¤¬à¤¾à¤à¥
-  // types à¤à¥ à¤²à¤¿à¤ tappable tile à¤à¥ à¤¬à¤¾à¤¹à¤°à¥ à¤à¤ª à¤®à¥à¤ à¤à¥à¤²à¤¤à¤¾ à¤¹à¥)
+  // media_url Ã Â¤ÂÃ Â¥Â Ã Â¤ÂÃ Â¤Â¨Ã Â¥ÂÃ Â¤Â¸Ã Â¤Â¾Ã Â¤Â° media preview (image/sticker inline, Ã Â¤Â¬Ã Â¤Â¾Ã Â¤ÂÃ Â¥Â
+  // types Ã Â¤ÂÃ Â¥Â Ã Â¤Â²Ã Â¤Â¿Ã Â¤Â tappable tile Ã Â¤ÂÃ Â¥Â Ã Â¤Â¬Ã Â¤Â¾Ã Â¤Â¹Ã Â¤Â°Ã Â¥Â Ã Â¤ÂÃ Â¤Âª Ã Â¤Â®Ã Â¥ÂÃ Â¤Â Ã Â¤ÂÃ Â¥ÂÃ Â¤Â²Ã Â¤Â¤Ã Â¤Â¾ Ã Â¤Â¹Ã Â¥Â)
   Widget? _buildMedia(BuildContext context) {
     final type = message.messageType;
     final raw = message.mediaUrl;
@@ -488,7 +494,7 @@ class _MessageBubble extends StatelessWidget {
       final address = parsed['address'];
       return _mediaTile(
         icon: Icons.location_on,
-        title: (name != null && name.toString().isNotEmpty) ? name.toString() : 'à¤²à¥à¤à¥à¤¶à¤¨',
+        title: (name != null && name.toString().isNotEmpty) ? name.toString() : 'Ã Â¤Â²Ã Â¥ÂÃ Â¤ÂÃ Â¥ÂÃ Â¤Â¶Ã Â¤Â¨',
         subtitle: (address != null && address.toString().isNotEmpty)
             ? address.toString()
             : (lat != null && lng != null ? '$lat, $lng' : null),
@@ -558,7 +564,10 @@ class _MessageBubble extends StatelessWidget {
     }
 
     if (type == 'unsupported' && parsed is Map) {
-      final err = (parsed['errors'] as List?)?.firstOrNull as Map?;
+      final errorsList = parsed['errors'] as List?;
+      final err = (errorsList != null && errorsList.isNotEmpty && errorsList.first is Map)
+          ? errorsList.first as Map
+          : null;
       final title = err?['title']?.toString() ?? 'Unsupported message';
       final details = err?['error_data']?['details']?.toString() ?? '';
       return _mediaTile(
@@ -575,12 +584,12 @@ class _MessageBubble extends StatelessWidget {
         final p = (c is Map && c['phones'] is List && (c['phones'] as List).isNotEmpty)
             ? ((c['phones'][0] is Map) ? c['phones'][0]['phone'] : c['phones'][0])
             : null;
-        return 'ð¤ ${n ?? 'à¤à¥à¤¨à¥à¤à¥à¤à¥à¤'}${p != null ? ' â $p' : ''}';
+        return 'Ã°ÂÂÂ¤ ${n ?? 'Ã Â¤ÂÃ Â¥ÂÃ Â¤Â¨Ã Â¥ÂÃ Â¤ÂÃ Â¥ÂÃ Â¤ÂÃ Â¥ÂÃ Â¤Â'}${p != null ? ' Ã¢ÂÂ $p' : ''}';
       }).toList();
       return _mediaTile(icon: Icons.contacts, title: rows.join('\n'), fg: fg);
     }
 
-    // Relative R2 paths à¤à¥ absolute à¤¬à¤¨à¤¾à¤à¤
+    // Relative R2 paths Ã Â¤ÂÃ Â¥Â absolute Ã Â¤Â¬Ã Â¤Â¨Ã Â¤Â¾Ã Â¤ÂÃ Â¤Â
     final url = raw.startsWith('/api/') ? '${ApiService.baseUrl}$raw' : raw;
     final isUrl = url.startsWith('http');
 
@@ -623,7 +632,7 @@ class _MessageBubble extends StatelessWidget {
         child: Image.network(
           url,
           fit: BoxFit.contain,
-          errorBuilder: (ctx, e, st) => Text('ð', style: const TextStyle(fontSize: 44)),
+          errorBuilder: (ctx, e, st) => Text('Ã°ÂÂÂ', style: const TextStyle(fontSize: 44)),
         ),
       );
     }
@@ -631,7 +640,7 @@ class _MessageBubble extends StatelessWidget {
     if (type == 'video' && isUrl) {
       return _mediaTile(
         icon: Icons.play_circle_fill,
-        title: 'à¤µà¥à¤¡à¤¿à¤¯à¥',
+        title: 'Ã Â¤ÂµÃ Â¥ÂÃ Â¤Â¡Ã Â¤Â¿Ã Â¤Â¯Ã Â¥Â',
         fg: fg,
         onTap: () => _openUrl(url),
       );
@@ -640,9 +649,9 @@ class _MessageBubble extends StatelessWidget {
     if (type == 'audio' && isUrl) {
       return _mediaTile(
         icon: Icons.mic,
-        title: message.text.contains('Voice') || message.text.contains('à¤µà¥à¤¯à¤¸')
-            ? 'à¤µà¥à¤¯à¤¸ à¤¨à¥à¤'
-            : 'à¤à¤¡à¤¿à¤¯à¥',
+        title: message.text.contains('Voice') || message.text.contains('Ã Â¤ÂµÃ Â¥ÂÃ Â¤Â¯Ã Â¤Â¸')
+            ? 'Ã Â¤ÂµÃ Â¥ÂÃ Â¤Â¯Ã Â¤Â¸ Ã Â¤Â¨Ã Â¥ÂÃ Â¤Â'
+            : 'Ã Â¤ÂÃ Â¤Â¡Ã Â¤Â¿Ã Â¤Â¯Ã Â¥Â',
         fg: fg,
         onTap: () => _openUrl(url),
       );
@@ -653,7 +662,7 @@ class _MessageBubble extends StatelessWidget {
         icon: Icons.description,
         title: (message.text.isNotEmpty && message.text != 'Document Message')
             ? message.text
-            : 'à¤¦à¤¸à¥à¤¤à¤¾à¤µà¥à¤à¤¼',
+            : 'Ã Â¤Â¦Ã Â¤Â¸Ã Â¥ÂÃ Â¤Â¤Ã Â¤Â¾Ã Â¤ÂµÃ Â¥ÂÃ Â¤ÂÃ Â¤Â¼',
         fg: fg,
         onTap: () => _openUrl(url),
       );
@@ -758,7 +767,7 @@ class _MessageBubble extends StatelessWidget {
               const SizedBox(height: 6),
             ],
             // Media (image/sticker inline, video/audio/document/location/
-            // contacts tiles) â text/caption à¤à¤¸à¤à¥ à¤¨à¥à¤à¥
+            // contacts tiles) Ã¢ÂÂ text/caption Ã Â¤ÂÃ Â¤Â¸Ã Â¤ÂÃ Â¥Â Ã Â¤Â¨Ã Â¥ÂÃ Â¤ÂÃ Â¥Â
             ...(_buildMedia(context) != null ? [_buildMedia(context)!] : const <Widget>[]),
             SizedBox(
               width: double.infinity,
@@ -778,7 +787,7 @@ class _MessageBubble extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(top: 2),
                 child: Text(
-                  'ð ${_typeLabel ?? message.messageType}',
+                  'Ã°ÂÂÂ ${_typeLabel ?? message.messageType}',
                   style: TextStyle(
                     color: mine ? Colors.white.withValues(alpha: 0.7) : AppColors.textMuted,
                     fontSize: 10,
