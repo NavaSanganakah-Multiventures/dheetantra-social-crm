@@ -70,23 +70,21 @@ class _DialerScreenState extends State<DialerScreen> {
   }
 
   Widget _key(String label, {String? sub}) {
-    return Expanded(
-      child: AspectRatio(
-        aspectRatio: 1.2,
-        child: Material(
-          color: AppColors.surface,
-          shape: const CircleBorder(),
-          child: InkWell(
-            customBorder: const CircleBorder(),
-            onTap: () => _appendDigit(label),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(label, style: const TextStyle(color: AppColors.textPrimary, fontSize: 28, fontWeight: FontWeight.w500)),
-                if (sub != null)
-                  Text(sub, style: const TextStyle(color: AppColors.textMuted, fontSize: 11, letterSpacing: 2)),
-              ],
-            ),
+    return AspectRatio(
+      aspectRatio: 1.2,
+      child: Material(
+        color: AppColors.surface,
+        shape: const CircleBorder(),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: () => _appendDigit(label),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(label, style: const TextStyle(color: AppColors.textPrimary, fontSize: 28, fontWeight: FontWeight.w500)),
+              if (sub != null)
+                Text(sub, style: const TextStyle(color: AppColors.textMuted, fontSize: 11, letterSpacing: 2)),
+            ],
           ),
         ),
       ),
@@ -138,9 +136,11 @@ class _DialerScreenState extends State<DialerScreen> {
                       child: Row(
                         children: [
                           for (int c = 0; c < 3; c++)
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 6),
-                              child: _key(keys[r * 3 + c][0], sub: keys[r * 3 + c][1]),
+                            Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 6),
+                                child: _key(keys[r * 3 + c][0], sub: keys[r * 3 + c][1]),
+                              ),
                             ),
                         ],
                       ),
