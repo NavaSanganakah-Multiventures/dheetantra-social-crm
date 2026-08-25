@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 
 class CallerIdService {
-  static const MethodChannel _channel = MethodChannel('dheetantra/callerid')
+  static final MethodChannel _channel = MethodChannel('dheetantra/callerid')
     ..setMethodCallHandler(_handleMethodCall);
   static final StreamController<Map<String, dynamic>> _eventController =
       StreamController<Map<String, dynamic>>.broadcast();
