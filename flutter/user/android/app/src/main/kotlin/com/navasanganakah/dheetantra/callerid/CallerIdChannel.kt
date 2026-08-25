@@ -93,6 +93,10 @@ object CallerIdChannel : MethodChannel.MethodCallHandler {
             "requestDefaultDialerRole" -> {
                 result.success(tryLaunchDefaultDialerRole(context))
             }
+            "openDefaultDialerSettings" -> {
+                context.startActivity(Intent(android.provider.Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                result.success(true)
+            }
             "clearAuth" -> {
                 SecureTokenStorage.clear(context)
                 stopAfterCallService(context)
