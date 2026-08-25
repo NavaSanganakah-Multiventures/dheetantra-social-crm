@@ -39,6 +39,16 @@ class OutgoingCallActivity : Activity() {
         val phone = intent.getStringExtra("phone") ?: ""
         val callId = intent.getStringExtra("callId")
 
+        // If opened directly from dialer router (no active InCallService call yet), place it.
+        if (intent.getBooleanExtra("shouldPlaceCall", false) && phone.isNotBlank()) {
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    val tm = getSystemService(TELECOM_SERVICE) as android.telecom.TelecomManager
+                    tm.placeCall(android.net.Uri.fromParts("tel", phone, null), null)
+                }
+            } catch (e: SecurityException) { e.printStackTrace() }
+        }
+
         findViewById<TextView>(R.id.tvNumber).text = phone
 
         findViewById<Button>(R.id.btnHangup).setOnClickListener {
