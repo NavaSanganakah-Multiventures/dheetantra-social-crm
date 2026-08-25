@@ -340,10 +340,11 @@ class ApiService {
 
   // ========== UNIFIED CRM CALLS ==========
 
-  Future<List<dynamic>> getUnifiedCalls({String? source, String? search, int limit = 100, int offset = 0}) async {
+  Future<List<dynamic>> getUnifiedCalls({String? source, String? search, String? phone, int limit = 100, int offset = 0}) async {
     try {
       final query = <String, dynamic>{'limit': limit, 'offset': offset};
       if (source != null && source != 'all') query['source'] = source;
+      if (phone != null && phone.isNotEmpty) query['phone'] = phone;
       final res = await _dio.get('/api/calls', queryParameters: query);
       final data = res.data as Map<String, dynamic>;
       final calls = data['calls'] as List? ?? [];
