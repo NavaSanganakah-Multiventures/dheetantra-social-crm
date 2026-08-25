@@ -1,4 +1,8 @@
+import 'dart:io';
+
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../models/models.dart';
 import '../services/api_service.dart';
@@ -25,16 +29,27 @@ class _CallDetailScreenState extends State<CallDetailScreen> {
   Map<String, dynamic> _call = {};
   final TextEditingController _notesController = TextEditingController();
   bool _saving = false;
+  final AudioPlayer _player = AudioPlayer();
+  PlayerState _playerState = PlayerState.stopped;
+  bool _audioLoading = false;
+  String? _downloadedPath;
   String _error = '';
 
   @override
   void initState() {
     super.initState();
     _load();
+    _player.onPlayerStateChanged.listen((s) {
+      if (mounted) setState(() => _playerState = s);
+    });
+    _player.onPlayerComplete.listen((_) {
+      if (mounted) setState(() => _playerState = PlayerState.stopped);
+    });
   }
 
   @override
   void dispose() {
+    _player.dispose();
     _notesController.dispose();
     super.dispose();
   }
@@ -62,6 +77,65 @@ class _CallDetailScreenState extends State<CallDetailScreen> {
     } else {
       _showSnack('Failed to save notes');
     }
+  }
+
+  Future<void> _togglePlayback() async {
+    if (_playerState == PlayerState.playing) {
+      await _player.pause();
+      return;
+    }
+    if (_downloadedPath == null) {
+      setState(() => _audioLoading = true);
+      try {
+        final saved = await _downloadRecording();
+        if (saved == null) throw Exception('Download failed');
+        _downloadedPath = saved;
+      } catch (e) {
+        if (mounted) {
+          _showSnack('Recording download failed: $e');
+          setState(() => _audioLoading = false);
+        }
+        return;
+      }
+    }
+    if (!mounted) return;
+    setState(() => _audioLoading = true);
+    try {
+      await _player.setSourceDeviceFile(_downloadedPath!);
+      await _player.resume();
+    } catch (e) {
+      if (mounted) _showSnack('Playback failed: $e');
+    } finally {
+      if (mounted) setState(() => _audioLoading = false);
+    }
+  }
+
+  Future<String?> _downloadRecording() async {
+    final url = '${ApiService.baseUrl}/api/calls/${widget.callId}/recording';
+    final res = await ApiService().dio.get<List<int>>(
+      url,
+      options: Options(
+        responseType: ResponseType.bytes,
+        headers: {'x-workspace-id': ApiService().workspaceId ?? ''},
+      ),
+    );
+    if (res.statusCode != 200 || res.data == null) return null;
+    final bytes = res.data!;
+    final dir = await getTemporaryDirectory();
+    final ext = _extensionFromUrl(_call['recording_url']?.toString() ?? '');
+    final file = File('${dir.path}/recording_${widget.callId}$ext');
+    await file.writeAsBytes(bytes, flush: true);
+    return file.path;
+  }
+
+  String _extensionFromUrl(String value) {
+    final lower = value.toLowerCase();
+    if (lower.endsWith('.mp3')) return '.mp3';
+    if (lower.endsWith('.wav')) return '.wav';
+    if (lower.endsWith('.m4a')) return '.m4a';
+    if (lower.endsWith('.aac')) return '.aac';
+    if (lower.endsWith('.3gp')) return '.3gp';
+    return '.m4a';
   }
 
   Future<void> _openChat() async {
@@ -95,7 +169,6 @@ class _CallDetailScreenState extends State<CallDetailScreen> {
     final status = (_call['status'] ?? '').toString();
     final duration = _toInt(_call['duration'] ?? _call['duration_seconds'] ?? 0);
     final createdAt = _parseDate(_call['created_at'] ?? _call['started_at']);
-    final createdAtLocal = createdAt;
     final hasRecording = _call['recording_url'] != null && _call['recording_url'].toString().isNotEmpty;
     final summary = _call['summary']?.toString();
 
@@ -121,11 +194,11 @@ class _CallDetailScreenState extends State<CallDetailScreen> {
             ),
             const SizedBox(height: 20),
             if (hasRecording)
-              _ActionCard(
-                icon: const Icon(Icons.mic, color: AppColors.accent),
-                title: 'Recording attached',
-                subtitle: 'This call has a recording on the server',
-                onTap: () => _showSnack('Recording playback via authenticated stream coming soon'),
+              _PlayerCard(
+                isPlaying: _playerState == PlayerState.playing,
+                isLoading: _audioLoading,
+                downloaded: _downloadedPath != null,
+                onTap: _togglePlayback,
               ),
             if (summary != null && summary.isNotEmpty) ...[
               const SizedBox(height: 12),
@@ -319,23 +392,23 @@ class _DetailItem extends StatelessWidget {
   }
 }
 
-class _ActionCard extends StatelessWidget {
-  final Widget icon;
-  final String title;
-  final String subtitle;
-  final VoidCallback? onTap;
+class _PlayerCard extends StatelessWidget {
+  final bool isPlaying;
+  final bool isLoading;
+  final bool downloaded;
+  final VoidCallback onTap;
 
-  const _ActionCard({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    this.onTap,
+  const _PlayerCard({
+    required this.isPlaying,
+    required this.isLoading,
+    required this.downloaded,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: onTap,
+      onTap: isLoading ? null : onTap,
       borderRadius: BorderRadius.circular(16),
       child: Container(
         width: double.infinity,
@@ -347,22 +420,21 @@ class _ActionCard extends StatelessWidget {
         ),
         child: Row(
           children: [
-            icon,
+            if (isLoading)
+              const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2))
+            else
+              Icon(isPlaying ? Icons.pause_circle_filled : Icons.play_circle_fill, color: AppColors.accent, size: 28),
             const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    title,
-                    style: const TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    isPlaying ? 'Pause recording' : 'Play recording',
+                    style: const TextStyle(color: AppColors.textPrimary, fontSize: 14, fontWeight: FontWeight.w600),
                   ),
                   Text(
-                    subtitle,
+                    downloaded ? 'Ready to play' : 'Tap to download from server',
                     style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
                   ),
                 ],
