@@ -18,6 +18,7 @@ import kotlinx.coroutines.*
 
 object CallerIdChannel : MethodChannel.MethodCallHandler {
     private const val CHANNEL_NAME = "dheetantra/callerid"
+    private const val REQ_DEFAULT_DIALER = 9001
     private var methodChannel: MethodChannel? = null
 
     fun register(engine: FlutterEngine, context: Context) {
