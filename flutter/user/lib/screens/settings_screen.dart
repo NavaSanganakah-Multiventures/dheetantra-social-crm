@@ -27,6 +27,7 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  bool _defaultDialer = false;
   static const _notificationsPref = 'notifications_enabled';
   static const _callsPref = 'calls_enabled';
 
