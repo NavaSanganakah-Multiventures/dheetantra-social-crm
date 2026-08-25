@@ -194,7 +194,7 @@ object CallerIdChannel : MethodChannel.MethodCallHandler {
             val roleManager = context.getSystemService(Context.ROLE_SERVICE) as RoleManager
             if (roleManager.isRoleAvailable(RoleManager.ROLE_DIALER)) {
                 pendingRoleCallbacks[REQUEST_DEFAULT_DIALER] = { granted ->
-                    // Verify against TelecomManager — the role grant is the source of truth.
+                    // Verify against TelecomManager - the role grant is the source of truth.
                     callback(if (granted) isDefaultDialer(context) else false)
                 }
                 activity.startActivityForResult(
@@ -229,7 +229,7 @@ object CallerIdChannel : MethodChannel.MethodCallHandler {
         when (requestCode) {
             REQUEST_DEFAULT_DIALER -> {
                 // For the dialer role, the dialog "OK" is not authoritative on all
-                // OEMs — always re-check the real default dialer package.
+                // OEMs - always re-check the real default dialer package.
                 val activity = currentActivity?.get()
                 if (activity != null) {
                     SecureTokenStorage.setDefaultDialerEnabled(activity, granted)
