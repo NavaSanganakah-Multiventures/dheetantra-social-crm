@@ -493,4 +493,340 @@ router.get('/api/whatsapp/calls/status', async (c) => {
 
 // Manually subscribe webhook fields (messages + calls) for a workspace's WABA
 
+
+// ==========================================
+// GSM CALLER APP / DEFAULT DIALER SUPPORT
+// ==========================================
+
+// List calls (all sources). Pass ?source=gsm or ?source=whatsapp to filter.
+router.get('/api/calls', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  const { limit, offset } = pagination(c, 100);
+  const source = c.req.query('source');
+
+  let sql = `
+    SELECT cl.*, ct.name as contact_name, ct.platform_contact_id as phone
+    FROM calls cl
+    LEFT JOIN contacts ct ON cl.contact_id = ct.id
+    WHERE cl.workspace_id = ?
+  `;
+  const params: any[] = [workspaceId];
+  if (source) {
+    sql += ' AND cl.source = ?';
+    params.push(source);
+  }
+  sql += ' ORDER BY cl.created_at DESC LIMIT ? OFFSET ?';
+  params.push(limit, offset);
+
+  const { results } = await c.env.DB.prepare(sql).bind(...params).all();
+  return c.json({ calls: results || [] });
+});
+
+// Upsert a contact for a phone number inside this workspace (GSM/e164 format).
+async function findOrCreateGsmContact(db: any, workspaceId: string, phone: string, name?: string) {
+  const normalizedPhone = phone.replace(/[^0-9+]/g, '');
+  const existing = await db.prepare(
+    'SELECT id, name FROM contacts WHERE workspace_id = ? AND platform = ? AND platform_contact_id = ?'
+  ).bind(workspaceId, 'gsm', normalizedPhone).first() as { id: string; name: string } | null;
+  if (existing) return existing.id;
+  const id = crypto.randomUUID();
+  await db.prepare(
+    'INSERT INTO contacts (id, workspace_id, platform, platform_contact_id, name) VALUES (?, ?, ?, ?, ?)'
+  ).bind(id, workspaceId, 'gsm', normalizedPhone, name || normalizedPhone).run();
+  return id;
+}
+
+// Create a GSM call log. Provide phone *or* contactId.
+router.post('/api/calls', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  const body = await c.req.json();
+  const { phone, contactId, direction, status, duration, startedAt, endedAt, notes } = body;
+  if (!phone && !contactId) {
+    return c.json({ error: 'phone or contactId required' }, 400);
+  }
+  if (!['incoming', 'outgoing'].includes(direction)) {
+    return c.json({ error: 'direction must be incoming or outgoing' }, 400);
+  }
+
+  let finalContactId: string | null = contactId || null;
+  let finalPhone = phone || '';
+  if (!finalContactId && finalPhone) {
+    finalContactId = await findOrCreateGsmContact(c.env.DB, workspaceId, finalPhone, body.contactName);
+  }
+  if (!finalContactId) {
+    return c.json({ error: 'Could not resolve contact' }, 400);
+  }
+  if (!finalPhone) {
+    const ct = await c.env.DB.prepare('SELECT platform_contact_id FROM contacts WHERE id = ? AND workspace_id = ?').bind(finalContactId, workspaceId).first<{ platform_contact_id: string }>();
+    finalPhone = ct?.platform_contact_id || '';
+  }
+
+  const callId = crypto.randomUUID();
+  const callCreatedAt = sqliteNow();
+  const started = startedAt || callCreatedAt;
+  const ended = endedAt || null;
+  const dur = typeof duration === 'number' ? duration : 0;
+
+  await c.env.DB.prepare(`
+    INSERT INTO calls (id, workspace_id, contact_id, caller_number, type, direction, status, source, duration, notes, started_at, ended_at, created_at)
+    VALUES (?, ?, ?, ?, 'voice', ?, ?, 'gsm', ?, ?, ?, ?, ?)
+  `).bind(callId, workspaceId, finalContactId, finalPhone, direction, status || 'ringing', dur, notes || null, started, ended, callCreatedAt).run();
+
+  const contact = await c.env.DB.prepare('SELECT name, platform_contact_id FROM contacts WHERE id = ?').bind(finalContactId).first<{ name: string; platform_contact_id: string }>();
+
+  try {
+    const globalDoId = c.env.CHAT_DO.idFromName(`global-${workspaceId}`);
+    const globalStub = c.env.CHAT_DO.get(globalDoId);
+    await globalStub.fetch(new Request('http://do/broadcast', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'call_updated',
+        call: {
+          id: callId,
+          workspace_id: workspaceId,
+          contact_id: finalContactId,
+          contact_name: contact?.name || 'Unknown',
+          phone: contact?.platform_contact_id || finalPhone,
+          type: 'voice',
+          direction,
+          status: status || 'ringing',
+          source: 'gsm',
+          duration: dur,
+          notes: notes || null,
+          created_at: callCreatedAt
+        }
+      })
+    }));
+  } catch (e) {
+    console.error('[GSM Calls] broadcast error:', e);
+  }
+
+  return c.json({ success: true, callId });
+});
+
+
+// Get a single call by ID
+router.get('/api/calls/:id', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  const callId = c.req.param('id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  const call = await c.env.DB.prepare(`
+    SELECT cl.*, ct.name as contact_name, ct.platform_contact_id as phone, ct.lead_status, ct.email
+    FROM calls cl
+    LEFT JOIN contacts ct ON cl.contact_id = ct.id
+    WHERE cl.id = ? AND cl.workspace_id = ?
+  `).bind(callId, workspaceId).first();
+  if (!call) return c.json({ error: 'Call not found' }, 404);
+  return c.json({ call });
+});
+
+// Update a GSM call (status, duration, ended_at, notes).
+router.post('/api/calls/:id/status', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  const callId = c.req.param('id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  const body = await c.req.json();
+  const { status, duration, endedAt, notes, recordingUrl } = body;
+
+  const updates: string[] = [];
+  const params: any[] = [];
+  if (status !== undefined) { updates.push('status = ?'); params.push(status); }
+  if (duration !== undefined) { updates.push('duration = ?'); params.push(duration); }
+  if (endedAt !== undefined) { updates.push('ended_at = ?'); params.push(endedAt); }
+  if (notes !== undefined) { updates.push('notes = ?'); params.push(notes); }
+  if (recordingUrl !== undefined) { updates.push('recording_url = ?'); params.push(recordingUrl); }
+  if (updates.length === 0) return c.json({ error: 'No fields to update' }, 400);
+
+  params.push(callId, workspaceId);
+  await c.env.DB.prepare(`UPDATE calls SET ${updates.join(', ')} WHERE id = ? AND workspace_id = ?`).bind(...params).run();
+
+  try {
+    const globalDoId = c.env.CHAT_DO.idFromName(`global-${workspaceId}`);
+    const globalStub = c.env.CHAT_DO.get(globalDoId);
+    await globalStub.fetch(new Request('http://do/broadcast', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'call_status_updated', call_id: callId, status, duration, source: 'gsm' })
+    }));
+  } catch (e) { }
+
+  return c.json({ success: true });
+});
+
+// Upload call recording for a GSM call.
+router.post('/api/calls/:id/recording', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  const callId = c.req.param('id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  const call = await c.env.DB.prepare('SELECT id, contact_id FROM calls WHERE id = ? AND workspace_id = ? AND source = ?')
+    .bind(callId, workspaceId, 'gsm').first<{ id: string; contact_id: string }>();
+  if (!call) return c.json({ error: 'Call not found' }, 404);
+
+  try {
+    const body = await c.req.parseBody();
+    const file = body['recording'];
+    if (!file || typeof (file as any).arrayBuffer !== 'function') {
+      return c.json({ error: 'No audio file provided' }, 400);
+    }
+    const f = file as File;
+    const ext = (f.name?.split('.').pop() || 'm4a').toLowerCase();
+    const key = `recordings/${workspaceId}/${callId}/${Date.now()}.${ext}`;
+
+    await c.env.MEDIA_BUCKET.put(key, await f.arrayBuffer(), {
+      httpMetadata: { contentType: f.type || 'audio/mpeg' }
+    });
+
+    await c.env.DB.prepare('UPDATE calls SET recording_url = ? WHERE id = ? AND workspace_id = ?')
+      .bind(key, callId, workspaceId).run();
+
+    return c.json({ success: true, recordingUrl: key });
+  } catch (err: any) {
+    console.error('[GSM Calls] recording upload error:', err);
+    return c.json({ error: 'Failed to upload recording' }, 500);
+  }
+});
+
+// Play/download a call recording.
+router.get('/api/calls/:id/recording', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  const callId = c.req.param('id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  const call = await c.env.DB.prepare('SELECT recording_url FROM calls WHERE id = ? AND workspace_id = ?')
+    .bind(callId, workspaceId).first<{ recording_url: string | null }>();
+  if (!call || !call.recording_url) return c.json({ error: 'Recording not found' }, 404);
+
+  const obj = await c.env.MEDIA_BUCKET.get(call.recording_url);
+  if (!obj || !obj.body) return c.json({ error: 'Recording missing in storage' }, 404);
+
+  return new Response(obj.body, {
+    headers: {
+      'Content-Type': obj.httpMetadata?.contentType || 'audio/mpeg',
+      'Content-Length': String(obj.size),
+      'Cache-Control': 'private, max-age=86400'
+    }
+  });
+});
+
+// ==========================================
+// AI SUMMARY FOR CALL RECORDINGS
+// Primary: Google AI Studio (Gemini)
+// Fallback: Cloudflare Workers AI (whisper + llama)
+// ==========================================
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
+async function summarizeWithGemini(audioBytes: ArrayBuffer, mimeType: string, env: Env): Promise<string | null> {
+  const key = await env.SECRETS_KV.get('GEMINI_API_KEY');
+  if (!key) return null;
+
+  const prompt = `You are a CRM assistant. Summarize this phone call in the same language as the audio.
+Include:
+- Caller intent
+- Key discussion points
+- Action items / follow-ups
+- Sentiment (positive/neutral/negative)
+Keep it concise.`;
+
+  const body = {
+    contents: [
+      {
+        role: 'user',
+        parts: [
+          { text: prompt },
+          { inlineData: { mimeType, data: arrayBufferToBase64(audioBytes) } }
+        ]
+      }
+    ],
+    generationConfig: { maxOutputTokens: 2048, temperature: 0.3 }
+  };
+
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  if (!res.ok) {
+    const err = await res.text().catch(() => 'Gemini request failed');
+    console.error('[AI Summary] Gemini error:', err);
+    return null;
+  }
+  const data: any = await res.json();
+  return data?.candidates?.[0]?.content?.parts?.[0]?.text || null;
+}
+
+async function summarizeWithWorkersAI(audioBytes: ArrayBuffer, env: Env): Promise<string | null> {
+  try {
+    const transcriptResult: any = await env.AI.run('@cf/openai/whisper-large-v3-turbo', { audio: audioBytes });
+    const transcript = transcriptResult?.text || transcriptResult?.transcription || '';
+    if (!transcript) return null;
+
+    const summaryResult: any = await env.AI.run('@cf/meta/llama-3-8b-instruct', {
+      messages: [
+        { role: 'system', content: 'You are a CRM assistant. Summarize the following call transcript in the same language. Include intent, key points, action items, and sentiment.' },
+        { role: 'user', content: transcript }
+      ]
+    });
+    return summaryResult?.response || summaryResult?.summary || null;
+  } catch (e: any) {
+    console.error('[AI Summary] Workers AI error:', e);
+    return null;
+  }
+}
+
+router.post('/api/calls/:id/summarize', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  const callId = c.req.param('id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  const call = await c.env.DB.prepare(
+    'SELECT id, recording_url, transcript FROM calls WHERE id = ? AND workspace_id = ?'
+  ).bind(callId, workspaceId).first<{ id: string; recording_url: string | null; transcript: string | null }>();
+  if (!call) return c.json({ error: 'Call not found' }, 404);
+  if (!call.recording_url) return c.json({ error: 'No recording attached to this call' }, 400);
+
+  const obj = await c.env.MEDIA_BUCKET.get(call.recording_url);
+  if (!obj || !obj.body) return c.json({ error: 'Recording missing in storage' }, 404);
+  const audioBytes = await obj.arrayBuffer();
+  const mimeType = obj.httpMetadata?.contentType || 'audio/mpeg';
+
+  let summary: string | null = null;
+  let provider: string | null = null;
+  let transcript: string | null = call.transcript || null;
+
+  // Try Gemini first
+  summary = await summarizeWithGemini(audioBytes, mimeType, c.env);
+  if (summary) {
+    provider = 'gemini';
+  } else {
+    // Fallback to Workers AI transcription + summarization
+    summary = await summarizeWithWorkersAI(audioBytes, c.env);
+    if (summary) provider = 'workers_ai';
+  }
+
+  if (!summary) {
+    return c.json({ error: 'AI summary generation failed for this recording' }, 500);
+  }
+
+  await c.env.DB.prepare(
+    'UPDATE calls SET summary = ?, ai_summary_generated_at = ?, transcript = COALESCE(?, transcript) WHERE id = ? AND workspace_id = ?'
+  ).bind(summary, sqliteNow(), transcript || null, callId, workspaceId).run();
+
+  return c.json({ success: true, summary, provider });
+});
+
 export default router;

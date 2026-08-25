@@ -270,6 +270,8 @@ app.use('/api/whatsapp/flows/*', authMiddleware);
 app.use('/api/whatsapp/send', authMiddleware);
 app.use('/api/whatsapp/calls', authMiddleware);
 app.use('/api/whatsapp/calls/*', authMiddleware);
+app.use('/api/calls', authMiddleware);
+app.use('/api/calls/*', authMiddleware);
 app.use('/api/inbox/*', authMiddleware);
 app.use('/api/media/upload', authMiddleware);
 app.use('/api/broadcast', authMiddleware);

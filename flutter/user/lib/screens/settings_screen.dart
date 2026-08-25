@@ -11,6 +11,7 @@ import '../services/notification_center.dart';
 import '../services/websocket_service.dart';
 import '../services/battery_optimization_service.dart';
 import '../services/foreground_service.dart';
+import '../services/caller_id_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
 import 'login_screen.dart';
@@ -31,6 +32,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   bool _notifications = true;
   bool _callsEnabled = true;
+  bool _callerIdEnabled = false;
+  bool _afterCallEnabled = false;
+  bool _callerIdRoleHeld = false;
   bool _loading = true;
   bool _savingNotifications = false;
   bool _testingPush = false;
@@ -47,16 +51,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _loadPrefs() async {
     final prefs = await SharedPreferences.getInstance();
+    final roleHeld = await CallerIdService.isCallerIdRoleHeld();
     if (!mounted) return;
     setState(() {
       _notifications = prefs.getBool(_notificationsPref) ?? true;
       _callsEnabled = prefs.getBool(_callsPref) ?? true;
+      _callerIdEnabled = prefs.getBool('caller_id_enabled') ?? false;
+      _afterCallEnabled = prefs.getBool('after_call_crm_enabled') ?? false;
+      _callerIdRoleHeld = roleHeld;
     });
   }
 
   Future<void> _loadUserData() async {
     final api = ApiService();
     final user = await api.getMe();
+    await _syncSessionToNative();
     if (!mounted) return;
     setState(() {
       _userName = user?['name'] ?? 'User';
@@ -87,6 +96,91 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() => _callsEnabled = enabled);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_callsPref, enabled);
+  }
+
+
+
+  Future<void> _syncSessionToNative() async {
+    final sessionId = ApiService().sessionId;
+    final workspaceId = ApiService().workspaceId;
+    if (sessionId != null && workspaceId != null) {
+      await CallerIdService.storeSession(sessionId, workspaceId);
+    }
+  }
+
+  Future<bool> _requestCallPermissions() async {
+    if (kIsWeb || !Platform.isAndroid) return false;
+    final statuses = await [
+      Permission.phone,
+      Permission.contacts,
+      Permission.storage,
+      Permission.audio,
+    ].request();
+    return statuses.values.every((s) => s.isGranted || s.isLimited);
+  }
+
+  Future<void> _setCallerIdEnabled(bool enabled) async {
+    if (kIsWeb || !Platform.isAndroid) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('यह सुविधा सिर्फ Android के लिए है')),
+        );
+      }
+      return;
+    }
+
+    setState(() => _callerIdEnabled = enabled);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('caller_id_enabled', enabled);
+    await CallerIdService.setCallerIdEnabled(enabled);
+    await _syncSessionToNative();
+
+    if (enabled) {
+      final permsOk = await _requestCallPermissions();
+      if (!permsOk) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('कॉलर ID के लिए आवश्यक permissions दें')),
+          );
+        }
+      }
+      if (!_callerIdRoleHeld) {
+        final granted = await CallerIdService.requestCallerIdRole();
+        if (mounted) setState(() => _callerIdRoleHeld = granted);
+      }
+    }
+  }
+
+  Future<void> _setAfterCallEnabled(bool enabled) async {
+    if (kIsWeb || !Platform.isAndroid) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('यह सुविधा सिर्फ Android के लिए है')),
+        );
+      }
+      return;
+    }
+
+    setState(() => _afterCallEnabled = enabled);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('after_call_crm_enabled', enabled);
+    await CallerIdService.setAfterCallEnabled(enabled);
+    await _syncSessionToNative();
+
+    if (enabled) {
+      await _requestCallPermissions();
+    }
+  }
+
+  Future<void> _requestCallerIdRole() async {
+    if (kIsWeb || !Platform.isAndroid) return;
+    final granted = await CallerIdService.requestCallerIdRole();
+    if (mounted) {
+      setState(() => _callerIdRoleHeld = granted);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(granted ? 'Caller ID role मिल गई' : 'Caller ID role नहीं मिली')),
+      );
+    }
   }
 
   Future<void> _requestBatteryOptimization() async {
@@ -276,6 +370,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
               value: _callsEnabled,
               onChanged: _setCallsEnabled,
             ),
+            const Divider(height: 1, indent: 52),
+            if (!kIsWeb && Platform.isAndroid) ...[
+              _SettingsSwitchTile(
+                icon: Icons.contact_phone_outlined,
+                title: 'Caller ID Card',
+                subtitle: _callerIdRoleHeld ? 'इनकमिंग कॉल पर customer details दिखाए' : 'सेटिंग्स से Caller ID app चुनें',
+                value: _callerIdEnabled,
+                onChanged: _setCallerIdEnabled,
+              ),
+              const Divider(height: 1, indent: 52),
+              _SettingsSwitchTile(
+                icon: Icons.note_add_outlined,
+                title: 'Call के बाद CRM screen',
+                subtitle: 'कॉल end होते ही notes/recording जोड़ें',
+                value: _afterCallEnabled,
+                onChanged: _setAfterCallEnabled,
+              ),
+              const Divider(height: 1, indent: 52),
+              _SettingsTile(
+                icon: Icons.settings_applications_outlined,
+                title: 'Default Caller ID ऐप चुनें',
+                subtitle: 'Android की default apps settings खोलें',
+                trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
+                onTap: _requestCallerIdRole,
+              ),
+              const Divider(height: 1, indent: 52),
+            ],
             const Divider(height: 1, indent: 52),
             const _SettingsTile(
               icon: Icons.dark_mode_outlined,

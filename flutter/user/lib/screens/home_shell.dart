@@ -13,6 +13,9 @@ import '../services/notification_center.dart';
 import '../services/notification_router.dart';
 import '../services/websocket_service.dart';
 import '../services/webrtc_service.dart';
+import '../services/caller_id_service.dart';
+import 'caller_card_screen.dart';
+import 'after_call_screen.dart';
 import '../theme/app_theme.dart';
 import '../widgets/call_overlays.dart';
 import '../widgets/responsive_layout.dart';
@@ -59,6 +62,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
       if (mounted) setState(() => _unread = NotificationCenter().unread);
     });
     _notifRouterSub = NotificationRouter().onNotification.listen(_handlePushTap);
+    CallerIdService.events.listen(_handleCallerIdEvent);
     CallKitService().markHomeShellReady();
     _checkPendingAcceptedCall();
   }
@@ -239,6 +243,27 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     _notifCenterSub?.cancel();
     _notifRouterSub?.cancel();
     super.dispose();
+  }
+
+
+  void _handleCallerIdEvent(Map<String, dynamic> event) {
+    final route = event['route']?.toString();
+    final phone = event['phone']?.toString();
+    if (phone == null || phone.isEmpty || route == null || route.isEmpty) return;
+    if (!mounted) return;
+    if (route == '/caller-card') {
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => CallerCardScreen(phone: phone)),
+      );
+    } else if (route == '/after-call') {
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => AfterCallScreen(
+          phone: phone,
+          durationSeconds: (event['durationSeconds'] as num?)?.toInt() ?? 0,
+          direction: event['direction']?.toString() ?? 'incoming',
+        )),
+      );
+    }
   }
 
   @override
