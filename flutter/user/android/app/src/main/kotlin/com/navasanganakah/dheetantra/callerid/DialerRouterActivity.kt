@@ -5,7 +5,6 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.telecom.TelecomManager
 
 class DialerRouterActivity : Activity() {
 
@@ -19,7 +18,6 @@ class DialerRouterActivity : Activity() {
         when (action) {
             Intent.ACTION_CALL -> {
                 if (number.isNotBlank()) {
-                    placeCall(number)
                     startOutgoingScreen(number)
                 } else {
                     openAppDialer()
@@ -47,17 +45,6 @@ class DialerRouterActivity : Activity() {
 
     private fun extractNumber(uri: Uri): String {
         return if (uri.scheme == "tel") uri.schemeSpecificPart ?: "" else ""
-    }
-
-    private fun placeCall(number: String) {
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                val telecomManager = getSystemService(TELECOM_SERVICE) as TelecomManager
-                telecomManager.placeCall(Uri.fromParts("tel", number, null), null)
-            }
-        } catch (e: SecurityException) {
-            e.printStackTrace()
-        }
     }
 
     private fun startOutgoingScreen(number: String) {
