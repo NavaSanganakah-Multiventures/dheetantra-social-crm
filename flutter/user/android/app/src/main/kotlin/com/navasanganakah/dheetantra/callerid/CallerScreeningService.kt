@@ -138,23 +138,34 @@ class CallerScreeningService : CallScreeningService() {
             .setFullScreenIntent(pendingIntent, true)
             .build()
 
-        try {
-            val overlayIntent = Intent(this, CallerCardActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or
-                        Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or
-                        Intent.FLAG_ACTIVITY_NO_HISTORY or
-                        Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS
-                putExtra("phone", phoneNumber)
-                putExtra("name", name)
-                if (!leadStatus.isNullOrBlank()) putExtra("leadStatus", leadStatus)
-                if (!lastMessage.isNullOrBlank()) putExtra("lastMessage", lastMessage)
-            }
-            startActivity(overlayIntent)
-        } catch (e: Exception) {
-            e.printStackTrace()
+        val fullScreen = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                    Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or
+                    Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra("route", "/caller-card")
+            putExtra("phone", phoneNumber)
         }
 
-        manager.notify(NOTIFICATION_TAG, phoneNumber.hashCode(), notification)
+        val fullScreenPending = PendingIntent.getActivity(
+            this,
+            phoneNumber.hashCode(),
+            fullScreen,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notificationWithFullScreen = NotificationCompat.Builder(this, CHANNEL_ID)
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentTitle(name)
+            .setContentText(content)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(content))
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_CALL)
+            .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
+            .setFullScreenIntent(fullScreenPending, true)
+            .build()
+
+        manager.notify(NOTIFICATION_TAG, phoneNumber.hashCode(), notificationWithFullScreen)
     }
 
     companion object {
