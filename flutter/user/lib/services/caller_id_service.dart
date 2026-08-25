@@ -38,6 +38,22 @@ class CallerIdService {
     }
   }
 
+  static Future<bool> isDefaultDialer() async {
+    try {
+      return await _channel.invokeMethod<bool>('isDefaultDialer') ?? false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  static Future<bool> requestDefaultDialerRole() async {
+    try {
+      return await _channel.invokeMethod<bool>('requestDefaultDialerRole') ?? false;
+    } catch (e) {
+      return false;
+    }
+  }
+
   static Future<bool> isCallerIdRoleHeld() async {
     if (!Platform.isAndroid) return false;
     try {
