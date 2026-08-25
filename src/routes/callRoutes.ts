@@ -505,6 +505,7 @@ router.get('/api/calls', async (c) => {
 
   const { limit, offset } = pagination(c, 100);
   const source = c.req.query('source');
+  const phone = c.req.query('phone');
 
   let sql = `
     SELECT cl.*, ct.name as contact_name, ct.platform_contact_id as phone
@@ -516,6 +517,10 @@ router.get('/api/calls', async (c) => {
   if (source) {
     sql += ' AND cl.source = ?';
     params.push(source);
+  }
+  if (phone) {
+    sql += ' AND (ct.platform_contact_id LIKE ? OR ct.phone LIKE ?)';
+    params.push(`%${phone}%`, `%${phone}%`);
   }
   sql += ' ORDER BY cl.created_at DESC LIMIT ? OFFSET ?';
   params.push(limit, offset);
