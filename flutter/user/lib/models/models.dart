@@ -20,9 +20,9 @@ String _safeString(dynamic value) {
           continue;
         }
       }
-      // Lone high surrogate — skip.
+      // Lone high surrogate â skip.
     } else if (c >= 0xDC00 && c <= 0xDFFF) {
-      // Lone low surrogate — skip.
+      // Lone low surrogate â skip.
     } else {
       buffer.write(String.fromCharCode(c));
     }
@@ -93,12 +93,12 @@ class Contact {
   static List<String> _parseTags(Map<String, dynamic> json) {
     final tags = <String>[];
     if (json['is_lead'] == 1 || json['is_lead'] == true) {
-      tags.add('लीड');
+      tags.add('à¤²à¥à¤¡');
       if (json['lead_status'] != null && json['lead_status'] != 'new') {
         tags.add(_safeString(json['lead_status']));
       }
     } else {
-      tags.add('ग्राहक');
+      tags.add('à¤à¥à¤°à¤¾à¤¹à¤');
     }
     return tags;
   }
@@ -152,14 +152,44 @@ class Message {
     // chat bubble can render the media inline.
     String? mediaUrl = json['media_url'] != null ? _safeString(json['media_url']) : null;
 
-    // Parse email payload if present in media_url
+    // Parse email / structured WhatsApp payload if present in media_url
     if (mediaUrl != null) {
       try {
         final parsed = jsonDecode(mediaUrl);
         if (parsed is Map) {
-          if (parsed['subject'] != null) subject = _safeString(parsed['subject']);
-          if (parsed['text'] != null) textContent = _safeString(parsed['text']);
-          if (parsed['html'] != null) html = _safeString(parsed['html']);
+          if (messageType == 'email') {
+            if (parsed['subject'] != null) subject = _safeString(parsed['subject']);
+            if (parsed['text'] != null) textContent = _safeString(parsed['text']);
+            if (parsed['html'] != null) html = _safeString(parsed['html']);
+          } else if (messageType == 'interactive') {
+            final buttonTitle = parsed['button_title'];
+            final listTitle = parsed['list_title'];
+            final listDesc = parsed['list_description'];
+            if (buttonTitle != null) textContent = _safeString(buttonTitle);
+            if (listTitle != null) {
+              textContent = listTitle.toString();
+              if (listDesc != null) textContent += '\n' + listDesc.toString();
+            }
+            final nfm = parsed['nfm_response'] as Map?;
+            if (nfm != null && nfm['name'] != null) {
+              textContent = 'Flow: ' + _safeString(nfm['name']);
+            }
+          } else if (messageType == 'order') {
+            final order = parsed['order'] as Map?;
+            if (order != null && order['text'] != null) {
+              textContent = _safeString(order['text']);
+            }
+          } else if (messageType == 'location') {
+            final name = parsed['name'];
+            final address = parsed['address'];
+            if (name != null) textContent = _safeString(name);
+            if (address != null) textContent += '\n' + _safeString(address);
+          } else if (messageType == 'unsupported') {
+            final err = (parsed['errors'] as List?)?.firstOrNull as Map?;
+            if (err != null && err['title'] != null) {
+              textContent = _safeString(err['title']);
+            }
+          }
         }
       } catch (_) {
         // Not a JSON string
@@ -170,7 +200,7 @@ class Message {
       id: _safeString(json['id']),
       text: textContent,
       time: _parseUtcDateTime(json['created_at']) ?? DateTime.now(),
-      isMine: senderType == 'agent' || senderType == 'system',
+      isMine: senderType == 'agent' || senderType == 'system' || senderType == 'bot',
       isRead: json['status'] == 'read',
       senderType: senderType,
       status: _safeString(json['status'] ?? 'sent'),
