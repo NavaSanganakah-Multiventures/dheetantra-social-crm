@@ -17,7 +17,7 @@ import com.navasanganakah.dheetantra.R
  * Outgoing-call UI shown by [DheetantraInCallService] when the system reports a
  * DIALING/CONNECTING call. The actual call placement is now done either by the
  * system (when launched from the contacts app) or by [DialerRouterActivity] /
- * the Flutter dialpad via TelecomManager.placeCall — so this activity no longer
+ * the Flutter dialpad via TelecomManager.placeCall - so this activity no longer
  * tries to place a call itself (the old `shouldPlaceCall` path produced a
  * second outgoing screen on top of the one the InCallService already shows).
  */
