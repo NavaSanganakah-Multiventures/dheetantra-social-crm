@@ -50,6 +50,16 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".callerid.CallerCardActivity"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:launchMode="singleInstance"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:windowSoftInputMode="stateHidden" />
+
         <service
             android:name="com.hiennv.flutter_callkit_incoming.CallkitNotificationService"
             android:foregroundServiceType="phoneCall|microphone|camera"
