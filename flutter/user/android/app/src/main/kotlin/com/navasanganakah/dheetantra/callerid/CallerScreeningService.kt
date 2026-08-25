@@ -127,7 +127,7 @@ class CallerScreeningService : CallScreeningService() {
 
         val content = buildString {
             append("Incoming call")
-            if (!leadStatus.isNullOrBlank()) append(" â¢ \$leadStatus")
+            if (!leadStatus.isNullOrBlank()) { append(" - "); append(leadStatus) }
             if (!lastMessage.isNullOrBlank()) append("\nLast msg: $lastMessage")
         }
 
