@@ -53,6 +53,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _loadPrefs() async {
     final prefs = await SharedPreferences.getInstance();
     final roleHeld = await CallerIdService.isCallerIdRoleHeld();
+    final isDialer = await CallerIdService.isDefaultDialer();
     if (!mounted) return;
     setState(() {
       _notifications = prefs.getBool(_notificationsPref) ?? true;
@@ -60,6 +61,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _callerIdEnabled = prefs.getBool('caller_id_enabled') ?? false;
       _afterCallEnabled = prefs.getBool('after_call_crm_enabled') ?? false;
       _callerIdRoleHeld = roleHeld;
+      _defaultDialer = isDialer;
     });
   }
 
@@ -88,7 +90,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() => _savingNotifications = false);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(enabled ? 'पुश नोटिफिकेशन्स चालू' : 'पुश नोटिफिकेशन्स बंद'),
+        content: Text(enabled ? 'à¤ªà¥à¤¶ à¤¨à¥à¤à¤¿à¤«à¤¿à¤à¥à¤¶à¤¨à¥à¤¸ à¤à¤¾à¤²à¥' : 'à¤ªà¥à¤¶ à¤¨à¥à¤à¤¿à¤«à¤¿à¤à¥à¤¶à¤¨à¥à¤¸ à¤¬à¤à¤¦'),
       ),
     );
   }
@@ -124,7 +126,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (kIsWeb || !Platform.isAndroid) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('यह सुविधा सिर्फ Android के लिए है')),
+          const SnackBar(content: Text('à¤¯à¤¹ à¤¸à¥à¤µà¤¿à¤§à¤¾ à¤¸à¤¿à¤°à¥à¤« Android à¤à¥ à¤²à¤¿à¤ à¤¹à¥')),
         );
       }
       return;
@@ -141,7 +143,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (!permsOk) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('कॉलर ID के लिए आवश्यक permissions दें')),
+            const SnackBar(content: Text('à¤à¥à¤²à¤° ID à¤à¥ à¤²à¤¿à¤ à¤à¤µà¤¶à¥à¤¯à¤ permissions à¤¦à¥à¤')),
           );
         }
       }
@@ -156,7 +158,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (kIsWeb || !Platform.isAndroid) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('यह सुविधा सिर्फ Android के लिए है')),
+          const SnackBar(content: Text('à¤¯à¤¹ à¤¸à¥à¤µà¤¿à¤§à¤¾ à¤¸à¤¿à¤°à¥à¤« Android à¤à¥ à¤²à¤¿à¤ à¤¹à¥')),
         );
       }
       return;
@@ -179,8 +181,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (mounted) {
       setState(() => _callerIdRoleHeld = granted);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(granted ? 'Caller ID role मिल गई' : 'Caller ID role नहीं मिली')),
+        SnackBar(content: Text(granted ? 'Caller ID role à¤®à¤¿à¤² à¤à¤' : 'Caller ID role à¤¨à¤¹à¥à¤ à¤®à¤¿à¤²à¥')),
       );
+    }
+  }
+
+  Future<void> _requestDefaultDialer() async {
+    if (kIsWeb || !Platform.isAndroid) return;
+    // Ensure the call-related runtime permissions are granted before asking the
+    // system for the default-dialer role.
+    await _requestCallPermissions();
+    final granted = await CallerIdService.requestDefaultDialerRole();
+    if (!mounted) return;
+    setState(() => _defaultDialer = granted);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(granted
+            ? 'DheeTantra is now the default dialer'
+            : 'Default dialer role not granted'),
+      ),
+    );
+    if (!granted) {
+      await CallerIdService.openDefaultDialerSettings();
     }
   }
 
@@ -195,8 +217,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           SnackBar(
             content: Text(
               result.isGranted
-                  ? 'बैटरी ऑप्टिमाइज़ेशन बंद कर दिया गया'
-                  : 'सेटिंग्स से बैटरी ऑप्टिमाइज़ेशन बंद करें',
+                  ? 'à¤¬à¥à¤à¤°à¥ à¤à¤ªà¥à¤à¤¿à¤®à¤¾à¤à¤à¤¼à¥à¤¶à¤¨ à¤¬à¤à¤¦ à¤à¤° à¤¦à¤¿à¤¯à¤¾ à¤à¤¯à¤¾'
+                  : 'à¤¸à¥à¤à¤¿à¤à¤à¥à¤¸ à¤¸à¥ à¤¬à¥à¤à¤°à¥ à¤à¤ªà¥à¤à¤¿à¤®à¤¾à¤à¤à¤¼à¥à¤¶à¤¨ à¤¬à¤à¤¦ à¤à¤°à¥à¤',
             ),
           ),
         );
@@ -222,8 +244,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       SnackBar(
         content: Text(
           success
-              ? 'टेस्ट push भेजा गया ($count token)'
-              : 'टेस्ट push failed: ${error ?? 'unknown'}',
+              ? 'à¤à¥à¤¸à¥à¤ push à¤­à¥à¤à¤¾ à¤à¤¯à¤¾ ($count token)'
+              : 'à¤à¥à¤¸à¥à¤ push failed: ${error ?? 'unknown'}',
         ),
       ),
     );
@@ -306,16 +328,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
         const SizedBox(height: 24),
-        const _SectionLabel('वर्कस्पेस'),
+        const _SectionLabel('à¤µà¤°à¥à¤à¤¸à¥à¤ªà¥à¤¸'),
         const SizedBox(height: 10),
         _SettingsCard(
           children: [
             _SettingsTile(
               icon: Icons.business_center_outlined,
-              title: 'मेरा वर्कस्पेस',
+              title: 'à¤®à¥à¤°à¤¾ à¤µà¤°à¥à¤à¤¸à¥à¤ªà¥à¤¸',
               subtitle: ApiService().workspaceId != null
                   ? 'ID: ${ApiService().workspaceId!.substring(0, 8)}...'
-                  : 'कनेक्ट नहीं',
+                  : 'à¤à¤¨à¥à¤à¥à¤ à¤¨à¤¹à¥à¤',
               trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
               onTap: () {
                 Navigator.of(context).push(
@@ -326,8 +348,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const Divider(height: 1, indent: 52),
             _SettingsTile(
               icon: Icons.smartphone_outlined,
-              title: 'WhatsApp अकाउंट्स',
-              subtitle: _canManageWorkspace ? 'जोड़ें, संपादित करें, हटाएं' : 'सिर्फ़ देखें',
+              title: 'WhatsApp à¤à¤à¤¾à¤à¤à¤à¥à¤¸',
+              subtitle: _canManageWorkspace ? 'à¤à¥à¤¡à¤¼à¥à¤, à¤¸à¤à¤ªà¤¾à¤¦à¤¿à¤¤ à¤à¤°à¥à¤, à¤¹à¤à¤¾à¤à¤' : 'à¤¸à¤¿à¤°à¥à¤«à¤¼ à¤¦à¥à¤à¥à¤',
               trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
               onTap: () {
                 Navigator.of(context).push(
@@ -338,8 +360,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const Divider(height: 1, indent: 52),
             _SettingsTile(
               icon: Icons.integration_instructions_outlined,
-              title: 'टूल्स और इंटीग्रेशन्स',
-              subtitle: 'Email, Template, नया WhatsApp',
+              title: 'à¤à¥à¤²à¥à¤¸ à¤à¤° à¤à¤à¤à¥à¤à¥à¤°à¥à¤¶à¤¨à¥à¤¸',
+              subtitle: 'Email, Template, à¤¨à¤¯à¤¾ WhatsApp',
               trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
               onTap: () {
                 Navigator.of(context).push(
@@ -350,24 +372,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ],
         ),
         const SizedBox(height: 24),
-        const _SectionLabel('सामान्य'),
+        const _SectionLabel('à¤¸à¤¾à¤®à¤¾à¤¨à¥à¤¯'),
         const SizedBox(height: 10),
         _SettingsCard(
           children: [
             _SettingsSwitchTile(
               icon: Icons.notifications_outlined,
-              title: 'नोटिफिकेशन्स',
+              title: 'à¤¨à¥à¤à¤¿à¤«à¤¿à¤à¥à¤¶à¤¨à¥à¤¸',
               subtitle: _savingNotifications
-                  ? 'सिंक हो रहा है...'
-                  : 'नई बातचीत और कॉल्स की पुश सूचना',
+                  ? 'à¤¸à¤¿à¤à¤ à¤¹à¥ à¤°à¤¹à¤¾ à¤¹à¥...'
+                  : 'à¤¨à¤ à¤¬à¤¾à¤¤à¤à¥à¤¤ à¤à¤° à¤à¥à¤²à¥à¤¸ à¤à¥ à¤ªà¥à¤¶ à¤¸à¥à¤à¤¨à¤¾',
               value: _notifications,
               onChanged: _savingNotifications ? (_) {} : _setNotifications,
             ),
             const Divider(height: 1, indent: 52),
             _SettingsSwitchTile(
               icon: Icons.call_outlined,
-              title: 'कॉलिंग सक्षम',
-              subtitle: 'WhatsApp कॉल्स प्राप्त करें',
+              title: 'à¤à¥à¤²à¤¿à¤à¤ à¤¸à¤à¥à¤·à¤®',
+              subtitle: 'WhatsApp à¤à¥à¤²à¥à¤¸ à¤ªà¥à¤°à¤¾à¤ªà¥à¤¤ à¤à¤°à¥à¤',
               value: _callsEnabled,
               onChanged: _setCallsEnabled,
             ),
@@ -376,49 +398,63 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _SettingsSwitchTile(
                 icon: Icons.contact_phone_outlined,
                 title: 'Caller ID Card',
-                subtitle: _callerIdRoleHeld ? 'इनकमिंग कॉल पर customer details दिखाए' : 'सेटिंग्स से Caller ID app चुनें',
+                subtitle: _callerIdRoleHeld ? 'à¤à¤¨à¤à¤®à¤¿à¤à¤ à¤à¥à¤² à¤ªà¤° customer details à¤¦à¤¿à¤à¤¾à¤' : 'à¤¸à¥à¤à¤¿à¤à¤à¥à¤¸ à¤¸à¥ Caller ID app à¤à¥à¤¨à¥à¤',
                 value: _callerIdEnabled,
                 onChanged: _setCallerIdEnabled,
               ),
               const Divider(height: 1, indent: 52),
               _SettingsSwitchTile(
                 icon: Icons.note_add_outlined,
-                title: 'Call के बाद CRM screen',
-                subtitle: 'कॉल end होते ही notes/recording जोड़ें',
+                title: 'Call à¤à¥ à¤¬à¤¾à¤¦ CRM screen',
+                subtitle: 'à¤à¥à¤² end à¤¹à¥à¤¤à¥ à¤¹à¥ notes/recording à¤à¥à¤¡à¤¼à¥à¤',
                 value: _afterCallEnabled,
                 onChanged: _setAfterCallEnabled,
               ),
               const Divider(height: 1, indent: 52),
               _SettingsTile(
                 icon: Icons.settings_applications_outlined,
-                title: 'Default Caller ID ऐप चुनें',
-                subtitle: 'Android की default apps settings खोलें',
+                title: 'Default Caller ID à¤à¤ª à¤à¥à¤¨à¥à¤',
+                subtitle: 'Android à¤à¥ default apps settings à¤à¥à¤²à¥à¤',
                 trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
                 onTap: _requestCallerIdRole,
+              ),
+              const Divider(height: 1, indent: 52),
+              _SettingsTile(
+                icon: Icons.dialpad_outlined,
+                title: 'Default Dialer App',
+                subtitle: _defaultDialer
+                    ? 'DheeTantra is set as the default dialer'
+                    : 'Set DheeTantra as your default phone app',
+                trailing: Icon(
+                  _defaultDialer ? Icons.check_rounded : Icons.chevron_right_rounded,
+                  color: _defaultDialer ? AppColors.accent : AppColors.textMuted,
+                  size: 20,
+                ),
+                onTap: _requestDefaultDialer,
               ),
               const Divider(height: 1, indent: 52),
             ],
             const Divider(height: 1, indent: 52),
             const _SettingsTile(
               icon: Icons.dark_mode_outlined,
-              title: 'थीम',
-              subtitle: 'डार्क मोड (डिफ़ॉल्ट)',
+              title: 'à¤¥à¥à¤®',
+              subtitle: 'à¤¡à¤¾à¤°à¥à¤ à¤®à¥à¤¡ (à¤¡à¤¿à¤«à¤¼à¥à¤²à¥à¤)',
               trailing: Icon(Icons.check_rounded, color: AppColors.accent, size: 20),
               onTap: null,
             ),
             const Divider(height: 1, indent: 52),
             _SettingsTile(
               icon: Icons.battery_saver_outlined,
-              title: 'बैटरी ऑप्टिमाइज़ेशन',
-              subtitle: 'ऐप बंद होने पर भी नोटिफिकेशन पाने के लिए',
+              title: 'à¤¬à¥à¤à¤°à¥ à¤à¤ªà¥à¤à¤¿à¤®à¤¾à¤à¤à¤¼à¥à¤¶à¤¨',
+              subtitle: 'à¤à¤ª à¤¬à¤à¤¦ à¤¹à¥à¤¨à¥ à¤ªà¤° à¤­à¥ à¤¨à¥à¤à¤¿à¤«à¤¿à¤à¥à¤¶à¤¨ à¤ªà¤¾à¤¨à¥ à¤à¥ à¤²à¤¿à¤',
               trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
               onTap: _requestBatteryOptimization,
             ),
             const Divider(height: 1, indent: 52),
             _SettingsTile(
               icon: Icons.notifications_active_outlined,
-              title: 'टेस्ट पुश नोटिफिकेशन',
-              subtitle: 'FCM push instantly check करें',
+              title: 'à¤à¥à¤¸à¥à¤ à¤ªà¥à¤¶ à¤¨à¥à¤à¤¿à¤«à¤¿à¤à¥à¤¶à¤¨',
+              subtitle: 'FCM push instantly check à¤à¤°à¥à¤',
               trailing: _testingPush
                   ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
                   : const Icon(Icons.send_outlined, color: AppColors.textMuted),
@@ -427,27 +463,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ],
         ),
         const SizedBox(height: 24),
-        const _SectionLabel('सहायता'),
+        const _SectionLabel('à¤¸à¤¹à¤¾à¤¯à¤¤à¤¾'),
         const SizedBox(height: 10),
         _SettingsCard(
           children: [
             _SettingsTile(
               icon: Icons.help_outline_rounded,
-              title: 'सहायता केंद्र',
+              title: 'à¤¸à¤¹à¤¾à¤¯à¤¤à¤¾ à¤à¥à¤à¤¦à¥à¤°',
               trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
               onTap: () {},
             ),
             const Divider(height: 1, indent: 52),
             _SettingsTile(
               icon: Icons.assignment_outlined,
-              title: 'नियम और शर्तें',
+              title: 'à¤¨à¤¿à¤¯à¤® à¤à¤° à¤¶à¤°à¥à¤¤à¥à¤',
               trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
               onTap: () {},
             ),
             const Divider(height: 1, indent: 52),
             _SettingsTile(
               icon: Icons.privacy_tip_outlined,
-              title: 'गोपनीयता नीति',
+              title: 'à¤à¥à¤ªà¤¨à¥à¤¯à¤¤à¤¾ à¤¨à¥à¤¤à¤¿',
               trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
               onTap: () {},
             ),
@@ -461,7 +497,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             side: BorderSide(color: AppColors.danger.withValues(alpha: 0.5)),
           ),
           icon: const Icon(Icons.logout_rounded, size: 18),
-          label: const Text('लॉगआउट'),
+          label: const Text('à¤²à¥à¤à¤à¤à¤'),
         ),
         const SizedBox(height: 16),
         const Center(
