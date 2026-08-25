@@ -5,8 +5,6 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Intent
 import android.os.Build
-import android.os.Handler
-import android.os.Looper
 import android.telecom.Call
 import android.telecom.InCallService
 import android.telecom.VideoProfile
@@ -15,6 +13,13 @@ import androidx.core.app.NotificationCompat
 import com.navasanganakah.dheetantra.MainActivity
 import com.navasanganakah.dheetantra.R
 
+/**
+ * Default-dialer in-call UI. The system binds this service for PSTN calls once
+ * the app holds the default dialer role. Self-managed calls (the WhatsApp VoIP
+ * calls driven by flutter_callkit_incoming's CallkitConnectionService) render
+ * their own native UI, so we must skip them here — otherwise both UIs appear at
+ * once for the same call.
+ */
 class DheetantraInCallService : InCallService() {
 
     companion object {
@@ -33,21 +38,26 @@ class DheetantraInCallService : InCallService() {
 
     override fun onCallAdded(call: Call) {
         super.onCallAdded(call)
+
+        // Skip self-managed calls (WhatsApp VoIP). They own their UI through the
+        // flutter_callkit_incoming plugin; rendering ours too would double up.
+        val details = call.details
+        if (details != null && (details.properties and Call.Details.PROPERTY_SELF_MANAGED) != 0) {
+            Log.d(TAG, "Skipping self-managed call")
+            return
+        }
+
         val id = call.toString()
         synchronized(activeCalls) { activeCalls[id] = call }
         call.registerCallback(callCallback)
         val direction = callDirection(call)
         val phone = extractPhone(call)
 
-        Log.d(TAG, "Call added dir=$direction phone=$phone")
+        Log.d(TAG, "Call added dir=$direction phone=$phone state=${call.state}")
 
         when (call.state) {
-            Call.STATE_RINGING -> {
-                showIncomingCall(phone, id)
-            }
-            Call.STATE_DIALING, Call.STATE_CONNECTING -> {
-                showOutgoingCall(phone, id)
-            }
+            Call.STATE_RINGING -> showIncomingCall(phone, id)
+            Call.STATE_DIALING, Call.STATE_CONNECTING -> showOutgoingCall(phone, id)
             Call.STATE_ACTIVE -> {
                 callStartTimes[id] = System.currentTimeMillis()
                 callAnswered[id] = true
@@ -122,7 +132,7 @@ class DheetantraInCallService : InCallService() {
 
     private fun callDirection(call: Call): String {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            when (call.details.callDirection) {
+            when (call.details?.callDirection) {
                 Call.Details.DIRECTION_INCOMING -> "incoming"
                 Call.Details.DIRECTION_OUTGOING -> "outgoing"
                 Call.Details.DIRECTION_UNKNOWN -> "unknown"
