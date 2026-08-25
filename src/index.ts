@@ -342,7 +342,7 @@ app.post('/api/whatsapp/webhook', async (c) => {
     // Meta signs webhook deliveries with the app secret (x-hub-signature-256).
     // Verification is enforced whenever WHATSAPP_APP_SECRET is present in
     // SECRETS_KV. If the secret is NOT configured we FAIL OPEN (accept the
-    // event) with a loud error log â a hard 503 here silently kills every
+    // event) with a loud error log ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ a hard 503 here silently kills every
     // incoming message (no DB save, no realtime broadcast, no push), which is
     // worse than accepting unverified webhooks until the operator sets the
     // secret. Set WHATSAPP_APP_SECRET to restore strict verification.
@@ -353,7 +353,7 @@ app.post('/api/whatsapp/webhook', async (c) => {
       const signature = c.req.header('x-hub-signature-256') || '';
       const expected = 'sha256=' + await hmacSha256Hex(appSecret, rawBody);
       if (!constantTimeEqual(signature, expected)) {
-        console.warn('[WhatsApp] Webhook signature mismatch — ignoring event', {
+        console.warn('[WhatsApp] Webhook signature mismatch ÃÂ¢ÃÂÃÂ ignoring event', {
           secretLength: appSecret.length,
           signatureLength: signature.length,
           expectedLength: expected.length,
@@ -365,7 +365,7 @@ app.post('/api/whatsapp/webhook', async (c) => {
         }, 403);
       }
     } else {
-      console.error('[WhatsApp] WHATSAPP_APP_SECRET missing in SECRETS_KV â accepting webhook WITHOUT signature verification. Add WHATSAPP_APP_SECRET (Meta App Secret) to SECRETS_KV to enable verification.');
+      console.error('[WhatsApp] WHATSAPP_APP_SECRET missing in SECRETS_KV ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ accepting webhook WITHOUT signature verification. Add WHATSAPP_APP_SECRET (Meta App Secret) to SECRETS_KV to enable verification.');
     }
     const body = rawBody ? JSON.parse(rawBody) : {};
     // Log only metadata, never the full body (it may contain PII, tokens and
@@ -382,7 +382,7 @@ app.post('/api/whatsapp/webhook', async (c) => {
         for (const change of entry.changes) {
           // ==========================================
           // OFFICIAL WhatsApp Cloud API Calling Webhook Handler
-          // Field: 'calls' â Meta sends call events here
+          // Field: 'calls' ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ Meta sends call events here
           // ==========================================
           if (change.field === 'calls') {
             // Safe access: change.value could be undefined
@@ -393,7 +393,7 @@ app.post('/api/whatsapp/webhook', async (c) => {
             const callsArray = change.value.calls;
             if (!callsArray || !Array.isArray(callsArray)) continue;
 
-            console.log(`[Calling] â calls field handler FIRED. phone_number_id from payload: ${change.value.metadata?.phone_number_id}`);
+            console.log(`[Calling] ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ calls field handler FIRED. phone_number_id from payload: ${change.value.metadata?.phone_number_id}`);
 
             const phoneNumberId = change.value.metadata?.phone_number_id;
 
@@ -413,7 +413,7 @@ app.post('/api/whatsapp/webhook', async (c) => {
                 .bind(phoneNumberId).first<{ workspace_id: string; calling_enabled: number; call_schedule: string; access_token: string }>();
 
               if (!config) {
-                console.error(`[Calling] â No config found for phone_number_id: ${phoneNumberId}`);
+                console.error(`[Calling] ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ No config found for phone_number_id: ${phoneNumberId}`);
                 continue;
               }
 
@@ -421,7 +421,7 @@ app.post('/api/whatsapp/webhook', async (c) => {
 
               // Check call schedule for incoming calls
               if (config.calling_enabled === 0) {
-                console.log(`[Calling] â Calling is disabled for ${phoneNumberId}. Skipping incoming call.`);
+                console.log(`[Calling] ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ Calling is disabled for ${phoneNumberId}. Skipping incoming call.`);
                 continue;
               }
               if (config.call_schedule && (event === 'connect' || event === 'offer')) {
@@ -440,7 +440,7 @@ app.post('/api/whatsapp/webhook', async (c) => {
                     const days = Array.isArray(schedule.days) ? schedule.days : [1,2,3,4,5];
 
                     if (!days.includes(dayOfWeek) || currentTime < startMin || currentTime > endMin) {
-                      console.log(`[Calling] â Outside call schedule for ${phoneNumberId}. Day=${dayOfWeek}, Time=${currentHour}:${currentMin}, Schedule=${schedule.start_time}-${schedule.end_time}`);
+                      console.log(`[Calling] ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ Outside call schedule for ${phoneNumberId}. Day=${dayOfWeek}, Time=${currentHour}:${currentMin}, Schedule=${schedule.start_time}-${schedule.end_time}`);
                       // Resolve/create a contact for the missed call before logging it.
                       // calls.contact_id is NOT NULL with a FK to contacts(id); the previous
                       // empty-string value violated the FK (insert failed with foreign_keys
@@ -479,7 +479,7 @@ app.post('/api/whatsapp/webhook', async (c) => {
               }
 
               if (event === 'connect' || event === 'offer') {
-                // Incoming call â save to DB + broadcast to frontend
+                // Incoming call ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ save to DB + broadcast to frontend
                 let contactId = '';
                 let callerName = callerNumber ? `+${callerNumber}` : 'Unknown';
                 const existingContact = await c.env.DB.prepare(
@@ -511,14 +511,14 @@ app.post('/api/whatsapp/webhook', async (c) => {
                 // LINE-BUSY CHECK (WhatsApp-style busy)
                 // Agar is workspace mein pehle se koi call 'ringing' mein hai toh
                 // nayi incoming call ko turant Meta ko
-                // reject bhej dete hain â caller ko busy tone milega, app par
+                // reject bhej dete hain ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ caller ko busy tone milega, app par
                 // ring/push nahi aayegi. Ye "oldest wins" hai: do calls ek
                 // saath aayein (race) toh jo pehle insert hui wo ring karegi,
-                // baaki sab busy â dono webhooks isi same answer par converge
+                // baaki sab busy ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ dono webhooks isi same answer par converge
                 // karte hain, isliye ye deterministic hai.
                 //
                 // NOTE (default dialer): PSTN calls mein bhi yahi line-busy
-                // concept use hoga â app default dialer banne par incoming
+                // concept use hoga ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ app default dialer banne par incoming
                 // PSTN call ko TelecomManager se auto-reject karega jab ek
                 // call pehle se active ho.
                 if (direction !== 'BUSINESS_INITIATED') {
@@ -540,8 +540,8 @@ app.post('/api/whatsapp/webhook', async (c) => {
                   `).bind(config.workspace_id, callId).first<{ id: string; status: string }>();
 
                   if (activeCall) {
-                    console.log(`[Calling] â Line busy (existing ${activeCall.status}: ${activeCall.id}) â auto-rejecting call ${callId} from ${callerNumber}`);
-                    // Meta ko reject â caller ko WhatsApp jaisa busy tone milega
+                    console.log(`[Calling] ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ Line busy (existing ${activeCall.status}: ${activeCall.id}) ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ auto-rejecting call ${callId} from ${callerNumber}`);
+                    // Meta ko reject ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ caller ko WhatsApp jaisa busy tone milega
                     try {
                       const rejectUrl = `https://graph.facebook.com/v20.0/${phoneNumberId}/calls`;
                       await fetch(rejectUrl, {
@@ -556,11 +556,11 @@ app.post('/api/whatsapp/webhook', async (c) => {
                     } catch (e) {
                       console.error('[Calling] Busy auto-reject to Meta failed:', e);
                     }
-                    // Call log mein 'busy' status ke saath record â ring/push
+                    // Call log mein 'busy' status ke saath record ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ ring/push
                     // broadcast skip (neeche continue).
                     await c.env.DB.prepare('UPDATE calls SET status = ?, hangup_cause = ? WHERE id = ?')
                       .bind('busy', 'busy', callId).run();
-                    console.log(`[Calling] Call ${callId} marked busy â no ring, no push`);
+                    console.log(`[Calling] Call ${callId} marked busy ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ no ring, no push`);
                     continue;
                   }
                 }
@@ -583,9 +583,9 @@ app.post('/api/whatsapp/webhook', async (c) => {
                     })
                   }));
                   const broadcastBody = await broadcastResp.text();
-                  console.log(`[Calling] â Broadcast response from DO: ${broadcastBody}`);
+                  console.log(`[Calling] ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ Broadcast response from DO: ${broadcastBody}`);
                 } catch (e) {
-                  console.error('[Calling] â Failed to broadcast incoming call:', e);
+                  console.error('[Calling] ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ Failed to broadcast incoming call:', e);
                 }
 
                 // App band hone par bhi incoming call dikhane ke liye high-priority FCM push.
@@ -604,7 +604,7 @@ app.post('/api/whatsapp/webhook', async (c) => {
 
                         const { sendPushNotification } = await import('../lib/fcm');
                         if (!tokens.results || tokens.results.length === 0) {
-                          console.warn(`[Calling] No FCM tokens for workspace ${config.workspace_id} â incoming call push skipped`);
+                          console.warn(`[Calling] No FCM tokens for workspace ${config.workspace_id} ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ incoming call push skipped`);
                           return;
                         }
 
@@ -615,7 +615,7 @@ app.post('/api/whatsapp/webhook', async (c) => {
                           console.warn(`[Calling] Incoming-call push truncated: ${tokens.results.length} tokens, sending to ${MAX_TOTAL_SENDS}`);
                         }
 
-                        // Caller ka rich context banao â email aur last message bhi push me bhejo
+                        // Caller ka rich context banao ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ email aur last message bhi push me bhejo
                         // taaki locked/killed phone par name/number/email/last message sab dikhe.
                         let contactEmail = '';
                         let lastMessage = '';
@@ -696,7 +696,7 @@ app.post('/api/whatsapp/webhook', async (c) => {
                 const wasMissed = existingCall && existingCall.direction === 'incoming' &&
                   existingCall.status === 'ringing' && duration === 0;
 
-                // Busy-rejected call ka terminate event baad mein aata hai â
+                // Busy-rejected call ka terminate event baad mein aata hai ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ
                 // status preserve karo, warna 'busy' record 'ended' mein badal
                 // jayega aur call log galat dikhayega.
                 const finalStatus = existingCall?.status === 'busy'
@@ -749,8 +749,8 @@ app.post('/api/whatsapp/webhook', async (c) => {
                                   sendPushNotification(
                                   c.env,
                                   row.token,
-                                  `à¤®à¤¿à¤¸à¥à¤¡ à¤à¥à¤² +${callerNumber}`,
-                                  'à¤à¤ªà¤à¥ à¤à¤ WhatsApp à¤µà¥à¤¯à¤¸ à¤à¥à¤² à¤®à¤¿à¤¸ à¤¹à¥ à¤à¤',
+                                  `ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ®ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¿ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¸ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¡ ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ² +${callerNumber}`,
+                                  'ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂªÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂ ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ WhatsApp ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂµÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¯ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¸ ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ² ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ®ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¿ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¸ ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ¹ÃÂÃÂ ÃÂÃÂ¥ÃÂÃÂ ÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂÃÂÃÂ ÃÂÃÂ¤ÃÂÃÂ',
                                   { workspaceId: config.workspace_id, type: 'missed_call', phone: callerNumber },
                                   { ttlSeconds: 0, category: 'call' }
                                 )
@@ -784,102 +784,21 @@ app.post('/api/whatsapp/webhook', async (c) => {
 
           if (change.value && change.value.messages) {
             // Meta batches messages: process EVERY message in the delivery,
-            // not just the first â otherwise multi-message bursts are dropped.
-            for (const message of change.value.messages) {
-            const contact = change.value.contacts[0];
+            // not just the first - otherwise multi-message bursts are dropped.
+            const contactsArray = change.value.contacts || [];
             const phoneNumberId = change.value.metadata?.phone_number_id;
-
-            let messageText = '';
-            let messageType = 'text';
-            let mediaUrl: string | null = null;
-
-            if (message.text) {
-              messageText = message.text.body;
-              messageType = 'text';
-            } else if (message.interactive) {
-              if (message.interactive.type === 'button_reply') {
-                messageText = message.interactive.button_reply.title;
-              } else if (message.interactive.type === 'list_reply') {
-                messageText = message.interactive.list_reply.title;
-              } else if (message.interactive.type === 'nfm_reply') {
-                messageText = message.interactive.nfm_reply?.response_json ? JSON.parse(message.interactive.nfm_reply.response_json).name || 'Flow Reply' : 'Flow Reply';
-              } else {
-                messageText = 'Interactive Response';
-              }
-              messageType = 'interactive';
-              mediaUrl = JSON.stringify(message.interactive);
-            } else if (message.order) {
-              messageText = message.order.text || 'Order Received';
-              messageType = 'order';
-              mediaUrl = JSON.stringify(message.order);
-            } else if (message.reaction) {
-              messageText = message.reaction.emoji || '';
-              messageType = 'reaction';
-              mediaUrl = message.reaction.message_id; // the message they reacted to
-            } else if (message.image) {
-              messageText = message.image.caption || 'Image Message';
-              messageType = 'image';
-              mediaUrl = message.image.id;
-            } else if (message.video) {
-              messageText = message.video.caption || 'Video Message';
-              messageType = 'video';
-              mediaUrl = message.video.id;
-            } else if (message.document) {
-              messageText = message.document.caption || message.document.filename || 'Document Message';
-              messageType = 'document';
-              mediaUrl = message.document.id;
-            } else if (message.audio) {
-              messageText = message.audio.voice ? 'ð¤ Voice Note (à¤à¤¡à¤¿à¤¯à¥ à¤¸à¤à¤¦à¥à¤¶)' : 'Audio Message (à¤à¤¡à¤¿à¤¯à¥)';
-              messageType = 'audio';
-              mediaUrl = message.audio.id;
-            } else if (message.sticker) {
-              messageText = 'Sticker (à¤¸à¥à¤à¤¿à¤à¤°)';
-              messageType = 'sticker';
-              mediaUrl = message.sticker.id;
-            } else if (message.button) {
-              // Legacy button reply (distinct from interactive.button_reply)
-              messageText = message.button.text || 'Button Response';
-              messageType = 'button';
-            } else if (message.template) {
-              messageText = `Template Message: ${message.template.name || 'Unknown'}`;
-              messageType = 'template';
-            } else if (message.location) {
-              messageText = message.location.name
-                ? `${message.location.name} (${message.location.address || ''})`
-                : `Location: ${message.location.latitude}, ${message.location.longitude}`;
-              messageType = 'location';
-              mediaUrl = JSON.stringify({
-                latitude: message.location.latitude,
-                longitude: message.location.longitude,
-                name: message.location.name,
-                address: message.location.address
-              });
-            } else if (message.contacts) {
-              const contactName = message.contacts[0]?.name?.formatted_name || 'Contact';
-              const contactPhone = message.contacts[0]?.phones?.[0]?.phone || '';
-              messageText = `Contact: ${contactName} (${contactPhone})`;
-              messageType = 'contacts';
-              mediaUrl = JSON.stringify(message.contacts);
-            } else if (message.type === 'system') {
-              if (message.system && message.system.type === 'user_initiated_call') {
-                messageText = 'à¤à¤¨à¤à¤®à¤¿à¤à¤ à¤à¥à¤² (Incoming Voice Call)';
-                messageType = 'system_call';
-              } else {
-                messageText = message.system?.body || 'System Message';
-                messageType = 'system';
-                mediaUrl = JSON.stringify(message.system);
-              }
-            } else {
-              messageText = `Unsupported message type: ${message.type}`;
-              messageType = message.type || 'unknown';
-              mediaUrl = JSON.stringify(message); // Save raw for unknown
-            }
+            for (const message of change.value.messages) {
+            const contact = contactsArray[0];
+            const parsed = parseIncomingWhatsAppMessage(message);
+            let messageText = parsed.text;
+            const messageType = parsed.type;
+            let mediaUrl = parsed.mediaUrl;
 
             if (message.context && message.context.id) {
-              messageText = `[Reply] ` + messageText;
+              messageText = '[Reply] ' + messageText;
             }
 
-            console.log(`New ${messageType} message from ${contact?.profile?.name ?? 'Unknown'} (${message.from}):`, messageText);
+            console.log('New ' + messageType + ' message from ' + (contact?.profile?.name ?? 'Unknown') + ' (' + message.from + '):', messageText);
 
             // Download media to R2 if needed
             let finalMediaUrl = mediaUrl;
@@ -1008,7 +927,7 @@ app.post('/api/whatsapp/webhook', async (c) => {
                             }
                           }
                         } else {
-                          console.warn(`[Webhook] No FCM tokens for workspace ${config.workspace_id} â push skipped`);
+                          console.warn(`[Webhook] No FCM tokens for workspace ${config.workspace_id} ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ push skipped`);
                         }
 
                         // NOTE: Email notifications for incoming WhatsApp messages are
@@ -1088,7 +1007,7 @@ app.post('/api/whatsapp/webhook', async (c) => {
 // B2C & B2B API ROUTES (API Domains)
 // ==========================================
 // ---------------------------------------------------------------------------
-// WebSocket auth helper â validates the auth_session cookie or a ?sid=...
+// WebSocket auth helper ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ validates the auth_session cookie or a ?sid=...
 // query parameter and verifies workspace membership before allowing an
 // upgrade to the global workspace Durable Object.
 // ---------------------------------------------------------------------------
@@ -1125,7 +1044,7 @@ async function getAuthenticatedUserForWs(c: Context<{ Bindings: Env }>): Promise
   }
 
   if (!c.env.DB) {
-    // Local development fallback â still require a known room shape but skip DB.
+    // Local development fallback ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ still require a known room shape but skip DB.
     return { user, workspaceId };
   }
 
@@ -1161,6 +1080,152 @@ app.get('/api/chat/connect/:roomId', async (c) => {
 });
 
 // 4. Media Upload (R2 Storage)
+
+// ---------------------------------------------------------------------------
+// Normalize every incoming WhatsApp Cloud API message type into the internal
+// {type, text, mediaUrl} shape used by the chat handler and the Flutter app.
+// Structured payloads are saved as JSON in media_url so the UI can render them.
+// ---------------------------------------------------------------------------
+function parseIncomingWhatsAppMessage(message: any): { type: string; text: string; mediaUrl: string | null } {
+  const type = message.type || 'unknown';
+  const payload: any = { incoming_type: type };
+  let text = '';
+  let mediaUrl = null;
+  let messageType = type;
+
+  if (message.text) {
+    text = message.text.body || '';
+    messageType = 'text';
+  } else if (message.interactive) {
+    const interactive = message.interactive;
+    payload.interactive = interactive;
+    if (interactive.type === 'button_reply' && interactive.button_reply) {
+      const id = interactive.button_reply.id;
+      const title = interactive.button_reply.title;
+      payload.button_id = id;
+      payload.button_title = title;
+      text = 'Button reply: ' + (title || '') + (id ? ' (id: ' + id + ')' : '');
+      text = text.trim();
+    } else if (interactive.type === 'list_reply' && interactive.list_reply) {
+      const id = interactive.list_reply.id;
+      const title = interactive.list_reply.title;
+      const description = interactive.list_reply.description;
+      payload.list_row_id = id;
+      payload.list_title = title;
+      payload.list_description = description;
+      text = 'List reply: ' + (title || '') + (description ? '\n' + description : '') + (id ? ' (id: ' + id + ')' : '');
+      text = text.trim();
+    } else if (interactive.type === 'nfm_reply' && interactive.nfm_reply) {
+      let flowName = 'Flow Reply';
+      try {
+        const response = interactive.nfm_reply.response_json ? JSON.parse(interactive.nfm_reply.response_json) : null;
+        if (response && response.name) flowName = response.name;
+        payload.flow_response = response;
+      } catch {}
+      text = 'Flow reply: ' + flowName + (interactive.nfm_reply.body ? ' - ' + interactive.nfm_reply.body : '');
+    } else {
+      text = 'Interactive Response';
+    }
+    messageType = 'interactive';
+    mediaUrl = JSON.stringify(payload);
+  } else if (message.order) {
+    const order = message.order;
+    payload.order = order;
+    let itemsText = '';
+    if (order.product_items && Array.isArray(order.product_items) && order.product_items.length > 0) {
+      itemsText = '\n' + order.product_items.map((item: any, i: number) => {
+        const qty = item.quantity != null ? ' x' + item.quantity : '';
+        const price = item.item_price ? ' @' + item.item_price : '';
+        return (i + 1) + '. ' + (item.product_retailer_id || 'Product') + qty + price;
+      }).join('\n');
+    }
+    text = ('Order: ' + (order.text || 'New order') + itemsText).trim();
+    messageType = 'order';
+    mediaUrl = JSON.stringify(payload);
+  } else if (message.reaction) {
+    text = message.reaction.emoji || '';
+    payload.reacted_to = message.reaction.message_id;
+    messageType = 'reaction';
+    mediaUrl = message.reaction.message_id;
+  } else if (message.image) {
+    text = message.image.caption || '';
+    mediaUrl = message.image.id;
+    messageType = 'image';
+  } else if (message.video) {
+    text = message.video.caption || '';
+    mediaUrl = message.video.id;
+    messageType = 'video';
+  } else if (message.document) {
+    text = message.document.caption || message.document.filename || '';
+    mediaUrl = message.document.id;
+    messageType = 'document';
+  } else if (message.audio) {
+    text = message.audio.voice ? 'Voice Note' : 'Audio Message';
+    mediaUrl = message.audio.id;
+    messageType = 'audio';
+  } else if (message.sticker) {
+    text = 'Sticker';
+    mediaUrl = message.sticker.id;
+    messageType = 'sticker';
+  } else if (message.button) {
+    // Legacy button reply (distinct from interactive.button_reply)
+    payload.button = message.button;
+    text = 'Button reply: ' + (message.button.text || '') + (message.button.payload ? ' (' + message.button.payload + ')' : '');
+    text = text.trim();
+    messageType = 'button';
+    mediaUrl = JSON.stringify(payload);
+  } else if (message.template) {
+    text = 'Template Message: ' + (message.template.name || 'Unknown');
+    payload.template = message.template;
+    messageType = 'template';
+    mediaUrl = JSON.stringify(payload);
+  } else if (message.location) {
+    const loc = message.location;
+    payload.latitude = loc.latitude;
+    payload.longitude = loc.longitude;
+    payload.name = loc.name;
+    payload.address = loc.address;
+    text = loc.name
+      ? loc.name + (loc.address ? ' - ' + loc.address : '')
+      : 'Location: ' + loc.latitude + ', ' + loc.longitude;
+    messageType = 'location';
+    mediaUrl = JSON.stringify(payload);
+  } else if (message.contacts) {
+    const contacts = message.contacts;
+    payload.contacts = contacts;
+    const first = contacts[0] || {};
+    const name = (first.name && (first.name.formatted_name || first.name.first_name)) || 'Contact';
+    const phone = (first.phones && first.phones[0] && first.phones[0].phone) || '';
+    text = 'Contact: ' + name + (phone ? ' - ' + phone : '');
+    messageType = 'contacts';
+    mediaUrl = JSON.stringify(payload);
+  } else if (type === 'system') {
+    if (message.system && message.system.type === 'user_initiated_call') {
+      text = 'Incoming Voice Call';
+      messageType = 'system_call';
+    } else {
+      text = message.system?.body || 'System Message';
+      payload.system = message.system;
+      messageType = 'system';
+      mediaUrl = JSON.stringify(payload);
+    }
+  } else if (message.errors || type === 'unsupported') {
+    const err = (message.errors && message.errors[0]) || {};
+    let details = (err.error_data && err.error_data.details) || err.message || '';
+    text = ('Unsupported message' + (err.title ? ': ' + err.title : '') + (err.code ? ' (code ' + err.code + ')' : '') + (details ? ' - ' + details : '')).trim();
+    payload.errors = message.errors;
+    payload.unsupported = message.unsupported;
+    messageType = 'unsupported';
+    mediaUrl = JSON.stringify(payload);
+  } else {
+    text = 'Unsupported message type: ' + type;
+    payload.raw = message;
+    messageType = type || 'unknown';
+    mediaUrl = JSON.stringify(payload);
+  }
+
+  return { type: messageType, text, mediaUrl };
+}
 const worker = {
   fetch: app.fetch,
 
@@ -1188,7 +1253,7 @@ const worker = {
   },
 
   // Queue consumer (Broadcast deliveries: sends WhatsApp template messages
-  // via Meta API and updates campaign counters â see workers/broadcast-queue.ts)
+  // via Meta API and updates campaign counters ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ see workers/broadcast-queue.ts)
   async queue(batch: any, env: any, ctx: any) {
     await broadcastQueueConsumer.queue(batch as any, env as any);
   },
