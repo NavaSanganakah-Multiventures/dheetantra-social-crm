@@ -6,6 +6,7 @@ import android.app.PendingIntent
 import android.content.Intent
 import android.os.Build
 import android.telecom.Call
+import android.telecom.Connection
 import android.telecom.InCallService
 import android.telecom.VideoProfile
 import android.util.Log
@@ -42,7 +43,7 @@ class DheetantraInCallService : InCallService() {
         // Skip self-managed calls (WhatsApp VoIP). They own their UI through the
         // flutter_callkit_incoming plugin; rendering ours too would double up.
         val details = call.details
-        if (details != null && (details.properties and Call.Details.PROPERTY_SELF_MANAGED) != 0) {
+        if (details != null && (details.properties and Connection.PROPERTY_SELF_MANAGED) != 0) {
             Log.d(TAG, "Skipping self-managed call")
             return
         }
