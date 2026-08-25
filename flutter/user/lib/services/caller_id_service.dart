@@ -62,6 +62,20 @@ class CallerIdService {
     }
   }
 
+  /// Places an outgoing GSM/PSTN call via the platform TelecomManager. When the
+  /// app is the default dialer the resulting call is surfaced through the
+  /// [DheetantraInCallService] outgoing-call UI. Requires CALL_PHONE permission
+  /// or the default-dialer role (granted via [requestDefaultDialerRole]).
+  static Future<bool> placeCall(String number) async {
+    if (!Platform.isAndroid) return false;
+    try {
+      return await _channel.invokeMethod<bool>('placeCall', {'number': number}) ?? false;
+    } catch (e) {
+      debugPrint('placeCall error: $e');
+      return false;
+    }
+  }
+
   static Future<bool> isCallerIdRoleHeld() async {
     if (!Platform.isAndroid) return false;
     try {
