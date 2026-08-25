@@ -55,6 +55,10 @@ class CallLogObserverService : Service() {
     }
 
     private fun processLatestCall() {
+        // When this app is the default dialer, [DheetantraInCallService]
+        // already posts the after-call notification on onCallRemoved. Running
+        // the CallLog observer too would produce a duplicate notification.
+        if (isDefaultDialer(this)) return
         try {
             val cursor = contentResolver.query(
                 CallLog.Calls.CONTENT_URI,
