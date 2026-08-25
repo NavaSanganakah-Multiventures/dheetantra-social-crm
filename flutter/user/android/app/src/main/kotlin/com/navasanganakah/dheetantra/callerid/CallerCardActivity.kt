@@ -33,9 +33,11 @@ class CallerCardActivity : Activity() {
         }
         window.addFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS)
 
-        // Tap outside the card to dismiss.
-        setFinishOnTouchOutside(true)
         setContentView(R.layout.activity_caller_card)
+
+        // Tap outside the card to dismiss.
+        findViewById<View>(R.id.root).setOnClickListener { finish() }
+        findViewById<View>(R.id.tvName).setOnClickListener { /* consume click inside card */ }
 
         val phone = intent.getStringExtra("phone") ?: ""
         val name = intent.getStringExtra("name") ?: phone
