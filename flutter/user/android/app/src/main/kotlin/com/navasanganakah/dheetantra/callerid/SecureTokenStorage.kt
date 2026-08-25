@@ -10,6 +10,7 @@ object SecureTokenStorage {
     private const val KEY_WORKSPACE_ID = "workspace_id"
     private const val KEY_CALLER_ID_ENABLED = "caller_id_enabled"
     private const val KEY_AFTER_CALL_ENABLED = "after_call_crm_enabled"
+    private const val KEY_DEFAULT_DIALER_ENABLED = "default_dialer_enabled"
 
     private var prefs: EncryptedSharedPreferences? = null
 
@@ -48,6 +49,11 @@ object SecureTokenStorage {
         getPrefs(context).edit().putBoolean(KEY_AFTER_CALL_ENABLED, enabled).apply()
     }
     fun isAfterCallEnabled(context: Context): Boolean = getPrefs(context).getBoolean(KEY_AFTER_CALL_ENABLED, false)
+
+    fun setDefaultDialerEnabled(context: Context, enabled: Boolean) {
+        getPrefs(context).edit().putBoolean(KEY_DEFAULT_DIALER_ENABLED, enabled).apply()
+    }
+    fun isDefaultDialerEnabled(context: Context): Boolean = getPrefs(context).getBoolean(KEY_DEFAULT_DIALER_ENABLED, false)
 
     fun clear(context: Context) {
         getPrefs(context).edit().clear().apply()
