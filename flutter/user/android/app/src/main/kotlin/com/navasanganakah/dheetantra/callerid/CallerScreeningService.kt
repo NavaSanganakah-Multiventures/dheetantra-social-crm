@@ -30,6 +30,11 @@ class CallerScreeningService : CallScreeningService() {
     }
 
     override fun onScreenCall(callDetails: Call.Details) {
+        // If we are the default dialer, InCallService will show the caller UI.
+        if (isDefaultDialer(this)) {
+            respondToCall(callDetails, CallResponse.Builder().build())
+            return
+        }
         val handle = callDetails.handle
         val phoneNumber = handle?.schemeSpecificPart ?: handle?.toString() ?: ""
 
