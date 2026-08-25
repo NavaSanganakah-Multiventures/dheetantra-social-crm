@@ -28,8 +28,8 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
   String? _error;
   String? _localPath;
   bool _isDownloading = false;
-  late final String? _url;
-  late final String _fileName;
+  String? _url;
+  late String _fileName;
 
   @override
   void initState() {
@@ -66,9 +66,9 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
     });
     try {
       final baseDir = await getApplicationDocumentsDirectory();
-      final subDir = Directory('${baseDir.path}/downloads');
+      final subDir = Directory(baseDir.path + '/downloads');
       await subDir.create(recursive: true);
-      final path = '${subDir.path}/$_fileName';
+      final path = subDir.path + '/' + _fileName;
       await Dio().download(_url!, path);
       if (mounted) {
         setState(() {
@@ -82,7 +82,7 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = _safeString(e);
+          _error = _stringify(e);
           _isDownloading = false;
         });
       }
@@ -133,8 +133,7 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Text(
-            'PDF load error:
-$_error',
+            'PDF load error: ' + _error!,
             textAlign: TextAlign.center,
             style: const TextStyle(color: AppColors.textMuted),
           ),
@@ -160,7 +159,7 @@ $_error',
       autoSpacing: true,
       pageFling: true,
       onError: (error) {
-        if (mounted) setState(() => _error = _safeString(error));
+        if (mounted) setState(() => _error = _stringify(error));
       },
     );
   }
@@ -196,7 +195,7 @@ $_error',
             const CircularProgressIndicator()
           else if (_localPath != null)
             Text(
-              'Saved to: $_localPath',
+              'Saved to: ' + _localPath!,
               textAlign: TextAlign.center,
               style: const TextStyle(color: AppColors.success, fontSize: 12),
             ),
@@ -278,7 +277,7 @@ $_error',
   }
 }
 
-String _safeString(dynamic value) {
+String _stringify(dynamic value) {
   if (value == null) return '';
   return value.toString();
 }
