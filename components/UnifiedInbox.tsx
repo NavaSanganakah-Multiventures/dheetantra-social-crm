@@ -45,23 +45,23 @@ const fmtDay = (dateStr: string | Date | number) => {
 type Platform = 'all' | 'whatsapp' | 'instagram' | 'facebook' | 'email';
 
 const PLATFORMS: { key: Platform; label: string; icon: React.ReactNode; color: string }[] = [
-  { key: 'all', label: 'à¤¸à¤­à¥', icon: <Inbox className="w-3.5 h-3.5" />, color: 'text-surface-400' },
+  { key: 'all', label: 'सभी', icon: <Inbox className="w-3.5 h-3.5" />, color: 'text-surface-400' },
   { key: 'whatsapp', label: 'WhatsApp', icon: <MessageCircle className="w-3.5 h-3.5" />, color: 'text-emerald-500' },
   { key: 'instagram', label: 'Instagram', icon: <Instagram className="w-3.5 h-3.5" />, color: 'text-pink-500' },
   { key: 'facebook', label: 'Facebook', icon: <Facebook className="w-3.5 h-3.5" />, color: 'text-blue-500' },
-  { key: 'email', label: 'à¤à¤®à¥à¤²', icon: <Mail className="w-3.5 h-3.5" />, color: 'text-primary-500' },
+  { key: 'email', label: 'ईमेल', icon: <Mail className="w-3.5 h-3.5" />, color: 'text-primary-500' },
 ];
 
 // AI filter categories (match src/services/inboxAI.ts)
 const AI_FILTERS = [
-  { key: 'all', label: 'AI à¤«à¤¼à¤¿à¤²à¥à¤à¤°: à¤¸à¤­à¥' },
-  { key: 'lead', label: 'ð¯ à¤²à¥à¤¡à¥à¤¸' },
-  { key: 'urgent', label: 'ð¨ à¤à¤°à¥à¤à¥à¤à¤' },
-  { key: 'complaint', label: 'ð  à¤¶à¤¿à¤à¤¾à¤¯à¤¤à¥à¤' },
-  { key: 'inquiry', label: 'â à¤ªà¥à¤à¤¤à¤¾à¤' },
-  { key: 'support', label: 'ð à¤¸à¤ªà¥à¤°à¥à¤' },
-  { key: 'follow_up', label: 'â° à¤«à¥à¤²à¥-à¤à¤ª' },
-  { key: 'spam', label: 'ð à¤¸à¥à¤ªà¥à¤®' },
+  { key: 'all', label: 'AI फ़िल्टर: सभी' },
+  { key: 'lead', label: '🎯 लीड्स' },
+  { key: 'urgent', label: '🚨 अर्जेंट' },
+  { key: 'complaint', label: '😠 शिकायतें' },
+  { key: 'inquiry', label: '❓ पूछताछ' },
+  { key: 'support', label: '🛟 सपोर्ट' },
+  { key: 'follow_up', label: '⏰ फॉलो-अप' },
+  { key: 'spam', label: '🗑 स्पैम' },
 ];
 
 const AI_LABEL_STYLE: Record<string, string> = {
@@ -75,8 +75,8 @@ const AI_LABEL_STYLE: Record<string, string> = {
 };
 
 const AI_LABEL_TEXT: Record<string, string> = {
-  lead: 'à¤²à¥à¤¡', urgent: 'à¤à¤°à¥à¤à¥à¤à¤', complaint: 'à¤¶à¤¿à¤à¤¾à¤¯à¤¤', inquiry: 'à¤ªà¥à¤à¤¤à¤¾à¤',
-  support: 'à¤¸à¤ªà¥à¤°à¥à¤', follow_up: 'à¤«à¥à¤²à¥-à¤à¤ª', spam: 'à¤¸à¥à¤ªà¥à¤®', other: 'à¤à¤¨à¥à¤¯',
+  lead: 'लीड', urgent: 'अर्जेंट', complaint: 'शिकायत', inquiry: 'पूछताछ',
+  support: 'सपोर्ट', follow_up: 'फॉलो-अप', spam: 'स्पैम', other: 'अन्य',
 };
 
 function parseEmailMedia(value: string | null): { subject?: string; to?: string } {
@@ -90,14 +90,14 @@ function parseEmailMedia(value: string | null): { subject?: string; to?: string 
 
 // ---------------------------------------------------------------
 // Message media rendering helpers (WhatsApp: image/video/audio/
-// document/sticker/location/contacts â media_url à¤®à¥à¤ R2 path, Graph
-// URL à¤¯à¤¾ JSON payload à¤¹à¥ à¤¸à¤à¤¤à¤¾ à¤¹à¥)
+// document/sticker/location/contacts — media_url में R2 path, Graph
+// URL या JSON payload हो सकता है)
 // ---------------------------------------------------------------
 const MEDIA_LABELS: Record<string, string> = {
-  image: 'à¤«à¤¼à¥à¤à¥', video: 'à¤µà¥à¤¡à¤¿à¤¯à¥', audio: 'à¤à¤¡à¤¿à¤¯à¥', document: 'à¤¦à¤¸à¥à¤¤à¤¾à¤µà¥à¤à¤¼',
-  sticker: 'à¤¸à¥à¤à¤¿à¤à¤°', location: 'à¤²à¥à¤à¥à¤¶à¤¨', contacts: 'à¤à¥à¤¨à¥à¤à¥à¤à¥à¤',
-  template: 'à¤à¥à¤®à¥à¤ªà¤²à¥à¤', interactive: 'à¤à¤à¤à¤°à¥à¤à¥à¤à¤¿à¤µ', order: 'à¤à¤°à¥à¤¡à¤°',
-  reaction: 'à¤°à¤¿à¤à¤à¥à¤¶à¤¨', system: 'à¤¸à¤¿à¤¸à¥à¤à¤®', system_call: 'à¤à¥à¤²', button: 'à¤¬à¤à¤¨',
+  image: 'फ़ोटो', video: 'वीडियो', audio: 'ऑडियो', document: 'दस्तावेज़',
+  sticker: 'स्टिकर', location: 'लोकेशन', contacts: 'कॉन्टैक्ट',
+  template: 'टेम्पलेट', interactive: 'इंटरैक्टिव', order: 'ऑर्डर',
+  reaction: 'रिएक्शन', system: 'सिस्टम', system_call: 'कॉल', button: 'बटन',
 };
 
 const isMediaUrl = (url: string | null | undefined): url is string =>
@@ -116,13 +116,13 @@ function renderMessageMedia(m: any): React.ReactNode {
   const url: string | null = m.media_url || null;
   if (t === 'image' && isMediaUrl(url)) {
     return (
-      <img src={url} alt="à¤«à¤¼à¥à¤à¥" loading="lazy"
+      <img src={url} alt="फ़ोटो" loading="lazy"
         className="max-h-64 w-auto max-w-full rounded-xl my-1 object-cover border border-surface-200 dark:border-surface-800" />
     );
   }
   if (t === 'sticker' && isMediaUrl(url)) {
     return (
-      <img src={url} alt="à¤¸à¥à¤à¤¿à¤à¤°" loading="lazy"
+      <img src={url} alt="स्टिकर" loading="lazy"
         className="max-h-24 max-w-[140px] my-1 object-contain" />
     );
   }
@@ -139,11 +139,11 @@ function renderMessageMedia(m: any): React.ReactNode {
     );
   }
   if (t === 'document' && isMediaUrl(url)) {
-    const docName = m.content && m.content !== 'Document Message' ? m.content : 'à¤¦à¤¸à¥à¤¤à¤¾à¤µà¥à¤à¤¼';
+    const docName = m.content && m.content !== 'Document Message' ? m.content : 'दस्तावेज़';
     return (
       <a href={url} target="_blank" rel="noopener noreferrer"
         className="flex items-center gap-2 my-1 text-xs font-semibold text-primary-600 dark:text-primary-400 underline break-all">
-        ð {docName}
+        📄 {docName}
       </a>
     );
   }
@@ -155,7 +155,7 @@ function renderMessageMedia(m: any): React.ReactNode {
         : undefined;
       const inner = (
         <div className="my-1 rounded-xl border border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-900 p-2.5">
-          <p className="text-xs font-bold">ð {loc.name || 'à¤²à¥à¤à¥à¤¶à¤¨'}</p>
+          <p className="text-xs font-bold">📍 {loc.name || 'लोकेशन'}</p>
           {loc.address && <p className="text-[11px] opacity-70">{loc.address}</p>}
           {loc.latitude != null && <p className="text-[10px] opacity-60">{loc.latitude}, {loc.longitude}</p>}
         </div>
@@ -172,8 +172,8 @@ function renderMessageMedia(m: any): React.ReactNode {
         <div className="my-1 space-y-1">
           {contacts.map((ct: any, i: number) => (
             <p key={i} className="text-xs rounded-lg bg-surface-50 dark:bg-surface-900 border border-surface-200 dark:border-surface-800 px-2.5 py-1.5">
-              ð¤ {ct?.name?.formatted_name || 'à¤à¥à¤¨à¥à¤à¥à¤à¥à¤'}
-              {ct?.phones?.[0]?.phone ? ` â ${ct.phones[0].phone}` : ''}
+              👤 {ct?.name?.formatted_name || 'कॉन्टैक्ट'}
+              {ct?.phones?.[0]?.phone ? ` — ${ct.phones[0].phone}` : ''}
             </p>
           ))}
         </div>
@@ -190,7 +190,7 @@ function renderTypeBadge(m: any): React.ReactNode {
   if (m.message_type === 'text' || m.message_type === 'email' || m.message_type === 'agent') return null;
   return (
     <p className="text-[10px] mt-1 font-semibold opacity-70 uppercase tracking-wide">
-      ð {MEDIA_LABELS[m.message_type] || m.message_type}
+      📎 {MEDIA_LABELS[m.message_type] || m.message_type}
     </p>
   );
 }
@@ -413,13 +413,13 @@ export default function UnifiedInbox({
       });
       const data: any = await res.json();
       if (data.success) {
-        showToast('success', `AI à¤¨à¥ ${data.classified} à¤¬à¤¾à¤¤à¤à¥à¤¤ à¤à¥ à¤²à¥à¤¬à¤² à¤à¤¿à¤¯à¤¾ â¨`);
+        showToast('success', `AI ने ${data.classified} बातचीत को लेबल किया ✨`);
         loadConversations();
       } else {
-        showToast('error', data.error || 'AI classify à¤µà¤¿à¤«à¤²');
+        showToast('error', data.error || 'AI classify विफल');
       }
     } catch (e) {
-      showToast('error', 'AI classify à¤µà¤¿à¤«à¤²');
+      showToast('error', 'AI classify विफल');
     } finally {
       setAiClassifying(false);
     }
@@ -438,10 +438,10 @@ export default function UnifiedInbox({
       if (data.success && data.suggestion) {
         setComposer(data.suggestion);
       } else {
-        showToast('error', data.error || 'AI à¤¸à¥à¤à¤¾à¤µ à¤µà¤¿à¤«à¤²');
+        showToast('error', data.error || 'AI सुझाव विफल');
       }
     } catch (e) {
-      showToast('error', 'AI à¤¸à¥à¤à¤¾à¤µ à¤µà¤¿à¤«à¤²');
+      showToast('error', 'AI सुझाव विफल');
     } finally {
       setAiSuggesting(false);
     }
@@ -455,7 +455,7 @@ export default function UnifiedInbox({
     if (activeConv.platform === 'whatsapp' && activeConv.customer_last_message_at) {
       const last = ensureUTC(activeConv.customer_last_message_at).getTime();
       if (Date.now() - last > 24 * 60 * 60 * 1000) {
-        showToast('error', '24 à¤à¤à¤à¥ à¤ªà¥à¤°à¥ à¤¹à¥ à¤à¥à¤à¥ â WhatsApp à¤à¥à¤®à¥à¤ªà¤²à¥à¤ à¤­à¥à¤à¤¨à¤¾ à¤à¤¼à¤°à¥à¤°à¥ à¤¹à¥ (à¤¯à¤¹ à¤¸à¤à¤¸à¥à¤à¤°à¤£ à¤à¤­à¥ à¤à¥à¤®à¥à¤ªà¤²à¥à¤ à¤­à¥à¤à¤¨à¥ à¤à¤¾ à¤¸à¤®à¤°à¥à¤¥à¤¨ à¤¨à¤¹à¥à¤ à¤à¤°à¤¤à¤¾)');
+        showToast('error', '24 घंटे पूरे हो चुके — WhatsApp टेम्पलेट भेजना ज़रूरी है (यह संस्करण अभी टेम्पलेट भेजने का समर्थन नहीं करता)');
         return;
       }
     }
@@ -481,7 +481,7 @@ export default function UnifiedInbox({
           }),
         });
       } else {
-        showToast('error', 'à¤à¤¸ à¤ªà¥à¤²à¥à¤à¤«à¤¼à¥à¤°à¥à¤® à¤¸à¥ à¤­à¥à¤à¤¨à¤¾ à¤à¤­à¥ à¤¸à¤®à¤°à¥à¤¥à¤¿à¤¤ à¤¨à¤¹à¥à¤ à¤¹à¥');
+        showToast('error', 'इस प्लेटफ़ॉर्म से भेजना अभी समर्थित नहीं है');
         setSending(false);
         return;
       }
@@ -489,14 +489,14 @@ export default function UnifiedInbox({
       const data: any = await res.json();
       if (data.success || res.ok) {
         setComposer('');
-        showToast('success', 'à¤¸à¤à¤¦à¥à¤¶ à¤­à¥à¤ à¤¦à¤¿à¤¯à¤¾ à¤à¤¯à¤¾');
+        showToast('success', 'संदेश भेज दिया गया');
         openConversation(activeConv);
         loadConversations();
       } else {
-        showToast('error', data.error || 'à¤¸à¤à¤¦à¥à¤¶ à¤­à¥à¤à¤¨à¥ à¤®à¥à¤ à¤¸à¤®à¤¸à¥à¤¯à¤¾');
+        showToast('error', data.error || 'संदेश भेजने में समस्या');
       }
     } catch (e: any) {
-      showToast('error', e.message || 'à¤¸à¤à¤¦à¥à¤¶ à¤­à¥à¤à¤¨à¥ à¤®à¥à¤ à¤¸à¤®à¤¸à¥à¤¯à¤¾');
+      showToast('error', e.message || 'संदेश भेजने में समस्या');
     } finally {
       setSending(false);
     }
@@ -528,7 +528,7 @@ export default function UnifiedInbox({
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="à¤¨à¤¾à¤®, à¤¨à¤à¤¬à¤° à¤¯à¤¾ à¤à¤®à¥à¤² à¤¸à¥ à¤à¥à¤à¥à¤..."
+              placeholder="नाम, नंबर या ईमेल से खोजें..."
               className="w-full pl-9 pr-3 py-2 text-sm rounded-xl border border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-900 focus:border-primary-500 outline-none transition-colors"
             />
           </div>
@@ -569,7 +569,7 @@ export default function UnifiedInbox({
                       : 'bg-surface-50 dark:bg-surface-900 text-surface-500 hover:text-surface-800 dark:hover:text-surface-200'
                   }`}
                 >
-                  {s === 'open' ? 'à¤¸à¤à¥à¤°à¤¿à¤¯' : s === 'closed' ? 'à¤¬à¤à¤¦' : 'à¤¸à¤­à¥'}
+                  {s === 'open' ? 'सक्रिय' : s === 'closed' ? 'बंद' : 'सभी'}
                 </button>
               ))}
             </div>
@@ -585,11 +585,11 @@ export default function UnifiedInbox({
             <button
               onClick={runAIClassify}
               disabled={aiClassifying}
-              title="Gemini à¤¸à¥ à¤¸à¤­à¥ à¤¬à¤¾à¤¤à¤à¥à¤¤ à¤à¥ à¤à¤à¥-à¤²à¥à¤¬à¤² à¤à¤°à¥à¤"
+              title="Gemini से सभी बातचीत को ऑटो-लेबल करें"
               className="shrink-0 flex items-center gap-1 px-2.5 py-2 rounded-lg text-[11px] font-semibold bg-gradient-to-r from-primary-600 to-violet-600 text-white hover:opacity-90 disabled:opacity-50 transition-all"
             >
               {aiClassifying ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-              <span className="hidden sm:inline">AI à¤²à¥à¤¬à¤²</span>
+              <span className="hidden sm:inline">AI लेबल</span>
             </button>
           </div>
         </div>
@@ -603,14 +603,14 @@ export default function UnifiedInbox({
           ) : filtered.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-48 text-surface-400 px-6 text-center">
               <Inbox className="w-10 h-10 mb-2 opacity-40" />
-              <p className="text-sm font-medium text-surface-500 dark:text-surface-400">à¤à¥à¤ à¤¬à¤¾à¤¤à¤à¥à¤¤ à¤¨à¤¹à¥à¤ à¤®à¤¿à¤²à¥</p>
-              <p className="text-xs mt-1">à¤«à¤¼à¤¿à¤²à¥à¤à¤° à¤¬à¤¦à¤²à¤à¤° à¤¦à¥à¤à¥à¤ à¤¯à¤¾ à¤¨à¤¯à¤¾ à¤¸à¤à¤¦à¥à¤¶ à¤à¤¨à¥ à¤à¤¾ à¤à¤à¤¤à¤à¤¼à¤¾à¤° à¤à¤°à¥à¤</p>
+              <p className="text-sm font-medium text-surface-500 dark:text-surface-400">कोई बातचीत नहीं मिली</p>
+              <p className="text-xs mt-1">फ़िल्टर बदलकर देखें या नया संदेश आने का इंतज़ार करें</p>
               {platform === 'instagram' || platform === 'facebook' ? (
                 <button
                   onClick={onGoIntegrations}
                   className="mt-3 px-4 py-2 rounded-xl bg-primary-600 text-white text-xs font-semibold hover:bg-primary-500 transition-all"
                 >
-                  ð Integrations à¤¸à¥ à¤à¥à¤¡à¤¼à¥à¤
+                  🔗 Integrations से जोड़ें
                 </button>
               ) : null}
             </div>
@@ -642,14 +642,14 @@ export default function UnifiedInbox({
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
                         <h4 className="font-semibold text-sm text-surface-900 dark:text-white truncate">
-                          {conv.contact_name || conv.phone || 'à¤à¤à¥à¤à¤¾à¤¤'}
+                          {conv.contact_name || conv.phone || 'अज्ञात'}
                         </h4>
                         <span className="text-[10px] text-surface-400 whitespace-nowrap shrink-0">
                           {conv.customer_last_message_at ? fmtDay(conv.customer_last_message_at) : fmtDay(conv.updated_at)}
                         </span>
                       </div>
                       <p className="text-xs text-surface-500 dark:text-surface-400 truncate mt-0.5">
-                        {conv.platform === 'email' ? (subject || conv.phone) : (conv.last_message || conv.phone || 'à¤à¥à¤ à¤¸à¤à¤¦à¥à¤¶ à¤¨à¤¹à¥à¤')}
+                        {conv.platform === 'email' ? (subject || conv.phone) : (conv.last_message || conv.phone || 'कोई संदेश नहीं')}
                       </p>
                       <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
                         <span className={`text-[9px] px-1.5 py-0.5 rounded border font-bold uppercase tracking-wide ${pMeta.color}`}>
@@ -657,11 +657,11 @@ export default function UnifiedInbox({
                         </span>
                         {(conv.status || 'open') === 'open' ? (
                           <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold">
-                            à¤¸à¤à¥à¤°à¤¿à¤¯
+                            सक्रिय
                           </span>
                         ) : (
                           <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-surface-500/10 text-surface-500 font-semibold">
-                            à¤¬à¤à¤¦
+                            बंद
                           </span>
                         )}
                         {conv.ai_label && conv.ai_label !== 'other' && (
@@ -686,9 +686,9 @@ export default function UnifiedInbox({
             <div className="w-16 h-16 rounded-2xl bg-primary-500/10 flex items-center justify-center mb-4">
               <Inbox className="w-8 h-8 text-primary-500" />
             </div>
-            <p className="text-lg font-semibold text-surface-600 dark:text-surface-300">à¤¯à¥à¤¨à¤¿à¤«à¤¾à¤à¤¡ à¤à¤¨à¤¬à¥à¤à¥à¤¸</p>
+            <p className="text-lg font-semibold text-surface-600 dark:text-surface-300">यूनिफाइड इनबॉक्स</p>
             <p className="text-sm mt-1 max-w-xs text-center">
-              WhatsApp, Email à¤à¤° à¤à¤¨à¥ à¤µà¤¾à¤²à¥ Instagram/Facebook à¤¸à¤à¤¦à¥à¤¶ â à¤¸à¤¬ à¤à¤ à¤¹à¥ à¤à¤à¤¹
+              WhatsApp, Email और आने वाले Instagram/Facebook संदेश — सब एक ही जगह
             </p>
           </div>
         ) : (
@@ -701,13 +701,13 @@ export default function UnifiedInbox({
                 </div>
                 <div className="min-w-0">
                   <h3 className="font-bold text-surface-900 dark:text-white truncate">
-                    {activeConv.contact_name || 'à¤à¤à¥à¤à¤¾à¤¤'}
+                    {activeConv.contact_name || 'अज्ञात'}
                   </h3>
                   <p className="text-xs text-surface-500 truncate flex items-center gap-1">
                     {activeConv.phone}
-                    {activeConv.platform === 'email' && <span className="text-surface-400">â¢ à¤à¤®à¥à¤²</span>}
+                    {activeConv.platform === 'email' && <span className="text-surface-400">• ईमेल</span>}
                     {activeConv.platform === 'whatsapp' && activeConv.phone_number_id && (
-                      <span className="text-surface-400">â¢ {activeConv.phone_number_id.slice(0, 8)}...</span>
+                      <span className="text-surface-400">• {activeConv.phone_number_id.slice(0, 8)}...</span>
                     )}
                   </p>
                 </div>
@@ -734,14 +734,14 @@ export default function UnifiedInbox({
                   {activeConv.platform === 'instagram' ? <Instagram className="w-7 h-7 text-pink-500" /> : <Facebook className="w-7 h-7 text-blue-500" />}
                 </div>
                 <h4 className="font-bold text-surface-800 dark:text-surface-200">
-                  {activeConv.platform === 'instagram' ? 'Instagram DM' : 'Facebook Messenger'} à¤à¤à¤à¥à¤à¥à¤°à¥à¤¶à¤¨ à¤à¤²à¥à¤¦ à¤ à¤°à¤¹à¤¾ à¤¹à¥
+                  {activeConv.platform === 'instagram' ? 'Instagram DM' : 'Facebook Messenger'} इंटीग्रेशन जल्द आ रहा है
                 </h4>
                 <p className="text-sm text-surface-500 mt-1 max-w-sm">
-                  Meta à¤à¥ messaging permissions + webhook à¤¸à¥à¤à¤à¤ª à¤à¥ à¤¬à¤¾à¤¦ à¤¯à¤¹à¤¾à¤ DMs à¤à¤à¤à¤à¥à¥¤ à¤¤à¤¬ à¤¤à¤ à¤à¤ª WhatsApp à¤à¤° Email à¤à¤¾ à¤à¤¸à¥à¤¤à¥à¤®à¤¾à¤² à¤à¤° à¤¸à¤à¤¤à¥ à¤¹à¥à¤à¥¤
+                  Meta की messaging permissions + webhook सेटअप के बाद यहाँ DMs आएंगे। तब तक आप WhatsApp और Email का इस्तेमाल कर सकते हैं।
                 </p>
                 {onGoIntegrations && (
                   <button onClick={onGoIntegrations} className="mt-4 px-4 py-2 rounded-xl bg-primary-600 text-white text-xs font-semibold hover:bg-primary-500 transition-all">
-                    Integrations à¤¦à¥à¤à¥à¤
+                    Integrations देखें
                   </button>
                 )}
               </div>
@@ -757,7 +757,7 @@ export default function UnifiedInbox({
                 ) : messages.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full text-surface-400">
                     <MessageCircle className="w-10 h-10 mb-2 opacity-40" />
-                    <p className="text-sm">à¤à¤­à¥ à¤à¥à¤ à¤¸à¤à¤¦à¥à¤¶ à¤¨à¤¹à¥à¤</p>
+                    <p className="text-sm">अभी कोई संदेश नहीं</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -772,14 +772,14 @@ export default function UnifiedInbox({
                               : 'bg-primary-600 text-white rounded-tr-sm'
                           }`}>
                             {m.message_type === 'email' && emailMeta.subject && (
-                              <p className="text-xs font-bold mb-1 opacity-80">ð§ {emailMeta.subject}</p>
+                              <p className="text-xs font-bold mb-1 opacity-80">📧 {emailMeta.subject}</p>
                             )}
                             {renderMessageMedia(m)}
                             {m.content && <p className="whitespace-pre-wrap break-words">{m.content}</p>}
                             {renderTypeBadge(m)}
                             <p className={`text-[9px] mt-1 ${isContact ? 'text-surface-400' : 'text-white/70'}`}>
                               {fmtTime(m.created_at)}
-                              {m.status === 'read' && !isContact && <span className="ml-1">ââ</span>}
+                              {m.status === 'read' && !isContact && <span className="ml-1">✓✓</span>}
                             </p>
                           </div>
                         </div>
@@ -802,7 +802,7 @@ export default function UnifiedInbox({
                     return (
                       <div className="mb-2 flex items-center gap-2 text-[11px] text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
                         <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                        24 à¤à¤à¤à¥ à¤à¥ à¤µà¤¿à¤à¤¡à¥ à¤ªà¥à¤°à¥ â WhatsApp à¤à¥à¤®à¥à¤ªà¤²à¥à¤ à¤­à¥à¤à¤¨à¤¾ à¤à¤¼à¤°à¥à¤°à¥ à¤¹à¥à¥¤ à¤¯à¤¹ à¤¸à¤à¤¸à¥à¤à¤°à¤£ à¤à¥à¤®à¥à¤ªà¤²à¥à¤ à¤­à¥à¤à¤¨à¥ à¤à¤¾ à¤¸à¤®à¤°à¥à¤¥à¤¨ à¤¨à¤¹à¥à¤ à¤à¤°à¤¤à¤¾à¥¤
+                        24 घंटे की विंडो पूरी — WhatsApp टेम्पलेट भेजना ज़रूरी है। यह संस्करण टेम्पलेट भेजने का समर्थन नहीं करता।
                       </div>
                     );
                   })()
@@ -813,7 +813,7 @@ export default function UnifiedInbox({
                     value={composer}
                     onChange={(e) => setComposer(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendReply(); } }}
-                    placeholder={activeConv.platform === 'email' ? 'à¤à¤®à¥à¤² à¤à¤¾ à¤à¤µà¤¾à¤¬ à¤²à¤¿à¤à¥à¤...' : 'à¤¸à¤à¤¦à¥à¤¶ à¤²à¤¿à¤à¥à¤...'}
+                    placeholder={activeConv.platform === 'email' ? 'ईमेल का जवाब लिखें...' : 'संदेश लिखें...'}
                     rows={2}
                     className="flex-1 resize-none px-4 py-2.5 text-sm rounded-2xl border border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-900 focus:border-primary-500 outline-none transition-colors min-h-[46px]"
                   />
@@ -821,11 +821,11 @@ export default function UnifiedInbox({
                     <button
                       onClick={runAISuggest}
                       disabled={aiSuggesting}
-                      title="Gemini à¤¸à¥ AI à¤à¤µà¤¾à¤¬ à¤¸à¥à¤à¤¾à¤à¤"
+                      title="Gemini से AI जवाब सुझाएं"
                       className="shrink-0 flex items-center gap-1.5 px-3.5 py-2.5 rounded-2xl text-xs font-semibold bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white hover:opacity-90 disabled:opacity-50 transition-all"
                     >
                       {aiSuggesting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                      AI à¤¸à¥à¤à¤¾à¤µ
+                      AI सुझाव
                     </button>
                   )}
                   <button
@@ -834,7 +834,7 @@ export default function UnifiedInbox({
                     className="shrink-0 flex items-center gap-1.5 px-4 py-2.5 rounded-2xl text-xs font-semibold bg-primary-600 text-white hover:bg-primary-500 disabled:opacity-40 transition-all"
                   >
                     {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                    à¤­à¥à¤à¥à¤
+                    भेजें
                   </button>
                 </div>
               </div>
@@ -852,7 +852,7 @@ export default function UnifiedInbox({
                 {(activeConv.contact_name || '?')[0]?.toUpperCase()}
               </div>
               <div className="min-w-0">
-                <h4 className="font-bold text-sm text-surface-900 dark:text-white truncate">{activeConv.contact_name || 'à¤à¤à¥à¤à¤¾à¤¤'}</h4>
+                <h4 className="font-bold text-sm text-surface-900 dark:text-white truncate">{activeConv.contact_name || 'अज्ञात'}</h4>
                 <p className="text-[10px] text-surface-500 truncate">{activeConv.phone}</p>
               </div>
             </div>
@@ -882,7 +882,7 @@ export default function UnifiedInbox({
               value={composer}
               onChange={(e) => setComposer(e.target.value)}
               rows={1}
-              placeholder="à¤¸à¤à¤¦à¥à¤¶ à¤²à¤¿à¤à¥à¤..."
+              placeholder="संदेश लिखें..."
               className="flex-1 resize-none px-3.5 py-2.5 text-sm rounded-2xl border border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-900 outline-none"
             />
             <button
