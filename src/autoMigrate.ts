@@ -1,4 +1,4 @@
-/// <reference path="../worker-env.d.ts" />
+/// <reference path="./worker-env.d.ts" />
 import schemaSqlContent from '../schema.sql';
 import { diffSchema } from './schema';
 
