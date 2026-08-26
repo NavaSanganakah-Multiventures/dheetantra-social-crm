@@ -1,0 +1,272 @@
+import { Hono } from 'hono';
+import { Env } from '../types';
+import { requireRole, pagination } from '../shared';
+
+const router = new Hono<{ Bindings: Env }>();
+
+function withWorkspace(c: any) {
+  const workspaceId = c.req.header('x-workspace-id');
+  if (!workspaceId) return { error: c.json({ error: 'Workspace ID required' }, 400) };
+  return { workspaceId };
+}
+
+// List catalogs
+router.get('/api/catalogs', async (c) => {
+  const { workspaceId, error } = withWorkspace(c);
+  if (error) return error;
+  const status = c.req.query('status') || 'all';
+  const { limit, offset } = pagination(c, 100);
+  let sql = 'SELECT * FROM catalogs WHERE workspace_id = ?';
+  const params: any[] = [workspaceId];
+  if (status !== 'all') {
+    sql += ' AND status = ?';
+    params.push(status);
+  }
+  sql += ' ORDER BY updated_at DESC LIMIT ? OFFSET ?';
+  params.push(limit, offset);
+  try {
+    const { results } = await c.env.DB.prepare(sql).bind(...params).all();
+    const catalogIds = (results || []).map((r: any) => r.id).filter(Boolean);
+    const counts = new Map<string, number>();
+    if (catalogIds.length) {
+      const placeholders = catalogIds.map(() => '?').join(',');
+      const countRes = await c.env.DB.prepare(`SELECT catalog_id, COUNT(*) as cnt FROM catalog_products WHERE catalog_id IN (${placeholders}) AND status = 'active' GROUP BY catalog_id`).bind(...catalogIds).all();
+      for (const row of countRes.results || []) {
+        const r = row as any;
+        counts.set(r.catalog_id, r.cnt);
+      }
+    }
+    const catalogs = (results || []).map((cat: any) => ({
+      ...cat,
+      products_count: counts.get(cat.id) || 0,
+    }));
+    return c.json({ catalogs });
+  } catch (e: any) {
+    return c.json({ error: e.message }, 500);
+  }
+});
+
+// Create catalog
+router.post('/api/catalogs', requireRole('owner', 'admin'), async (c) => {
+  const { workspaceId, error } = withWorkspace(c);
+  if (error) return error;
+  const { name, description, status, cover_image_url } = await c.req.json();
+  if (!name || typeof name !== 'string') {
+    return c.json({ error: 'Catalog name is required' }, 400);
+  }
+  try {
+    const id = crypto.randomUUID();
+    await c.env.DB.prepare('INSERT INTO catalogs (id, workspace_id, name, description, status, cover_image_url) VALUES (?, ?, ?, ?, ?, ?)').bind(id, workspaceId, name, description || null, status || 'active', cover_image_url || null).run();
+    const catalog = await c.env.DB.prepare('SELECT * FROM catalogs WHERE id = ?').bind(id).first();
+    return c.json({ success: true, catalog });
+  } catch (e: any) {
+    return c.json({ error: e.message }, 500);
+  }
+});
+
+// Get catalog with products
+router.get('/api/catalogs/:id', async (c) => {
+  const { workspaceId, error } = withWorkspace(c);
+  if (error) return error;
+  const id = c.req.param('id');
+  try {
+    const catalog = await c.env.DB.prepare('SELECT * FROM catalogs WHERE id = ? AND workspace_id = ?').bind(id, workspaceId).first();
+    if (!catalog) return c.json({ error: 'Catalog not found' }, 404);
+    const { results: products } = await c.env.DB.prepare('SELECT * FROM catalog_products WHERE catalog_id = ? AND workspace_id = ? ORDER BY sort_order, created_at').bind(id, workspaceId).all();
+    return c.json({ catalog, products: products || [] });
+  } catch (e: any) {
+    return c.json({ error: e.message }, 500);
+  }
+});
+
+// Update catalog
+router.put('/api/catalogs/:id', requireRole('owner', 'admin'), async (c) => {
+  const { workspaceId, error } = withWorkspace(c);
+  if (error) return error;
+  const id = c.req.param('id');
+  const { name, description, status, cover_image_url } = await c.req.json();
+  try {
+    const existing = await c.env.DB.prepare('SELECT id FROM catalogs WHERE id = ? AND workspace_id = ?').bind(id, workspaceId).first();
+    if (!existing) return c.json({ error: 'Catalog not found' }, 404);
+    await c.env.DB.prepare('UPDATE catalogs SET name = COALESCE(?, name), description = COALESCE(?, description), status = COALESCE(?, status), cover_image_url = COALESCE(?, cover_image_url) WHERE id = ?').bind(name, description, status, cover_image_url, id).run();
+    const catalog = await c.env.DB.prepare('SELECT * FROM catalogs WHERE id = ?').bind(id).first();
+    return c.json({ success: true, catalog });
+  } catch (e: any) {
+    return c.json({ error: e.message }, 500);
+  }
+});
+
+// Delete catalog (cascade to products via FK)
+router.delete('/api/catalogs/:id', requireRole('owner', 'admin'), async (c) => {
+  const { workspaceId, error } = withWorkspace(c);
+  if (error) return error;
+  const id = c.req.param('id');
+  try {
+    await c.env.DB.prepare('DELETE FROM catalogs WHERE id = ? AND workspace_id = ?').bind(id, workspaceId).run();
+    return c.json({ success: true });
+  } catch (e: any) {
+    return c.json({ error: e.message }, 500);
+  }
+});
+
+// List products for a catalog
+router.get('/api/catalogs/:id/products', async (c) => {
+  const { workspaceId, error } = withWorkspace(c);
+  if (error) return error;
+  const catalogId = c.req.param('id');
+  const { limit, offset } = pagination(c, 200);
+  try {
+    const { results } = await c.env.DB.prepare('SELECT * FROM catalog_products WHERE catalog_id = ? AND workspace_id = ? ORDER BY sort_order, created_at LIMIT ? OFFSET ?').bind(catalogId, workspaceId, limit, offset).all();
+    return c.json({ products: results || [] });
+  } catch (e: any) {
+    return c.json({ error: e.message }, 500);
+  }
+});
+
+// Add product to catalog
+router.post('/api/catalogs/:id/products', requireRole('owner', 'admin'), async (c) => {
+  const { workspaceId, error } = withWorkspace(c);
+  if (error) return error;
+  const catalogId = c.req.param('id');
+  const { name, description, price, currency, image_url, sort_order } = await c.req.json();
+  if (!name || typeof name !== 'string') {
+    return c.json({ error: 'Product name is required' }, 400);
+  }
+  try {
+    const catalog = await c.env.DB.prepare('SELECT id FROM catalogs WHERE id = ? AND workspace_id = ?').bind(catalogId, workspaceId).first();
+    if (!catalog) return c.json({ error: 'Catalog not found' }, 404);
+    const id = crypto.randomUUID();
+    const numericPrice = typeof price === 'number' ? price : (parseFloat(price as any) || 0);
+    await c.env.DB.prepare('INSERT INTO catalog_products (id, catalog_id, workspace_id, name, description, price, currency, image_url, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)').bind(id, catalogId, workspaceId, name, description || null, numericPrice, currency || 'INR', image_url || null, typeof sort_order === 'number' ? sort_order : 0).run();
+    const product = await c.env.DB.prepare('SELECT * FROM catalog_products WHERE id = ?').bind(id).first();
+    return c.json({ success: true, product });
+  } catch (e: any) {
+    return c.json({ error: e.message }, 500);
+  }
+});
+
+// Update product (belongs to workspace)
+router.put('/api/catalogs/products/:id', requireRole('owner', 'admin'), async (c) => {
+  const { workspaceId, error } = withWorkspace(c);
+  if (error) return error;
+  const id = c.req.param('id');
+  const { name, description, price, currency, image_url, status, sort_order } = await c.req.json();
+  try {
+    const existing = await c.env.DB.prepare('SELECT id FROM catalog_products WHERE id = ? AND workspace_id = ?').bind(id, workspaceId).first();
+    if (!existing) return c.json({ error: 'Product not found' }, 404);
+    const numericPrice = price !== undefined ? (typeof price === 'number' ? price : (parseFloat(price as any) || 0)) : undefined;
+    const updates: any = {};
+    if (name !== undefined) updates.name = name;
+    if (description !== undefined) updates.description = description;
+    if (numericPrice !== undefined) updates.price = numericPrice;
+    if (currency !== undefined) updates.currency = currency;
+    if (image_url !== undefined) updates.image_url = image_url;
+    if (status !== undefined) updates.status = status;
+    if (sort_order !== undefined) updates.sort_order = typeof sort_order === 'number' ? sort_order : parseInt(sort_order as any) || 0;
+    if (Object.keys(updates).length) {
+      const cols = Object.keys(updates).map(k => `${k} = ?`).join(', ');
+      await c.env.DB.prepare(`UPDATE catalog_products SET ${cols} WHERE id = ?`).bind(...Object.values(updates), id).run();
+    }
+    const product = await c.env.DB.prepare('SELECT * FROM catalog_products WHERE id = ?').bind(id).first();
+    return c.json({ success: true, product });
+  } catch (e: any) {
+    return c.json({ error: e.message }, 500);
+  }
+});
+
+// Delete product
+router.delete('/api/catalogs/products/:id', requireRole('owner', 'admin'), async (c) => {
+  const { workspaceId, error } = withWorkspace(c);
+  if (error) return error;
+  const id = c.req.param('id');
+  try {
+    await c.env.DB.prepare('DELETE FROM catalog_products WHERE id = ? AND workspace_id = ?').bind(id, workspaceId).run();
+    return c.json({ success: true });
+  } catch (e: any) {
+    return c.json({ error: e.message }, 500);
+  }
+});
+
+// Share product or catalog into a conversation
+router.post('/api/catalogs/share', requireRole('owner', 'admin', 'member'), async (c) => {
+  const { workspaceId, error } = withWorkspace(c);
+  if (error) return error;
+  const { conversationId, type, productId, catalogId, note } = await c.req.json();
+  if (!conversationId || !['product', 'catalog'].includes(type)) {
+    return c.json({ error: 'conversationId and valid type are required' }, 400);
+  }
+  if (type === 'product' && !productId) return c.json({ error: 'productId required' }, 400);
+  if (type === 'catalog' && !catalogId) return c.json({ error: 'catalogId required' }, 400);
+  try {
+    const conversation = await c.env.DB.prepare('SELECT id, platform FROM conversations WHERE id = ? AND workspace_id = ?').bind(conversationId, workspaceId).first<{ id: string; platform: string }>();
+    if (!conversation) return c.json({ error: 'Conversation not found' }, 404);
+    let content = '';
+    let mediaUrl: string | null = null;
+    if (type === 'product') {
+      const product = await c.env.DB.prepare('SELECT * FROM catalog_products WHERE id = ? AND workspace_id = ?').bind(productId, workspaceId).first<any>();
+      if (!product) return c.json({ error: 'Product not found' }, 404);
+      content = product.name;
+      mediaUrl = JSON.stringify({
+        type: 'catalog_product',
+        product_id: product.id,
+        catalog_id: product.catalog_id,
+        name: product.name,
+        price: product.price,
+        currency: product.currency,
+        image_url: product.image_url,
+        description: product.description,
+        note: note || '',
+      });
+    } else {
+      const catalog = await c.env.DB.prepare('SELECT * FROM catalogs WHERE id = ? AND workspace_id = ?').bind(catalogId, workspaceId).first<any>();
+      if (!catalog) return c.json({ error: 'Catalog not found' }, 404);
+      const { results: products } = await c.env.DB.prepare('SELECT name, price, currency FROM catalog_products WHERE catalog_id = ? AND workspace_id = ? AND status = ? ORDER BY sort_order').bind(catalog.id, workspaceId, 'active').all();
+      content = catalog.name;
+      mediaUrl = JSON.stringify({
+        type: 'catalog',
+        catalog_id: catalog.id,
+        name: catalog.name,
+        description: catalog.description,
+        cover_image_url: catalog.cover_image_url,
+        products_count: products ? products.length : 0,
+        products_preview: products || [],
+        note: note || '',
+      });
+    }
+    const savedMessageId = crypto.randomUUID();
+    const platformMsgId = crypto.randomUUID();
+    const now = new Date().toISOString();
+    await c.env.DB.prepare('INSERT INTO messages (id, conversation_id, sender_type, message_type, content, media_url, platform_message_id, platform, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)').bind(savedMessageId, conversationId, 'agent', type === 'product' ? 'catalog_product' : 'catalog', content, mediaUrl, platformMsgId, conversation.platform || 'whatsapp', now).run();
+    await c.env.DB.prepare('UPDATE conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = ?').bind(conversationId).run();
+    try {
+      const globalDoId = c.env.CHAT_DO.idFromName(`global-${workspaceId}`);
+      const stub = c.env.CHAT_DO.get(globalDoId);
+      await stub.fetch(new Request('http://do/broadcast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'new_message',
+          message: {
+            id: savedMessageId,
+            conversation_id: conversationId,
+            sender_type: 'agent',
+            message_type: type === 'product' ? 'catalog_product' : 'catalog',
+            content: content,
+            media_url: mediaUrl,
+            platform_message_id: platformMsgId,
+            platform: conversation.platform || 'whatsapp',
+            status: 'sent',
+            created_at: now,
+          },
+        }),
+      }));
+    } catch (doErr) {
+      console.error('Failed to broadcast catalog share:', doErr);
+    }
+    return c.json({ success: true, message: { id: savedMessageId, conversation_id: conversationId, content, media_url: mediaUrl, created_at: now } });
+  } catch (e: any) {
+    return c.json({ error: e.message }, 500);
+  }
+});
+
+export default router;

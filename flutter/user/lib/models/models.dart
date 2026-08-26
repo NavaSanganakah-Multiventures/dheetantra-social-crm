@@ -20,9 +20,9 @@ String _safeString(dynamic value) {
           continue;
         }
       }
-      // Lone high surrogate â skip.
+      // Lone high surrogate Ã¢ÂÂ skip.
     } else if (c >= 0xDC00 && c <= 0xDFFF) {
-      // Lone low surrogate â skip.
+      // Lone low surrogate Ã¢ÂÂ skip.
     } else {
       buffer.write(String.fromCharCode(c));
     }
@@ -93,12 +93,12 @@ class Contact {
   static List<String> _parseTags(Map<String, dynamic> json) {
     final tags = <String>[];
     if (json['is_lead'] == 1 || json['is_lead'] == true) {
-      tags.add('à¤²à¥à¤¡');
+      tags.add('Ã Â¤Â²Ã Â¥ÂÃ Â¤Â¡');
       if (json['lead_status'] != null && json['lead_status'] != 'new') {
         tags.add(_safeString(json['lead_status']));
       }
     } else {
-      tags.add('à¤à¥à¤°à¤¾à¤¹à¤');
+      tags.add('Ã Â¤ÂÃ Â¥ÂÃ Â¤Â°Ã Â¤Â¾Ã Â¤Â¹Ã Â¤Â');
     }
     return tags;
   }
@@ -527,5 +527,109 @@ class EmailMailbox {
       domainName: _safeString(json['domain_name']),
       domainStatus: _safeString(json['domain_status']),
     );
+  }
+}
+
+
+class Catalog {
+  final String id;
+  final String name;
+  final String? description;
+  final String status;
+  final String? coverImageUrl;
+  final int productsCount;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
+
+  const Catalog({
+    required this.id,
+    required this.name,
+    this.description,
+    this.status = 'active',
+    this.coverImageUrl,
+    this.productsCount = 0,
+    this.createdAt,
+    this.updatedAt,
+  });
+
+  factory Catalog.fromJson(Map<String, dynamic> json) {
+    return Catalog(
+      id: _safeString(json['id']),
+      name: _safeString(json['name']),
+      description: _safeString(json['description']),
+      status: _safeString(json['status']) ,
+      coverImageUrl: _safeString(json['cover_image_url']),
+      productsCount: json['products_count'] ?? 0,
+      createdAt: _parseUtcDateTime(json['created_at']),
+      updatedAt: _parseUtcDateTime(json['updated_at']),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'description': description,
+      'status': status,
+      'cover_image_url': coverImageUrl,
+    };
+  }
+}
+
+class CatalogProduct {
+  final String id;
+  final String catalogId;
+  final String name;
+  final String? description;
+  final double price;
+  final String currency;
+  final String? imageUrl;
+  final String status;
+  final int sortOrder;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
+
+  const CatalogProduct({
+    required this.id,
+    required this.catalogId,
+    required this.name,
+    this.description,
+    this.price = 0,
+    this.currency = 'INR',
+    this.imageUrl,
+    this.status = 'active',
+    this.sortOrder = 0,
+    this.createdAt,
+    this.updatedAt,
+  });
+
+  factory CatalogProduct.fromJson(Map<String, dynamic> json) {
+    return CatalogProduct(
+      id: _safeString(json['id']),
+      catalogId: _safeString(json['catalog_id']),
+      name: _safeString(json['name']),
+      description: _safeString(json['description']),
+      price: (json['price'] as num?)?.toDouble() ?? 0,
+      currency: _safeString(json['currency']) ,
+      imageUrl: _safeString(json['image_url']),
+      status: _safeString(json['status']) ,
+      sortOrder: json['sort_order'] ?? 0,
+      createdAt: _parseUtcDateTime(json['created_at']),
+      updatedAt: _parseUtcDateTime(json['updated_at']),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'catalog_id': catalogId,
+      'name': name,
+      'description': description,
+      'price': price,
+      'currency': currency,
+      'image_url': imageUrl,
+      'status': status,
+      'sort_order': sortOrder,
+    };
   }
 }

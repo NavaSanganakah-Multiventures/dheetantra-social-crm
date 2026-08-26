@@ -56,6 +56,8 @@ dependencies:
   photo_view: ^0.15.0
   flutter_pdfview: ^1.4.0
   share_plus: ^10.0.0
+  # Catalog product photo picker
+  image_picker: ^1.1.2
   # Device info for recording path analytics
   device_info_plus: ^11.3.0
   # Manual recording file selection

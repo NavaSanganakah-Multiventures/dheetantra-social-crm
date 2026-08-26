@@ -12,6 +12,7 @@ import '../widgets/common.dart';
 import 'calls_screen.dart';
 import 'chat_screen.dart';
 import 'schedule_screen.dart';
+import 'catalog_list_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   final VoidCallback onOpenInbox;
@@ -80,7 +81,7 @@ class _DashboardScreenState extends State<DashboardScreen> with RouteAware {
   // Chat screen se wapas aane par ya koi bhi screen pop hone par fresh data lo.
   @override
   void didPopNext() {
-    debugPrint('[Dashboard] didPopNext — reloading');
+    debugPrint('[Dashboard] didPopNext â reloading');
     _loadData(silent: true);
   }
 
@@ -123,7 +124,7 @@ class _DashboardScreenState extends State<DashboardScreen> with RouteAware {
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
         children: [
           const Text(
-            'आपका स्वागत है! 👋',
+            'à¤à¤ªà¤à¤¾ à¤¸à¥à¤µà¤¾à¤à¤¤ à¤¹à¥! ð',
             style: TextStyle(
               color: AppColors.textPrimary,
               fontSize: 22,
@@ -133,7 +134,7 @@ class _DashboardScreenState extends State<DashboardScreen> with RouteAware {
           ),
           const SizedBox(height: 4),
           const Text(
-            'यहाँ आपके वर्कस्पेस का अवलोकन है।',
+            'à¤¯à¤¹à¤¾à¤ à¤à¤ªà¤à¥ à¤µà¤°à¥à¤à¤¸à¥à¤ªà¥à¤¸ à¤à¤¾ à¤à¤µà¤²à¥à¤à¤¨ à¤¹à¥à¥¤',
             style: TextStyle(color: AppColors.textMuted, fontSize: 13),
           ),
           const SizedBox(height: 24),
@@ -147,18 +148,18 @@ class _DashboardScreenState extends State<DashboardScreen> with RouteAware {
                   SizedBox(
                     width: cardWidth,
                     child: StatCard(
-                      title: 'कुल संपर्क',
+                      title: 'à¤à¥à¤² à¤¸à¤à¤ªà¤°à¥à¤',
                       value: '$_totalContacts',
-                      trend: 'CRM डेटा',
+                      trend: 'CRM à¤¡à¥à¤à¤¾',
                       icon: Icons.people_alt_outlined,
                     ),
                   ),
                   SizedBox(
                     width: cardWidth,
                     child: StatCard(
-                      title: 'खुली बातचीत',
+                      title: 'à¤à¥à¤²à¥ à¤¬à¤¾à¤¤à¤à¥à¤¤',
                       value: '$_openConversations',
-                      trend: 'सक्रिय कनेक्शन',
+                      trend: 'à¤¸à¤à¥à¤°à¤¿à¤¯ à¤à¤¨à¥à¤à¥à¤¶à¤¨',
                       icon: Icons.forum_outlined,
                     ),
                   ),
@@ -174,8 +175,8 @@ class _DashboardScreenState extends State<DashboardScreen> with RouteAware {
           ),
           const SizedBox(height: 28),
           SectionHeader(
-            title: 'हाल की बातचीत',
-            actionLabel: 'सभी देखें',
+            title: 'à¤¹à¤¾à¤² à¤à¥ à¤¬à¤¾à¤¤à¤à¥à¤¤',
+            actionLabel: 'à¤¸à¤­à¥ à¤¦à¥à¤à¥à¤',
             onAction: widget.onOpenInbox,
           ),
           const SizedBox(height: 12),
@@ -202,17 +203,17 @@ class _QuickActions extends StatelessWidget {
     final actions = [
       _QuickActionData(
         icon: Icons.chat_outlined,
-        label: 'इनबॉक्स',
+        label: 'à¤à¤¨à¤¬à¥à¤à¥à¤¸',
         onTap: onOpenInbox,
       ),
       _QuickActionData(
         icon: Icons.notifications_outlined,
-        label: 'सूचनाएं',
+        label: 'à¤¸à¥à¤à¤¨à¤¾à¤à¤',
         onTap: onOpenNotifications,
       ),
       _QuickActionData(
         icon: Icons.call_outlined,
-        label: 'कॉल लॉग्स',
+        label: 'à¤à¥à¤² à¤²à¥à¤à¥à¤¸',
         onTap: () {
           Navigator.of(context).push(
             MaterialPageRoute(builder: (_) => const CallsScreen()),
@@ -221,7 +222,7 @@ class _QuickActions extends StatelessWidget {
       ),
       _QuickActionData(
         icon: Icons.event_outlined,
-        label: 'शेड्यूल',
+        label: 'à¤¶à¥à¤¡à¥à¤¯à¥à¤²',
         onTap: () {
           Navigator.of(context).push(
             MaterialPageRoute(builder: (_) => const ScheduleScreen()),
@@ -230,15 +231,24 @@ class _QuickActions extends StatelessWidget {
       ),
       _QuickActionData(
         icon: Icons.campaign_outlined,
-        label: 'ब्रॉडकास्ट',
+        label: 'à¤¬à¥à¤°à¥à¤¡à¤à¤¾à¤¸à¥à¤',
         onTap: onOpenBroadcast,
+      ),
+      _QuickActionData(
+        icon: Icons.storefront_outlined,
+        label: 'Catalogs',
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const CatalogListScreen()),
+          );
+        },
       ),
     ];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionHeader(title: 'क्विक एक्शन्स'),
+        const SectionHeader(title: 'à¤à¥à¤µà¤¿à¤ à¤à¤à¥à¤¶à¤¨à¥à¤¸'),
         const SizedBox(height: 12),
         // Responsive: grid on wide screens, horizontal scroll on narrow ones.
         LayoutBuilder(
@@ -334,8 +344,8 @@ class _RecentChats extends StatelessWidget {
     if (conversations.isEmpty) {
       return const EmptyState(
         icon: Icons.forum_outlined,
-        title: 'कोई सक्रिय बातचीत नहीं मिली।',
-        subtitle: 'जब ग्राहक संदेश भेजेंगे तो यहाँ दिखेगा।',
+        title: 'à¤à¥à¤ à¤¸à¤à¥à¤°à¤¿à¤¯ à¤¬à¤¾à¤¤à¤à¥à¤¤ à¤¨à¤¹à¥à¤ à¤®à¤¿à¤²à¥à¥¤',
+        subtitle: 'à¤à¤¬ à¤à¥à¤°à¤¾à¤¹à¤ à¤¸à¤à¤¦à¥à¤¶ à¤­à¥à¤à¥à¤à¤à¥ à¤¤à¥ à¤¯à¤¹à¤¾à¤ à¤¦à¤¿à¤à¥à¤à¤¾à¥¤',
       );
     }
     return Container(
