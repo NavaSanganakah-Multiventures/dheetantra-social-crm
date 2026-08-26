@@ -212,7 +212,7 @@ export async function sendPushNotification(
       }
     }
 
-    // ttlSeconds == 0  â immediate delivery only (calls). For messages use a
+    // ttlSeconds == 0  → immediate delivery only (calls). For messages use a
     // long TTL so the device gets every message when it comes back online.
     const ttl =
       options?.ttlSeconds === 0
@@ -255,7 +255,7 @@ export async function sendPushNotification(
       const errBody = await res.text();
       console.error(`[FCM Error] Status: ${res.status}, Body: ${errBody}`);
       // 404/410 (or the FCM error codes below) mean the device token is no
-      // longer valid â the caller should delete it from fcm_tokens.
+      // longer valid — the caller should delete it from fcm_tokens.
       const unregistered =
         res.status === 404 ||
         res.status === 410 ||
