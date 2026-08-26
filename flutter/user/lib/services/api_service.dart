@@ -340,12 +340,95 @@ class ApiService {
 
   // ========== TWILIO CALL ==========
 
-  Future<Map<String, dynamic>> initiateTwilioCall({required String to, String? contactId}) async {
+  Future<Map<String, dynamic>> initiateTwilioCall({
+    required String to,
+    String? contactId,
+    String? twilioConfigId,
+    String? fromNumber,
+  }) async {
     try {
       final res = await _dio.post('/api/twilio/call', data: {
         'to': to,
         if (contactId != null) 'contactId': contactId,
+        if (twilioConfigId != null) 'twilioConfigId': twilioConfigId,
+        if (fromNumber != null) 'fromNumber': fromNumber,
       });
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  // ========== TWILIO WORKSPACE CONFIG ==========
+
+  Future<List<dynamic>> getTwilioConfigs() async {
+    try {
+      final res = await _dio.get('/api/twilio/configs');
+      final data = res.data as Map<String, dynamic>;
+      return data['configs'] as List? ?? [];
+    } on DioException {
+      return [];
+    }
+  }
+
+  Future<Map<String, dynamic>> saveTwilioConfig({
+    String? id,
+    required String name,
+    required String accountSid,
+    String? authToken,
+    bool isActive = true,
+    List<String> fromNumbers = const [],
+  }) async {
+    try {
+      final data = <String, dynamic>{
+        'name': name,
+        'accountSid': accountSid,
+        'isActive': isActive,
+        if (authToken != null && authToken.isNotEmpty) 'authToken': authToken,
+        if (fromNumbers.isNotEmpty) 'fromNumbers': fromNumbers,
+      };
+      final res = id == null
+          ? await _dio.post('/api/twilio/configs', data: data)
+          : await _dio.put('/api/twilio/configs/$id', data: data);
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> deleteTwilioConfig(String id) async {
+    try {
+      final res = await _dio.delete('/api/twilio/configs/$id');
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> addTwilioFromNumber(String configId, String fromNumber, {bool isDefault = false}) async {
+    try {
+      final res = await _dio.post('/api/twilio/configs/$configId/from-numbers', data: {
+        'fromNumber': fromNumber,
+        'isDefault': isDefault,
+      });
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> deleteTwilioFromNumber(String id) async {
+    try {
+      final res = await _dio.delete('/api/twilio/from-numbers/$id');
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> setDefaultTwilioFromNumber(String id) async {
+    try {
+      final res = await _dio.post('/api/twilio/from-numbers/$id/default');
       return res.data as Map<String, dynamic>;
     } on DioException catch (e) {
       return _handleError(e);
