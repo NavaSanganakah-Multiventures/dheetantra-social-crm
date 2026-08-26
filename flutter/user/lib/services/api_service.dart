@@ -790,6 +790,38 @@ class ApiService {
     }
   }
 
+  // ========== WHATSAPP NATIVE CATALOG SHARE ==========
+
+  Future<Map<String, dynamic>> sendWhatsAppCatalog({
+    required String conversationId,
+    required String type,
+    String? productId,
+    String? catalogId,
+    String? body,
+    String? footer,
+    String? header,
+    String? sectionTitle,
+    String? phoneNumberId,
+  }) async {
+    try {
+      final data = <String, dynamic>{
+        'conversationId': conversationId,
+        'type': type,
+        if (productId != null && productId.isNotEmpty) 'productId': productId,
+        if (catalogId != null && catalogId.isNotEmpty) 'catalogId': catalogId,
+        if (body != null && body.isNotEmpty) 'body': body,
+        if (footer != null && footer.isNotEmpty) 'footer': footer,
+        if (header != null && header.isNotEmpty) 'header': header,
+        if (sectionTitle != null && sectionTitle.isNotEmpty) 'sectionTitle': sectionTitle,
+        if (phoneNumberId != null && phoneNumberId.isNotEmpty) 'phoneNumberId': phoneNumberId,
+      };
+      final res = await _dio.post('/api/catalogs/whatsapp/send', data: data);
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
   // ========== HELPERS ==========
 
   Map<String, dynamic> _handleError(DioException e) {
