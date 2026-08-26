@@ -4,6 +4,159 @@ import { requireRole, pagination } from '../shared';
 
 const router = new Hono<{ Bindings: Env }>();
 
+// ---------------------------------------------------------------------------
+// Fetch product metadata from a public product URL (schema.org JSON-LD,
+// Shopify .json, etc.) to auto-fill retailer_id, name, price, image, etc.
+// ---------------------------------------------------------------------------
+
+function firstValue(value: any): any {
+  if (Array.isArray(value)) return value[0];
+  return value;
+}
+
+function normalizeUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    return u.toString();
+  } catch {
+    return '';
+  }
+}
+
+interface FetchedProduct {
+  retailer_id?: string;
+  name?: string;
+  description?: string;
+  price?: number;
+  currency?: string;
+  image_url?: string;
+}
+
+function extractFromJsonLd(nodes: any[]): FetchedProduct {
+  const findProduct = (obj: any): any => {
+    if (!obj || typeof obj !== 'object') return null;
+    const types = Array.isArray(obj['@type']) ? obj['@type'] : [obj['@type']];
+    if (types.some((t: any) => String(t).toLowerCase() === 'product')) return obj;
+    if (Array.isArray(obj['@graph'])) {
+      for (const child of obj['@graph']) {
+        const found = findProduct(child);
+        if (found) return found;
+      }
+    }
+    return null;
+  };
+
+  for (const node of nodes) {
+    const product = findProduct(node);
+    if (!product) continue;
+
+    let retailerId = product.sku || product.productID || product.mpn || product.identifier || '';
+    if (typeof retailerId === 'object') retailerId = retailerId.value || '';
+
+    let name = product.name || '';
+    let description = product.description || '';
+    if (typeof description === 'object') description = description.value || '';
+
+    let image = firstValue(product.image);
+    if (typeof image === 'object') image = image.url || image.contentUrl || '';
+
+    let price: number | undefined;
+    let currency = 'INR';
+    const offers = product.offers || product.offer;
+    const offer = Array.isArray(offers) ? offers[0] : offers;
+    if (offer && typeof offer === 'object') {
+      const rawPrice = offer.price || offer.lowPrice;
+      if (rawPrice !== undefined) {
+        const parsed = typeof rawPrice === 'string' ? parseFloat(rawPrice) : Number(rawPrice);
+        if (!isNaN(parsed)) price = parsed;
+      }
+      if (offer.priceCurrency) currency = String(offer.priceCurrency).toUpperCase();
+    }
+
+    if (retailerId || name || image) {
+      return {
+        retailer_id: retailerId ? String(retailerId) : undefined,
+        name: name ? String(name) : undefined,
+        description: description ? String(description) : undefined,
+        price,
+        currency,
+        image_url: image ? String(image) : undefined,
+      };
+    }
+  }
+  return {};
+}
+
+async function fetchProductFromUrl(url: string): Promise<FetchedProduct> {
+  const normalized = normalizeUrl(url);
+  if (!normalized) throw new Error('Invalid URL');
+
+  const fetchHtml = async (target: string): Promise<string> => {
+    const res = await fetch(target, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      },
+    });
+    if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
+    return res.text();
+  };
+
+  const html = await fetchHtml(normalized);
+
+  // Parse all JSON-LD script tags
+  const ldNodes: any[] = [];
+  const matches = html.matchAll(/<script\s+type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi);
+  for (const match of matches) {
+    try {
+      const node = JSON.parse(match[1].trim());
+      if (Array.isArray(node)) ldNodes.push(...node);
+      else ldNodes.push(node);
+    } catch {
+      // Ignore malformed JSON-LD
+    }
+  }
+
+  let result = extractFromJsonLd(ldNodes);
+  if (!result.retailer_id) {
+    // Try Shopify product JSON fallback
+    try {
+      const shopifyUrl = normalized.replace(/\?.*/, '') + '.json';
+      const sRes = await fetch(shopifyUrl, { headers: { 'Accept': 'application/json' } });
+      if (sRes.ok) {
+        const sData: any = await sRes.json();
+        const p = sData.product;
+        if (p) {
+          const variant = Array.isArray(p.variants) && p.variants[0] ? p.variants[0] : p;
+          const price = variant.price ? parseFloat(variant.price) : undefined;
+          result = {
+            retailer_id: variant.sku || variant.id || result.retailer_id,
+            name: p.title || result.name,
+            description: (p.body_html || '').replace(/<[^>]+>/g, ' ').trim() || result.description,
+            price: price !== undefined && !isNaN(price) ? price : result.price,
+            currency: (variant.currency || 'INR').toUpperCase(),
+            image_url: p.image?.src || (Array.isArray(p.images) && p.images[0]?.src) || result.image_url,
+          };
+        }
+      }
+    } catch {
+      // Shopify fallback failed
+    }
+  }
+
+  // Very light HTML fallback: og:title / og:description / og:image
+  if (!result.name && !result.retailer_id) {
+    const meta: Record<string, string> = {};
+    const metaMatches = html.matchAll(/<meta[^>]+property="og:([^"]+)"[^>]+content="([^"]*)"/gi);
+    for (const m of metaMatches) meta[m[1]] = m[2];
+    if (meta.title) result.name = meta.title;
+    if (meta.description) result.description = meta.description;
+    if (meta.image) result.image_url = meta.image;
+  }
+
+  return result;
+}
+
 function withWorkspace(c: any) {
   const workspaceId = c.req.header('x-workspace-id');
   if (!workspaceId) return { error: c.json({ error: 'Workspace ID required' }, 400) };
@@ -439,6 +592,28 @@ router.post('/api/catalogs/whatsapp/send', requireRole('owner', 'admin', 'member
     return c.json({ success: true, message: 'WhatsApp catalog message sent', data: { id: savedMessageId, platform_message_id: platformMsgId } });
   } catch (e: any) {
     return c.json({ error: e.message }, 500);
+  }
+});
+
+// Fetch product details from a public product URL
+router.post('/api/catalogs/fetch-product', requireRole('owner', 'admin', 'member'), async (c) => {
+  const { workspaceId, error } = withWorkspace(c);
+  if (error) return error;
+
+  // workspaceId kept for logging/rate-limiting; fetching is generic.
+  void workspaceId;
+  const { url } = await c.req.json();
+  if (!url || typeof url !== 'string') return c.json({ error: 'url is required' }, 400);
+
+  try {
+    const product = await fetchProductFromUrl(url);
+    if (!product.retailer_id && !product.name) {
+      return c.json({ error: 'Could not extract product details from URL. Add retailer_id manually or check the page has schema.org/Shopify markup.' }, 422);
+    }
+    return c.json({ success: true, product });
+  } catch (e: any) {
+    console.error('[Catalog] fetch-product error:', e);
+    return c.json({ error: e.message || 'Failed to fetch URL' }, 400);
   }
 });
 
