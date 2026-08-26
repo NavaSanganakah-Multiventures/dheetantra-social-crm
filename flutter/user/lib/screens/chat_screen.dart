@@ -453,6 +453,8 @@ class _MessageBubble extends StatelessWidget {
       case 'system': return 'ÃÂÃÂÃÂÃÂ ÃÂÃÂÃÂÃÂ¤ÃÂÃÂÃÂÃÂ¸ÃÂÃÂÃÂÃÂ ÃÂÃÂÃÂÃÂ¤ÃÂÃÂÃÂÃÂ¿ÃÂÃÂÃÂÃÂ ÃÂÃÂÃÂÃÂ¤ÃÂÃÂÃÂÃÂ¸ÃÂÃÂÃÂÃÂ ÃÂÃÂÃÂÃÂ¥ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ ÃÂÃÂÃÂÃÂ¤ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ ÃÂÃÂÃÂÃÂ¤ÃÂÃÂÃÂÃÂ®';
       case 'catalog_product': return 'Catalog Product';
       case 'catalog': return 'Catalog';
+      case 'product': return 'WhatsApp Product';
+      case 'multi_product': return 'WhatsApp Catalog';
       default: return message.messageType;
     }
   }
@@ -561,6 +563,16 @@ class _MessageBubble extends StatelessWidget {
       if (description.isNotEmpty) subtitle = description + '\n' + subtitle;
       return _mediaTile(icon: Icons.storefront, title: title, subtitle: subtitle.isNotEmpty ? subtitle : null, fg: fg);
     }
+    if ((type == 'product' || type == 'multi_product') && parsed is Map) {
+      final productName = _safeString(parsed['product_name']);
+      final catalogName = _safeString(parsed['catalog_name']);
+      final body = _safeString(parsed['body']);
+      final title = productName.isNotEmpty
+          ? productName
+          : (catalogName.isNotEmpty ? catalogName : (type == 'product' ? 'Product' : 'Catalog'));
+      return _mediaTile(icon: Icons.shopping_bag, title: title, subtitle: body.isNotEmpty ? body : null, fg: fg);
+    }
+
 
     if (type == 'interactive' && parsed is Map) {
       final subtype = parsed['interactive']?['type'] ?? parsed['interactive_type'];

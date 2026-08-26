@@ -128,7 +128,7 @@ router.post('/api/catalogs/:id/products', requireRole('owner', 'admin'), async (
   const { workspaceId, error } = withWorkspace(c);
   if (error) return error;
   const catalogId = c.req.param('id');
-  const { name, description, price, currency, image_url, sort_order } = await c.req.json();
+  const { name, description, price, currency, image_url, retailer_id, sort_order } = await c.req.json();
   if (!name || typeof name !== 'string') {
     return c.json({ error: 'Product name is required' }, 400);
   }
@@ -137,7 +137,7 @@ router.post('/api/catalogs/:id/products', requireRole('owner', 'admin'), async (
     if (!catalog) return c.json({ error: 'Catalog not found' }, 404);
     const id = crypto.randomUUID();
     const numericPrice = typeof price === 'number' ? price : (parseFloat(price as any) || 0);
-    await c.env.DB.prepare('INSERT INTO catalog_products (id, catalog_id, workspace_id, name, description, price, currency, image_url, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)').bind(id, catalogId, workspaceId, name, description || null, numericPrice, currency || 'INR', image_url || null, typeof sort_order === 'number' ? sort_order : 0).run();
+    await c.env.DB.prepare('INSERT INTO catalog_products (id, catalog_id, workspace_id, name, description, price, currency, image_url, retailer_id, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').bind(id, catalogId, workspaceId, name, description || null, numericPrice, currency || 'INR', image_url || null, retailer_id || null, typeof sort_order === 'number' ? sort_order : 0).run();
     const product = await c.env.DB.prepare('SELECT * FROM catalog_products WHERE id = ?').bind(id).first();
     return c.json({ success: true, product });
   } catch (e: any) {
@@ -150,7 +150,7 @@ router.put('/api/catalogs/products/:id', requireRole('owner', 'admin'), async (c
   const { workspaceId, error } = withWorkspace(c);
   if (error) return error;
   const id = c.req.param('id');
-  const { name, description, price, currency, image_url, status, sort_order } = await c.req.json();
+  const { name, description, price, currency, image_url, retailer_id, status, sort_order } = await c.req.json();
   try {
     const existing = await c.env.DB.prepare('SELECT id FROM catalog_products WHERE id = ? AND workspace_id = ?').bind(id, workspaceId).first();
     if (!existing) return c.json({ error: 'Product not found' }, 404);
@@ -161,6 +161,7 @@ router.put('/api/catalogs/products/:id', requireRole('owner', 'admin'), async (c
     if (numericPrice !== undefined) updates.price = numericPrice;
     if (currency !== undefined) updates.currency = currency;
     if (image_url !== undefined) updates.image_url = image_url;
+    if (retailer_id !== undefined) updates.retailer_id = retailer_id;
     if (status !== undefined) updates.status = status;
     if (sort_order !== undefined) updates.sort_order = typeof sort_order === 'number' ? sort_order : parseInt(sort_order as any) || 0;
     if (Object.keys(updates).length) {
@@ -264,6 +265,178 @@ router.post('/api/catalogs/share', requireRole('owner', 'admin', 'member'), asyn
       console.error('Failed to broadcast catalog share:', doErr);
     }
     return c.json({ success: true, message: { id: savedMessageId, conversation_id: conversationId, content, media_url: mediaUrl, created_at: now } });
+  } catch (e: any) {
+    return c.json({ error: e.message }, 500);
+  }
+});
+
+// Send a native WhatsApp Cloud API product or multi-product message
+router.post('/api/catalogs/whatsapp/send', requireRole('owner', 'admin', 'member'), async (c) => {
+  const { workspaceId, error } = withWorkspace(c);
+  if (error) return error;
+
+  const { conversationId, type, productId, catalogId, body, footer, header, sectionTitle, phoneNumberId } = await c.req.json();
+  if (!conversationId || !['product', 'catalog'].includes(type)) {
+    return c.json({ error: 'conversationId and valid type are required' }, 400);
+  }
+  if (type === 'product' && !productId) return c.json({ error: 'productId required' }, 400);
+  if (type === 'catalog' && !catalogId) return c.json({ error: 'catalogId required' }, 400);
+
+  try {
+    const conversation = await c.env.DB.prepare(
+      'SELECT id, contact_id, platform, phone_number_id FROM conversations WHERE id = ? AND workspace_id = ?'
+    ).bind(conversationId, workspaceId).first<any>();
+    if (!conversation) return c.json({ error: 'Conversation not found' }, 404);
+    if (conversation.platform !== 'whatsapp') {
+      return c.json({ error: 'WhatsApp native catalog messages can only be sent to WhatsApp conversations' }, 400);
+    }
+
+    const contact = await c.env.DB.prepare(
+      'SELECT platform_contact_id, name FROM contacts WHERE id = ? AND workspace_id = ?'
+    ).bind(conversation.contact_id, workspaceId).first<any>();
+    if (!contact) return c.json({ error: 'Contact not found' }, 404);
+    const to = String(contact.platform_contact_id).replace(/\D/g, '');
+    if (!to) return c.json({ error: 'Invalid contact phone number' }, 400);
+
+    let config: any = null;
+    const preferredPhone = phoneNumberId || conversation.phone_number_id;
+    if (preferredPhone) {
+      config = await c.env.DB.prepare(
+        'SELECT phone_number_id, access_token, waba_id, catalog_id FROM whatsapp_configs WHERE workspace_id = ? AND phone_number_id = ?'
+      ).bind(workspaceId, preferredPhone).first();
+    }
+    if (!config) {
+      config = await c.env.DB.prepare(
+        'SELECT phone_number_id, access_token, waba_id, catalog_id FROM whatsapp_configs WHERE workspace_id = ?'
+      ).bind(workspaceId).first();
+    }
+    if (!config) return c.json({ error: 'WhatsApp is not configured for this workspace' }, 400);
+
+    // Resolve Meta catalog id: explicit catalog_id wins, otherwise try WABA.
+    let metaCatalogId = config.catalog_id;
+    if (!metaCatalogId && config.waba_id) {
+      try {
+        const catalogsRes = await fetch(
+          `https://graph.facebook.com/v20.0/${config.waba_id}/owned_product_catalogs?fields=id,name&limit=1`,
+          { headers: { Authorization: `Bearer ${config.access_token}` } }
+        );
+        const catalogsData: any = await catalogsRes.json();
+        if (catalogsData?.data?.length) metaCatalogId = catalogsData.data[0].id;
+      } catch (e) {
+        console.error('[Catalog] Failed to fetch Meta catalogs:', e);
+      }
+    }
+    if (!metaCatalogId) {
+      return c.json({ error: 'No WhatsApp product catalog configured for this workspace. Set catalog_id in WhatsApp config or connect a Meta catalog to your WABA.' }, 400);
+    }
+
+    let payload: any = {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to,
+    };
+
+    let content = '';
+    let mediaPayload: any = { type, meta_catalog_id: metaCatalogId };
+
+    if (type === 'product') {
+      const product = await c.env.DB.prepare(
+        'SELECT id, name, retailer_id FROM catalog_products WHERE id = ? AND workspace_id = ?'
+      ).bind(productId, workspaceId).first<any>();
+      if (!product) return c.json({ error: 'Product not found' }, 404);
+      if (!product.retailer_id) {
+        return c.json({ error: 'Product is missing retailer_id. Map it to a Meta catalog product before sharing on WhatsApp.' }, 400);
+      }
+      content = product.name;
+      mediaPayload.product_id = product.id;
+      mediaPayload.product_name = product.name;
+      payload.type = 'product';
+      payload.product = { catalog_id: metaCatalogId, product_retailer_id: product.retailer_id };
+    } else {
+      const catalog = await c.env.DB.prepare(
+        'SELECT id, name FROM catalogs WHERE id = ? AND workspace_id = ?'
+      ).bind(catalogId, workspaceId).first<any>();
+      if (!catalog) return c.json({ error: 'Catalog not found' }, 404);
+      const { results: products } = await c.env.DB.prepare(
+        "SELECT id, name, retailer_id FROM catalog_products WHERE catalog_id = ? AND workspace_id = ? AND status = 'active' AND retailer_id IS NOT NULL ORDER BY sort_order"
+      ).bind(catalogId, workspaceId).all();
+      const items = (products || []).map((p: any) => ({ product_retailer_id: p.retailer_id }));
+      if (items.length === 0) {
+        return c.json({ error: 'Catalog has no products mapped to Meta retailer IDs' }, 400);
+      }
+      content = catalog.name;
+      mediaPayload.catalog_id = catalog.id;
+      mediaPayload.catalog_name = catalog.name;
+      mediaPayload.body = body;
+      mediaPayload.header = header;
+      mediaPayload.footer = footer;
+      mediaPayload.section_title = sectionTitle;
+
+      payload.type = 'multi_product';
+      payload.multi_product = {
+        catalog_id: metaCatalogId,
+        body: { text: body || `Check out ${catalog.name}!` },
+        action: {
+          catalog_id: metaCatalogId,
+          sections: [{ title: sectionTitle || 'Products', product_items: items.slice(0, 30) }],
+        },
+      };
+      if (header && String(header).trim()) {
+        payload.multi_product.header = { type: 'text', text: header };
+      }
+      if (footer && String(footer).trim()) {
+        payload.multi_product.footer = { text: footer };
+      }
+    }
+
+    const metaResponse = await fetch(
+      `https://graph.facebook.com/v19.0/${config.phone_number_id}/messages`,
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${config.access_token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      }
+    );
+    const metaData: any = await metaResponse.json();
+    if (metaData.error) return c.json({ error: metaData.error.message }, 400);
+
+    const savedMessageId = crypto.randomUUID();
+    const platformMsgId = metaData.messages?.[0]?.id || crypto.randomUUID();
+    const now = new Date().toISOString();
+    const mediaUrl = JSON.stringify(mediaPayload);
+
+    await c.env.DB.prepare(
+      'INSERT INTO messages (id, conversation_id, sender_type, message_type, content, media_url, platform_message_id, platform, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    ).bind(savedMessageId, conversationId, 'agent', type, content, mediaUrl, platformMsgId, 'whatsapp', now).run();
+    await c.env.DB.prepare('UPDATE conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = ?').bind(conversationId).run();
+
+    try {
+      const globalDoId = c.env.CHAT_DO.idFromName(`global-${workspaceId}`);
+      const stub = c.env.CHAT_DO.get(globalDoId);
+      await stub.fetch(new Request('http://do/broadcast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'new_message',
+          message: {
+            id: savedMessageId,
+            conversation_id: conversationId,
+            sender_type: 'agent',
+            message_type: type,
+            content,
+            media_url: mediaUrl,
+            platform_message_id: platformMsgId,
+            platform: 'whatsapp',
+            status: 'sent',
+            created_at: now,
+          },
+        }),
+      }));
+    } catch (doErr) {
+      console.error('Failed to broadcast WhatsApp catalog message:', doErr);
+    }
+
+    return c.json({ success: true, message: 'WhatsApp catalog message sent', data: { id: savedMessageId, platform_message_id: platformMsgId } });
   } catch (e: any) {
     return c.json({ error: e.message }, 500);
   }

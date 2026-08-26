@@ -12,6 +12,25 @@ class ProductDetailScreen extends StatelessWidget {
 
   const ProductDetailScreen({super.key, required this.product, required this.catalog});
 
+
+  Future<void> _shareOnWhatsApp(BuildContext context) async {
+    final result = await Navigator.of(context).push<Map<String, dynamic>>(
+      MaterialPageRoute(builder: (_) => const ConversationPickerScreen()),
+    );
+    if (result == null || result['conversationId'] == null) return;
+    final shareRes = await ApiService().sendWhatsAppCatalog(
+      conversationId: result['conversationId'].toString(),
+      type: 'product',
+      productId: product.id,
+    );
+    if (context.mounted) {
+      if (shareRes['error'] != null) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('WhatsApp share failed: ' + shareRes['error'].toString())));
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Product WhatsApp par bheja gaya')));
+      }
+    }
+  }
   Future<void> _deleteProduct(BuildContext context) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -82,6 +101,12 @@ class ProductDetailScreen extends StatelessWidget {
             onPressed: () => _share(context),
             icon: const Icon(Icons.share),
             label: const Text('Chat mein share karein'),
+          ),
+          const SizedBox(height: 12),
+          FilledButton.icon(
+            onPressed: () => _shareOnWhatsApp(context),
+            icon: const Icon(Icons.chat_bubble_outline),
+            label: const Text('WhatsApp par share karein'),
           ),
           const SizedBox(height: 12),
           OutlinedButton.icon(

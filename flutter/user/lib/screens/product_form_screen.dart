@@ -24,6 +24,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   final _priceController = TextEditingController();
   final _currencyController = TextEditingController(text: 'INR');
   final _sortController = TextEditingController(text: '0');
+  final _retailerIdController = TextEditingController();
   File? _imageFile;
   String? _existingImageUrl;
   bool _saving = false;
@@ -37,6 +38,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
       _priceController.text = widget.product!.price.toString();
       _currencyController.text = widget.product!.currency;
       _sortController.text = widget.product!.sortOrder.toString();
+      _retailerIdController.text = widget.product!.retailerId ?? '';
       _existingImageUrl = widget.product!.imageUrl;
     }
   }
@@ -68,6 +70,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
       'currency': _currencyController.text.trim().toUpperCase(),
       'sort_order': sortOrder,
       if (imageUrl != null) 'image_url': imageUrl,
+      if (_retailerIdController.text.trim().isNotEmpty) 'retailer_id': _retailerIdController.text.trim(),
     };
     Map<String, dynamic> res;
     if (widget.product == null) {
@@ -123,6 +126,8 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
           ),
           const SizedBox(height: 16),
           TextField(controller: _sortController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Sort order')),
+          const SizedBox(height: 16),
+          TextField(controller: _retailerIdController, decoration: const InputDecoration(labelText: 'Meta retailer ID (WhatsApp product)', hintText: 'e.g. SKU123')),
           const SizedBox(height: 24),
           FilledButton(
             onPressed: _saving ? null : _save,

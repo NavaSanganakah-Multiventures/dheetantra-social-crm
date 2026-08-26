@@ -584,6 +584,7 @@ class CatalogProduct {
   final double price;
   final String currency;
   final String? imageUrl;
+  final String? retailerId;
   final String status;
   final int sortOrder;
   final DateTime? createdAt;
@@ -597,6 +598,7 @@ class CatalogProduct {
     this.price = 0,
     this.currency = 'INR',
     this.imageUrl,
+    this.retailerId,
     this.status = 'active',
     this.sortOrder = 0,
     this.createdAt,
@@ -612,6 +614,7 @@ class CatalogProduct {
       price: (json['price'] as num?)?.toDouble() ?? 0,
       currency: _safeString(json['currency']) ,
       imageUrl: _safeString(json['image_url']),
+      retailerId: _safeString(json['retailer_id']),
       status: _safeString(json['status']) ,
       sortOrder: json['sort_order'] ?? 0,
       createdAt: _parseUtcDateTime(json['created_at']),
@@ -628,6 +631,7 @@ class CatalogProduct {
       'price': price,
       'currency': currency,
       'image_url': imageUrl,
+      if (retailerId != null && retailerId!.isNotEmpty) 'retailer_id': retailerId,
       'status': status,
       'sort_order': sortOrder,
     };
