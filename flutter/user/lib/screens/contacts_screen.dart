@@ -5,6 +5,7 @@ import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
 import 'chat_screen.dart';
+import 'call_screen.dart';
 
 class ContactsScreen extends StatefulWidget {
   const ContactsScreen({super.key});
@@ -15,11 +16,11 @@ class ContactsScreen extends StatefulWidget {
 
 class _ContactsScreenState extends State<ContactsScreen> {
   String _query = '';
-  String _filter = 'सभी';
+  String _filter = 'à¤¸à¤­à¥';
   bool _loading = true;
   List<Contact> _allContacts = [];
 
-  static const _filters = ['सभी', 'लीड्स', 'ग्राहक'];
+  static const _filters = ['à¤¸à¤­à¥', 'à¤²à¥à¤¡à¥à¤¸', 'à¤à¥à¤°à¤¾à¤¹à¤'];
 
   @override
   void initState() {
@@ -39,9 +40,9 @@ class _ContactsScreenState extends State<ContactsScreen> {
 
   List<Contact> get _contacts {
     var list = _allContacts;
-    if (_filter == 'लीड्स') {
+    if (_filter == 'à¤²à¥à¤¡à¥à¤¸') {
       list = list.where((c) => c.isLead).toList();
-    } else if (_filter == 'ग्राहक') {
+    } else if (_filter == 'à¤à¥à¤°à¤¾à¤¹à¤') {
       list = list.where((c) => !c.isLead).toList();
     }
     if (_query.trim().isNotEmpty) {
@@ -66,7 +67,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
               child: TextField(
                 onChanged: (v) => setState(() => _query = v),
                 decoration: const InputDecoration(
-                  hintText: 'संपर्क खोजें...',
+                  hintText: 'à¤¸à¤à¤ªà¤°à¥à¤ à¤à¥à¤à¥à¤...',
                   prefixIcon: Icon(Icons.search_rounded, color: AppColors.textMuted),
                   contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 ),
@@ -97,8 +98,8 @@ class _ContactsScreenState extends State<ContactsScreen> {
                       ? const Center(
                           child: EmptyState(
                             icon: Icons.people_outline_rounded,
-                            title: 'कोई संपर्क नहीं मिला',
-                            subtitle: 'नया संपर्क जोड़ें या खोज बदलें।',
+                            title: 'à¤à¥à¤ à¤¸à¤à¤ªà¤°à¥à¤ à¤¨à¤¹à¥à¤ à¤®à¤¿à¤²à¤¾',
+                            subtitle: 'à¤¨à¤¯à¤¾ à¤¸à¤à¤ªà¤°à¥à¤ à¤à¥à¤¡à¤¼à¥à¤ à¤¯à¤¾ à¤à¥à¤ à¤¬à¤¦à¤²à¥à¤à¥¤',
                           ),
                         )
                       : RefreshIndicator(
@@ -125,7 +126,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
             backgroundColor: AppColors.accent,
             foregroundColor: Colors.white,
             icon: const Icon(Icons.person_add_alt_1_rounded, size: 20),
-            label: const Text('नया संपर्क', style: TextStyle(fontWeight: FontWeight.w700)),
+            label: const Text('à¤¨à¤¯à¤¾ à¤¸à¤à¤ªà¤°à¥à¤', style: TextStyle(fontWeight: FontWeight.w700)),
           ),
         ),
       ],
@@ -141,7 +142,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
     final result = await showDialog<Map<String, String>>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(existing == null ? 'नया संपर्क' : 'संपर्क संपादित करें'),
+        title: Text(existing == null ? 'à¤¨à¤¯à¤¾ à¤¸à¤à¤ªà¤°à¥à¤' : 'à¤¸à¤à¤ªà¤°à¥à¤ à¤¸à¤à¤ªà¤¾à¤¦à¤¿à¤¤ à¤à¤°à¥à¤'),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -149,25 +150,25 @@ class _ContactsScreenState extends State<ContactsScreen> {
               TextField(
                 controller: nameController,
                 textCapitalization: TextCapitalization.words,
-                decoration: const InputDecoration(labelText: 'नाम'),
+                decoration: const InputDecoration(labelText: 'à¤¨à¤¾à¤®'),
               ),
               const SizedBox(height: 10),
               TextField(
                 controller: phoneController,
                 keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(labelText: 'फ़ोन'),
+                decoration: const InputDecoration(labelText: 'à¤«à¤¼à¥à¤¨'),
               ),
               const SizedBox(height: 10),
               TextField(
                 controller: emailController,
                 keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(labelText: 'ईमेल (वैकल्पिक)'),
+                decoration: const InputDecoration(labelText: 'à¤à¤®à¥à¤² (à¤µà¥à¤à¤²à¥à¤ªà¤¿à¤)'),
               ),
               const SizedBox(height: 10),
               TextField(
                 controller: notesController,
                 maxLines: 2,
-                decoration: const InputDecoration(labelText: 'नोट्स (वैकल्पिक)'),
+                decoration: const InputDecoration(labelText: 'à¤¨à¥à¤à¥à¤¸ (à¤µà¥à¤à¤²à¥à¤ªà¤¿à¤)'),
               ),
             ],
           ),
@@ -175,7 +176,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('रद्द करें'),
+            child: const Text('à¤°à¤¦à¥à¤¦ à¤à¤°à¥à¤'),
           ),
           FilledButton(
             onPressed: () {
@@ -186,7 +187,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
                 'notes': notesController.text.trim(),
               });
             },
-            child: Text(existing == null ? 'जोड़ें' : 'सेव करें'),
+            child: Text(existing == null ? 'à¤à¥à¤¡à¤¼à¥à¤' : 'à¤¸à¥à¤µ à¤à¤°à¥à¤'),
           ),
         ],
       ),
@@ -201,7 +202,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
     };
     if (data['name'] == null || data['name'].toString().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('नाम अनिवार्य है')),
+        const SnackBar(content: Text('à¤¨à¤¾à¤® à¤à¤¨à¤¿à¤µà¤¾à¤°à¥à¤¯ à¤¹à¥')),
       );
       return;
     }
@@ -213,7 +214,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
     }
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(existing == null ? 'संपर्क जोड़ा गया' : 'संपर्क अपडेट हुआ')),
+      SnackBar(content: Text(existing == null ? 'à¤¸à¤à¤ªà¤°à¥à¤ à¤à¥à¤¡à¤¼à¤¾ à¤à¤¯à¤¾' : 'à¤¸à¤à¤ªà¤°à¥à¤ à¤à¤ªà¤¡à¥à¤ à¤¹à¥à¤')),
     );
     _loadContacts();
   }
@@ -329,7 +330,7 @@ class _ContactDetailScreenState extends State<_ContactDetailScreen> {
     final result = await showDialog<Map<String, String>>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('संपर्क संपादित करें'),
+        title: const Text('à¤¸à¤à¤ªà¤°à¥à¤ à¤¸à¤à¤ªà¤¾à¤¦à¤¿à¤¤ à¤à¤°à¥à¤'),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -337,25 +338,25 @@ class _ContactDetailScreenState extends State<_ContactDetailScreen> {
               TextField(
                 controller: nameController,
                 textCapitalization: TextCapitalization.words,
-                decoration: const InputDecoration(labelText: 'नाम'),
+                decoration: const InputDecoration(labelText: 'à¤¨à¤¾à¤®'),
               ),
               const SizedBox(height: 10),
               TextField(
                 controller: phoneController,
                 keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(labelText: 'फ़ोन'),
+                decoration: const InputDecoration(labelText: 'à¤«à¤¼à¥à¤¨'),
               ),
               const SizedBox(height: 10),
               TextField(
                 controller: emailController,
                 keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(labelText: 'ईमेल (वैकल्पिक)'),
+                decoration: const InputDecoration(labelText: 'à¤à¤®à¥à¤² (à¤µà¥à¤à¤²à¥à¤ªà¤¿à¤)'),
               ),
               const SizedBox(height: 10),
               TextField(
                 controller: notesController,
                 maxLines: 2,
-                decoration: const InputDecoration(labelText: 'नोट्स (वैकल्पिक)'),
+                decoration: const InputDecoration(labelText: 'à¤¨à¥à¤à¥à¤¸ (à¤µà¥à¤à¤²à¥à¤ªà¤¿à¤)'),
               ),
             ],
           ),
@@ -363,7 +364,7 @@ class _ContactDetailScreenState extends State<_ContactDetailScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('रद्द करें'),
+            child: const Text('à¤°à¤¦à¥à¤¦ à¤à¤°à¥à¤'),
           ),
           FilledButton(
             onPressed: () {
@@ -374,7 +375,7 @@ class _ContactDetailScreenState extends State<_ContactDetailScreen> {
                 'notes': notesController.text.trim(),
               });
             },
-            child: const Text('सेव करें'),
+            child: const Text('à¤¸à¥à¤µ à¤à¤°à¥à¤'),
           ),
         ],
       ),
@@ -391,7 +392,7 @@ class _ContactDetailScreenState extends State<_ContactDetailScreen> {
     if (!mounted) return;
     if (res['error'] != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('त्रुटि: ${res['error']}')),
+        SnackBar(content: Text('à¤¤à¥à¤°à¥à¤à¤¿: ${res['error']}')),
       );
       return;
     }
@@ -417,9 +418,16 @@ class _ContactDetailScreenState extends State<_ContactDetailScreen> {
     );
     if (!mounted) return;
     if (res['success'] == true) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Twilio call initiated: ${res['callSid']}')),
-      );
+      CallScreen.push(context, {
+        'id': res['callId'],
+        'source': 'twilio',
+        'conferenceName': res['conferenceName'],
+        'callerName': contact.name,
+        'callerNumber': contact.phone,
+        'phone': contact.phone,
+        'contact_name': contact.name,
+        'status': 'connecting',
+      });
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Twilio call failed: ${res['error']}')),
@@ -431,17 +439,17 @@ class _ContactDetailScreenState extends State<_ContactDetailScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('संपर्क हटाएं'),
-        content: Text('क्या आप "${_contact.name}" को हटाना चाहते हैं?'),
+        title: const Text('à¤¸à¤à¤ªà¤°à¥à¤ à¤¹à¤à¤¾à¤à¤'),
+        content: Text('à¤à¥à¤¯à¤¾ à¤à¤ª "${_contact.name}" à¤à¥ à¤¹à¤à¤¾à¤¨à¤¾ à¤à¤¾à¤¹à¤¤à¥ à¤¹à¥à¤?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('रद्द करें'),
+            child: const Text('à¤°à¤¦à¥à¤¦ à¤à¤°à¥à¤'),
           ),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(true),
             style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
-            child: const Text('हटाएं'),
+            child: const Text('à¤¹à¤à¤¾à¤à¤'),
           ),
         ],
       ),
@@ -452,7 +460,7 @@ class _ContactDetailScreenState extends State<_ContactDetailScreen> {
     if (!mounted) return;
     if (res['error'] != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('त्रुटि: ${res['error']}')),
+        SnackBar(content: Text('à¤¤à¥à¤°à¥à¤à¤¿: ${res['error']}')),
       );
       return;
     }
@@ -465,7 +473,7 @@ class _ContactDetailScreenState extends State<_ContactDetailScreen> {
     final contact = _contact;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('संपर्क विवरण'),
+        title: const Text('à¤¸à¤à¤ªà¤°à¥à¤ à¤µà¤¿à¤µà¤°à¤£'),
         actions: [
           IconButton(
             onPressed: _edit,
@@ -526,17 +534,17 @@ class _ContactDetailScreenState extends State<_ContactDetailScreen> {
                       });
                       if (!context.mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('कॉल शुरू की गई')),
+                        const SnackBar(content: Text('à¤à¥à¤² à¤¶à¥à¤°à¥ à¤à¥ à¤à¤')),
                       );
                     } catch (_) {
                       if (!context.mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('कॉल शुरू नहीं हो सकी')),
+                        const SnackBar(content: Text('à¤à¥à¤² à¤¶à¥à¤°à¥ à¤¨à¤¹à¥à¤ à¤¹à¥ à¤¸à¤à¥')),
                       );
                     }
                   },
                   icon: const Icon(Icons.call_outlined, size: 18),
-                  label: const Text('कॉल'),
+                  label: const Text('à¤à¥à¤²'),
                 ),
               ),
               const SizedBox(width: 12),
@@ -552,7 +560,7 @@ class _ContactDetailScreenState extends State<_ContactDetailScreen> {
                     }
                   },
                   icon: const Icon(Icons.chat_outlined, size: 18),
-                  label: const Text('चैट'),
+                  label: const Text('à¤à¥à¤'),
                 ),
               ),
             ],
@@ -563,12 +571,12 @@ class _ContactDetailScreenState extends State<_ContactDetailScreen> {
             child: OutlinedButton.icon(
               onPressed: () => _initiateTwilioCall(contact),
               icon: const Icon(Icons.phone_forwarded, size: 18),
-              label: const Text('Twilio कॉल'),
+              label: const Text('Twilio à¤à¥à¤²'),
             ),
           ),
           const SizedBox(height: 24),
           const Text(
-            'जानकारी',
+            'à¤à¤¾à¤¨à¤à¤¾à¤°à¥',
             style: TextStyle(
               color: AppColors.textPrimary,
               fontSize: 15,
@@ -586,37 +594,37 @@ class _ContactDetailScreenState extends State<_ContactDetailScreen> {
               children: [
                 _InfoRow(
                   icon: Icons.phone_outlined,
-                  label: 'फ़ोन',
+                  label: 'à¤«à¤¼à¥à¤¨',
                   value: contact.phone,
                 ),
                 const Divider(height: 1, indent: 50),
                 if (contact.email != null) ...[
                   _InfoRow(
                     icon: Icons.mail_outline_rounded,
-                    label: 'ईमेल',
+                    label: 'à¤à¤®à¥à¤²',
                     value: contact.email!,
                   ),
                   const Divider(height: 1, indent: 50),
                 ],
                 _InfoRow(
                   icon: Icons.person_outline_rounded,
-                  label: 'प्रकार',
-                  value: contact.isLead ? 'लीड' : 'ग्राहक',
+                  label: 'à¤ªà¥à¤°à¤à¤¾à¤°',
+                  value: contact.isLead ? 'à¤²à¥à¤¡' : 'à¤à¥à¤°à¤¾à¤¹à¤',
                 ),
                 if (contact.leadStatus != null) ...[
                   const Divider(height: 1, indent: 50),
                   _InfoRow(
                     icon: Icons.flag_outlined,
-                    label: 'स्थिति',
+                    label: 'à¤¸à¥à¤¥à¤¿à¤¤à¤¿',
                     value: contact.leadStatus!,
                   ),
                 ],
                 const Divider(height: 1, indent: 50),
                 _InfoRow(
                   icon: Icons.schedule_rounded,
-                  label: 'आखिरी गतिविधि',
+                  label: 'à¤à¤à¤¿à¤°à¥ à¤à¤¤à¤¿à¤µà¤¿à¤§à¤¿',
                   value: contact.lastActive == null
-                      ? 'कभी नहीं'
+                      ? 'à¤à¤­à¥ à¤¨à¤¹à¥à¤'
                       : timeLabel(contact.lastActive!),
                 ),
               ],
@@ -625,7 +633,7 @@ class _ContactDetailScreenState extends State<_ContactDetailScreen> {
           if (contact.notes != null && contact.notes!.isNotEmpty) ...[
             const SizedBox(height: 20),
             const Text(
-              'नोट्स',
+              'à¤¨à¥à¤à¥à¤¸',
               style: TextStyle(
                 color: AppColors.textPrimary,
                 fontSize: 15,

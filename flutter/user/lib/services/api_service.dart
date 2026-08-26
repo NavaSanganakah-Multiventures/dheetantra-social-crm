@@ -338,6 +338,17 @@ class ApiService {
 
 
 
+  // ========== TWILIO VOICE TOKEN ==========
+
+  Future<Map<String, dynamic>> getTwilioVoiceToken() async {
+    try {
+      final res = await _dio.get('/api/twilio/token');
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
   // ========== TWILIO CALL ==========
 
   Future<Map<String, dynamic>> initiateTwilioCall({
@@ -378,6 +389,11 @@ class ApiService {
     String? authToken,
     bool isActive = true,
     List<String> fromNumbers = const [],
+    String? voiceApplicationSid,
+    String? apiKeySid,
+    String? apiKeySecret,
+    String? pushCredentialSidAndroid,
+    String? pushCredentialSidIos,
   }) async {
     try {
       final data = <String, dynamic>{
@@ -386,6 +402,11 @@ class ApiService {
         'isActive': isActive,
         if (authToken != null && authToken.isNotEmpty) 'authToken': authToken,
         if (fromNumbers.isNotEmpty) 'fromNumbers': fromNumbers,
+        if (voiceApplicationSid != null && voiceApplicationSid.isNotEmpty) 'voiceApplicationSid': voiceApplicationSid,
+        if (apiKeySid != null && apiKeySid.isNotEmpty) 'apiKeySid': apiKeySid,
+        if (apiKeySecret != null && apiKeySecret.isNotEmpty) 'apiKeySecret': apiKeySecret,
+        if (pushCredentialSidAndroid != null && pushCredentialSidAndroid.isNotEmpty) 'pushCredentialSidAndroid': pushCredentialSidAndroid,
+        if (pushCredentialSidIos != null && pushCredentialSidIos.isNotEmpty) 'pushCredentialSidIos': pushCredentialSidIos,
       };
       final res = id == null
           ? await _dio.post('/api/twilio/configs', data: data)
@@ -540,7 +561,7 @@ class ApiService {
 
   Future<Map<String, dynamic>> getDashboardStats() async {
     try {
-      // Dono calls parallel chalao — sequential hone se dashboard load me
+      // Dono calls parallel chalao Ã¢ÂÂ sequential hone se dashboard load me
       // 2x delay aa raha tha.
       final results = await Future.wait<dynamic>([
         getContacts(),
@@ -936,6 +957,6 @@ class ApiService {
     if (e.response != null && e.response!.data is Map) {
       return e.response!.data;
     }
-    return {'error': e.message ?? 'कुछ गड़बड़ हो गई'};
+    return {'error': e.message ?? 'Ã Â¤ÂÃ Â¥ÂÃ Â¤Â Ã Â¤ÂÃ Â¤Â¡Ã Â¤Â¼Ã Â¤Â¬Ã Â¤Â¡Ã Â¤Â¼ Ã Â¤Â¹Ã Â¥Â Ã Â¤ÂÃ Â¤Â'};
   }
 }

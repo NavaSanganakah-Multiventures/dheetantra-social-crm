@@ -40,6 +40,7 @@ dependencies:
   url_launcher: ^6.3.1
   shared_preferences: ^2.5.3
   flutter_webrtc: ^1.6.0
+  twilio_voice: ^0.5.0
   web_socket_channel: ^3.0.3
   permission_handler: ^11.3.1
   # Firebase Cloud Messaging (push notifications) + local notifications
