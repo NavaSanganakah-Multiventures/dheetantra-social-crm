@@ -320,7 +320,7 @@ const DEFAULT_WORKER_NAME = 'dheetantra-social-crm';
 // 81044 = Email Routing already enabled; 81051/81057 = routing DNS records
 // already present; 1004/1042/1040 = zone/account-level "already exists".
 // NOTE: 10300 ("email routing not enabled" on other calls) and 81058 ("records
-// cannot be created") are NOT "already configured" â tolerating them would
+// cannot be created") are NOT "already configured" — tolerating them would
 // silently skip setup and mark the domain active while email does not work.
 const ALREADY_CF_CODES = new Set(['81044', '81051', '81057', '1004', '1042', '1040']);
 function isAlreadyConfiguredError(e: any): boolean {
@@ -332,21 +332,21 @@ function isAlreadyConfiguredError(e: any): boolean {
 // A catch-all rule only counts as "ours" when it is enabled AND routes to the
 // configured worker. Adopting a disabled rule or one targeting another worker
 // (different env/tenant) would mark the domain active while email silently
-// drops â so those are NOT adoptable.
+// drops — so those are NOT adoptable.
 function isUsableCatchAll(rule: any, workerName: string): boolean {
   if (!rule || rule.enabled === false) return false;
   return (rule.actions || []).some((a: any) => {
     if (a.type !== 'worker') return false;
     const v = a.value;
     // Cloudflare returns the worker value as an array, but some API paths
-    // return a plain string â accept both so an existing rule is adopted
+    // return a plain string — accept both so an existing rule is adopted
     // instead of failing onboarding with "rule already exists".
     return Array.isArray(v) ? v.includes(workerName) : String(v || '') === workerName;
   });
 }
 
 // Find an adoptable catch-all rule: must be enabled AND route to the
-// configured worker (string or array action value â both API shapes are
+// configured worker (string or array action value — both API shapes are
 // accepted by isUsableCatchAll). Foreign rules (drop/forward actions, or a
 // worker belonging to another env/tenant in the shared Cloudflare account)
 // are deliberately NOT adoptable: adopting them would mark the domain active
@@ -366,14 +366,14 @@ export async function onboardDomain(env: any, row: any) {
     const creds = await getCloudflareCredentials(env);
     let zoneId = row.zone_id;
 
-    // 1. Create (or adopt an existing) Cloudflare zone if missing â idempotent
+    // 1. Create (or adopt an existing) Cloudflare zone if missing — idempotent
     if (!zoneId) {
       const existing = await findZone(env, row.domain_name, creds);
       let created = existing;
       if (!created) {
         // Concurrent onboarding (approve + verify + cron) can both miss the
         // findZone check and POST /zones. The loser gets "zone already exists"
-        // â treat that as a race and adopt the winning zone instead of
+        // — treat that as a race and adopt the winning zone instead of
         // marking the domain failed.
         try {
           created = await createZone(env, row.domain_name, row.setup_mode === 'cname' ? 'partial' : 'full', creds);
@@ -417,9 +417,9 @@ export async function onboardDomain(env: any, row: any) {
       // keep it 'failed' so checkDomain retries the routing steps.
       let routingReady = true;
       try {
-        // Idempotent: onboarding runs repeatedly (admin approve + "à¤à¤¾à¤à¤à¥à¤" +
+        // Idempotent: onboarding runs repeatedly (admin approve + "जांचें" +
         // maintenance cron). Cloudflare returns "already enabled/exists"
-        // errors when the state is already correct â those are NOT failures.
+        // errors when the state is already correct — those are NOT failures.
         await enableEmailRouting(env, zoneId, creds).catch((e: any) => {
           if (isAlreadyConfiguredError(e)) {
             console.log(`[Email] Email Routing already enabled for ${row.domain_name}; continuing`);
@@ -494,7 +494,7 @@ export async function onboardDomain(env: any, row: any) {
         // provider. Without MX, receiving can never work in partial mode.
         // These go into pending_records (NOT the mx/spf columns, which represent
         // records actually present in the zone) so the UI can label them as
-        // "add at your provider â not yet active".
+        // "add at your provider — not yet active".
         const pendingRecords: any[] = [];
         if (!updates.mx_records) {
           ['route1.mx.cloudflare.net', 'route2.mx.cloudflare.net', 'route3.mx.cloudflare.net']
@@ -596,7 +596,7 @@ export async function checkDomain(env: any, row: any) {
 
 // A Cloudflare error means the resource is already gone only when it is a
 // 404 (or a genuine 400 "not found"). 403/429/5xx/network must NOT be treated
-// as gone â they are real failures.
+// as gone — they are real failures.
 function isGoneError(e: any): boolean {
   const status = Number(e?.status || 0);
   const msg = String(e?.message || '');
@@ -615,17 +615,17 @@ export async function removeDomain(env: any, row: any) {
 
   if (!creds?.token) {
     if (row.zone_id) {
-      // Cannot verify or clean up the live zone â deleting the row now would
+      // Cannot verify or clean up the live zone — deleting the row now would
       // orphan a zone that keeps routing inbound mail (silent drop) and let
       // another workspace re-adopt it later.
-      zoneFailures.push({ status: 403, message: 'Cloudflare credentials missing â the zone stays in Cloudflare' });
+      zoneFailures.push({ status: 403, message: 'Cloudflare credentials missing — the zone stays in Cloudflare' });
     } else {
       warnings.push('Cloudflare credentials missing (no zone to clean up)');
     }
   } else {
     // Zone FIRST: deleting the routing rule before the zone delete succeeds
     // would tear down email routing for a domain whose delete fails and is
-    // kept for retry â the domain must stay fully functional. A rule orphaned
+    // kept for retry — the domain must stay fully functional. A rule orphaned
     // inside an already-deleted zone is harmless, so zone-first is strictly
     // safer. The rule is cleaned up only once the zone is confirmed gone
     // (deleted or already-gone 404).
@@ -662,7 +662,7 @@ export async function removeDomain(env: any, row: any) {
   // workspace re-adopt the zone and catch-all. Transient failures
   // (network/rate-limit/5xx) keep the row for automatic maintenance retry;
   // permanent ones (403/400, missing credentials) keep it until the user
-  // removes the zone in Cloudflare and retries the delete â the zone is then
+  // removes the zone in Cloudflare and retries the delete — the zone is then
   // 404 and the delete succeeds.
   if (row.zone_id && zoneFailures.length) {
     await persistDomainUpdates(env, row.id, {
@@ -720,7 +720,7 @@ export async function runDomainMaintenance(env: any, ctx: any) {
           ).bind(row.id).run();
         } else {
           // A 'pending' result with no error means the Cloudflare zone is
-          // still initializing / awaiting nameserver activation â a normal
+          // still initializing / awaiting nameserver activation — a normal
           // state that depends on the user's DNS action, NOT a hard failure.
           // Start fast (2 min) so a zone flips to active quickly once
           // Cloudflare verifies it, but ESCALATE (2->5->10->20->40->60) so a
@@ -898,7 +898,7 @@ export async function handleIncomingEmail(message: any, env: any, ctx: any) {
        VALUES (?, ?, 'contact', ?, ?, 'delivered', 'email', 'email', CURRENT_TIMESTAMP)`
     ).bind(messageId, conversation.id, parsed.text || parsed.subject || '(no content)', mediaJson).run();
 
-    // Real-time broadcast â same `new_message` shape as WhatsApp so Flutter
+    // Real-time broadcast — same `new_message` shape as WhatsApp so Flutter
     // chat/inbox/notification listeners work identically for email threads.
     const emailInNow = new Date().toISOString();
     try {

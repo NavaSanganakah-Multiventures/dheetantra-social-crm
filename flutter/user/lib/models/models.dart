@@ -20,9 +20,9 @@ String _safeString(dynamic value) {
           continue;
         }
       }
-      // Lone high surrogate Ã¢ÂÂ skip.
+      // Lone high surrogate — skip.
     } else if (c >= 0xDC00 && c <= 0xDFFF) {
-      // Lone low surrogate Ã¢ÂÂ skip.
+      // Lone low surrogate — skip.
     } else {
       buffer.write(String.fromCharCode(c));
     }
@@ -93,12 +93,12 @@ class Contact {
   static List<String> _parseTags(Map<String, dynamic> json) {
     final tags = <String>[];
     if (json['is_lead'] == 1 || json['is_lead'] == true) {
-      tags.add('Ã Â¤Â²Ã Â¥ÂÃ Â¤Â¡');
+      tags.add('लीड');
       if (json['lead_status'] != null && json['lead_status'] != 'new') {
         tags.add(_safeString(json['lead_status']));
       }
     } else {
-      tags.add('Ã Â¤ÂÃ Â¥ÂÃ Â¤Â°Ã Â¤Â¾Ã Â¤Â¹Ã Â¤Â');
+      tags.add('ग्राहक');
     }
     return tags;
   }
