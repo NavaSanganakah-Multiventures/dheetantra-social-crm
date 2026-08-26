@@ -540,6 +540,15 @@ class _ContactDetailScreenState extends State<_ContactDetailScreen> {
               ),
             ],
           ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => _initiateTwilioCall(contact),
+              icon: const Icon(Icons.phone_forwarded, size: 18),
+              label: const Text('Twilio कॉल'),
+            ),
+          ),
           const SizedBox(height: 24),
           const Text(
             'जानकारी',
