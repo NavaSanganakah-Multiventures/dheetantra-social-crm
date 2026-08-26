@@ -53,6 +53,44 @@ class _CatalogDetailScreenState extends State<CatalogDetailScreen> {
     if (result != null && result['success'] == true) await _load();
   }
 
+
+  Future<void> _shareOnWhatsApp(BuildContext context) async {
+    final bodyController = TextEditingController(text: 'Check out ${_catalog.name}!');
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('WhatsApp message'),
+        content: TextField(
+          controller: bodyController,
+          maxLines: 2,
+          decoration: const InputDecoration(labelText: 'Optional message'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Next')),
+        ],
+      ),
+    );
+    if (confirm != true || !mounted) return;
+    final result = await Navigator.of(context).push<Map<String, dynamic>>(
+      MaterialPageRoute(builder: (_) => const ConversationPickerScreen()),
+    );
+    if (result == null || result['conversationId'] == null) return;
+    final shareRes = await ApiService().sendWhatsAppCatalog(
+      conversationId: result['conversationId'].toString(),
+      type: 'catalog',
+      catalogId: _catalog.id,
+      body: bodyController.text.trim(),
+      sectionTitle: '${_catalog.name} products',
+    );
+    if (context.mounted) {
+      if (shareRes['error'] != null) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('WhatsApp share failed: ' + shareRes['error'].toString())));
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Catalog WhatsApp par share kiya gaya')));
+      }
+    }
+  }
   Future<void> _editCatalog() async {
     final result = await Navigator.of(context).push<Map<String, dynamic>>(
       MaterialPageRoute(builder: (_) => CatalogFormScreen(catalog: _catalog)),
@@ -78,6 +116,7 @@ class _CatalogDetailScreenState extends State<CatalogDetailScreen> {
             children: [
               Expanded(child: Text(_catalog.name, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.textPrimary))),
               IconButton(onPressed: _editCatalog, icon: const Icon(Icons.edit_outlined, color: AppColors.accent)),
+              IconButton(onPressed: () => _shareOnWhatsApp(context), icon: const Icon(Icons.share, color: AppColors.whatsapp)),
             ],
           ),
           const SizedBox(height: 6),
