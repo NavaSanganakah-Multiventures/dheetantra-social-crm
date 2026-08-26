@@ -208,6 +208,11 @@ CREATE TABLE IF NOT EXISTS twilio_configs (
   account_sid TEXT NOT NULL,
   auth_token TEXT NOT NULL,
   is_active INTEGER NOT NULL DEFAULT 1,
+  voice_application_sid TEXT,
+  api_key_sid TEXT,
+  api_key_secret TEXT,
+  push_credential_sid_android TEXT,
+  push_credential_sid_ios TEXT,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
