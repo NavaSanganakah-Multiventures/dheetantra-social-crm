@@ -2,6 +2,25 @@ import { Hono } from 'hono';
 import { Env } from '../types';
 import { sqliteNow } from '../shared';
 
+function normalizeE164(raw: string, defaultCountryCode = '91'): string {
+  const trimmed = raw.trim();
+  let digits = trimmed.replace(/\D/g, '');
+
+  // Remove a single leading trunk 0 (e.g. 0987654321 -> 987654321)
+  if (digits.startsWith('0')) {
+    digits = digits.slice(1);
+  }
+
+  // If the user did not type a leading +, assume a local number and add the default country code.
+  if (!trimmed.startsWith('+')) {
+    if (digits.length === 10) {
+      digits = defaultCountryCode + digits;
+    }
+  }
+
+  return `+${digits}`;
+}
+
 const router = new Hono<{ Bindings: Env }>();
 
 router.post('/api/twilio/call', async (c) => {
@@ -14,13 +33,15 @@ router.post('/api/twilio/call', async (c) => {
   if (!to || typeof to !== 'string') {
     return c.json({ error: 'To number is required' }, 400);
   }
-  if (!to.startsWith('+')) {
-    return c.json({ error: 'Phone number must be in E.164 format, e.g. +9198XXXXXXXX' }, 400);
+
+  const normalizedTo = normalizeE164(to);
+  if (!/^\+\d{7,15}$/.test(normalizedTo)) {
+    return c.json({ error: 'Invalid phone number. Expected a valid mobile/landline number.' }, 400);
   }
 
   const accountSid = await c.env.SECRETS_KV.get('TWILIO_ACCOUNT_SID');
   const authToken = await c.env.SECRETS_KV.get('TWILIO_AUTH_TOKEN');
-  const fromNumber = (await c.env.SECRETS_KV.get('TWILIO_FROM_NUMBER')) || '+919669509952';
+  const fromNumber = normalizeE164((await c.env.SECRETS_KV.get('TWILIO_FROM_NUMBER')) || '+919669509952');
 
   if (!accountSid || !authToken) {
     console.error('[Twilio] Credentials missing in SECRETS_KV');
@@ -29,9 +50,12 @@ router.post('/api/twilio/call', async (c) => {
 
   let resolvedContactId = contactId;
   if (!resolvedContactId && c.env.DB) {
+    const rawTo = to.trim();
+    const variants = Array.from(new Set([normalizedTo, rawTo]));
+    const placeholders = variants.map(() => '?').join(',');
     const contact = await c.env.DB
-      .prepare('SELECT id FROM contacts WHERE workspace_id = ? AND (phone = ? OR platform_contact_id = ?) LIMIT 1')
-      .bind(workspaceId, to, to)
+      .prepare(`SELECT id FROM contacts WHERE workspace_id = ? AND (phone IN (${placeholders}) OR platform_contact_id IN (${placeholders})) LIMIT 1`)
+      .bind(workspaceId, ...variants, ...variants)
       .first<{ id: string }>();
     if (contact) resolvedContactId = contact.id;
   }
@@ -45,7 +69,7 @@ router.post('/api/twilio/call', async (c) => {
 </Response>`;
 
   const formData = new URLSearchParams();
-  formData.append('To', to);
+  formData.append('To', normalizedTo);
   formData.append('From', fromNumber);
   formData.append('Twiml', twiml);
 
@@ -85,7 +109,7 @@ router.post('/api/twilio/call', async (c) => {
       createdAt
     ).run();
 
-    return c.json({ success: true, callId, callSid: data.sid, status: data.status });
+    return c.json({ success: true, callId, callSid: data.sid, status: data.status, to: normalizedTo, from: fromNumber });
   } catch (e: any) {
     console.error('[Twilio] exception while creating call', e);
     return c.json({ success: false, error: e.message || 'Unknown error' }, 500);
