@@ -25,6 +25,8 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   final _currencyController = TextEditingController(text: 'INR');
   final _sortController = TextEditingController(text: '0');
   final _retailerIdController = TextEditingController();
+  final _urlController = TextEditingController();
+  bool _fetching = false;
   File? _imageFile;
   String? _existingImageUrl;
   bool _saving = false;
@@ -49,6 +51,30 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     if (picked != null && mounted) setState(() => _imageFile = File(picked.path));
   }
 
+
+  Future<void> _fetchFromUrl() async {
+    final url = _urlController.text.trim();
+    if (url.isEmpty) return;
+    setState(() => _fetching = true);
+    final res = await ApiService().fetchProductFromUrl(url);
+    if (!mounted) return;
+    setState(() => _fetching = false);
+    if (res['error'] != null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Fetch failed: ' + res['error'].toString())));
+      return;
+    }
+    final product = res['product'] as Map<String, dynamic>?;
+    if (product == null) return;
+    setState(() {
+      if (product['name'] != null) _nameController.text = product['name'].toString();
+      if (product['description'] != null) _descriptionController.text = product['description'].toString();
+      if (product['price'] != null) _priceController.text = product['price'].toString();
+      if (product['currency'] != null) _currencyController.text = product['currency'].toString();
+      if (product['retailer_id'] != null) _retailerIdController.text = product['retailer_id'].toString();
+      if (product['image_url'] != null) _existingImageUrl = product['image_url'].toString();
+    });
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Product details fetched')));
+  }
   Future<void> _save() async {
     final name = _nameController.text.trim();
     if (name.isEmpty) {
@@ -125,7 +151,24 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
             ],
           ),
           const SizedBox(height: 16),
-          TextField(controller: _sortController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Sort order')),
+          TextField(controller: _sortController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Sort order')),          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _urlController,
+                  decoration: const InputDecoration(labelText: 'Product URL', hintText: 'https://yourstore.com/product/abc'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              TextButton.icon(
+                onPressed: _fetching ? null : _fetchFromUrl,
+                icon: _fetching ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.link),
+                label: const Text('Fetch'),
+              ),
+            ],
+          ),
+
           const SizedBox(height: 16),
           TextField(controller: _retailerIdController, decoration: const InputDecoration(labelText: 'Meta retailer ID (WhatsApp product)', hintText: 'e.g. SKU123')),
           const SizedBox(height: 24),
