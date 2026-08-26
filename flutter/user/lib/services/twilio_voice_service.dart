@@ -138,7 +138,7 @@ class TwilioVoiceService {
   Future<void> toggleMute() async {
     _muted = !_muted;
     try {
-      await TwilioVoicePlatform.instance.call.toggleMute(isMuted: _muted);
+      await TwilioVoicePlatform.instance.call.toggleMute(_muted);
     } catch (e) {
       debugPrint('[TwilioVoice] toggleMute error: $e');
     }
@@ -147,7 +147,7 @@ class TwilioVoiceService {
   Future<void> setSpeaker(bool on) async {
     _speakerOn = on;
     try {
-      await TwilioVoicePlatform.instance.call.toggleSpeaker(speakerIsOn: on);
+      await TwilioVoicePlatform.instance.call.toggleSpeaker(on);
     } catch (e) {
       debugPrint('[TwilioVoice] toggleSpeaker error: $e');
     }
