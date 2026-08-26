@@ -29,41 +29,44 @@ async function run(db: any): Promise<string[]> {
   // off for the batch (mirrors the existing /api/admin/migrate endpoint).
   try { await db.prepare('PRAGMA foreign_keys = OFF').run(); } catch { /* ignore */ }
 
-  const diff = await diffSchema(db, schemaSqlContent);
-  const stmts: any[] = [];
+  try {
+    const diff = await diffSchema(db, schemaSqlContent);
+    const stmts: any[] = [];
 
-  for (const t of diff.missingTables) {
-    stmts.push(db.prepare(t.sql));
-    applied.push('CREATE TABLE ' + t.name);
-  }
+    for (const t of diff.missingTables) {
+      stmts.push(db.prepare(t.sql));
+      applied.push('CREATE TABLE ' + t.name);
+    }
 
-  for (const col of diff.missingColumns) {
-    stmts.push(db.prepare(col.sql));
-    applied.push('ALTER TABLE ' + col.table + ' ADD COLUMN ' + col.column);
-  }
+    for (const col of diff.missingColumns) {
+      stmts.push(db.prepare(col.sql));
+      applied.push('ALTER TABLE ' + col.table + ' ADD COLUMN ' + col.column);
+    }
 
-  if (stmts.length > 0) {
-    try {
-      await db.batch(stmts);
-    } catch (err: any) {
-      // Multiple isolates can race to apply the same changes on a cold start.
-      // If the schema is already up-to-date now, another isolate won the race;
-      // treat that as success. Otherwise surface the real error so the next
-      // request retries.
-      const recheck = await diffSchema(db, schemaSqlContent);
-      if (recheck.missingTables.length === 0 && recheck.missingColumns.length === 0) {
-        console.log('[AutoMigrate] Schema already up-to-date (concurrent migration applied it first).');
-      } else {
-        throw err;
+    if (stmts.length > 0) {
+      try {
+        await db.batch(stmts);
+      } catch (err: any) {
+        // Multiple isolates can race to apply the same changes on a cold start.
+        // If the schema is already up-to-date now, another isolate won the race;
+        // treat that as success. Otherwise surface the real error so the next
+        // request retries.
+        const recheck = await diffSchema(db, schemaSqlContent);
+        if (recheck.missingTables.length === 0 && recheck.missingColumns.length === 0) {
+          console.log('[AutoMigrate] Schema already up-to-date (concurrent migration applied it first).');
+        } else {
+          throw err;
+        }
       }
     }
+
+    if (applied.length > 0) {
+      console.log('[AutoMigrate] Applied ' + applied.length + ' schema change(s): ' + applied.join(', '));
+    }
+
+    return applied;
+  } finally {
+    // Always restore FK enforcement, even when the batch throws.
+    try { await db.prepare('PRAGMA foreign_keys = ON').run(); } catch { /* ignore */ }
   }
-
-  try { await db.prepare('PRAGMA foreign_keys = ON').run(); } catch { /* ignore */ }
-
-  if (applied.length > 0) {
-    console.log('[AutoMigrate] Applied ' + applied.length + ' schema change(s): ' + applied.join(', '));
-  }
-
-  return applied;
 }
