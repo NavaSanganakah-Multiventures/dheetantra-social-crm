@@ -156,6 +156,7 @@ CREATE TABLE IF NOT EXISTS whatsapp_configs (
   username TEXT DEFAULT '',
   profile_picture_url TEXT DEFAULT '',
   call_schedule TEXT DEFAULT '{"enabled":false,"start_time":"09:00","end_time":"17:00","days":[1,2,3,4,5,6,7]}',
+  catalog_id TEXT,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
 );
@@ -543,6 +544,7 @@ CREATE TABLE IF NOT EXISTS catalog_products (
   price REAL DEFAULT 0,
   currency TEXT DEFAULT 'INR',
   image_url TEXT,
+  retailer_id TEXT,
   status TEXT DEFAULT 'active',
   sort_order INTEGER DEFAULT 0,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
