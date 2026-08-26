@@ -166,7 +166,7 @@ router.get('/api/whatsapp/config', async (c) => {
     // member exfiltrate the owner's credentials and use them directly against
     // the Meta API. The client only ever sends a NEW token on save and never
     // needs to read the stored one, so masking is safe.
-    const maskToken = (t: any) => (t ? `â¢â¢â¢â¢â¢â¢â¢â¢${String(t).slice(-4)}` : '');
+    const maskToken = (t: any) => (t ? `••••••••${String(t).slice(-4)}` : '');
     const maskRow = (r: any) => {
       if (!r) return r;
       const { access_token, ...rest } = r;
@@ -507,7 +507,7 @@ router.get('/api/whatsapp/templates', async (c) => {
     let metaTemplates: any[] = [];
     let fetchError = null;
 
-    if (config && config.waba_id && config.access_token && config.access_token !== 'â¢â¢â¢â¢â¢â¢â¢â¢â¢â¢â¢â¢â¢â¢â¢â¢') {
+    if (config && config.waba_id && config.access_token && config.access_token !== '••••••••••••••••') {
       try {
         const res = await fetch(`https://graph.facebook.com/v19.0/${config.waba_id}/message_templates`, {
           headers: { 'Authorization': `Bearer ${config.access_token}` }
@@ -568,7 +568,7 @@ router.post('/api/whatsapp/templates', requireRole('owner', 'admin'), async (c) 
     let metaSuccess = false;
     let metaError = null;
 
-    if (config && config.waba_id && config.access_token && config.access_token !== 'â¢â¢â¢â¢â¢â¢â¢â¢â¢â¢â¢â¢â¢â¢â¢â¢') {
+    if (config && config.waba_id && config.access_token && config.access_token !== '••••••••••••••••') {
       try {
         const payload = {
           name: cleanName,
