@@ -42,11 +42,16 @@ class _TwilioSettingsScreenState extends State<TwilioSettingsScreen> {
     final sidCtrl = TextEditingController(text: existing?['accountSid'] as String? ?? '');
     final tokenCtrl = TextEditingController();
     final fromCtrl = TextEditingController();
+    final appSidCtrl = TextEditingController(text: existing?['voiceApplicationSid'] as String? ?? '');
+    final apiKeySidCtrl = TextEditingController(text: existing?['apiKeySid'] as String? ?? '');
+    final apiKeySecretCtrl = TextEditingController();
+    final pushCredAndroidCtrl = TextEditingController(text: existing?['pushCredentialSidAndroid'] as String? ?? '');
+    final pushCredIosCtrl = TextEditingController(text: existing?['pushCredentialSidIos'] as String? ?? '');
 
     final values = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(existing == null ? 'Twilio Account जोड़ें' : 'Twilio Account संपादित करें'),
+        title: Text(existing == null ? 'Twilio Account à¤à¥à¤¡à¤¼à¥à¤' : 'Twilio Account à¤¸à¤à¤ªà¤¾à¤¦à¤¿à¤¤ à¤à¤°à¥à¤'),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -64,7 +69,7 @@ class _TwilioSettingsScreenState extends State<TwilioSettingsScreen> {
                 obscureText: true,
                 decoration: InputDecoration(
                   labelText: 'Auth Token',
-                  hintText: existing == null ? 'Required' : 'खाली छोड़ें (अपरिवर्तित)',
+                  hintText: existing == null ? 'Required' : 'à¤à¤¾à¤²à¥ à¤à¥à¤¡à¤¼à¥à¤ (à¤à¤ªà¤°à¤¿à¤µà¤°à¥à¤¤à¤¿à¤¤)',
                 ),
               ),
               if (existing == null)
@@ -72,13 +77,37 @@ class _TwilioSettingsScreenState extends State<TwilioSettingsScreen> {
                   controller: fromCtrl,
                   decoration: const InputDecoration(labelText: 'From Number (optional)', hintText: '+919669509952'),
                 ),
+              TextField(
+                controller: appSidCtrl,
+                decoration: const InputDecoration(labelText: 'Voice Application SID (optional)'),
+              ),
+              TextField(
+                controller: apiKeySidCtrl,
+                decoration: const InputDecoration(labelText: 'API Key SID (optional)'),
+              ),
+              TextField(
+                controller: apiKeySecretCtrl,
+                obscureText: true,
+                decoration: InputDecoration(
+                  labelText: 'API Key Secret (optional)',
+                  hintText: existing == null ? 'Optional' : 'Leave blank to keep existing',
+                ),
+              ),
+              TextField(
+                controller: pushCredAndroidCtrl,
+                decoration: const InputDecoration(labelText: 'Push Credential SID Android (optional)'),
+              ),
+              TextField(
+                controller: pushCredIosCtrl,
+                decoration: const InputDecoration(labelText: 'Push Credential SID iOS (optional)'),
+              ),
             ],
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('रद्द करें'),
+            child: const Text('à¤°à¤¦à¥à¤¦ à¤à¤°à¥à¤'),
           ),
           FilledButton(
             onPressed: () {
@@ -87,9 +116,14 @@ class _TwilioSettingsScreenState extends State<TwilioSettingsScreen> {
                 'accountSid': sidCtrl.text.trim(),
                 'authToken': tokenCtrl.text.trim(),
                 'fromNumber': fromCtrl.text.trim(),
+                'voiceApplicationSid': appSidCtrl.text.trim(),
+                'apiKeySid': apiKeySidCtrl.text.trim(),
+                'apiKeySecret': apiKeySecretCtrl.text.trim(),
+                'pushCredentialSidAndroid': pushCredAndroidCtrl.text.trim(),
+                'pushCredentialSidIos': pushCredIosCtrl.text.trim(),
               });
             },
-            child: const Text('सेव करें'),
+            child: const Text('à¤¸à¥à¤µ à¤à¤°à¥à¤'),
           ),
         ],
       ),
@@ -100,11 +134,11 @@ class _TwilioSettingsScreenState extends State<TwilioSettingsScreen> {
     final sid = values['accountSid'] as String? ?? '';
     final token = values['authToken'] as String? ?? '';
     if (sid.isEmpty) {
-      _snack('Account SID ज़रूरी है');
+      _snack('Account SID à¤à¤¼à¤°à¥à¤°à¥ à¤¹à¥');
       return;
     }
     if (existing == null && token.isEmpty) {
-      _snack('Auth Token ज़रूरी है');
+      _snack('Auth Token à¤à¤¼à¤°à¥à¤°à¥ à¤¹à¥');
       return;
     }
 
@@ -117,10 +151,15 @@ class _TwilioSettingsScreenState extends State<TwilioSettingsScreen> {
       accountSid: sid,
       authToken: token.isEmpty ? null : token,
       fromNumbers: (existing == null && fromNumber.isNotEmpty) ? [fromNumber] : const [],
+      voiceApplicationSid: (values['voiceApplicationSid'] as String?)?.isNotEmpty == true ? values['voiceApplicationSid'] as String : null,
+      apiKeySid: (values['apiKeySid'] as String?)?.isNotEmpty == true ? values['apiKeySid'] as String : null,
+      apiKeySecret: (values['apiKeySecret'] as String?)?.isNotEmpty == true ? values['apiKeySecret'] as String : null,
+      pushCredentialSidAndroid: (values['pushCredentialSidAndroid'] as String?)?.isNotEmpty == true ? values['pushCredentialSidAndroid'] as String : null,
+      pushCredentialSidIos: (values['pushCredentialSidIos'] as String?)?.isNotEmpty == true ? values['pushCredentialSidIos'] as String : null,
     );
 
     if (!mounted) return;
-    _snack(res['success'] == true ? 'Twilio Account सेव हो गया' : 'Error: ${res['error']}');
+    _snack(res['success'] == true ? 'Twilio Account à¤¸à¥à¤µ à¤¹à¥ à¤à¤¯à¤¾' : 'Error: ${res['error']}');
     await _load();
   }
 
@@ -129,7 +168,7 @@ class _TwilioSettingsScreenState extends State<TwilioSettingsScreen> {
     final values = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('From Number जोड़ें'),
+        title: const Text('From Number à¤à¥à¤¡à¤¼à¥à¤'),
         content: TextField(
           controller: ctrl,
           decoration: const InputDecoration(labelText: 'From Number', hintText: '+919669509952'),
@@ -137,14 +176,14 @@ class _TwilioSettingsScreenState extends State<TwilioSettingsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('रद्द करें'),
+            child: const Text('à¤°à¤¦à¥à¤¦ à¤à¤°à¥à¤'),
           ),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(<String, dynamic>{
               'fromNumber': ctrl.text.trim(),
               'isDefault': false,
             }),
-            child: const Text('जोड़ें'),
+            child: const Text('à¤à¥à¤¡à¤¼à¥à¤'),
           ),
         ],
       ),
@@ -156,14 +195,14 @@ class _TwilioSettingsScreenState extends State<TwilioSettingsScreen> {
 
     final res = await ApiService().addTwilioFromNumber(configId, number);
     if (!mounted) return;
-    _snack(res['success'] == true ? 'From Number जुड़ गया' : 'Error: ${res['error']}');
+    _snack(res['success'] == true ? 'From Number à¤à¥à¤¡à¤¼ à¤à¤¯à¤¾' : 'Error: ${res['error']}');
     await _load();
   }
 
   Future<void> _setDefault(String id) async {
     final res = await ApiService().setDefaultTwilioFromNumber(id);
     if (!mounted) return;
-    _snack(res['success'] == true ? 'Default number set हो गया' : 'Error: ${res['error']}');
+    _snack(res['success'] == true ? 'Default number set à¤¹à¥ à¤à¤¯à¤¾' : 'Error: ${res['error']}');
     await _load();
   }
 
@@ -171,13 +210,13 @@ class _TwilioSettingsScreenState extends State<TwilioSettingsScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('From Number हटाएं?'),
+        title: const Text('From Number à¤¹à¤à¤¾à¤à¤?'),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('रद्द करें')),
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('à¤°à¤¦à¥à¤¦ à¤à¤°à¥à¤')),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(true),
             style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
-            child: const Text('हटाएं'),
+            child: const Text('à¤¹à¤à¤¾à¤à¤'),
           ),
         ],
       ),
@@ -186,7 +225,7 @@ class _TwilioSettingsScreenState extends State<TwilioSettingsScreen> {
 
     final res = await ApiService().deleteTwilioFromNumber(id);
     if (!mounted) return;
-    _snack(res['success'] == true ? 'From Number हटा दिया गया' : 'Error: ${res['error']}');
+    _snack(res['success'] == true ? 'From Number à¤¹à¤à¤¾ à¤¦à¤¿à¤¯à¤¾ à¤à¤¯à¤¾' : 'Error: ${res['error']}');
     await _load();
   }
 
@@ -194,14 +233,14 @@ class _TwilioSettingsScreenState extends State<TwilioSettingsScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Twilio Account हटाएं?'),
-        content: const Text('इससे उसके सारे From Numbers भी हट जाएंगे।'),
+        title: const Text('Twilio Account à¤¹à¤à¤¾à¤à¤?'),
+        content: const Text('à¤à¤¸à¤¸à¥ à¤à¤¸à¤à¥ à¤¸à¤¾à¤°à¥ From Numbers à¤­à¥ à¤¹à¤ à¤à¤¾à¤à¤à¤à¥à¥¤'),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('रद्द करें')),
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('à¤°à¤¦à¥à¤¦ à¤à¤°à¥à¤')),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(true),
             style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
-            child: const Text('हटाएं'),
+            child: const Text('à¤¹à¤à¤¾à¤à¤'),
           ),
         ],
       ),
@@ -210,7 +249,7 @@ class _TwilioSettingsScreenState extends State<TwilioSettingsScreen> {
 
     final res = await ApiService().deleteTwilioConfig(id);
     if (!mounted) return;
-    _snack(res['success'] == true ? 'Twilio Account हटा दिया गया' : 'Error: ${res['error']}');
+    _snack(res['success'] == true ? 'Twilio Account à¤¹à¤à¤¾ à¤¦à¤¿à¤¯à¤¾ à¤à¤¯à¤¾' : 'Error: ${res['error']}');
     await _load();
   }
 
@@ -232,7 +271,7 @@ class _TwilioSettingsScreenState extends State<TwilioSettingsScreen> {
                   child: Padding(
                     padding: EdgeInsets.all(24),
                     child: Text(
-                      'अभी कोई Twilio Account जुड़ा नहीं है।\nनीचे + Twilio Account बटन से जोड़ें।',
+                      'à¤à¤­à¥ à¤à¥à¤ Twilio Account à¤à¥à¤¡à¤¼à¤¾ à¤¨à¤¹à¥à¤ à¤¹à¥à¥¤\nà¤¨à¥à¤à¥ + Twilio Account à¤¬à¤à¤¨ à¤¸à¥ à¤à¥à¤¡à¤¼à¥à¤à¥¤',
                       textAlign: TextAlign.center,
                       style: TextStyle(color: AppColors.textMuted),
                     ),
@@ -267,12 +306,12 @@ class _TwilioSettingsScreenState extends State<TwilioSettingsScreen> {
                                   ),
                                 ),
                                 IconButton(
-                                  tooltip: 'संपादित करें',
+                                  tooltip: 'à¤¸à¤à¤ªà¤¾à¤¦à¤¿à¤¤ à¤à¤°à¥à¤',
                                   onPressed: () => _showAccountDialog(cfg),
                                   icon: const Icon(Icons.edit_outlined, size: 20),
                                 ),
                                 IconButton(
-                                  tooltip: 'हटाएं',
+                                  tooltip: 'à¤¹à¤à¤¾à¤à¤',
                                   onPressed: () => _deleteConfig(cfg['id'] as String),
                                   icon: const Icon(Icons.delete_outline, size: 20, color: AppColors.danger),
                                 ),
@@ -288,7 +327,7 @@ class _TwilioSettingsScreenState extends State<TwilioSettingsScreen> {
                             ),
                             const SizedBox(height: 6),
                             if (numbers.isEmpty)
-                              const Text('कोई From Number नहीं जुड़ा', style: TextStyle(color: AppColors.textMuted, fontSize: 12))
+                              const Text('à¤à¥à¤ From Number à¤¨à¤¹à¥à¤ à¤à¥à¤¡à¤¼à¤¾', style: TextStyle(color: AppColors.textMuted, fontSize: 12))
                             else
                               Wrap(
                                 spacing: 8,
@@ -309,7 +348,7 @@ class _TwilioSettingsScreenState extends State<TwilioSettingsScreen> {
                                 TextButton.icon(
                                   onPressed: () => _showAddNumberDialog(cfg['id'] as String),
                                   icon: const Icon(Icons.add, size: 18),
-                                  label: const Text('Number जोड़ें'),
+                                  label: const Text('Number à¤à¥à¤¡à¤¼à¥à¤'),
                                 ),
                               ],
                             ),
