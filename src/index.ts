@@ -1239,11 +1239,20 @@ const worker = {
   async fetch(request: any, env: any, ctx: any) {
     // Enterprise-style automatic migration: before serving the first request
     // after a deploy, synchronize the D1 schema with schema.sql (idempotent).
+    // If the migration cannot be applied, fail fast with 503 instead of
+    // routing a request against a schema that is known to be out of sync.
     if (env.DB) {
       try {
         await autoMigrate(env.DB);
       } catch (err: any) {
         console.error('[AutoMigrate] Schema migration failed:', err?.message || err);
+        return new Response(JSON.stringify({
+          error: 'Schema migration failed',
+          detail: err?.message || String(err),
+        }), {
+          status: 503,
+          headers: { 'Content-Type': 'application/json' },
+        });
       }
     }
     return app.fetch(request, env, ctx);
