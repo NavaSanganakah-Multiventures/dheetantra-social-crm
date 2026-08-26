@@ -40,6 +40,15 @@ function base64Url(input: string): string {
   return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
+function base64UrlBuffer(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let str = '';
+  for (let i = 0; i < bytes.length; i++) {
+    str += String.fromCharCode(bytes[i]);
+  }
+  return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
 async function hmacSha256(secret: string, input: string): Promise<ArrayBuffer> {
   const key = await crypto.subtle.importKey(
     'raw',
@@ -88,7 +97,7 @@ async function generateTwilioAccessToken(
   );
   const signingInput = header + '.' + payload;
   const signature = await hmacSha256(apiKeySecret, signingInput);
-  return signingInput + '.' + base64Url(await new Response(new Blob([signature])).arrayBuffer().then((b) => new Uint8Array(b)));
+  return signingInput + '.' + base64UrlBuffer(signature);
 }
 
 // Helper to read a JSON or form body and return uniform Record<string, string>
