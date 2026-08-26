@@ -410,6 +410,23 @@ class _ContactDetailScreenState extends State<_ContactDetailScreen> {
     widget.onChanged?.call();
   }
 
+  Future<void> _initiateTwilioCall(Contact contact) async {
+    final res = await ApiService().initiateTwilioCall(
+      to: contact.phone,
+      contactId: contact.id,
+    );
+    if (!mounted) return;
+    if (res['success'] == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Twilio call initiated: ${res['callSid']}')),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Twilio call failed: ${res['error']}')),
+      );
+    }
+  }
+
   Future<void> _delete() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -539,6 +556,15 @@ class _ContactDetailScreenState extends State<_ContactDetailScreen> {
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => _initiateTwilioCall(contact),
+              icon: const Icon(Icons.phone_forwarded, size: 18),
+              label: const Text('Twilio कॉल'),
+            ),
           ),
           const SizedBox(height: 24),
           const Text(

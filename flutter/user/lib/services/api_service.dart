@@ -338,6 +338,20 @@ class ApiService {
 
 
 
+  // ========== TWILIO CALL ==========
+
+  Future<Map<String, dynamic>> initiateTwilioCall({required String to, String? contactId}) async {
+    try {
+      final res = await _dio.post('/api/twilio/call', data: {
+        'to': to,
+        if (contactId != null) 'contactId': contactId,
+      });
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
   // ========== UNIFIED CRM CALLS ==========
 
   Future<List<dynamic>> getUnifiedCalls({String? source, String? search, String? phone, int limit = 100, int offset = 0}) async {
