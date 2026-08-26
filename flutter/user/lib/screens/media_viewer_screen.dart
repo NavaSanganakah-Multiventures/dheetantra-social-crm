@@ -76,7 +76,7 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
           _isDownloading = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Downloaded to app')),
+          const SnackBar(content: Text('ऐप में डाउनलोड हुआ')),
         );
       }
     } catch (e) {
@@ -104,13 +104,13 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not open file')),
+        const SnackBar(content: Text('फ़ाइल नहीं खुल सकी')),
       );
     }
   }
 
   Widget _buildImage() {
-    if (_url == null) return const Center(child: Text('No media URL'));
+    if (_url == null) return const Center(child: Text('कोई मीडिया URL नहीं'));
     return PhotoView(
       imageProvider: NetworkImage(_url!),
       minScale: PhotoViewComputedScale.contained,
@@ -127,13 +127,13 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
   }
 
   Widget _buildPdf() {
-    if (_url == null) return const Center(child: Text('No PDF URL'));
+    if (_url == null) return const Center(child: Text('कोई PDF URL नहीं'));
     if (_error != null) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Text(
-            'PDF load error: ' + _error!,
+            'PDF लोड त्रुटि: ' + _error!,
             textAlign: TextAlign.center,
             style: const TextStyle(color: AppColors.textMuted),
           ),
@@ -147,7 +147,7 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
           children: [
             CircularProgressIndicator(),
             SizedBox(height: 12),
-            Text('Loading PDF...', style: TextStyle(color: AppColors.textMuted)),
+            Text('PDF लोड हो रही है...', style: TextStyle(color: AppColors.textMuted)),
           ],
         ),
       );
@@ -195,7 +195,7 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
             const CircularProgressIndicator()
           else if (_localPath != null)
             Text(
-              'Saved to: ' + _localPath!,
+              'इसमें सहेजा गया: ' + _localPath!,
               textAlign: TextAlign.center,
               style: const TextStyle(color: AppColors.success, fontSize: 12),
             ),
@@ -209,17 +209,17 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
                 FilledButton.icon(
                   onPressed: _openExternally,
                   icon: const Icon(Icons.open_in_new),
-                  label: const Text('Open'),
+                  label: const Text('खोलें'),
                 ),
               FilledButton.icon(
                 onPressed: _download,
                 icon: const Icon(Icons.download),
-                label: const Text('Download'),
+                label: const Text('डाउनलोड करें'),
               ),
               OutlinedButton.icon(
                 onPressed: _share,
                 icon: const Icon(Icons.share),
-                label: const Text('Share'),
+                label: const Text('शेयर करें'),
               ),
             ],
           ),
@@ -262,12 +262,12 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
             IconButton(
               icon: const Icon(Icons.download),
               onPressed: _download,
-              tooltip: 'Download',
+              tooltip: 'डाउनलोड करें',
             ),
           IconButton(
             icon: const Icon(Icons.share),
             onPressed: _share,
-            tooltip: 'Share',
+            tooltip: 'शेयर करें',
           ),
           const SizedBox(width: 8),
         ],

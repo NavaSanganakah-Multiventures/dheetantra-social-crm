@@ -102,7 +102,7 @@ class _CallerCardScreenState extends State<CallerCardScreen> {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.surface,
-        title: const Text('Incoming Caller'),
+        title: const Text('आने वाला कॉलर'),
         actions: [
           IconButton(
             onPressed: () => Navigator.of(context).pop(),
@@ -150,7 +150,7 @@ class _CallerCardScreenState extends State<CallerCardScreen> {
                         _Badge(leadStatus),
                       ...tags.map((t) => _Badge(t)),
                       if (!found)
-                        const _Badge('New number', color: AppColors.danger),
+                        const _Badge('नया नंबर', color: AppColors.danger),
                     ],
                   ),
                 ],
@@ -159,12 +159,12 @@ class _CallerCardScreenState extends State<CallerCardScreen> {
             const SizedBox(height: 16),
             Row(
               children: [
-                _StatCard(label: 'Total calls', value: '$totalCalls'),
+                _StatCard(label: 'कुल कॉल', value: '$totalCalls'),
                 const SizedBox(width: 10),
-                _StatCard(label: 'Total duration', value: _fmtDuration(totalDuration)),
+                _StatCard(label: 'कुल अवधि', value: _fmtDuration(totalDuration)),
                 const SizedBox(width: 10),
                 _StatCard(
-                  label: 'Last call',
+                  label: 'अंतिम कॉल',
                   value: lastCallAt == null ? '-' : timeLabel(lastCallAt),
                 ),
               ],
@@ -176,7 +176,7 @@ class _CallerCardScreenState extends State<CallerCardScreen> {
                   child: ElevatedButton.icon(
                     onPressed: _openAfterCall,
                     icon: const Icon(Icons.edit_note),
-                    label: const Text('Add notes / CRM'),
+                    label: const Text('नोट्स / CRM जोड़ें'),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -184,33 +184,33 @@ class _CallerCardScreenState extends State<CallerCardScreen> {
                   child: OutlinedButton.icon(
                     onPressed: _openChat,
                     icon: const Icon(Icons.chat_bubble_outline),
-                    label: const Text('Chat'),
+                    label: const Text('चैट'),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 20),
             if (email != null && email.isNotEmpty) ...[
-              _SectionTitle('Email'),
+              _SectionTitle('ईमेल'),
               _InfoCard(icon: Icons.email_outlined, text: email),
             ],
             if (notes != null && notes.isNotEmpty) ...[
-              _SectionTitle('Contact notes'),
+              _SectionTitle('संपर्क नोट्स'),
               _InfoCard(icon: Icons.notes_outlined, text: notes),
             ],
             if (lastMessage != null) ...[
-              _SectionTitle('Last message'),
+              _SectionTitle('अंतिम संदेश'),
               _InfoCard(
                 icon: Icons.message_outlined,
                 text: lastMessage['content']?.toString() ?? '',
                 subtext: lastMessage['platform']?.toString() ?? '',
               ),
             ],
-            _SectionTitle('Recent call history'),
+            _SectionTitle('हाल की कॉल हिस्ट्री'),
             if (_recentCalls.isEmpty)
               const _InfoCard(
                 icon: Icons.call_outlined,
-                text: 'No calls found for this number',
+                text: 'इस नंबर के लिए कोई कॉल नहीं मिली',
                 subtext: '',
               )
             else
@@ -383,7 +383,7 @@ class _CallHistoryTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    status.isEmpty ? direction : status,
+                    status.isEmpty ? (direction == 'outgoing' ? 'आउटगोइंग' : 'इनकमिंग') : status,
                     style: const TextStyle(color: AppColors.textPrimary, fontSize: 13, fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 2),

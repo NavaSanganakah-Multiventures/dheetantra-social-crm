@@ -39,7 +39,7 @@ class _ConversationPickerScreenState extends State<ConversationPickerScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Conversation chunein')),
+      appBar: AppBar(title: const Text('बातचीत चुनें')),
       body: Column(
         children: [
           Padding(
@@ -47,14 +47,14 @@ class _ConversationPickerScreenState extends State<ConversationPickerScreen> {
             child: TextField(
               controller: _noteController,
               maxLines: 2,
-              decoration: const InputDecoration(labelText: 'Optional note'),
+              decoration: const InputDecoration(labelText: 'वैकल्पिक नोट'),
             ),
           ),
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
                 : _conversations.isEmpty
-                    ? const Center(child: EmptyState(icon: Icons.chat_outlined, title: 'Koi open conversation nahi', subtitle: 'Pehle chat shuru karein.'))
+                    ? const Center(child: EmptyState(icon: Icons.chat_outlined, title: 'कोई खुली बातचीत नहीं', subtitle: 'पहले चैट शुरू करें।'))
                     : ListView.builder(
                         itemCount: _conversations.length,
                         itemBuilder: (context, i) {

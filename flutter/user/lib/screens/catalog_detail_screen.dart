@@ -56,19 +56,19 @@ class _CatalogDetailScreenState extends State<CatalogDetailScreen> {
 
 
   Future<void> _shareOnWhatsApp(BuildContext context) async {
-    final bodyController = TextEditingController(text: 'Check out ${_catalog.name}!');
+    final bodyController = TextEditingController(text: 'देखें: ${_catalog.name}!');
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('WhatsApp message'),
+        title: const Text('WhatsApp संदेश'),
         content: TextField(
           controller: bodyController,
           maxLines: 2,
-          decoration: const InputDecoration(labelText: 'Optional message'),
+          decoration: const InputDecoration(labelText: 'वैकल्पिक संदेश'),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Next')),
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('रद्द करें')),
+          TextButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('आगे')),
         ],
       ),
     );
@@ -82,13 +82,13 @@ class _CatalogDetailScreenState extends State<CatalogDetailScreen> {
       type: 'catalog',
       catalogId: _catalog.id,
       body: bodyController.text.trim(),
-      sectionTitle: '${_catalog.name} products',
+      sectionTitle: '${_catalog.name} प्रोडक्ट',
     );
     if (context.mounted) {
       if (shareRes['error'] != null) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('WhatsApp share failed: ' + shareRes['error'].toString())));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('WhatsApp शेयर विफल: ' + shareRes['error'].toString())));
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Catalog WhatsApp par share kiya gaya')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('कैटलॉग WhatsApp पर शेयर किया गया')));
       }
     }
   }
@@ -121,7 +121,7 @@ class _CatalogDetailScreenState extends State<CatalogDetailScreen> {
             ],
           ),
           const SizedBox(height: 6),
-          Text(_products.length.toString() + ' products', style: const TextStyle(color: AppColors.textMuted, fontSize: 13)),
+          Text(_products.length.toString() + ' प्रोडक्ट', style: const TextStyle(color: AppColors.textMuted, fontSize: 13)),
           if (_catalog.description != null && _catalog.description!.isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(_catalog.description!, style: const TextStyle(color: AppColors.textMuted, fontSize: 13)),
@@ -144,7 +144,7 @@ class _CatalogDetailScreenState extends State<CatalogDetailScreen> {
                   SliverToBoxAdapter(child: _buildHeader()),
                   if (_products.isEmpty)
                     const SliverFillRemaining(
-                      child: Center(child: EmptyState(icon: Icons.shopping_bag_outlined, title: 'Koi product nahi', subtitle: 'Pehla product add karein.')),
+                      child: Center(child: EmptyState(icon: Icons.shopping_bag_outlined, title: 'कोई प्रोडक्ट नहीं', subtitle: 'पहला प्रोडक्ट जोड़ें।')),
                     )
                   else
                     SliverPadding(
@@ -168,7 +168,7 @@ class _CatalogDetailScreenState extends State<CatalogDetailScreen> {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _addProduct,
         icon: const Icon(Icons.add),
-        label: const Text('Product'),
+        label: const Text('प्रोडक्ट'),
       ),
     );
   }
