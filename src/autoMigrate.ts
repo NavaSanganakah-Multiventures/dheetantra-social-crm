@@ -43,7 +43,20 @@ async function run(db: any): Promise<string[]> {
   }
 
   if (stmts.length > 0) {
-    await db.batch(stmts);
+    try {
+      await db.batch(stmts);
+    } catch (err: any) {
+      // Multiple isolates can race to apply the same changes on a cold start.
+      // If the schema is already up-to-date now, another isolate won the race;
+      // treat that as success. Otherwise surface the real error so the next
+      // request retries.
+      const recheck = await diffSchema(db, schemaSqlContent);
+      if (recheck.missingTables.length === 0 && recheck.missingColumns.length === 0) {
+        console.log('[AutoMigrate] Schema already up-to-date (concurrent migration applied it first).');
+      } else {
+        throw err;
+      }
+    }
   }
 
   try { await db.prepare('PRAGMA foreign_keys = ON').run(); } catch { /* ignore */ }
