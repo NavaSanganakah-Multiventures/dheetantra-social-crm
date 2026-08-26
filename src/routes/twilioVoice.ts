@@ -334,7 +334,7 @@ router.get('/api/twilio/token', async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
-  const user = c.get('user');
+  const user = c.get('user' as any) as any;
   if (!user || !user.id) {
     return c.json({ error: 'Unauthorized' }, 401);
   }
@@ -446,7 +446,7 @@ router.post('/api/twilio/call', async (c) => {
     "INSERT INTO calls (id, workspace_id, contact_id, phone_number_id, caller_number, source, type, direction, status, duration, twilio_config_id, external_call_id, created_at) VALUES (?, ?, ?, ?, ?, 'twilio', 'voice', 'outgoing', 'queued', 0, ?, ?, ?)"
   ).bind(callId, workspaceId, resolvedContactId, fromRow.id, normalizedTo, config.id, createdAt).run();
 
-  const baseUrl = c.env.APP_URL || ('https://' + c.req.header('host'));
+  const baseUrl = ((c.env as any).APP_URL as string | undefined) || ('https://' + (c.req.header('host') || 'dheetantra.navasanganakah.com'));
   const twimlUrl = baseUrl + '/api/twilio/webhook/outbound?conferenceName=' + encodeURIComponent(conferenceName);
   const statusCallback = baseUrl + '/api/twilio/webhook/status';
 
@@ -562,7 +562,7 @@ router.post('/api/twilio/webhook/voice', async (c) => {
           const tokens = await c.env.DB.prepare('SELECT token FROM fcm_tokens WHERE user_id IN (' + placeholders + ')')
             .bind(...userIds).all<{ token: string }>();
 
-          const { sendPushNotification } = await import('../lib/fcm');
+          const { sendPushNotification } = await import('../../lib/fcm');
           if (!tokens.results || tokens.results.length === 0) return;
 
           const MAX_TOTAL = 45;
