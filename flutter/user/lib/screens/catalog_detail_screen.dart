@@ -5,6 +5,7 @@ import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
 import 'catalog_form_screen.dart';
+import 'conversation_picker_screen.dart';
 import 'product_detail_screen.dart';
 import 'product_form_screen.dart';
 
