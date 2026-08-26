@@ -1246,9 +1246,10 @@ const worker = {
         await autoMigrate(env.DB);
       } catch (err: any) {
         console.error('[AutoMigrate] Schema migration failed:', err?.message || err);
+        // Do not echo err details to the client (CodeQL: information exposure
+        // through stack traces). Full error is logged server-side above.
         return new Response(JSON.stringify({
-          error: 'Schema migration failed',
-          detail: err?.message || String(err),
+          error: 'Service temporarily unavailable (database schema update in progress)',
         }), {
           status: 503,
           headers: { 'Content-Type': 'application/json' },
