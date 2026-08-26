@@ -232,8 +232,7 @@ class _TwilioSettingsScreenState extends State<TwilioSettingsScreen> {
                   child: Padding(
                     padding: EdgeInsets.all(24),
                     child: Text(
-                      'अभी कोई Twilio Account जुड़ा नहीं है।
-नीचे + Twilio Account बटन से जोड़ें।',
+                      'अभी कोई Twilio Account जुड़ा नहीं है।\nनीचे + Twilio Account बटन से जोड़ें।',
                       textAlign: TextAlign.center,
                       style: TextStyle(color: AppColors.textMuted),
                     ),
