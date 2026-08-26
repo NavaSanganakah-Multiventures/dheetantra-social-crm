@@ -2,6 +2,7 @@ import { Hono, Context } from 'hono';
 import { cors } from 'hono/cors';
 import { getCookie, setCookie, deleteCookie } from 'hono/cookie';
 import { Env } from './types';
+import { autoMigrate } from './autoMigrate';
 import { handleIncomingMessage } from './services/chatbot';
 import { DurableObject, WorkflowEntrypoint } from 'cloudflare:workers';
 import { EmailMessage } from 'cloudflare:email';
@@ -1235,7 +1236,18 @@ function parseIncomingWhatsAppMessage(message: any): { type: string; text: strin
   return { type: messageType, text, mediaUrl };
 }
 const worker = {
-  fetch: app.fetch,
+  async fetch(request: any, env: any, ctx: any) {
+    // Enterprise-style automatic migration: before serving the first request
+    // after a deploy, synchronize the D1 schema with schema.sql (idempotent).
+    if (env.DB) {
+      try {
+        await autoMigrate(env.DB);
+      } catch (err: any) {
+        console.error('[AutoMigrate] Schema migration failed:', err?.message || err);
+      }
+    }
+    return app.fetch(request, env, ctx);
+  },
 
   // Workflow entry point (Background Tasks & FCM)
   async workflow(event: any, env: any, ctx: any) {
