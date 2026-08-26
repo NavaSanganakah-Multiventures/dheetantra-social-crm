@@ -60,7 +60,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     if (!mounted) return;
     setState(() => _fetching = false);
     if (res['error'] != null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Fetch failed: ' + res['error'].toString())));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('फ़ेच विफल: ' + res['error'].toString())));
       return;
     }
     final product = res['product'] as Map<String, dynamic>?;
@@ -73,12 +73,12 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
       if (product['retailer_id'] != null) _retailerIdController.text = product['retailer_id'].toString();
       if (product['image_url'] != null) _existingImageUrl = product['image_url'].toString();
     });
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Product details fetched')));
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('प्रोडक्ट विवरण लाया गया')));
   }
   Future<void> _save() async {
     final name = _nameController.text.trim();
     if (name.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Product naam likhein')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('प्रोडक्ट का नाम लिखें')));
       return;
     }
     setState(() => _saving = true);
@@ -107,7 +107,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     if (!mounted) return;
     setState(() => _saving = false);
     if (res['error'] != null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ' + res['error'].toString())));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('त्रुटि: ' + res['error'].toString())));
     } else {
       Navigator.of(context).pop({'success': true, 'product': res['product']});
     }
@@ -117,7 +117,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   Widget build(BuildContext context) {
     final isEdit = widget.product != null;
     return Scaffold(
-      appBar: AppBar(title: Text(isEdit ? 'Product edit karein' : 'Naya product')),
+      appBar: AppBar(title: Text(isEdit ? 'प्रोडक्ट संपादित करें' : 'नया प्रोडक्ट')),
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
@@ -130,51 +130,51 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                   ? ClipRRect(borderRadius: BorderRadius.circular(16), child: Image.file(_imageFile!, width: double.infinity, fit: BoxFit.cover))
                   : _existingImageUrl != null && _existingImageUrl!.isNotEmpty
                       ? ClipRRect(borderRadius: BorderRadius.circular(16), child: Image.network(_existingImageUrl!, width: double.infinity, fit: BoxFit.cover))
-                      : const Center(child: Column(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.add_photo_alternate_outlined, color: AppColors.textMuted), SizedBox(height: 8), Text('Product photo select karein', style: TextStyle(color: AppColors.textMuted))])),
+                      : const Center(child: Column(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.add_photo_alternate_outlined, color: AppColors.textMuted), SizedBox(height: 8), Text('प्रोडक्ट फोटो चुनें', style: TextStyle(color: AppColors.textMuted))])),
             ),
           ),
           const SizedBox(height: 20),
-          TextField(controller: _nameController, decoration: const InputDecoration(labelText: 'Product naam')),
+          TextField(controller: _nameController, decoration: const InputDecoration(labelText: 'प्रोडक्ट का नाम')),
           const SizedBox(height: 16),
-          TextField(controller: _descriptionController, maxLines: 3, decoration: const InputDecoration(labelText: 'Description')),
+          TextField(controller: _descriptionController, maxLines: 3, decoration: const InputDecoration(labelText: 'विवरण')),
           const SizedBox(height: 16),
           Row(
             children: [
               Expanded(
                 flex: 2,
-                child: TextField(controller: _priceController, keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))], decoration: const InputDecoration(labelText: 'Price')),
+                child: TextField(controller: _priceController, keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))], decoration: const InputDecoration(labelText: 'कीमत')),
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: TextField(controller: _currencyController, textCapitalization: TextCapitalization.characters, decoration: const InputDecoration(labelText: 'Currency')),
+                child: TextField(controller: _currencyController, textCapitalization: TextCapitalization.characters, decoration: const InputDecoration(labelText: 'मुद्रा')),
               ),
             ],
           ),
           const SizedBox(height: 16),
-          TextField(controller: _sortController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Sort order')),          const SizedBox(height: 16),
+          TextField(controller: _sortController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'क्रम')),          const SizedBox(height: 16),
           Row(
             children: [
               Expanded(
                 child: TextField(
                   controller: _urlController,
-                  decoration: const InputDecoration(labelText: 'Product URL', hintText: 'https://yourstore.com/product/abc'),
+                  decoration: const InputDecoration(labelText: 'प्रोडक्ट URL', hintText: 'https://yourstore.com/product/abc'),
                 ),
               ),
               const SizedBox(width: 10),
               TextButton.icon(
                 onPressed: _fetching ? null : _fetchFromUrl,
                 icon: _fetching ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.link),
-                label: const Text('Fetch'),
+                label: const Text('फ़ेच'),
               ),
             ],
           ),
 
           const SizedBox(height: 16),
-          TextField(controller: _retailerIdController, decoration: const InputDecoration(labelText: 'Meta retailer ID (WhatsApp product)', hintText: 'e.g. SKU123')),
+          TextField(controller: _retailerIdController, decoration: const InputDecoration(labelText: 'Meta रिटेलर ID (WhatsApp प्रोडक्ट)', hintText: 'e.g. SKU123')),
           const SizedBox(height: 24),
           FilledButton(
             onPressed: _saving ? null : _save,
-            child: _saving ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : Text(isEdit ? 'Update' : 'Create'),
+            child: _saving ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : Text(isEdit ? 'अपडेट करें' : 'बनाएं'),
           ),
         ],
       ),
