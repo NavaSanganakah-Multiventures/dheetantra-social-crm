@@ -822,6 +822,17 @@ class ApiService {
     }
   }
 
+  // ========== CATALOG PRODUCT URL FETCH ==========
+
+  Future<Map<String, dynamic>> fetchProductFromUrl(String url) async {
+    try {
+      final res = await _dio.post('/api/catalogs/fetch-product', data: {'url': url.trim()});
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
   // ========== HELPERS ==========
 
   Map<String, dynamic> _handleError(DioException e) {
