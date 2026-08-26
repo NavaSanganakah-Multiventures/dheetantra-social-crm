@@ -334,11 +334,6 @@ router.get('/api/twilio/token', async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
-  const user = c.get('user' as any) as any;
-  if (!user || !user.id) {
-    return c.json({ error: 'Unauthorized' }, 401);
-  }
-
   const platform = c.req.query('platform'); // 'android' | 'ios'
   const ttl = Math.min(parseInt(c.req.query('ttl') || '3600', 10) || 3600, 86400);
 
