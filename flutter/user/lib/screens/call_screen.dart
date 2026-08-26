@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../services/callkit_service.dart';
 import '../services/webrtc_service.dart';
 import '../services/websocket_service.dart';
+import '../services/twilio_voice_service.dart';
 import '../theme/app_theme.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../widgets/common.dart';
@@ -15,7 +16,7 @@ class CallScreen extends StatefulWidget {
 
   const CallScreen({super.key, required this.callData});
 
-  /// Call screen ko bina animation ke turant foreground par lao — incoming
+  /// Call screen ko bina animation ke turant foreground par lao â incoming
   /// accept ke waqt HomeScreen ka flash nahi dikhna chahiye.
   static void push(BuildContext context, Map<String, dynamic> callData) {
     Navigator.of(context).push(
@@ -39,13 +40,20 @@ class _CallScreenState extends State<CallScreen> {
 
   StreamSubscription? _rtcStateSub;
   StreamSubscription? _wsStatusSub;
+  StreamSubscription? _twilioStateSub;
+
+  bool get _isTwilio => widget.callData['source']?.toString() == 'twilio' ||
+      (widget.callData['conferenceName']?.toString() ?? '').isNotEmpty;
 
   @override
   void initState() {
     super.initState();
     _rtcStateSub = WebRTCService().onCallState.listen(_onCallState);
     _wsStatusSub = WebSocketService().onCallStatusUpdated.listen(_onCallStatus);
-    if ((widget.callData['sdp']?.toString() ?? '').isNotEmpty) {
+    _twilioStateSub = TwilioVoiceService().onCallState.listen(_onCallState);
+    if (_isTwilio) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _requestPermissionAndAnswer());
+    } else if ((widget.callData['sdp']?.toString() ?? '').isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _requestPermissionAndAnswer());
     }
   }
@@ -77,7 +85,7 @@ class _CallScreenState extends State<CallScreen> {
 
     final status = data['status']?.toString() ?? '';
     if (status == 'completed' || status == 'ended' || status == 'declined' || status == 'terminated') {
-      debugPrint('[CallScreen] remote ended the call — finishing');
+      debugPrint('[CallScreen] remote ended the call â finishing');
       _finishCall();
     }
   }
@@ -97,11 +105,11 @@ class _CallScreenState extends State<CallScreen> {
   void _finishCall() {
     debugPrint('[CallScreen] _finishCall()');
     // 'ended' duplicate events (WebRTC watchdog + plugin Closed re-fire) se
-    // double pop na ho — ek hi baar teardown chalega.
+    // double pop na ho â ek hi baar teardown chalega.
     if (_finishCalled) return;
     _finishCalled = true;
     _durationTimer?.cancel();
-    // Registry + plugin native UI cleanup — warna same-id agli call
+    // Registry + plugin native UI cleanup â warna same-id agli call
     // duplicate-guard se permanently block ho jayegi.
     CallKitService().handleCallEnded(
       widget.callData['id']?.toString() ??
@@ -116,6 +124,25 @@ class _CallScreenState extends State<CallScreen> {
   Future<void> _requestPermissionAndAnswer() async {
     debugPrint('[CallScreen] checking microphone permission');
     if (!mounted) return;
+
+    if (_isTwilio) {
+      final status = await Permission.microphone.status;
+      if (status.isGranted) {
+        await _startAnswer();
+        return;
+      }
+      if (status.isPermanentlyDenied) {
+        _showMicPermissionDialog(permanent: true);
+        return;
+      }
+      final result = await Permission.microphone.request();
+      if (result.isGranted) {
+        await _startAnswer();
+      } else {
+        _showMicPermissionDialog(permanent: result.isPermanentlyDenied);
+      }
+      return;
+    }
 
     final status = await Permission.microphone.status;
     debugPrint('[CallScreen] microphone status: $status');
@@ -141,6 +168,20 @@ class _CallScreenState extends State<CallScreen> {
   }
 
   Future<void> _startAnswer() async {
+    if (_isTwilio) {
+      debugPrint('[CallScreen] joining Twilio conference');
+      final conferenceName = widget.callData['conferenceName']?.toString() ??
+          widget.callData['id']?.toString() ??
+          widget.callData['callId']?.toString() ?? '';
+      final ok = await TwilioVoiceService().joinConference(
+        conferenceName,
+        callerName: _callerName,
+      );
+      if (!ok && mounted) {
+        setState(() => _status = 'error: Failed to connect Twilio call');
+      }
+      return;
+    }
     debugPrint('[CallScreen] starting WebRTC answer');
     try {
       await WebRTCService().answerCall(widget.callData);
@@ -155,22 +196,22 @@ class _CallScreenState extends State<CallScreen> {
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        title: const Text('माइक्रोफ़ोन Permission चाहिए'),
-        content: const Text('कॉल उठाने के लिए माइक्रोफ़ोन की अनुमति ज़रूरी है।'),
+        title: const Text('à¤®à¤¾à¤à¤à¥à¤°à¥à¤«à¤¼à¥à¤¨ Permission à¤à¤¾à¤¹à¤¿à¤'),
+        content: const Text('à¤à¥à¤² à¤à¤ à¤¾à¤¨à¥ à¤à¥ à¤²à¤¿à¤ à¤®à¤¾à¤à¤à¥à¤°à¥à¤«à¤¼à¥à¤¨ à¤à¥ à¤à¤¨à¥à¤®à¤¤à¤¿ à¤à¤¼à¤°à¥à¤°à¥ à¤¹à¥à¥¤'),
         actions: [
           TextButton(
             onPressed: () {
               Navigator.of(ctx).pop();
               if (mounted) Navigator.of(context).pop();
             },
-            child: const Text('बंद करें'),
+            child: const Text('à¤¬à¤à¤¦ à¤à¤°à¥à¤'),
           ),
           TextButton(
             onPressed: () {
               Navigator.of(ctx).pop();
               openAppSettings();
             },
-            child: const Text('Settings खोलें'),
+            child: const Text('Settings à¤à¥à¤²à¥à¤'),
           ),
         ],
       ),
@@ -178,16 +219,28 @@ class _CallScreenState extends State<CallScreen> {
   }
 
   Future<void> _hangup() async {
-    await WebRTCService().hangup(widget.callData);
+    if (_isTwilio) {
+      await TwilioVoiceService().hangUp();
+    } else {
+      await WebRTCService().hangup(widget.callData);
+    }
   }
 
   void _toggleMute() {
-    WebRTCService().toggleMute();
+    if (_isTwilio) {
+      TwilioVoiceService().toggleMute();
+    } else {
+      WebRTCService().toggleMute();
+    }
     setState(() {});
   }
 
   Future<void> _toggleSpeaker() async {
-    await WebRTCService().toggleSpeaker();
+    if (_isTwilio) {
+      await TwilioVoiceService().toggleSpeaker();
+    } else {
+      await WebRTCService().toggleSpeaker();
+    }
     setState(() {});
   }
 
@@ -200,7 +253,7 @@ class _CallScreenState extends State<CallScreen> {
   String get _callerName {
     return widget.callData['contact_name'] ??
         widget.callData['callerName'] ??
-        'अज्ञात';
+        'à¤à¤à¥à¤à¤¾à¤¤';
   }
 
   String get _callerPhone {
@@ -225,6 +278,7 @@ class _CallScreenState extends State<CallScreen> {
     _durationTimer?.cancel();
     _rtcStateSub?.cancel();
     _wsStatusSub?.cancel();
+    _twilioStateSub?.cancel();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.dispose();
   }
@@ -232,11 +286,11 @@ class _CallScreenState extends State<CallScreen> {
   @override
   Widget build(BuildContext context) {
     final statusText = _status == 'connecting'
-        ? 'संपर्क हो रहा है...'
+        ? 'à¤¸à¤à¤ªà¤°à¥à¤ à¤¹à¥ à¤°à¤¹à¤¾ à¤¹à¥...'
         : _status.startsWith('error')
             ? _status.replaceFirst('error: Exception: ', 'Error: ')
             : _status == 'ended' 
-                ? 'कॉल समाप्त'
+                ? 'à¤à¥à¤² à¤¸à¤®à¤¾à¤ªà¥à¤¤'
                 : _formatDuration(_duration);
 
     return PopScope(
@@ -341,10 +395,10 @@ class _CallScreenState extends State<CallScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       _CallButton(
-                        icon: WebRTCService().isMuted
+                        icon: (_isTwilio ? TwilioVoiceService().isMuted : WebRTCService().isMuted)
                             ? Icons.mic_off_rounded
                             : Icons.mic_rounded,
-                        label: WebRTCService().isMuted ? 'म्यूट' : 'अनम्यूट',
+                        label: (_isTwilio ? TwilioVoiceService().isMuted : WebRTCService().isMuted) ? 'à¤®à¥à¤¯à¥à¤' : 'à¤à¤¨à¤®à¥à¤¯à¥à¤',
                         color: WebRTCService().isMuted
                             ? AppColors.danger
                             : AppColors.surfaceAlt,
@@ -356,7 +410,7 @@ class _CallScreenState extends State<CallScreen> {
                       const SizedBox(width: 24),
                       _CallButton(
                         icon: Icons.call_end_rounded,
-                        label: 'कट करें',
+                        label: 'à¤à¤ à¤à¤°à¥à¤',
                         color: AppColors.danger,
                         iconColor: Colors.white,
                         size: 74,
@@ -365,12 +419,12 @@ class _CallScreenState extends State<CallScreen> {
                       ),
                       const SizedBox(width: 24),
                       _CallButton(
-                        icon: WebRTCService().isSpeakerOn
+                        icon: (_isTwilio ? TwilioVoiceService().isSpeakerOn : WebRTCService().isSpeakerOn)
                             ? Icons.volume_up_rounded
                             : Icons.hearing_rounded,
-                        label: WebRTCService().isSpeakerOn
-                            ? 'स्पीकर'
-                            : 'ईयरफोन',
+                        label: (_isTwilio ? TwilioVoiceService().isSpeakerOn : WebRTCService().isSpeakerOn)
+                            ? 'à¤¸à¥à¤ªà¥à¤à¤°'
+                            : 'à¤à¤¯à¤°à¤«à¥à¤¨',
                         color: WebRTCService().isSpeakerOn
                             ? AppColors.accent
                             : AppColors.surfaceAlt,
