@@ -145,7 +145,23 @@ export function TwilioVoiceProvider({ children }: { children: React.ReactNode })
           console.error("[TwilioWeb] device error", err);
         });
 
-        await device.register();
+        // Only register for Twilio SDK incoming invites when a push credential is present.
+        // The web client uses its own WebSocket-based incoming-call alert, so without a
+        // push credential we skip register() to avoid receiving invites routed to the
+        // workspace identity instead of the conference room.
+        const payload = data.token?.split('.')?.[1];
+        let hasPushCredential = false;
+        if (payload) {
+          try {
+            const decoded = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
+            hasPushCredential = !!(decoded.grants?.voice?.push_credential_sid);
+          } catch (e) {
+            console.error('[TwilioWeb] token decode error', e);
+          }
+        }
+        if (hasPushCredential) {
+          await device.register();
+        }
         deviceRef.current = device;
       } catch (err) {
         console.error("[TwilioWeb] init error", err);
