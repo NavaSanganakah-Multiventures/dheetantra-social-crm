@@ -48,7 +48,10 @@ function formatDuration(seconds: number) {
 }
 
 export function TwilioVoiceProvider({ children }: { children: React.ReactNode }) {
-  const [workspaceId, setWorkspaceId] = useState<string | null>(null);
+  const [workspaceId, setWorkspaceId] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
+    return localStorage.getItem('workspaceId');
+  });
   const [token, setToken] = useState<string | null>(null);
   const [incoming, setIncoming] = useState<TwilioCallInfo | null>(null);
   const [active, setActive] = useState<TwilioCallInfo | null>(null);
@@ -93,10 +96,6 @@ export function TwilioVoiceProvider({ children }: { children: React.ReactNode })
     setDuration(0);
     callRef.current = null;
   }, [clearTimer]);
-
-  useEffect(() => {
-    setWorkspaceId(localStorage.getItem("workspaceId"));
-  }, []);
 
   useEffect(() => {
     if (!workspaceId) return;
