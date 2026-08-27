@@ -21,7 +21,7 @@ class _CallsScreenState extends State<CallsScreen> {
   bool _loading = true;
   List<Map<String, dynamic>> _allCalls = [];
 
-  static const _sourceOptions = ['all', 'whatsapp', 'gsm'];
+  static const _sourceOptions = ['all', 'whatsapp', 'gsm', 'twilio', 'plivo'];
   static const _statusOptions = ['all', 'incoming', 'outgoing', 'missed', 'busy', 'ended'];
 
   @override
@@ -177,6 +177,8 @@ class _CallsScreenState extends State<CallsScreen> {
     switch (s) {
       case 'whatsapp': return 'WhatsApp';
       case 'gsm': return 'GSM';
+      case 'twilio': return 'Twilio';
+      case 'plivo': return 'Plivo';
       default: return 'सभी';
     }
   }
@@ -371,21 +373,37 @@ class _SourceBadge extends StatelessWidget {
   final String source;
   const _SourceBadge(this.source);
 
+  String get _label {
+    switch (source) {
+      case 'gsm': return 'GSM';
+      case 'twilio': return 'Twilio';
+      case 'plivo': return 'Plivo';
+      default: return 'WhatsApp';
+    }
+  }
+
+  Color get _color {
+    switch (source) {
+      case 'gsm': return AppColors.accent;
+      case 'twilio': return const Color(0xFFF472B6);
+      case 'plivo': return const Color(0xFF34D399);
+      default: return AppColors.success;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final isGsm = source == 'gsm';
+    final color = _color;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        color: isGsm
-            ? AppColors.accent.withValues(alpha: 0.12)
-            : AppColors.success.withValues(alpha: 0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
-        isGsm ? 'GSM' : 'WhatsApp',
+        _label,
         style: TextStyle(
-          color: isGsm ? AppColors.accent : AppColors.success,
+          color: color,
           fontSize: 9,
           fontWeight: FontWeight.w700,
         ),
