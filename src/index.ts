@@ -16,6 +16,8 @@ import whatsappRoutes from './routes/whatsappRoutes';
 import inboxRoutes from './routes/inboxRoutes';
 import callRoutes from './routes/callRoutes';
 import twilioVoice from './routes/twilioVoice';
+import plivoVoice from './routes/plivoVoice';
+import voiceAgentRoutes from './routes/voiceAgentRoutes';
 import miscRoutes from './routes/miscRoutes';
 import billingRoutes from './routes/billingRoutes';
 import catalogRoutes from './routes/catalogRoutes';
@@ -283,6 +285,18 @@ app.use('/api/twilio/*', async (c, next) => {
   }
   return authMiddleware(c, next);
 });
+// Plivo webhook callbacks are signed by Plivo and do not carry our auth
+// session, so exclude /api/plivo/webhook/* from JWT/session auth.
+// Other /api/plivo/* routes still require authentication.
+app.use('/api/plivo/*', async (c, next) => {
+  const path = c.req.path;
+  if (path.startsWith('/api/plivo/webhook')) {
+    return next();
+  }
+  return authMiddleware(c, next);
+});
+app.use('/api/voice', authMiddleware);
+app.use('/api/voice/*', authMiddleware);
 app.use('/api/calls', authMiddleware);
 app.use('/api/calls/*', authMiddleware);
 app.use('/api/inbox/*', authMiddleware);
@@ -328,6 +342,8 @@ app.route('/', whatsappRoutes);
 app.route('/', inboxRoutes);
 app.route('/', callRoutes);
 app.route('/', twilioVoice);
+app.route('/', plivoVoice);
+app.route('/', voiceAgentRoutes);
 app.route('/', miscRoutes);
 app.route('/', billingRoutes);
 app.route('/', catalogRoutes);
