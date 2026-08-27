@@ -105,7 +105,7 @@ class CallKitService {
             final id = data['id']?.toString() ?? params.id;
             if (id.isNotEmpty) {
               unawaited(
-                ApiService().updateCallStatus(callId: id, status: 'declined')
+                ApiService().updateCallStatus(id, status: 'declined')
                   .catchError((e) => debugPrint('[CallKit] Twilio decline status error: $e')),
               );
             }
