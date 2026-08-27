@@ -369,7 +369,7 @@ class _PlivoSettingsScreenState extends State<PlivoSettingsScreen> {
                                 runSpacing: 8,
                                 children: numbers.map((n) {
                                   final isDefault = n['isDefault'] == true;
-                                                                    return GestureDetector(
+                                  return GestureDetector(
                                     onTap: isDefault ? null : () => _setDefault(n['id'] as String),
                                     child: Chip(
                                       label: Text(n['fromNumber'] as String? ?? ''),
