@@ -267,7 +267,7 @@ export function TwilioVoiceProvider({ children }: { children: React.ReactNode })
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "x-workspace-id": wsId,
+            "x-workspace-id": workspaceId as string,
           },
           body: JSON.stringify({
             to: contact.phone,
@@ -284,7 +284,7 @@ export function TwilioVoiceProvider({ children }: { children: React.ReactNode })
           callerName: contact.name,
           phone: contact.phone,
           conferenceName: data.conferenceName,
-          workspaceId: wsId,
+          workspaceId: workspaceId as string,
           direction: "outgoing",
         };
         await connectConference(info);
