@@ -3,6 +3,7 @@ import { MessageSquare, Settings, Search, Phone, X, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useToast } from '@/components/ui/Toast';
 import { formatUserDateTime } from '../lib/dates';
+import { useTwilioVoice } from './TwilioVoiceProvider';
 import { activeTab } from '../lib/types';
 
 export function CallsView({ 
@@ -15,6 +16,7 @@ export function CallsView({
   setPreselectedChat: (chat: any) => void,
 }) {
   const { toast } = useToast();
+  const twilioVoice = useTwilioVoice();
   const [calls, setCalls] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [callingEnabled, setCallingEnabled] = useState(true);
@@ -111,7 +113,7 @@ export function CallsView({
   };
 
   const startOutgoingCall = async (contact: any) => {
-    alert('WhatsApp आउटबाउंड कॉल्स अभी सपोर्ट नहीं हैं। सिर्फ इनकमिंग कॉल्स ही प्राप्त हो सकती हैं।');
+    alert('WhatsApp à¤à¤à¤à¤¬à¤¾à¤à¤à¤¡ à¤à¥à¤²à¥à¤¸ à¤à¤­à¥ à¤¸à¤ªà¥à¤°à¥à¤ à¤¨à¤¹à¥à¤ à¤¹à¥à¤à¥¤ à¤¸à¤¿à¤°à¥à¤« à¤à¤¨à¤à¤®à¤¿à¤à¤ à¤à¥à¤²à¥à¤¸ à¤¹à¥ à¤ªà¥à¤°à¤¾à¤ªà¥à¤¤ à¤¹à¥ à¤¸à¤à¤¤à¥ à¤¹à¥à¤à¥¤');
   };
 
   const filteredCalls = calls.filter(c => {
@@ -138,8 +140,8 @@ export function CallsView({
       {/* Top Banner & Calling Switch */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-surface-900 p-6 rounded-2xl border border-surface-200 dark:border-surface-800 shadow-sm">
         <div>
-          <h2 className="text-xl font-bold text-surface-900 dark:text-white font-display">कॉल प्रबंधन और इतिहास</h2>
-          <p className="text-xs text-surface-500 mt-1">व्हाट्सएप बिजनेस क्लाउड एपीआई के माध्यम से सभी कॉल्स को सक्षम/अक्षम करें और ट्रैक करें</p>
+          <h2 className="text-xl font-bold text-surface-900 dark:text-white font-display">à¤à¥à¤² à¤ªà¥à¤°à¤¬à¤à¤§à¤¨ à¤à¤° à¤à¤¤à¤¿à¤¹à¤¾à¤¸</h2>
+          <p className="text-xs text-surface-500 mt-1">à¤µà¥à¤¹à¤¾à¤à¥à¤¸à¤à¤ª à¤¬à¤¿à¤à¤¨à¥à¤¸ à¤à¥à¤²à¤¾à¤à¤¡ à¤à¤ªà¥à¤à¤ à¤à¥ à¤®à¤¾à¤§à¥à¤¯à¤® à¤¸à¥ à¤¸à¤­à¥ à¤à¥à¤²à¥à¤¸ à¤à¥ à¤¸à¤à¥à¤·à¤®/à¤à¤à¥à¤·à¤® à¤à¤°à¥à¤ à¤à¤° à¤à¥à¤°à¥à¤ à¤à¤°à¥à¤</p>
         </div>
         <div className="flex items-center gap-4 shrink-0">
           <button
@@ -147,11 +149,11 @@ export function CallsView({
             className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-primary-500/10"
           >
             <Phone className="w-3.5 h-3.5" />
-            नया कॉल डायल करें
+            à¤¨à¤¯à¤¾ à¤à¥à¤² à¤¡à¤¾à¤¯à¤² à¤à¤°à¥à¤
           </button>
           
           <div className="flex items-center gap-3 bg-surface-50 dark:bg-surface-950 p-2 rounded-xl border border-surface-200/50 dark:border-surface-800">
-            <span className="text-xs font-semibold text-surface-600 dark:text-surface-400">कॉलिंग सेवा</span>
+            <span className="text-xs font-semibold text-surface-600 dark:text-surface-400">à¤à¥à¤²à¤¿à¤à¤ à¤¸à¥à¤µà¤¾</span>
             <button
               onClick={toggleCalling}
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-300 outline-none ${
@@ -165,7 +167,7 @@ export function CallsView({
               />
             </button>
             <span className={`text-[10px] font-bold uppercase tracking-wider ${callingEnabled ? 'text-emerald-500' : 'text-surface-400'}`}>
-              {callingEnabled ? 'सक्रिय' : 'बंद'}
+              {callingEnabled ? 'à¤¸à¤à¥à¤°à¤¿à¤¯' : 'à¤¬à¤à¤¦'}
             </span>
           </div>
         </div>
@@ -178,15 +180,15 @@ export function CallsView({
             <span className={`w-2 h-2 rounded-full ${health.all_ready ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
             <span>
               {health.all_ready
-                ? 'WhatsApp Calling तैयार है: इनकमिंग कॉल्स प्राप्त होंगी।'
-                : `WhatsApp Calling सेटअप अधूरा है: webhook ${health.webhook_subscribed ? 'ठीक है' : 'गायब है'}, TURN ${health.turn_configured ? 'ठीक है' : 'गायब है'}। सेटिंग्स में जाकर जांच करें।`}
+                ? 'WhatsApp Calling à¤¤à¥à¤¯à¤¾à¤° à¤¹à¥: à¤à¤¨à¤à¤®à¤¿à¤à¤ à¤à¥à¤²à¥à¤¸ à¤ªà¥à¤°à¤¾à¤ªà¥à¤¤ à¤¹à¥à¤à¤à¥à¥¤'
+                : `WhatsApp Calling à¤¸à¥à¤à¤à¤ª à¤à¤§à¥à¤°à¤¾ à¤¹à¥: webhook ${health.webhook_subscribed ? 'à¤ à¥à¤ à¤¹à¥' : 'à¤à¤¾à¤¯à¤¬ à¤¹à¥'}, TURN ${health.turn_configured ? 'à¤ à¥à¤ à¤¹à¥' : 'à¤à¤¾à¤¯à¤¬ à¤¹à¥'}à¥¤ à¤¸à¥à¤à¤¿à¤à¤à¥à¤¸ à¤®à¥à¤ à¤à¤¾à¤à¤° à¤à¤¾à¤à¤ à¤à¤°à¥à¤à¥¤`}
             </span>
           </div>
           <button
             onClick={() => fetchCallsAndConfigs()}
             className="px-2 py-1 rounded-md bg-white dark:bg-surface-900 border border-current opacity-80 hover:opacity-100"
           >
-            रिफ्रेश
+            à¤°à¤¿à¤«à¥à¤°à¥à¤¶
           </button>
         </div>
       )}
@@ -198,7 +200,7 @@ export function CallsView({
             <Phone className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-[10px] text-surface-500 uppercase font-bold tracking-wider">कुल कॉल्स</p>
+            <p className="text-[10px] text-surface-500 uppercase font-bold tracking-wider">à¤à¥à¤² à¤à¥à¤²à¥à¤¸</p>
             <p className="text-xl font-bold text-surface-900 dark:text-white mt-0.5">{totalCalls}</p>
           </div>
         </div>
@@ -208,7 +210,7 @@ export function CallsView({
             <X className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-[10px] text-surface-500 uppercase font-bold tracking-wider">मिस्ड कॉल्स</p>
+            <p className="text-[10px] text-surface-500 uppercase font-bold tracking-wider">à¤®à¤¿à¤¸à¥à¤¡ à¤à¥à¤²à¥à¤¸</p>
             <p className="text-xl font-bold text-surface-900 dark:text-white mt-0.5">{missedCalls}</p>
           </div>
         </div>
@@ -218,7 +220,7 @@ export function CallsView({
             <Check className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-[10px] text-surface-500 uppercase font-bold tracking-wider">सफल उत्तर</p>
+            <p className="text-[10px] text-surface-500 uppercase font-bold tracking-wider">à¤¸à¤«à¤² à¤à¤¤à¥à¤¤à¤°</p>
             <p className="text-xl font-bold text-surface-900 dark:text-white mt-0.5">{completedCalls}</p>
           </div>
         </div>
@@ -228,7 +230,7 @@ export function CallsView({
             <Phone className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-[10px] text-surface-500 uppercase font-bold tracking-wider">आउटगोइंग</p>
+            <p className="text-[10px] text-surface-500 uppercase font-bold tracking-wider">à¤à¤à¤à¤à¥à¤à¤à¤</p>
             <p className="text-xl font-bold text-surface-900 dark:text-white mt-0.5">{outgoingCalls}</p>
           </div>
         </div>
@@ -250,7 +252,7 @@ export function CallsView({
                     : 'text-surface-500 hover:text-surface-900 dark:hover:text-white'
                 }`}
               >
-                {type === 'all' ? 'सभी' : type === 'incoming' ? 'इनकमिंग' : type === 'outgoing' ? 'आउटगोइंग' : 'मिस्ड'}
+                {type === 'all' ? 'à¤¸à¤­à¥' : type === 'incoming' ? 'à¤à¤¨à¤à¤®à¤¿à¤à¤' : type === 'outgoing' ? 'à¤à¤à¤à¤à¥à¤à¤à¤' : 'à¤®à¤¿à¤¸à¥à¤¡'}
               </button>
             ))}
           </div>
@@ -259,7 +261,7 @@ export function CallsView({
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-surface-400" />
             <input
               type="text"
-              placeholder="नाम या नंबर से खोजें..."
+              placeholder="à¤¨à¤¾à¤® à¤¯à¤¾ à¤¨à¤à¤¬à¤° à¤¸à¥ à¤à¥à¤à¥à¤..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-9 pr-4 py-2 text-xs bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-surface-800 focus:bg-white dark:focus:bg-surface-900 focus:border-primary-500 rounded-xl outline-none transition-all"
@@ -271,25 +273,25 @@ export function CallsView({
         {loading ? (
           <div className="p-12 text-center">
             <div className="w-6 h-6 border-2 border-primary-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-            <p className="text-xs text-surface-500">कॉल लॉग्स लोड हो रहे हैं...</p>
+            <p className="text-xs text-surface-500">à¤à¥à¤² à¤²à¥à¤à¥à¤¸ à¤²à¥à¤¡ à¤¹à¥ à¤°à¤¹à¥ à¤¹à¥à¤...</p>
           </div>
         ) : filteredCalls.length === 0 ? (
           <div className="p-16 text-center">
             <Phone className="w-10 h-10 text-surface-300 dark:text-surface-700 mx-auto mb-3" />
-            <p className="text-sm font-semibold text-surface-700 dark:text-surface-300">कोई कॉल लॉग नहीं मिला</p>
-            <p className="text-xs text-surface-400 mt-1">इस फ़िल्टर के साथ कोई रिकॉर्ड नहीं है।</p>
+            <p className="text-sm font-semibold text-surface-700 dark:text-surface-300">à¤à¥à¤ à¤à¥à¤² à¤²à¥à¤ à¤¨à¤¹à¥à¤ à¤®à¤¿à¤²à¤¾</p>
+            <p className="text-xs text-surface-400 mt-1">à¤à¤¸ à¤«à¤¼à¤¿à¤²à¥à¤à¤° à¤à¥ à¤¸à¤¾à¤¥ à¤à¥à¤ à¤°à¤¿à¤à¥à¤°à¥à¤¡ à¤¨à¤¹à¥à¤ à¤¹à¥à¥¤</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-surface-50 dark:bg-surface-950 text-[10px] font-bold text-surface-500 uppercase tracking-wider border-b border-surface-200 dark:border-surface-800">
-                  <th className="px-6 py-3">सम्पर्क</th>
-                  <th className="px-6 py-3">दिशा/प्रकार</th>
-                  <th className="px-6 py-3">स्थिति</th>
-                  <th className="px-6 py-3">कॉल की तारीख और समय</th>
-                  <th className="px-6 py-3">अवधि</th>
-                  <th className="px-6 py-3 text-right">कार्रवाई</th>
+                  <th className="px-6 py-3">à¤¸à¤®à¥à¤ªà¤°à¥à¤</th>
+                  <th className="px-6 py-3">à¤¦à¤¿à¤¶à¤¾/à¤ªà¥à¤°à¤à¤¾à¤°</th>
+                  <th className="px-6 py-3">à¤¸à¥à¤¥à¤¿à¤¤à¤¿</th>
+                  <th className="px-6 py-3">à¤à¥à¤² à¤à¥ à¤¤à¤¾à¤°à¥à¤ à¤à¤° à¤¸à¤®à¤¯</th>
+                  <th className="px-6 py-3">à¤à¤µà¤§à¤¿</th>
+                  <th className="px-6 py-3 text-right">à¤à¤¾à¤°à¥à¤°à¤µà¤¾à¤</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-surface-200 dark:divide-surface-800 text-xs">
@@ -307,7 +309,7 @@ export function CallsView({
                             {call.contact_name?.[0] || '?'}
                           </div>
                           <div>
-                            <p className="font-semibold text-surface-800 dark:text-surface-200">{call.contact_name || 'अज्ञात संपर्क'}</p>
+                            <p className="font-semibold text-surface-800 dark:text-surface-200">{call.contact_name || 'à¤à¤à¥à¤à¤¾à¤¤ à¤¸à¤à¤ªà¤°à¥à¤'}</p>
                             <p className="text-[10px] text-surface-400">+{call.phone}</p>
                           </div>
                         </div>
@@ -317,16 +319,16 @@ export function CallsView({
                           {call.direction === 'incoming' ? (
                             <span className="flex items-center gap-1.5 px-2 py-1 bg-teal-50 dark:bg-teal-950/20 text-teal-600 dark:text-teal-400 rounded-lg text-[10px] font-bold">
                               <span className="w-1.5 h-1.5 rounded-full bg-teal-500"></span>
-                              इनकमिंग
+                              à¤à¤¨à¤à¤®à¤¿à¤à¤
                             </span>
                           ) : (
                             <span className="flex items-center gap-1.5 px-2 py-1 bg-blue-50 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400 rounded-lg text-[10px] font-bold">
                               <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
-                              आउटगोइंग
+                              à¤à¤à¤à¤à¥à¤à¤à¤
                             </span>
                           )}
                           <span className="text-[10px] text-surface-500 dark:text-surface-400 capitalize">
-                            {call.type === 'voice' ? 'वॉयस कॉल' : 'वीडियो कॉल'}
+                            {call.type === 'voice' ? 'à¤µà¥à¤¯à¤¸ à¤à¥à¤²' : 'à¤µà¥à¤¡à¤¿à¤¯à¥ à¤à¥à¤²'}
                           </span>
                         </div>
                       </td>
@@ -338,7 +340,7 @@ export function CallsView({
                             ? 'bg-rose-50 dark:bg-rose-950/20 text-rose-600'
                             : 'bg-surface-100 dark:bg-surface-800 text-surface-500'
                         }`}>
-                          {call.status === 'completed' || call.status === 'answered' ? 'सफल' : call.status === 'missed' ? 'छूट गया' : 'अस्वीकृत'}
+                          {call.status === 'completed' || call.status === 'answered' ? 'à¤¸à¤«à¤²' : call.status === 'missed' ? 'à¤à¥à¤ à¤à¤¯à¤¾' : 'à¤à¤¸à¥à¤µà¥à¤à¥à¤¤'}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-surface-500 dark:text-surface-400">{dateStr}</td>
@@ -366,14 +368,14 @@ export function CallsView({
                               });
                             }}
                             className="p-1.5 text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800 rounded-lg transition-colors"
-                            title="इनबॉक्स चैट खोलें"
+                            title="à¤à¤¨à¤¬à¥à¤à¥à¤¸ à¤à¥à¤ à¤à¥à¤²à¥à¤"
                           >
                             <MessageSquare className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => startOutgoingCall({ id: call.contact_id, name: call.contact_name, phone: call.phone })}
                             className="p-1.5 text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-950/40 rounded-lg transition-colors"
-                            title="कॉल बैक करें"
+                            title="à¤à¥à¤² à¤¬à¥à¤ à¤à¤°à¥à¤"
                           >
                             <Phone className="w-4 h-4" />
                           </button>
@@ -409,14 +411,14 @@ export function CallsView({
                 <div className="w-12 h-12 bg-primary-50 dark:bg-primary-950/40 text-primary-600 dark:text-primary-400 rounded-full flex items-center justify-center mx-auto mb-3">
                   <Phone className="w-6 h-6" />
                 </div>
-                <h3 className="font-bold text-surface-950 dark:text-white">नया कॉल शुरू करें</h3>
-                <p className="text-[10px] text-surface-400 mt-1">अपने किसी भी व्हाट्सएप कांटेक्ट को डायल करें</p>
+                <h3 className="font-bold text-surface-950 dark:text-white">à¤¨à¤¯à¤¾ à¤à¥à¤² à¤¶à¥à¤°à¥ à¤à¤°à¥à¤</h3>
+                <p className="text-[10px] text-surface-400 mt-1">à¤à¤ªà¤¨à¥ à¤à¤¿à¤¸à¥ à¤­à¥ à¤µà¥à¤¹à¤¾à¤à¥à¤¸à¤à¤ª à¤à¤¾à¤à¤à¥à¤à¥à¤ à¤à¥ à¤¡à¤¾à¤¯à¤² à¤à¤°à¥à¤</p>
               </div>
 
               {/* Contact List */}
               <div className="max-h-60 overflow-y-auto space-y-2 pr-1">
                 {contacts.length === 0 ? (
-                  <p className="text-center text-xs text-surface-400 py-6">कोई भी व्हाट्सएप कांटेक्ट उपलब्ध नहीं है।</p>
+                  <p className="text-center text-xs text-surface-400 py-6">à¤à¥à¤ à¤­à¥ à¤µà¥à¤¹à¤¾à¤à¥à¤¸à¤à¤ª à¤à¤¾à¤à¤à¥à¤à¥à¤ à¤à¤ªà¤²à¤¬à¥à¤§ à¤¨à¤¹à¥à¤ à¤¹à¥à¥¤</p>
                 ) : (
                   contacts.map(c => (
                     <button
