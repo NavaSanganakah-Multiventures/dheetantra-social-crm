@@ -240,7 +240,7 @@ async function pushIncomingCallToAgents(env: Env, c: any, workspaceId: string, c
   );
 }
 
-const router = new Hono<{ Bindings: Env }>();
+const router = new Hono<{ Bindings: Env; Variables: { user: any; workspaceRole?: string } }>();
 
 // ---------------------------------------------------------------
 // Workspace Plivo account management
