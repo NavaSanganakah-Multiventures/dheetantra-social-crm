@@ -22,7 +22,7 @@ function maskPhone(p: string): string {
   return '****' + p.slice(-4);
 }
 
-const router = new Hono<{ Bindings: Env }>();
+const router = new Hono<{ Bindings: Env; Variables: { user: any; workspaceRole?: string } }>();
 
 // List workspace members with their voice availability status.
 router.get('/api/voice/agents', async (c) => {
