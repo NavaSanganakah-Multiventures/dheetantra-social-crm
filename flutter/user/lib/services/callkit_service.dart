@@ -10,6 +10,7 @@ import 'package:flutter_callkit_incoming/entities/notification_params.dart';
 import '../core/app_navigator.dart';
 import '../screens/call_screen.dart';
 import 'webrtc_service.dart';
+import 'api_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class CallKitService {
@@ -31,15 +32,15 @@ class CallKitService {
   Map<String, dynamic>? _pendingAcceptCall;
 
   // Same call ka accept ek hi baar process ho (onEvent actionCallAccept aur
-  // acceptCallHandle dono ek saath fire ho sakte hain â double CallScreen +
+  // acceptCallHandle dono ek saath fire ho sakte hain Ã¢ÂÂ double CallScreen +
   // double answerCall race na ho isliye dedupe karte hain).
   final Set<String> _handledAcceptIds = {};
 
-  // In-app overlay ne answer kar liya hai â native CallKit accept event
+  // In-app overlay ne answer kar liya hai Ã¢ÂÂ native CallKit accept event
   // se duplicate CallScreen + double answerCall na ho isliye track karte hain.
   final Set<String> _appAnsweredIds = {};
 
-  // HomeShell ready hone tak accept event ko queue karo â warna Splash/Login
+  // HomeShell ready hone tak accept event ko queue karo Ã¢ÂÂ warna Splash/Login
   // screen ke upar CallScreen push ho sakta hai.
   bool _homeShellReady = false;
 
@@ -71,7 +72,7 @@ class CallKitService {
     _initialized = true;
 
     // acceptCallHandle register main() mein Firebase init se pehle bhi ho
-    // jata hai (cold-start accept race miss na ho) â yahan dobara call karna
+    // jata hai (cold-start accept race miss na ho) Ã¢ÂÂ yahan dobara call karna
     // safe hai, registerAcceptHandleEarly idempotent hai.
     registerAcceptHandleEarly();
 
@@ -92,12 +93,25 @@ class CallKitService {
         final params = event.callKitParams;
         _currentCallId = null;
         _handledAcceptIds.remove(params.id);
-        // IMPORTANT: lookup pehle, remove baad â warna in-memory callData
+        // IMPORTANT: lookup pehle, remove baad Ã¢ÂÂ warna in-memory callData
         // kabhi milta hi nahi aur rejectCall silently skip ho jata hai.
         final callData = _activeCalls[params.id] ?? params.extra;
         _activeCalls.remove(params.id);
         if (callData != null) {
-          WebRTCService().rejectCall(Map<String, dynamic>.from(callData));
+          final data = Map<String, dynamic>.from(callData);
+          if (data['source']?.toString() == 'twilio') {
+            // Twilio calls ke liye WhatsApp reject API mat bhejo. Server par
+            // generic call status 'declined' update karo taaki log aur UI sahi rahe.
+            final id = data['id']?.toString() ?? params.id;
+            if (id.isNotEmpty) {
+              unawaited(
+                ApiService().updateCallStatus(callId: id, status: 'declined')
+                  .catchError((e) => debugPrint('[CallKit] Twilio decline status error: $e')),
+              );
+            }
+          } else {
+            WebRTCService().rejectCall(data);
+          }
         }
       } else if (event is CallEventActionCallEnded) {
         debugPrint('CALLKIT: onEvent actionCallEnded id=${event.callKitParams.id}');
@@ -114,7 +128,7 @@ class CallKitService {
     });
 
     // When WebRTC connected, inform CallKit so the native UI timer starts.
-    // 'ended' par poori registry clear karte hain â warna accepted call ki
+    // 'ended' par poori registry clear karte hain Ã¢ÂÂ warna accepted call ki
     // entry hamesha bani rahegi aur same-id agli call duplicate-guard se
     // permanently block ho jayegi (hangup sirf terminate API bhejta hai,
     // plugin ko koi event nahi milta).
@@ -122,7 +136,7 @@ class CallKitService {
       if (state == 'connected' && _currentCallId != null) {
         FlutterCallkitIncoming.setCallConnected(_currentCallId!);
       } else if (state == 'ended') {
-        // Id-targeted cleanup â blanket clear/endAllCalls à¤¦à¥à¤¸à¤°à¥ ringing call
+        // Id-targeted cleanup Ã¢ÂÂ blanket clear/endAllCalls Ã Â¤Â¦Ã Â¥ÂÃ Â¤Â¸Ã Â¤Â°Ã Â¥Â ringing call
         // ki entry aur native ring bhi maar deta tha.
         final endedId = _currentCallId;
         _currentCallId = null;
@@ -142,7 +156,7 @@ class CallKitService {
 
   /// acceptCallHandle native callback register karta hai. main() mein
   /// [CallKitService.init] se pehle bula kar cold-start accept (plugin ka
-  /// 750ms callback window) ko jaldi capture karte hain â tab tak main isolate
+  /// 750ms callback window) ko jaldi capture karte hain Ã¢ÂÂ tab tak main isolate
   /// ka method channel ready na ho toh event lost ho jata hai.
   void registerAcceptHandleEarly() {
     if (_acceptHandleRegistered) return;
@@ -164,7 +178,7 @@ class CallKitService {
             _handleAccept(id, Map<String, dynamic>.from(existing));
             return;
           }
-          // Cold-start accept (registry khali hoti hai) â yahan payload par
+          // Cold-start accept (registry khali hoti hai) Ã¢ÂÂ yahan payload par
           // bharosa karna padta hai. Extra data (caller info, sdp...) ko
           // sanitize karke non-overriding merge karo taaki top-level
           // id/sdp/phoneNumberId override na ho sake.
@@ -183,7 +197,7 @@ class CallKitService {
     }
   }
 
-  /// Broadcast receiver se aaya payload whitelisted keys tak limit hota hai â
+  /// Broadcast receiver se aaya payload whitelisted keys tak limit hota hai Ã¢ÂÂ
   /// attacker-influenced nested/junk data (jisme harmful keys ho sakti hain)
   /// accept flow mein merge na ho. Sirf flat string/number/bool fields rakh
   /// dete hain, jo CallScreen/WebRTC answer ke liye chahiye.
@@ -300,7 +314,7 @@ class CallKitService {
     });
   }
 
-  /// Reflects the user-facing "à¤à¥à¤²à¤¿à¤à¤ à¤¸à¤à¥à¤·à¤®" toggle (settings_screen). When off,
+  /// Reflects the user-facing "Ã Â¤ÂÃ Â¥ÂÃ Â¤Â²Ã Â¤Â¿Ã Â¤ÂÃ Â¤Â Ã Â¤Â¸Ã Â¤ÂÃ Â¥ÂÃ Â¤Â·Ã Â¤Â®" toggle (settings_screen). When off,
   /// incoming calls are auto-rejected so the caller gets a busy tone and this
   /// device stays quiet. Server-side gating (per WhatsAppConfig.calling_enabled)
   /// is independent and still applies.
@@ -325,7 +339,7 @@ class CallKitService {
     final String uuid = data['id']?.toString() ?? 'unknown-call-id';
 
     // Duplicate guard: agar ye call pehle se dikh rahi hai (WebSocket overlay
-    // ya plugin ke through) toh dubara se show mat karo â warna double ring +
+    // ya plugin ke through) toh dubara se show mat karo Ã¢ÂÂ warna double ring +
     // double UI hota hai aur user call attend nahi kar paata.
     if (uuid != 'unknown-call-id' && _activeCalls.containsKey(uuid)) {
       debugPrint('CALLKIT: call $uuid already showing, skipping duplicate');
@@ -333,13 +347,13 @@ class CallKitService {
     }
 
     // Line-busy guard (WhatsApp-style): agar koi aur call pehle se active ya
-    // ringing hai toh nayi call ko turant auto-reject â user ko double ring
+    // ringing hai toh nayi call ko turant auto-reject Ã¢ÂÂ user ko double ring
     // nahi dikhegi aur caller ko busy tone milega. Server pehle hi busy calls
     // ko push nahi karta; ye sirf defense-in-depth hai (race/server-offline
     // case). NOTE: app default dialer banne par PSTN incoming calls ke liye
-    // bhi yahi guard chalta rahega â sirf reject path TelecomManager se hoga.
+    // bhi yahi guard chalta rahega Ã¢ÂÂ sirf reject path TelecomManager se hoga.
     if (_currentCallId != null && _currentCallId != uuid) {
-      debugPrint('CALLKIT: line busy ($_currentCallId) â auto-rejecting $uuid');
+      debugPrint('CALLKIT: line busy ($_currentCallId) Ã¢ÂÂ auto-rejecting $uuid');
       try {
         await WebRTCService().rejectCall(Map<String, dynamic>.from(data));
       } catch (e) {
@@ -414,8 +428,8 @@ class CallKitService {
         textColor: '#ffffff',
         incomingCallNotificationChannelName: "Incoming Call",
         missedCallNotificationChannelName: "Missed Call",
-        textAccept: 'à¤à¤ à¤¾à¤à¤',
-        textDecline: 'à¤à¤¾à¤à¥à¤',
+        textAccept: 'Ã Â¤ÂÃ Â¤Â Ã Â¤Â¾Ã Â¤ÂÃ Â¤Â',
+        textDecline: 'Ã Â¤ÂÃ Â¤Â¾Ã Â¤ÂÃ Â¥ÂÃ Â¤Â',
       ),
       ios: const IOSParams(
         iconName: 'AppIcon',
