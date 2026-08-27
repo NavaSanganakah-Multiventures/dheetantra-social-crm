@@ -369,12 +369,14 @@ class _PlivoSettingsScreenState extends State<PlivoSettingsScreen> {
                                 runSpacing: 8,
                                 children: numbers.map((n) {
                                   final isDefault = n['isDefault'] == true;
-                                  return Chip(
-                                    label: Text(n['fromNumber'] as String? ?? ''),
-                                    avatar: isDefault ? const Icon(Icons.star, size: 16, color: AppColors.accent) : null,
-                                    onDeleted: () => _deleteNumber(n['id'] as String),
-                                    deleteIcon: const Icon(Icons.close, size: 16),
+                                                                    return GestureDetector(
                                     onTap: isDefault ? null : () => _setDefault(n['id'] as String),
+                                    child: Chip(
+                                      label: Text(n['fromNumber'] as String? ?? ''),
+                                      avatar: isDefault ? const Icon(Icons.star, size: 16, color: AppColors.accent) : null,
+                                      onDeleted: () => _deleteNumber(n['id'] as String),
+                                      deleteIcon: const Icon(Icons.close, size: 16),
+                                    ),
                                   );
                                 }).toList(),
                               ),
