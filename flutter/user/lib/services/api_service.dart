@@ -456,6 +456,142 @@ class ApiService {
     }
   }
 
+  // ========== PLIVO CALL ==========
+
+  Future<Map<String, dynamic>> initiatePlivoCall({
+    required String to,
+    String? contactId,
+    String? plivoConfigId,
+    String? fromNumber,
+  }) async {
+    try {
+      final res = await _dio.post('/api/plivo/call', data: {
+        'to': to,
+        if (contactId != null) 'contactId': contactId,
+        if (plivoConfigId != null) 'plivoConfigId': plivoConfigId,
+        if (fromNumber != null) 'fromNumber': fromNumber,
+      });
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> hangupPlivoCall(String callId) async {
+    try {
+      final res = await _dio.post('/api/plivo/call/$callId/hangup');
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  // ========== PLIVO WORKSPACE CONFIG ==========
+
+  Future<List<dynamic>> getPlivoConfigs() async {
+    try {
+      final res = await _dio.get('/api/plivo/configs');
+      final data = res.data as Map<String, dynamic>;
+      return data['configs'] as List? ?? [];
+    } on DioException {
+      return [];
+    }
+  }
+
+  Future<Map<String, dynamic>> savePlivoConfig({
+    String? id,
+    required String name,
+    required String authId,
+    String? authToken,
+    bool isActive = true,
+    List<String> fromNumbers = const [],
+  }) async {
+    try {
+      final data = <String, dynamic>{
+        'name': name,
+        'authId': authId,
+        'isActive': isActive,
+        if (authToken != null && authToken.isNotEmpty) 'authToken': authToken,
+        if (fromNumbers.isNotEmpty) 'fromNumbers': fromNumbers,
+      };
+      final res = id == null
+          ? await _dio.post('/api/plivo/configs', data: data)
+          : await _dio.put('/api/plivo/configs/$id', data: data);
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> deletePlivoConfig(String id) async {
+    try {
+      final res = await _dio.delete('/api/plivo/configs/$id');
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> addPlivoFromNumber(String configId, String fromNumber, {bool isDefault = false}) async {
+    try {
+      final res = await _dio.post('/api/plivo/configs/$configId/from-numbers', data: {
+        'fromNumber': fromNumber,
+        'isDefault': isDefault,
+      });
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> deletePlivoFromNumber(String id) async {
+    try {
+      final res = await _dio.delete('/api/plivo/from-numbers/$id');
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> setDefaultPlivoFromNumber(String id) async {
+    try {
+      final res = await _dio.post('/api/plivo/from-numbers/$id/default');
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  // ========== VOICE AGENT AVAILABILITY ==========
+
+  Future<List<dynamic>> getVoiceAgents() async {
+    try {
+      final res = await _dio.get('/api/voice/agents');
+      final data = res.data as Map<String, dynamic>;
+      return data['agents'] as List? ?? [];
+    } on DioException {
+      return [];
+    }
+  }
+
+  Future<Map<String, dynamic>> setAgentVoiceStatus(String status) async {
+    try {
+      final res = await _dio.post('/api/voice/agent-status', data: {'status': status});
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> setAgentVoicePhone(String phone) async {
+    try {
+      final res = await _dio.post('/api/voice/agent-phone', data: {'phone': phone});
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
   // ========== UNIFIED CRM CALLS ==========
 
   Future<List<dynamic>> getUnifiedCalls({String? source, String? search, String? phone, int limit = 100, int offset = 0}) async {
