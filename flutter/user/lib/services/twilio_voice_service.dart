@@ -75,6 +75,20 @@ class TwilioVoiceService {
       debugPrint('[TwilioVoice] initial token registration error: $e');
     }
 
+    // FCM token rotate hone par Twilio SDK ki registration fresh rakho.
+    if (!kIsWeb && Platform.isAndroid) {
+      FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {
+        if (_accessToken != null && _accessToken!.isNotEmpty) {
+          try {
+            await _voice.setTokens(accessToken: _accessToken!, deviceToken: newToken);
+            _deviceToken = newToken;
+          } catch (e) {
+            debugPrint('[TwilioVoice] token refresh registration error: $e');
+          }
+        }
+      });
+    }
+
     debugPrint('[TwilioVoice] init complete');
   }
 
