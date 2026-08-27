@@ -584,7 +584,7 @@ router.post('/api/twilio/webhook/voice', async (c) => {
                     conferenceName,
                     twilioConfigId: config.twilio_config_id,
                   },
-                  { ttlSeconds: 0, category: 'call', sound: 'default' }
+                  { ttlSeconds: 0, category: 'call', sound: 'default', dataOnly: true }
                 )
               )
             );
