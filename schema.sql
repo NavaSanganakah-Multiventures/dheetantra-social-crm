@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
   email TEXT UNIQUE NOT NULL,
   name TEXT,
+  phone TEXT,
   timezone TEXT DEFAULT 'Asia/Kolkata',
   is_registered BOOLEAN DEFAULT 0, -- To ensure they actually registered, not just requested an OTP for login
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -41,6 +42,8 @@ CREATE TABLE IF NOT EXISTS workspace_members (
   workspace_id TEXT NOT NULL,
   user_id TEXT NOT NULL,
   role TEXT NOT NULL DEFAULT 'member',  -- 'owner', 'admin', 'member'
+  voice_status TEXT NOT NULL DEFAULT 'not_live',
+  voice_status_updated_at DATETIME,
   joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (workspace_id, user_id),
   FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
@@ -204,6 +207,8 @@ CREATE TABLE IF NOT EXISTS calls (
   recording_url TEXT,
   hangup_cause TEXT,
   twilio_config_id TEXT,
+  plivo_config_id TEXT,
+  assigned_user_id TEXT,
   external_call_id TEXT,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
@@ -243,6 +248,35 @@ CREATE INDEX IF NOT EXISTS idx_twilio_configs_workspace
 
 CREATE INDEX IF NOT EXISTS idx_twilio_from_numbers_config
   ON twilio_from_numbers(twilio_config_id);
+
+CREATE TABLE IF NOT EXISTS plivo_configs (
+  id TEXT PRIMARY KEY,
+  workspace_id TEXT NOT NULL,
+  name TEXT NOT NULL DEFAULT 'My Plivo Account',
+  auth_id TEXT NOT NULL,
+  auth_token TEXT NOT NULL,
+  is_active INTEGER NOT NULL DEFAULT 1,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS plivo_from_numbers (
+  id TEXT PRIMARY KEY,
+  plivo_config_id TEXT NOT NULL,
+  from_number TEXT NOT NULL,
+  is_default INTEGER NOT NULL DEFAULT 0,
+  is_active INTEGER NOT NULL DEFAULT 1,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (plivo_config_id) REFERENCES plivo_configs(id) ON DELETE CASCADE,
+  UNIQUE (plivo_config_id, from_number)
+);
+
+CREATE INDEX IF NOT EXISTS idx_plivo_configs_workspace
+  ON plivo_configs(workspace_id);
+
+CREATE INDEX IF NOT EXISTS idx_plivo_from_numbers_config
+  ON plivo_from_numbers(plivo_config_id);
 
 -- ==========================================
 -- STEP 4 & 5 SCHEMA: BROADCASTS & PUBLISHING
