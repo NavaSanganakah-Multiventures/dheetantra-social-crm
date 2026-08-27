@@ -78,8 +78,18 @@ class _CallScreenState extends State<CallScreen> {
         _status = state; // e.g. 'error: WebRTC SDP is missing...'
         // Do NOT auto-pop on error immediately so user can see it!
       } else if (state == 'ended') {
-        _status = 'ended';
-        _finishCall();
+        // Twilio/Plivo calls are bridged through the backend: the in-app
+        // (SDK/WebRTC) 'ended' event is NOT the source of truth. A premature
+        // SDK 'ended' here would flash/pop the screen while the customer leg
+        // is still ringing, so ignore it for bridged calls and let the
+        // WebSocket call_status_updated event (or an explicit hangup) close
+        // the screen.
+        if (_isTwilio || _isPlivo) {
+          debugPrint('[CallScreen] ignoring premature in-app ended for bridged call');
+        } else {
+          _status = 'ended';
+          _finishCall();
+        }
       }
     });
   }
@@ -91,7 +101,22 @@ class _CallScreenState extends State<CallScreen> {
     if (callId == null || currentId == null || callId != currentId) return;
 
     final status = data['status']?.toString() ?? '';
-    if (status == 'completed' || status == 'ended' || status == 'declined' || status == 'terminated') {
+
+    // Twilio/Plivo calls have no in-app audio, so the backend's customer-leg
+    // status drives the connected timer here.
+    if ((_isTwilio || _isPlivo) &&
+        (status == 'in_progress' || status == 'answered' || status == 'connected')) {
+      if (mounted && _status != 'connected') {
+        setState(() {
+          _status = 'connected';
+          _startDurationTimer();
+        });
+      }
+      return;
+    }
+
+    if (status == 'completed' || status == 'ended' || status == 'declined' || status == 'terminated' ||
+        status == 'no_answer' || status == 'busy' || status == 'failed' || status == 'canceled') {
       debugPrint('[CallScreen] remote ended the call â finishing');
       _finishCall();
     }
@@ -209,7 +234,12 @@ class _CallScreenState extends State<CallScreen> {
           TextButton(
             onPressed: () {
               Navigator.of(ctx).pop();
-              if (mounted) Navigator.of(context).pop();
+              // Sirf dialog band karein — CallScreen ko pop na karein. Call
+              // pehle se place ho chuki hai; user ko error dikhe aur wo khud
+              // hangup kar sake (warna UI flash hokar gayab ho jata hai).
+              if (mounted) {
+                setState(() => _status = 'error: Microphone permission denied');
+              }
             },
             child: const Text('à¤¬à¤à¤¦ à¤à¤°à¥à¤'),
           ),
@@ -232,6 +262,9 @@ class _CallScreenState extends State<CallScreen> {
       _finishCall();
     } else if (_isTwilio) {
       await TwilioVoiceService().hangUp();
+      // hangUp() sirf tab 'ended' emit karta hai jab SDK on-call ho. Har haal
+      // mein screen band karo taaki call UI kabhi stuck na rahe.
+      _finishCall();
     } else {
       await WebRTCService().hangup(widget.callData);
     }
