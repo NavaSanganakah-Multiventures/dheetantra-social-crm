@@ -1,5 +1,7 @@
 export const allTableNames = [
   'calls',
+  'plivo_configs',
+  'plivo_from_numbers',
   'whatsapp_templates',
   'whatsapp_flows',
   'waba_phone_numbers',
