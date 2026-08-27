@@ -273,3 +273,17 @@ paths:
       responses:
         '200':
           description: OK
+  /twilio/webhook/fallback:
+    post:
+      summary: Twilio webhook fallback URL
+      description: |
+        Safe fallback URL for Twilio handlers. Returns an empty TwiML response
+        so Twilio does not keep retrying a failed primary webhook.
+      security: []
+      responses:
+        '200':
+          description: Empty TwiML response
+          content:
+            text/xml:
+              schema:
+                type: string

@@ -713,4 +713,10 @@ router.post('/api/twilio/webhook/outbound', async (c) => {
   }
 });
 
+// Fallback URL for all Twilio webhooks. Returns a benign empty response so
+// Twilio does not retry a failing primary handler indefinitely.
+router.post('/api/twilio/webhook/fallback', async (c) => {
+  return twimlResponse('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', 200);
+});
+
 export default router;
