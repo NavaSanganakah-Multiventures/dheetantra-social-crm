@@ -49,7 +49,7 @@ router.get('/api/voice/agents', async (c) => {
 // Set the authenticated user's own voice availability status.
 router.post('/api/voice/agent-status', async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
-  const user = c.get('user');
+  const user = c.get('user') as any;
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
   if (!user || !user.id) return c.json({ error: 'Authentication required' }, 401);
 
@@ -70,7 +70,7 @@ router.post('/api/voice/agent-status', async (c) => {
 // Set the authenticated user's PSTN phone number (used for agent legs and
 // outbound fallback bridges).
 router.post('/api/voice/agent-phone', async (c) => {
-  const user = c.get('user');
+  const user = c.get('user') as any;
   if (!user || !user.id) return c.json({ error: 'Authentication required' }, 401);
 
   const { phone } = await c.req.json() as any;
