@@ -498,6 +498,20 @@ class ApiService {
       return _handleError(e);
     }
   }
+
+  Future<Map<String, dynamic>> updateCallStatus(String callId, {String? status, int? duration, String? endedAt, String? notes}) async {
+    try {
+      final body = <String, dynamic>{};
+      if (status != null) body['status'] = status;
+      if (duration != null) body['duration'] = duration;
+      if (endedAt != null) body['endedAt'] = endedAt;
+      if (notes != null) body['notes'] = notes;
+      final res = await _dio.post('/api/calls/$callId/status', data: body);
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
   Future<Map<String, dynamic>> createGsmCall({required String phone, required String direction, int duration = 0}) async {
     try {
       final res = await _dio.post('/api/calls', data: {
@@ -561,7 +575,7 @@ class ApiService {
 
   Future<Map<String, dynamic>> getDashboardStats() async {
     try {
-      // Dono calls parallel chalao Ã¢ÂÂ sequential hone se dashboard load me
+      // Dono calls parallel chalao ÃÂ¢ÃÂÃÂ sequential hone se dashboard load me
       // 2x delay aa raha tha.
       final results = await Future.wait<dynamic>([
         getContacts(),
@@ -957,6 +971,6 @@ class ApiService {
     if (e.response != null && e.response!.data is Map) {
       return e.response!.data;
     }
-    return {'error': e.message ?? 'Ã Â¤ÂÃ Â¥ÂÃ Â¤Â Ã Â¤ÂÃ Â¤Â¡Ã Â¤Â¼Ã Â¤Â¬Ã Â¤Â¡Ã Â¤Â¼ Ã Â¤Â¹Ã Â¥Â Ã Â¤ÂÃ Â¤Â'};
+    return {'error': e.message ?? 'ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂ¡ÃÂ ÃÂ¤ÃÂ¼ÃÂ ÃÂ¤ÃÂ¬ÃÂ ÃÂ¤ÃÂ¡ÃÂ ÃÂ¤ÃÂ¼ ÃÂ ÃÂ¤ÃÂ¹ÃÂ ÃÂ¥ÃÂ ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂ'};
   }
 }
