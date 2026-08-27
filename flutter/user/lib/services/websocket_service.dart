@@ -215,6 +215,10 @@ class WebSocketService with WidgetsBindingObserver {
             'status': 'ringing',
           });
           break;
+        case 'plivo_incoming_call':
+          // Plivo incoming calls ring on the agent's PSTN phone. There is no
+          // in-app WebRTC/SDK audio in the MVP, so intentionally do nothing here.
+          break;
         case 'call_status_updated':
           _callStatusController.add(data);
           break;

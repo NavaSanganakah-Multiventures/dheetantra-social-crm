@@ -45,7 +45,7 @@ class TwilioVoiceService {
 
   bool _initStarted = false;
 
-  TwilioVoice get _voice => TwilioVoice.instance;
+  TwilioVoicePlatform get _voice => TwilioVoicePlatform.instance;
 
   /// App start/login ke baad ek baar call karein. Ismein permissions,
   /// phone account registration aur Twilio token registration hota hai.

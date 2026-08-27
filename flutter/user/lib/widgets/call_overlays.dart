@@ -39,10 +39,11 @@ class _GlobalCallOverlayState extends State<GlobalCallOverlay> {
     WebSocketService().connect();
 
     _wsIncomingSub = WebSocketService().onIncomingCall.listen((callData) async {
-      // Twilio incoming calls are surfaced via FCM + CallKit; skip the
+      // Twilio/Plivo incoming calls are surfaced via FCM + CallKit; skip the
       // in-app overlay so the caller isn't left hanging because the overlay
       // only knows how to reject WhatsApp WebRTC calls.
-      if (callData['source']?.toString() == 'twilio') {
+      if (callData['source']?.toString() == 'twilio' ||
+          callData['source']?.toString() == 'plivo') {
         return;
       }
       // Outgoing calls we start ourselves also come back over the same channel

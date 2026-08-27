@@ -99,13 +99,13 @@ class CallKitService {
         _activeCalls.remove(params.id);
         if (callData != null) {
           final data = Map<String, dynamic>.from(callData);
-          if (data['source']?.toString() == 'twilio') {
-            // Twilio calls ke liye WhatsApp reject API mat bhejo. Server par
+          if (data['source']?.toString() == 'twilio' || data['source']?.toString() == 'plivo') {
+            // Twilio/Plivo calls ke liye WhatsApp reject API mat bhejo. Server par
             // generic call status 'declined' update karo taaki log aur UI sahi rahe.
             final id = data['id']?.toString() ?? params.id;
             if (id.isNotEmpty) {
               unawaited(
-                ApiService().updateCallStatus(callId: id, status: 'declined')
+                ApiService().updateCallStatus(id, status: 'declined')
                   .catchError((e) => debugPrint('[CallKit] Twilio decline status error: $e')),
               );
             }

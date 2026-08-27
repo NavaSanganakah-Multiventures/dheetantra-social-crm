@@ -435,6 +435,29 @@ class _ContactDetailScreenState extends State<_ContactDetailScreen> {
     }
   }
 
+  Future<void> _initiatePlivoCall(Contact contact) async {
+    final res = await ApiService().initiatePlivoCall(
+      to: contact.phone,
+      contactId: contact.id,
+    );
+    if (!mounted) return;
+    if (res['success'] == true) {
+      CallScreen.push(context, {
+        'id': res['callId'],
+        'source': 'plivo',
+        'callerName': contact.name,
+        'callerNumber': contact.phone,
+        'phone': contact.phone,
+        'contact_name': contact.name,
+        'status': 'connecting',
+      });
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Plivo call failed: ${res['error']}')),
+      );
+    }
+  }
+
   Future<void> _delete() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -572,6 +595,15 @@ class _ContactDetailScreenState extends State<_ContactDetailScreen> {
               onPressed: () => _initiateTwilioCall(contact),
               icon: const Icon(Icons.phone_forwarded, size: 18),
               label: const Text('Twilio à¤à¥à¤²'),
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => _initiatePlivoCall(contact),
+              icon: const Icon(Icons.call_outlined, size: 18),
+              label: const Text('Plivo कॉल'),
             ),
           ),
           const SizedBox(height: 24),
