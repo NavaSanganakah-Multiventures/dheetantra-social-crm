@@ -439,7 +439,7 @@ router.post('/api/twilio/call', async (c) => {
 
   await c.env.DB.prepare(
     "INSERT INTO calls (id, workspace_id, contact_id, phone_number_id, caller_number, source, type, direction, status, duration, twilio_config_id, external_call_id, created_at) VALUES (?, ?, ?, ?, ?, 'twilio', 'voice', 'outgoing', 'queued', 0, ?, ?, ?)"
-  ).bind(callId, workspaceId, resolvedContactId, fromRow.id, normalizedTo, config.id, createdAt).run();
+  ).bind(callId, workspaceId, resolvedContactId, fromRow.id, normalizedTo, config.id, null, createdAt).run();
 
   const baseUrl = ((c.env as any).APP_URL as string | undefined) || ('https://' + (c.req.header('host') || 'dheetantra.navasanganakah.com'));
   const twimlUrl = baseUrl + '/api/twilio/webhook/outbound?conferenceName=' + encodeURIComponent(conferenceName);
