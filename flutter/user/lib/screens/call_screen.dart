@@ -70,8 +70,10 @@ class _CallScreenState extends State<CallScreen> {
     if (!mounted) return;
     setState(() {
       if (state == 'connected') {
-        _status = 'connected';
-        _startDurationTimer();
+        if (_status != 'connected') {
+          _status = 'connected';
+          _startDurationTimer();
+        }
       } else if (state == 'connecting') {
         _status = 'connecting';
       } else if (state.startsWith('error')) {
