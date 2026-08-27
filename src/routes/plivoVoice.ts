@@ -411,7 +411,7 @@ router.post('/api/plivo/call', async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
-  const user = c.get('user');
+  const user = c.get('user') as any;
   if (!user || !user.id) return c.json({ error: 'Authentication required' }, 401);
 
   const { to, contactId, plivoConfigId, fromNumber } = await c.req.json() as any;
