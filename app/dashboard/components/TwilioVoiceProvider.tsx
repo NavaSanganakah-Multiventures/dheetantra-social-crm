@@ -99,12 +99,13 @@ export function TwilioVoiceProvider({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     if (!workspaceId) return;
+    const wsId = workspaceId as string;
     let cancelled = false;
 
     async function init() {
       try {
         const res = await fetch("/api/twilio/token?platform=web", {
-          headers: { "x-workspace-id": workspaceId as string },
+          headers: { "x-workspace-id": wsId },
         });
         if (!res.ok) {
           console.warn("[TwilioWeb] token fetch failed", await res.text());
@@ -135,7 +136,7 @@ export function TwilioVoiceProvider({ children }: { children: React.ReactNode })
             from: params.From || "Unknown",
             callerName: params["__TWI_CALLER_NAME"] || params.From || "Unknown",
             conferenceName: params.To || "",
-            workspaceId,
+            workspaceId: wsId,
             direction: "incoming",
           });
         });
@@ -169,7 +170,7 @@ export function TwilioVoiceProvider({ children }: { children: React.ReactNode })
                 from: data.from,
                 callerName: data.callerName || data.from,
                 conferenceName: data.conferenceName,
-                workspaceId,
+                workspaceId: wsId,
                 direction: "incoming",
               });
             } else if (data.type === "call_status_updated" && data.source === "twilio") {
@@ -266,7 +267,7 @@ export function TwilioVoiceProvider({ children }: { children: React.ReactNode })
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "x-workspace-id": workspaceId,
+            "x-workspace-id": wsId,
           },
           body: JSON.stringify({
             to: contact.phone,
@@ -283,7 +284,7 @@ export function TwilioVoiceProvider({ children }: { children: React.ReactNode })
           callerName: contact.name,
           phone: contact.phone,
           conferenceName: data.conferenceName,
-          workspaceId,
+          workspaceId: wsId,
           direction: "outgoing",
         };
         await connectConference(info);
