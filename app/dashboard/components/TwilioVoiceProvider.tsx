@@ -104,13 +104,13 @@ export function TwilioVoiceProvider({ children }: { children: React.ReactNode })
     async function init() {
       try {
         const res = await fetch("/api/twilio/token?platform=web", {
-          headers: { "x-workspace-id": workspaceId },
+          headers: { "x-workspace-id": workspaceId as string },
         });
         if (!res.ok) {
           console.warn("[TwilioWeb] token fetch failed", await res.text());
           return;
         }
-        const data = await res.json();
+        const data = await res.json() as any;
         if (!data.token || cancelled) return;
         setToken(data.token);
 
@@ -156,7 +156,7 @@ export function TwilioVoiceProvider({ children }: { children: React.ReactNode })
     function connectWs() {
       try {
         const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-        const wsUrl = `${protocol}//${window.location.host}/api/chat/connect/global-${workspaceId}`;
+        const wsUrl = `${protocol}//${window.location.host}/api/chat/connect/global-${workspaceId as string}`;
         const ws = new WebSocket(wsUrl);
         wsRef.current = ws;
 
@@ -273,7 +273,7 @@ export function TwilioVoiceProvider({ children }: { children: React.ReactNode })
             contactId: contact.id,
           }),
         });
-        const data = await res.json();
+        const data = await res.json() as any;
         if (!data.success) {
           throw new Error(data.error || "Failed to create Twilio call");
         }
