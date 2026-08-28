@@ -161,6 +161,91 @@ async function hangupPlivoCallLeg(config: { auth_id: string; auth_token: string 
   }
 }
 
+function randomAlnum(length: number): string {
+  const alphabet = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  const bytes = new Uint8Array(length);
+  crypto.getRandomValues(bytes);
+  let out = '';
+  for (let i = 0; i < length; i++) out += alphabet[bytes[i] % alphabet.length];
+  return out;
+}
+
+async function findOrCreateSoftphoneApp(config: { auth_id: string; auth_token: string }, appName: string, answerUrl: string): Promise<{ ok: boolean; appId?: string; error?: string; status?: number }> {
+  const base = plivoApiBase(config.auth_id);
+  const headers = {
+    Authorization: plivoAuthHeader(config.auth_id, config.auth_token),
+    'Content-Type': 'application/json',
+  };
+
+  try {
+    const listRes = await fetch(base + 'Application/?limit=20', { headers });
+    if (listRes.ok) {
+      const data: any = await listRes.json().catch(() => ({}));
+      const apps = (data && Array.isArray(data.objects)) ? data.objects : [];
+      for (const app of apps) {
+        if (app && app.app_id && app.app_name === appName) {
+          if (app.answer_url && app.answer_url !== answerUrl) {
+            await fetch(base + 'Application/' + encodeURIComponent(app.app_id) + '/', {
+              method: 'POST',
+              headers,
+              body: JSON.stringify({ answer_url: answerUrl, answer_method: 'POST' }),
+            }).catch(() => {});
+          }
+          return { ok: true, appId: app.app_id };
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('[Plivo] list applications failed (will create new):', e);
+  }
+
+  try {
+    const res = await fetch(base + 'Application/', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ app_name: appName, answer_url: answerUrl, answer_method: 'POST' }),
+    });
+    const data: any = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      console.error('[Plivo] create application failed', res.status, JSON.stringify(data));
+      return { ok: false, error: (data && (data.error || data.message)) || ('Plivo HTTP ' + res.status), status: res.status };
+    }
+    return { ok: true, appId: data.app_id };
+  } catch (e: any) {
+    console.error('[Plivo] create application exception', e);
+    return { ok: false, error: e?.message || 'Plivo application request exception' };
+  }
+}
+
+async function createPlivoEndpoint(config: { auth_id: string; auth_token: string }, payload: { username: string; password: string; alias: string; app_id?: string }): Promise<{ ok: boolean; username?: string; endpointId?: string; error?: string; status?: number }> {
+  const url = plivoApiBase(config.auth_id) + 'Endpoint/';
+  const headers = {
+    Authorization: plivoAuthHeader(config.auth_id, config.auth_token),
+    'Content-Type': 'application/json',
+  };
+  try {
+    const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(payload) });
+    const data: any = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      console.error('[Plivo] create endpoint failed', res.status, JSON.stringify(data));
+      return { ok: false, error: (data && (data.error || data.message)) || ('Plivo HTTP ' + res.status), status: res.status };
+    }
+    return { ok: true, username: data.username, endpointId: data.endpoint_id };
+  } catch (e: any) {
+    console.error('[Plivo] create endpoint exception', e);
+    return { ok: false, error: e?.message || 'Plivo endpoint request exception' };
+  }
+}
+
+async function deletePlivoEndpoint(config: { auth_id: string; auth_token: string }, endpointId: string): Promise<void> {
+  try {
+    const url = plivoApiBase(config.auth_id) + 'Endpoint/' + encodeURIComponent(endpointId) + '/';
+    await fetch(url, { method: 'DELETE', headers: { Authorization: plivoAuthHeader(config.auth_id, config.auth_token) } });
+  } catch (e) {
+    console.warn('[Plivo] endpoint delete exception (ignored):', e);
+  }
+}
+
 async function broadcastToWorkspace(env: Env, workspaceId: string, payload: any) {
   try {
     const globalDoId = env.CHAT_DO.idFromName('global-' + workspaceId);
@@ -343,13 +428,66 @@ router.put('/api/plivo/configs/:id', requireRole('owner', 'admin'), async (c) =>
   return c.json({ success: true });
 });
 
+router.post('/api/plivo/configs/:id/link', requireRole('owner', 'admin'), async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  const id = c.req.param('id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  const config = await c.env.DB.prepare(
+    'SELECT id, auth_id, auth_token, endpoint_username, endpoint_password, endpoint_id FROM plivo_configs WHERE id = ? AND workspace_id = ?'
+  ).bind(id, workspaceId).first<{ id: string; auth_id: string; auth_token: string; endpoint_username: string | null; endpoint_password: string | null; endpoint_id: string | null }>();
+  if (!config) return c.json({ error: 'Plivo config not found' }, 404);
+
+  const body = (await c.req.json().catch(() => ({}))) as any;
+  const force = body?.force === true;
+
+  // Already linked -> idempotent; force=true re-creates the endpoint.
+  if (!force && config.endpoint_username && config.endpoint_password) {
+    return c.json({ success: true, endpointUsername: config.endpoint_username, sipUri: 'sip:' + config.endpoint_username + '@phone.plivo.com', alreadyLinked: true });
+  }
+
+  const baseUrl = ((c.env as any).APP_URL as string | undefined) || ('https://' + (c.req.header('host') || 'dheetantra.navasanganakah.com'));
+  const answerUrl = baseUrl + '/api/plivo/webhook/app';
+  const appName = 'DheeTantra-Softphone-' + workspaceId.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 12);
+
+  const app = await findOrCreateSoftphoneApp({ auth_id: config.auth_id, auth_token: config.auth_token }, appName, answerUrl);
+  if (!app.ok) {
+    return c.json({ error: app.error || 'Failed to create Plivo softphone application' }, 502);
+  }
+
+  if (force && config.endpoint_id) {
+    await deletePlivoEndpoint({ auth_id: config.auth_id, auth_token: config.auth_token }, config.endpoint_id);
+  }
+
+  const username = 'dhee' + randomAlnum(8);
+  const password = randomAlnum(20);
+  const endpointRes = await createPlivoEndpoint(
+    { auth_id: config.auth_id, auth_token: config.auth_token },
+    { username, password, alias: 'DheeTantra-Softphone', app_id: app.appId }
+  );
+  if (!endpointRes.ok) {
+    return c.json({ error: endpointRes.error || 'Failed to create Plivo SIP endpoint' }, 502);
+  }
+
+  const endpointUsername = endpointRes.username || username;
+  await c.env.DB.prepare(
+    'UPDATE plivo_configs SET endpoint_username = ?, endpoint_password = ?, endpoint_id = ?, updated_at = ? WHERE id = ?'
+  ).bind(endpointUsername, password, endpointRes.endpointId || null, sqliteNow(), id).run();
+
+  return c.json({ success: true, endpointUsername, sipUri: 'sip:' + endpointUsername + '@phone.plivo.com', alreadyLinked: false });
+});
+
 router.delete('/api/plivo/configs/:id', requireRole('owner', 'admin'), async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
   const id = c.req.param('id');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
-  const existing = await c.env.DB.prepare('SELECT id FROM plivo_configs WHERE id = ? AND workspace_id = ?').bind(id, workspaceId).first();
+  const existing = await c.env.DB.prepare('SELECT id, auth_id, auth_token, endpoint_id FROM plivo_configs WHERE id = ? AND workspace_id = ?').bind(id, workspaceId).first<{ id: string; auth_id: string; auth_token: string; endpoint_id: string | null }>();
   if (!existing) return c.json({ error: 'Plivo config not found' }, 404);
+
+  if (existing.endpoint_id) {
+    await deletePlivoEndpoint({ auth_id: existing.auth_id, auth_token: existing.auth_token }, existing.endpoint_id);
+  }
 
   await c.env.DB.prepare('DELETE FROM plivo_configs WHERE id = ? AND workspace_id = ?').bind(id, workspaceId).run();
   return c.json({ success: true });

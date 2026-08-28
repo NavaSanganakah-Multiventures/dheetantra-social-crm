@@ -15,6 +15,7 @@ class _PlivoSettingsScreenState extends State<PlivoSettingsScreen> {
   List<dynamic> _configs = [];
   String _agentStatus = 'not_live';
   String _agentPhoneMasked = '';
+  String? _linkingConfigId;
 
   @override
   void initState() {
@@ -113,8 +114,6 @@ class _PlivoSettingsScreenState extends State<PlivoSettingsScreen> {
     final nameCtrl = TextEditingController(text: existing?['name'] as String? ?? '');
     final authIdCtrl = TextEditingController(text: existing?['authId'] as String? ?? '');
     final tokenCtrl = TextEditingController();
-    final endpointUsernameCtrl = TextEditingController(text: existing?['endpointUsername'] as String? ?? '');
-    final endpointPasswordCtrl = TextEditingController();
     final fromCtrl = TextEditingController();
 
     final values = await showDialog<Map<String, dynamic>>(
@@ -141,18 +140,6 @@ class _PlivoSettingsScreenState extends State<PlivoSettingsScreen> {
                   hintText: existing == null ? 'Required' : 'खाली छोड़ें (अपरिवर्तित)',
                 ),
               ),
-              TextField(
-                controller: endpointUsernameCtrl,
-                decoration: const InputDecoration(labelText: 'Endpoint Username (SIP)'),
-              ),
-              TextField(
-                controller: endpointPasswordCtrl,
-                obscureText: true,
-                decoration: InputDecoration(
-                  labelText: 'Endpoint Password',
-                  hintText: existing == null ? 'Optional' : 'खाली छोड़ें (अपरिवर्तित)',
-                ),
-              ),
               if (existing == null)
                 TextField(
                   controller: fromCtrl,
@@ -172,8 +159,6 @@ class _PlivoSettingsScreenState extends State<PlivoSettingsScreen> {
                 'name': nameCtrl.text.trim(),
                 'authId': authIdCtrl.text.trim(),
                 'authToken': tokenCtrl.text.trim(),
-                'endpointUsername': endpointUsernameCtrl.text.trim(),
-                'endpointPassword': endpointPasswordCtrl.text.trim(),
                 'fromNumber': fromCtrl.text.trim(),
               });
             },
@@ -204,14 +189,22 @@ class _PlivoSettingsScreenState extends State<PlivoSettingsScreen> {
       name: name,
       authId: authId,
       authToken: token.isEmpty ? null : token,
-      endpointUsername: values['endpointUsername'] as String? ?? '',
-      endpointPassword: values['endpointPassword'] as String? ?? '',
       fromNumbers: (existing == null && fromNumber.isNotEmpty) ? [fromNumber] : const [],
     );
 
     if (!mounted) return;
-    _snack(res['success'] == true ? 'Plivo Account सेव हो गया' : 'Error: ${res['error']}');
-    await _load();
+    if (res['success'] == true) {
+      _snack('Plivo Account सेव हो गया');
+      await _load();
+      if (existing == null) {
+        final configId = res['configId'] as String?;
+        if (configId != null) {
+          await _linkEndpoint(configId);
+        }
+      }
+    } else {
+      _snack('Error: ${res['error']}');
+    }
   }
 
   Future<void> _showAddNumberDialog(String configId) async {
@@ -291,6 +284,18 @@ class _PlivoSettingsScreenState extends State<PlivoSettingsScreen> {
     }
   }
 
+  Future<void> _linkEndpoint(String configId, {bool force = false}) async {
+    setState(() => _linkingConfigId = configId);
+    final res = await ApiService().linkPlivoEndpoint(configId, force: force);
+    if (!mounted) return;
+    setState(() => _linkingConfigId = null);
+    if (res['success'] == true) {
+      _snack(force ? 'SIP Endpoint re-link हो गया' : 'SIP Endpoint link हो गया');
+      await _load();
+    } else {
+      _snack('Error: ${res['error']}');
+    }
+  }
   Future<void> _deleteConfig(String id) async {
     final ok = await showDialog<bool>(
       context: context,
@@ -384,7 +389,29 @@ class _PlivoSettingsScreenState extends State<PlivoSettingsScreen> {
                             const SizedBox(height: 6),
                             Text('Auth ID: ${cfg['authId']}', style: const TextStyle(color: AppColors.textMuted, fontSize: 12)),
                             Text('Token: ${cfg['authTokenMasked']}', style: const TextStyle(color: AppColors.textMuted, fontSize: 12)),
-                            Text('Endpoint: ${(cfg['endpointUsername'] as String? ?? '').isEmpty ? 'सेट नहीं है' : cfg['endpointUsername']}', style: const TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    cfg['endpointConfigured'] == true
+                                        ? 'Softphone: ${cfg['endpointUsername']}'
+                                        : 'Softphone: link नहीं हुआ',
+                                    style: TextStyle(
+                                      color: cfg['endpointConfigured'] == true ? AppColors.success : AppColors.warning,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                                _linkingConfigId == cfg['id']
+                                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                                    : TextButton.icon(
+                                        onPressed: () => _linkEndpoint(cfg['id'] as String, force: cfg['endpointConfigured'] == true),
+                                        icon: Icon(cfg['endpointConfigured'] == true ? Icons.refresh : Icons.link, size: 16),
+                                        label: Text(cfg['endpointConfigured'] == true ? 'Re-link' : 'Link SIP Endpoint'),
+                                      ),
+                              ],
+                            ),
                             const SizedBox(height: 12),
                             const Text(
                               'From Numbers',
@@ -470,7 +497,7 @@ class _PlivoSettingsScreenState extends State<PlivoSettingsScreen> {
           ),
           const SizedBox(height: 4),
           Text(
-            'Auto-forward ON होने पर कॉल आपके PSTN फ़ोन पर आती है; OFF होने पर app में ring होती है (Endpoint Username/Password ज़रूरी)।',
+            'Auto-forward ON होने पर कॉल आपके PSTN फ़ोन पर आती है; OFF होने पर app में ring होती है (softphone link ज़रूरी — settings से auto link होता है)।',
             style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
           ),
           const SizedBox(height: 12),

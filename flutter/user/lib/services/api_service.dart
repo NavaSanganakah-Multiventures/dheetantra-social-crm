@@ -507,6 +507,16 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> linkPlivoEndpoint(String configId, {bool force = false}) async {
+    try {
+      final res = await _dio.post('/api/plivo/configs/$configId/link', data: {'force': force});
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+
   Future<Map<String, dynamic>> savePlivoConfig({
     String? id,
     required String name,
