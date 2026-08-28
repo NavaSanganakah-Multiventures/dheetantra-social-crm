@@ -72,3 +72,44 @@ class PlanModel {
     );
   }
 }
+
+
+class SchoolChargeModel {
+  final String workspaceId;
+  final String workspaceName;
+  final String planName;
+  final double planAmount;
+  final int subscriptionCount;
+  final double activeSubscriptionAmount;
+  final int paymentCount;
+  final double totalCollected;
+  final DateTime? lastPaymentAt;
+
+  SchoolChargeModel({
+    required this.workspaceId,
+    required this.workspaceName,
+    required this.planName,
+    required this.planAmount,
+    required this.subscriptionCount,
+    required this.activeSubscriptionAmount,
+    required this.paymentCount,
+    required this.totalCollected,
+    this.lastPaymentAt,
+  });
+
+  factory SchoolChargeModel.fromJson(Map<String, dynamic> json) {
+    double toD(dynamic v) => (v is num) ? v.toDouble() : 0.0;
+    int toI(dynamic v) => (v is num) ? v.toInt() : 0;
+    return SchoolChargeModel(
+      workspaceId: json['workspace_id'] ?? '',
+      workspaceName: json['workspace_name'] ?? 'Unnamed School',
+      planName: json['plan_name'] ?? 'free',
+      planAmount: toD(json['plan_amount']),
+      subscriptionCount: toI(json['subscription_count']),
+      activeSubscriptionAmount: toD(json['active_subscription_amount']),
+      paymentCount: toI(json['payment_count']),
+      totalCollected: toD(json['total_collected']),
+      lastPaymentAt: json['last_payment_at'] != null ? DateTime.tryParse(json['last_payment_at'].toString()) : null,
+    );
+  }
+}
