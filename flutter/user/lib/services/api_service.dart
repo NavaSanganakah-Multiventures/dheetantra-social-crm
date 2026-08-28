@@ -562,6 +562,15 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> setPlivoAutoDialAgents(String configId, bool enabled) async {
+    try {
+      final res = await _dio.put('/api/plivo/configs/$configId', data: {'autoDialAgents': enabled});
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
   // ========== VOICE AGENT AVAILABILITY ==========
 
   Future<List<dynamic>> getVoiceAgents() async {
