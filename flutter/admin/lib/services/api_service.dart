@@ -167,6 +167,26 @@ class ApiService {
     }
   }
 
+  static Future<List<SchoolChargeModel>> fetchSchoolCharges() async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http.get(
+        Uri.parse(ApiConstants.baseUrl + '/charges'),
+        headers: headers,
+      ).timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final List<dynamic> chargesJson = data['charges'] ?? [];
+        return chargesJson.map((json) => SchoolChargeModel.fromJson(json)).toList();
+      } else {
+        throw Exception('Failed to load charges: ' + response.statusCode.toString());
+      }
+    } catch (e) {
+      throw Exception('Network error or invalid data');
+    }
+  }
+
   // --- KV Namespace Copy ---
 
   /// Copies one batch of keys between two KV namespaces.
