@@ -505,6 +505,7 @@ class _PlivoSettingsScreenState extends State<PlivoSettingsScreen> {
     final transport = creds?['transport']?.toString() ?? 'UDP/TCP';
     final sipUri = creds?['sipUri']?.toString() ??
         (username.isNotEmpty ? 'sip:$username@$server' : '');
+    final applicationSipUri = creds?['applicationSipUri']?.toString() ?? '';
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -579,7 +580,16 @@ class _PlivoSettingsScreenState extends State<PlivoSettingsScreen> {
                 ],
               ),
             ),
-            if (sipUri.isNotEmpty) _sipDetailRow('SIP URI', sipUri, mono: true),
+            if (sipUri.isNotEmpty) _sipDetailRow('SIP URI (Endpoint)', sipUri, mono: true),
+            if (applicationSipUri.isNotEmpty) ...[
+              _sipDetailRow('Application SIP URI', applicationSipUri, mono: true),
+              const SizedBox(height: 4),
+              const Text(
+                'SIP URI (Endpoint) = Zoiper/softphone registration के लिए (phone.plivo.com)।\n'
+                'Application SIP URI = Plivo console के Application page पर दिखने वाला URI (app.plivo.com) — ये inbound SIP calls को आपके app पर route करने के लिए है, Zoiper login के लिए नहीं।',
+                style: TextStyle(color: AppColors.textMuted, fontSize: 11, height: 1.4),
+              ),
+            ],
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(10),
