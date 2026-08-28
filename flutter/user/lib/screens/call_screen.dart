@@ -5,6 +5,7 @@ import '../services/callkit_service.dart';
 import '../services/webrtc_service.dart';
 import '../services/websocket_service.dart';
 import '../services/twilio_voice_service.dart';
+import '../services/plivo_voice_service.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -42,11 +43,21 @@ class _CallScreenState extends State<CallScreen> {
   StreamSubscription? _rtcStateSub;
   StreamSubscription? _wsStatusSub;
   StreamSubscription? _twilioStateSub;
+  StreamSubscription? _plivoStateSub;
 
   bool get _isTwilio => widget.callData['source']?.toString() == 'twilio' ||
-      (widget.callData['conferenceName']?.toString() ?? '').isNotEmpty;
+      ((widget.callData['conferenceName']?.toString() ?? '').isNotEmpty &&
+          widget.callData['source']?.toString() != 'plivo');
 
   bool get _isPlivo => widget.callData['source']?.toString() == 'plivo';
+
+  bool get _muted => _isPlivo
+      ? PlivoVoiceService().isMuted
+      : (_isTwilio ? TwilioVoiceService().isMuted : WebRTCService().isMuted);
+
+  bool get _speakerOn => _isPlivo
+      ? PlivoVoiceService().isSpeakerOn
+      : (_isTwilio ? TwilioVoiceService().isSpeakerOn : WebRTCService().isSpeakerOn);
 
   @override
   void initState() {
@@ -54,11 +65,10 @@ class _CallScreenState extends State<CallScreen> {
     _rtcStateSub = WebRTCService().onCallState.listen(_onCallState);
     _wsStatusSub = WebSocketService().onCallStatusUpdated.listen(_onCallStatus);
     _twilioStateSub = TwilioVoiceService().onCallState.listen(_onCallState);
-    // Plivo agent talks on the PSTN phone (no in-app audio) — do NOT
-    // auto-answer or request mic permission for Plivo calls.
-    if (_isPlivo) {
-      // PSTN bridge screen with hangup only.
-    } else if (_isTwilio) {
+    _plivoStateSub = PlivoVoiceService().onCallState.listen(_onCallState);
+    // Plivo (Phase 2) and Twilio both answer in-app via their own SDKs:
+    // request mic permission and join the conference on accept.
+    if (_isPlivo || _isTwilio) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _requestPermissionAndAnswer());
     } else if ((widget.callData['sdp']?.toString() ?? '').isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _requestPermissionAndAnswer());
@@ -80,14 +90,14 @@ class _CallScreenState extends State<CallScreen> {
         _status = state; // e.g. 'error: WebRTC SDP is missing...'
         // Do NOT auto-pop on error immediately so user can see it!
       } else if (state == 'ended') {
-        // Twilio/Plivo calls are bridged through the backend: the in-app
-        // (SDK/WebRTC) 'ended' event is NOT the source of truth. A premature
-        // SDK 'ended' here would flash/pop the screen while the customer leg
-        // is still ringing, so ignore it for bridged calls and let the
+        // Twilio calls are bridged through the backend: the in-app SDK
+        // 'ended' event is NOT the source of truth and can fire prematurely
+        // while the customer leg is still ringing, so ignore it and let the
         // WebSocket call_status_updated event (or an explicit hangup) close
-        // the screen.
-        if (_isTwilio || _isPlivo) {
-          debugPrint('[CallScreen] ignoring premature in-app ended for bridged call');
+        // the screen. Plivo (Phase 2) uses our own SIP softphone whose
+        // 'ended' event IS meaningful (BYE from the conference).
+        if (_isTwilio) {
+          debugPrint('[CallScreen] ignoring premature in-app ended for Twilio bridged call');
         } else {
           _status = 'ended';
           _finishCall();
@@ -104,8 +114,8 @@ class _CallScreenState extends State<CallScreen> {
 
     final status = data['status']?.toString() ?? '';
 
-    // Twilio/Plivo calls have no in-app audio, so the backend's customer-leg
-    // status drives the connected timer here.
+    // Twilio/Plivo calls are bridged through the backend; the customer-leg
+    // status can drive the connected timer (in-app SDK events are primary).
     if ((_isTwilio || _isPlivo) &&
         (status == 'in_progress' || status == 'answered' || status == 'connected')) {
       if (mounted && _status != 'connected') {
@@ -159,7 +169,7 @@ class _CallScreenState extends State<CallScreen> {
     debugPrint('[CallScreen] checking microphone permission');
     if (!mounted) return;
 
-    if (_isTwilio) {
+    if (_isTwilio || _isPlivo) {
       final status = await Permission.microphone.status;
       if (status.isGranted) {
         await _startAnswer();
@@ -202,6 +212,17 @@ class _CallScreenState extends State<CallScreen> {
   }
 
   Future<void> _startAnswer() async {
+    if (_isPlivo) {
+      debugPrint('[CallScreen] joining Plivo conference');
+      final conferenceName = widget.callData['conferenceName']?.toString() ??
+          widget.callData['id']?.toString() ??
+          widget.callData['callId']?.toString() ?? '';
+      final ok = await PlivoVoiceService().joinConference(conferenceName);
+      if (!ok && mounted) {
+        setState(() => _status = 'error: Failed to connect Plivo call');
+      }
+      return;
+    }
     if (_isTwilio) {
       debugPrint('[CallScreen] joining Twilio conference');
       final conferenceName = widget.callData['conferenceName']?.toString() ??
@@ -260,6 +281,7 @@ class _CallScreenState extends State<CallScreen> {
   Future<void> _hangup() async {
     if (_isPlivo) {
       final id = widget.callData['id']?.toString() ?? widget.callData['callId']?.toString() ?? '';
+      await PlivoVoiceService().hangUp();
       await ApiService().hangupPlivoCall(id);
       _finishCall();
     } else if (_isTwilio) {
@@ -274,10 +296,8 @@ class _CallScreenState extends State<CallScreen> {
 
   void _toggleMute() {
     if (_isPlivo) {
-      // No in-app audio for Plivo PSTN bridge.
-      return;
-    }
-    if (_isTwilio) {
+      PlivoVoiceService().toggleMute();
+    } else if (_isTwilio) {
       TwilioVoiceService().toggleMute();
     } else {
       WebRTCService().toggleMute();
@@ -287,10 +307,8 @@ class _CallScreenState extends State<CallScreen> {
 
   Future<void> _toggleSpeaker() async {
     if (_isPlivo) {
-      // No in-app audio for Plivo PSTN bridge.
-      return;
-    }
-    if (_isTwilio) {
+      await PlivoVoiceService().toggleSpeaker();
+    } else if (_isTwilio) {
       await TwilioVoiceService().toggleSpeaker();
     } else {
       await WebRTCService().toggleSpeaker();
@@ -333,6 +351,7 @@ class _CallScreenState extends State<CallScreen> {
     _rtcStateSub?.cancel();
     _wsStatusSub?.cancel();
     _twilioStateSub?.cancel();
+    _plivoStateSub?.cancel();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.dispose();
   }
@@ -444,29 +463,19 @@ class _CallScreenState extends State<CallScreen> {
                     ],
                   ),
                   const Spacer(),
-                  if (_isPlivo)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(32, 0, 32, 24),
-                      child: Text(
-                        'Agent apne PSTN phone par baat karega — yahan sirf call kaat sakte hain.',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(color: AppColors.textMuted, fontSize: 13),
-                      ),
-                    ),
                   // Call controls
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      if (!_isPlivo)
                       _CallButton(
-                        icon: (_isTwilio ? TwilioVoiceService().isMuted : WebRTCService().isMuted)
+                        icon: _muted
                             ? Icons.mic_off_rounded
                             : Icons.mic_rounded,
-                        label: (_isTwilio ? TwilioVoiceService().isMuted : WebRTCService().isMuted) ? 'à¤®à¥à¤¯à¥à¤' : 'à¤à¤¨à¤®à¥à¤¯à¥à¤',
-                        color: WebRTCService().isMuted
+                        label: _muted ? 'म्यूट' : 'अनम्यूट',
+                        color: _muted
                             ? AppColors.danger
                             : AppColors.surfaceAlt,
-                        iconColor: WebRTCService().isMuted
+                        iconColor: _muted
                             ? Colors.white
                             : AppColors.textPrimary,
                         onTap: _toggleMute,
@@ -474,7 +483,7 @@ class _CallScreenState extends State<CallScreen> {
                       const SizedBox(width: 24),
                       _CallButton(
                         icon: Icons.call_end_rounded,
-                        label: 'à¤à¤ à¤à¤°à¥à¤',
+                        label: 'कट करें',
                         color: AppColors.danger,
                         iconColor: Colors.white,
                         size: 74,
@@ -482,25 +491,22 @@ class _CallScreenState extends State<CallScreen> {
                         onTap: _hangup,
                       ),
                       const SizedBox(width: 24),
-                      if (!_isPlivo)
-                        _CallButton(
-                          icon: (_isTwilio ? TwilioVoiceService().isSpeakerOn : WebRTCService().isSpeakerOn)
+                      _CallButton(
+                        icon: _speakerOn
                             ? Icons.volume_up_rounded
                             : Icons.hearing_rounded,
-                        label: (_isTwilio ? TwilioVoiceService().isSpeakerOn : WebRTCService().isSpeakerOn)
-                            ? 'à¤¸à¥à¤ªà¥à¤à¤°'
-                            : 'à¤à¤¯à¤°à¤«à¥à¤¨',
-                        color: WebRTCService().isSpeakerOn
+                        label: _speakerOn ? 'स्पीकर' : 'ईयरफोन',
+                        color: _speakerOn
                             ? AppColors.accent
                             : AppColors.surfaceAlt,
-                        iconColor: WebRTCService().isSpeakerOn
+                        iconColor: _speakerOn
                             ? Colors.white
                             : AppColors.textPrimary,
                         onTap: _toggleSpeaker,
                       ),
                     ],
                   ),
-                  const SizedBox(height: 60),
+const SizedBox(height: 60),
                 ],
               ),
             ),
