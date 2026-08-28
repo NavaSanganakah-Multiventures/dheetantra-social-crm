@@ -57,6 +57,12 @@ class AdminDrawer extends StatelessWidget {
           ),
           _buildDrawerItem(
             context,
+            icon: Icons.receipt_long,
+            title: 'School Charges',
+            route: '/school-charges',
+          ),
+          _buildDrawerItem(
+            context,
             icon: Icons.monetization_on,
             title: 'Plans',
             route: '/plans',
