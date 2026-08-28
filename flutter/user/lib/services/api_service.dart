@@ -498,6 +498,15 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> getPlivoSipCredentials() async {
+    try {
+      final res = await _dio.get('/api/plivo/sip-credentials');
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
   Future<Map<String, dynamic>> savePlivoConfig({
     String? id,
     required String name,
@@ -505,6 +514,8 @@ class ApiService {
     String? authToken,
     bool isActive = true,
     List<String> fromNumbers = const [],
+    String? endpointUsername,
+    String? endpointPassword,
   }) async {
     try {
       final data = <String, dynamic>{
@@ -513,6 +524,8 @@ class ApiService {
         'isActive': isActive,
         if (authToken != null && authToken.isNotEmpty) 'authToken': authToken,
         if (fromNumbers.isNotEmpty) 'fromNumbers': fromNumbers,
+        if (endpointUsername != null) 'endpointUsername': endpointUsername,
+        if (endpointPassword != null && endpointPassword.isNotEmpty) 'endpointPassword': endpointPassword,
       };
       final res = id == null
           ? await _dio.post('/api/plivo/configs', data: data)
