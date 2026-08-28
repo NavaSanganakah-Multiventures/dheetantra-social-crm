@@ -478,6 +478,34 @@ admin.get('/subscriptions', async (c) => {
   }
 });
 
+// GET per-workspace charges (admin billing overview per school)
+admin.get('/charges', async (c) => {
+  const isAdmin = await verifyAdmin(c);
+  if (!isAdmin) return c.json({ error: 'Unauthorized' }, 403);
+  if (!c.env.DB) return c.json({ error: 'Database not connected' }, 500);
+
+  try {
+    const { results } = await c.env.DB.prepare(
+      `SELECT
+         w.id AS workspace_id,
+         w.name AS workspace_name,
+         COALESCE(p.name, 'free') AS plan_name,
+         COALESCE(p.upfront_price, 0) AS plan_amount,
+         (SELECT COUNT(*) FROM subscriptions s WHERE s.workspace_id = w.id) AS subscription_count,
+         (SELECT COALESCE(SUM(s.amount), 0) FROM subscriptions s WHERE s.workspace_id = w.id AND s.status IN ('active','past_due')) AS active_subscription_amount,
+         (SELECT COUNT(*) FROM payments pay WHERE pay.workspace_id = w.id AND pay.status = 'captured') AS payment_count,
+         (SELECT COALESCE(SUM(pay.amount), 0) FROM payments pay WHERE pay.workspace_id = w.id AND pay.status = 'captured') AS total_collected,
+         (SELECT MAX(pay.created_at) FROM payments pay WHERE pay.workspace_id = w.id AND pay.status = 'captured') AS last_payment_at
+       FROM workspaces w
+       LEFT JOIN plans p ON p.id = w.plan_id
+       ORDER BY total_collected DESC`
+    ).all();
+    return c.json({ charges: results });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
 // GET KV secrets list
 admin.get('/kv', async (c) => {
   const isAdmin = await verifyAdmin(c);
