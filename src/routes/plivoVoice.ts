@@ -470,11 +470,11 @@ router.post('/api/plivo/call', async (c) => {
   let config: any = null;
   if (plivoConfigId) {
     config = await c.env.DB.prepare(
-      'SELECT id, auth_id, auth_token FROM plivo_configs WHERE id = ? AND workspace_id = ? AND is_active = 1'
+      'SELECT id, auth_id, auth_token, auto_dial_agents FROM plivo_configs WHERE id = ? AND workspace_id = ? AND is_active = 1'
     ).bind(plivoConfigId, workspaceId).first();
   } else {
     config = await c.env.DB.prepare(
-      'SELECT id, auth_id, auth_token FROM plivo_configs WHERE workspace_id = ? AND is_active = 1 ORDER BY created_at ASC LIMIT 1'
+      'SELECT id, auth_id, auth_token, auto_dial_agents FROM plivo_configs WHERE workspace_id = ? AND is_active = 1 ORDER BY created_at ASC LIMIT 1'
     ).bind(workspaceId).first();
   }
 
@@ -501,7 +501,67 @@ router.post('/api/plivo/call', async (c) => {
     return c.json({ error: 'Invalid from number configured for this workspace' }, 400);
   }
 
-  // Agent phone = the authenticated user's PSTN phone number.
+  const autoDialAgents = config.auto_dial_agents === 1;
+
+  let resolvedContactId = contactId;
+  if (!resolvedContactId) {
+    resolvedContactId = await findOrCreateGsmContact(c.env.DB, workspaceId, normalizedTo, normalizedTo);
+  }
+
+  const callId = crypto.randomUUID();
+  const conferenceName = conferenceNameFromCallId(callId);
+  const createdAt = sqliteNow();
+  const baseUrl = ((c.env as any).APP_URL as string | undefined) || ('https://' + (c.req.header('host') || 'dheetantra.navasanganakah.com'));
+  const statusUrl = baseUrl + '/api/plivo/webhook/status?callId=' + callId;
+  const fallbackUrl = baseUrl + '/api/plivo/webhook/fallback';
+
+  // In-app (softphone) answering mode: fire only the customer leg into a
+  // conference waiting room. The agent's app answers via the Plivo softphone
+  // endpoint (same flow as inbound with auto-forward OFF).
+  if (!autoDialAgents) {
+    await c.env.DB.prepare(
+      "INSERT INTO calls (id, workspace_id, contact_id, phone_number_id, caller_number, source, type, direction, status, duration, plivo_config_id, assigned_user_id, external_call_id, created_at) VALUES (?, ?, ?, ?, ?, 'plivo', 'voice', 'outgoing', 'ringing', 0, ?, ?, ?, ?)"
+    ).bind(callId, workspaceId, resolvedContactId, fromRow.id, normalizedTo, config.id, user.id, null, createdAt).run();
+
+    const answerUrl = baseUrl + '/api/plivo/webhook/outbound?callId=' + callId + '&conferenceName=' + encodeURIComponent(conferenceName) + '&leg=customer&waiting=1';
+
+    const customerRes = await createPlivoCall(config, {
+      to: normalizedTo,
+      from: from,
+      answer_url: answerUrl,
+      answer_method: 'POST',
+      ring_url: statusUrl + '&leg=customer',
+      ring_method: 'POST',
+      hangup_url: statusUrl + '&leg=customer',
+      hangup_method: 'POST',
+      fallback_url: fallbackUrl,
+      fallback_method: 'POST',
+    });
+
+    if (!customerRes.ok) {
+      console.error('[Plivo] outbound customer leg failed', customerRes);
+      await c.env.DB.prepare("UPDATE calls SET status = 'failed' WHERE id = ? AND workspace_id = ?").bind(callId, workspaceId).run();
+      return c.json({ success: false, error: customerRes.error || 'Failed to fire Plivo call leg' }, 502);
+    }
+
+    const customerRequestUuid = customerRes.requestUuid || null;
+    await c.env.DB.prepare(
+      'UPDATE calls SET external_call_id = ? WHERE id = ? AND workspace_id = ?'
+    ).bind(customerRequestUuid, callId, workspaceId).run();
+
+    return c.json({
+      success: true,
+      callId,
+      requestUuid: customerRequestUuid,
+      conferenceName,
+      to: normalizedTo,
+      from,
+      inApp: true,
+    });
+  }
+
+  // Auto-dial ON: bridge the customer leg and the agent's PSTN phone leg
+  // together into the same conference (legacy fallback bridge).
   const userRow = await c.env.DB.prepare('SELECT phone FROM users WHERE id = ?').bind(user.id).first<{ phone?: string | null }>();
   const agentPhone = (userRow?.phone || '').trim();
   if (!agentPhone) {
@@ -512,23 +572,11 @@ router.post('/api/plivo/call', async (c) => {
     return c.json({ error: 'Your agent phone is invalid. Set a valid E.164 number in Plivo Voice settings.' }, 400);
   }
 
-  let resolvedContactId = contactId;
-  if (!resolvedContactId) {
-    resolvedContactId = await findOrCreateGsmContact(c.env.DB, workspaceId, normalizedTo, normalizedTo);
-  }
-
-  const callId = crypto.randomUUID();
-  const conferenceName = conferenceNameFromCallId(callId);
-  const createdAt = sqliteNow();
-
   await c.env.DB.prepare(
     "INSERT INTO calls (id, workspace_id, contact_id, phone_number_id, caller_number, source, type, direction, status, duration, plivo_config_id, assigned_user_id, external_call_id, created_at) VALUES (?, ?, ?, ?, ?, 'plivo', 'voice', 'outgoing', 'queued', 0, ?, ?, ?, ?)"
   ).bind(callId, workspaceId, resolvedContactId, fromRow.id, normalizedTo, config.id, user.id, null, createdAt).run();
 
-  const baseUrl = ((c.env as any).APP_URL as string | undefined) || ('https://' + (c.req.header('host') || 'dheetantra.navasanganakah.com'));
   const answerUrl = baseUrl + '/api/plivo/webhook/outbound?callId=' + callId + '&conferenceName=' + encodeURIComponent(conferenceName);
-  const statusUrl = baseUrl + '/api/plivo/webhook/status?callId=' + callId;
-  const fallbackUrl = baseUrl + '/api/plivo/webhook/fallback';
 
   const [customerRes, agentRes] = await Promise.allSettled([
     createPlivoCall(config, {
@@ -583,7 +631,6 @@ router.post('/api/plivo/call', async (c) => {
     to: normalizedTo,
     from,
   });
-});
 
 // ---------------------------------------------------------------
 // App-side hangup for Plivo calls.
@@ -828,6 +875,7 @@ router.post('/api/plivo/webhook/outbound', async (c) => {
     const body = await parseWebhookBody(c);
     const callId = c.req.query('callId') || '';
     const leg = c.req.query('leg') || 'customer';
+    const waiting = c.req.query('waiting') === '1';
     const callUuid = body.CallUUID || '';
     const conferenceName = c.req.query('conferenceName') || (callId ? conferenceNameFromCallId(callId) : 'default_room');
 
@@ -838,6 +886,19 @@ router.post('/api/plivo/webhook/outbound', async (c) => {
           .bind(callUuid, callId).run();
         await broadcastToWorkspace(c.env, call.workspace_id, { type: 'call_status_updated', call_id: callId, status: 'in_progress', duration: 0, source: 'plivo' });
       }
+    }
+
+    // In-app answer mode: the customer waits with hold music until the agent
+    // joins the conference via the softphone endpoint (/api/plivo/webhook/app).
+    if (waiting) {
+      const baseUrl = ((c.env as any).APP_URL as string | undefined) || ('https://' + (c.req.header('host') || 'dheetantra.navasanganakah.com'));
+      const statusCallbackUrl = baseUrl + '/api/plivo/webhook/status?callId=' + callId + '&leg=customer';
+      const holdUrl = baseUrl + '/api/plivo/webhook/hold';
+      const xml = XML_DECL +
+        '<Response>' +
+        '<Conference startConferenceOnEnter="false" endConferenceOnExit="true" stayAlone="false" waitSound="' + escXml(holdUrl) + '" callbackUrl="' + escXml(statusCallbackUrl) + '" callbackMethod="POST">' + escXml(conferenceName) + '</Conference>' +
+        '</Response>';
+      return plivoXmlResponse(xml, 200);
     }
 
     // The customer leg ends the conference when it leaves; agent legs do not.
