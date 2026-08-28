@@ -260,6 +260,7 @@ CREATE TABLE IF NOT EXISTS plivo_configs (
   endpoint_username TEXT,
   endpoint_password TEXT,
   endpoint_id TEXT,
+  endpoint_app_id TEXT,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
