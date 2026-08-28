@@ -88,7 +88,13 @@ async function findOrCreateGsmContact(db: D1Database, workspaceId: string, phone
 function dialedNumberCandidates(to: string): string[] {
   const trimmed = (to || '').trim();
   const digits = trimmed.replace(/\D/g, '');
-  return Array.from(new Set([trimmed, '+' + digits, digits])).filter(Boolean);
+  const candidates = Array.from(new Set([trimmed, '+' + digits, digits])).filter(Boolean);
+  // The inbound lookup uses `IN (?, ?, ?)`. Always return exactly 3 values so we
+  // never bind `undefined` (D1 throws on undefined, which 500s the webhook and
+  // causes Plivo to hang up the caller). The trailing '' sentinel cannot match any
+  // stored E.164 number.
+  while (candidates.length < 3) candidates.push('');
+  return candidates;
 }
 
 async function pickAvailableAgent(db: D1Database, workspaceId: string) {
