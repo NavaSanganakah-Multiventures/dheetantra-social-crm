@@ -7,6 +7,7 @@ import 'screens/workspaces_screen.dart';
 import 'screens/plans_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/kv_copy_screen.dart';
+import 'screens/school_charges_screen.dart';
 import 'services/api_service.dart';
 import 'services/notification_service.dart';
 
@@ -51,6 +52,7 @@ class DhitantraAdminApp extends StatelessWidget {
         '/workspaces': (context) => const WorkspacesScreen(),
         '/plans': (context) => const PlansScreen(),
         '/kv-copy': (context) => const KvCopyScreen(),
+        '/school-charges': (context) => const SchoolChargesScreen(),
         '/settings': (context) => const SettingsScreen(),
       },
     );
