@@ -7,7 +7,7 @@ import 'package:sip_ua/sip_ua.dart';
 
 import 'api_service.dart';
 
-/// Plivo softphone wrapper (SIP over WebSocket) for the DheeTantra user app.
+/// Plivo softphone wrapper (SIP over TCP) for the DheeTantra user app.
 ///
 /// Jab Plivo account ka "auto-forward to live agent" toggle OFF hota hai, tab
 /// inbound caller Plivo conference me hold par rehta hai aur agent ki app
@@ -20,7 +20,7 @@ class PlivoVoiceService implements SipUaHelperListener {
   PlivoVoiceService._internal();
 
   static const String _domain = 'phone.plivo.com';
-  static const String _webSocketUrl = 'wss://phone.plivo.com';
+  static const String _sipPort = '5060';
 
   final SIPUAHelper _helper = SIPUAHelper();
   final _callStateController = StreamController<String>.broadcast();
@@ -83,9 +83,9 @@ class PlivoVoiceService implements SipUaHelperListener {
 
     final uri = 'sip:$username@$_domain';
     final settings = UaSettings()
-      ..transportType = TransportType.WS
-      ..webSocketUrl = creds['websocketUrl'] as String? ?? _webSocketUrl
+      ..transportType = TransportType.TCP
       ..host = _domain
+      ..port = _sipPort
       ..uri = uri
       ..authorizationUser = username
       ..password = password
@@ -215,7 +215,8 @@ class PlivoVoiceService implements SipUaHelperListener {
 
   @override
   void registrationStateChanged(RegistrationState state) {
-    debugPrint('[PlivoVoice] registration state: ${state.state}');
+    debugPrint('[PlivoVoice] registration state: ${state.state}' +
+        (state.cause != null ? ' (cause: ${state.cause})' : ''));
     final completer = _registrationCompleter;
     if (completer == null || completer.isCompleted) return;
     if (state.state == RegistrationStateEnum.REGISTERED) {
