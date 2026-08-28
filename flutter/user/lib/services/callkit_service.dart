@@ -123,7 +123,7 @@ class CallKitService {
           // WhatsApp calls: reject via WebRTC. Plivo/Twilio route through
           // their own backend paths (Plivo decline tears down the conference;
           // a local-only status update would leave the caller on hold).
-          await _declineBySource(params.id, data);
+          unawaited(_declineBySource(params.id, data));
         }
       } else if (event is CallEventActionCallEnded) {
         debugPrint('CALLKIT: onEvent actionCallEnded id=${event.callKitParams.id}');
