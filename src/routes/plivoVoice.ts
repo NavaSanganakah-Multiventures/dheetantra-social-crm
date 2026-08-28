@@ -144,12 +144,12 @@ function plivoBodyToParams(body: Record<string, string>): Record<string, string[
 
 async function verifyPlivoSignature(c: any, authToken: string | undefined, body: Record<string, string>): Promise<boolean> {
   if (!authToken) return false;
-  const signature = c.req.header('X-Plivo-Signature-V3') || '';
-  const nonce = c.req.header('X-Plivo-Signature-V3-Nonce') || '';
+  const signature: string = c.req.header('X-Plivo-Signature-V3') || '';
+  const nonce: string = c.req.header('X-Plivo-Signature-V3-Nonce') || '';
   if (!signature || !nonce) return false;
-  const method = c.req.method;
-  const uri = c.req.url;
-  let baseUrl = uri;
+  const method: string = c.req.method;
+  const uri: string = c.req.url;
+  let baseUrl: string = uri;
   if (method === 'GET') {
     baseUrl = plivoConstructGetUrl(uri, {});
   } else if (method === 'POST') {
