@@ -280,7 +280,11 @@ async function pushIncomingCallToAgents(env: Env, c: any, workspaceId: string, c
   c.executionCtx.waitUntil(
     (async () => {
       try {
-        const members = await env.DB.prepare('SELECT user_id FROM workspace_members WHERE workspace_id = ?')
+        // Only available (live) agents should receive an in-app CallKit ring.
+        // For the informational PSTN-forward notification (auto-dial ON) we keep
+        // the existing all-members behavior (the dialed agent is already busy).
+        const liveOnly = answerInApp ? " AND voice_status = 'live'" : '';
+        const members = await env.DB.prepare('SELECT user_id FROM workspace_members WHERE workspace_id = ?' + liveOnly)
           .bind(workspaceId).all<{ user_id: string }>();
         if (!members.results || members.results.length === 0) return;
         const userIds = members.results.map((m) => m.user_id);
@@ -796,8 +800,45 @@ router.post('/api/plivo/call', async (c) => {
 });
 
 // ---------------------------------------------------------------
-// App-side hangup for Plivo calls.
+// App-side hangup/decline for Plivo calls.
 // ---------------------------------------------------------------
+
+async function teardownPlivoCall(
+  env: Env,
+  call: { id: string; workspace_id: string; plivo_config_id?: string | null; external_call_id?: string | null; assigned_user_id?: string | null },
+  finalStatus: 'ended' | 'declined'
+) {
+  if (call.plivo_config_id) {
+    const cfg = await env.DB.prepare('SELECT auth_id, auth_token FROM plivo_configs WHERE id = ?')
+      .bind(call.plivo_config_id).first<{ auth_id: string; auth_token: string }>();
+    if (cfg) {
+      // Primary cleanup: delete the conference (drops every member).
+      await hangupPlivoConference(cfg, conferenceNameFromCallId(call.id));
+      // Best-effort leg hangup (external_call_id may be a request_uuid, not a
+      // CallUUID, so a 404 here is expected and ignored).
+      if (call.external_call_id) {
+        await hangupPlivoCallLeg(cfg, call.external_call_id);
+      }
+    }
+  }
+
+  await env.DB.prepare('UPDATE calls SET status = ?, ended_at = ? WHERE id = ?')
+    .bind(finalStatus, sqliteNow(), call.id).run();
+
+  if (call.assigned_user_id) {
+    await env.DB.prepare(
+      "UPDATE workspace_members SET voice_status = 'live', voice_status_updated_at = ? WHERE workspace_id = ? AND user_id = ? AND voice_status = 'busy'"
+    ).bind(sqliteNow(), call.workspace_id, call.assigned_user_id).run();
+  }
+
+  await broadcastToWorkspace(env, call.workspace_id, {
+    type: 'call_status_updated',
+    call_id: call.id,
+    status: finalStatus,
+    duration: 0,
+    source: 'plivo',
+  });
+}
 
 router.post('/api/plivo/call/:id/hangup', async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
@@ -809,36 +850,21 @@ router.post('/api/plivo/call/:id/hangup', async (c) => {
   ).bind(id, workspaceId).first<{ id: string; workspace_id: string; plivo_config_id?: string | null; external_call_id?: string | null; assigned_user_id?: string | null }>();
   if (!call) return c.json({ error: 'Call not found' }, 404);
 
-  if (call.plivo_config_id) {
-    const cfg = await c.env.DB.prepare('SELECT auth_id, auth_token FROM plivo_configs WHERE id = ?')
-      .bind(call.plivo_config_id).first<{ auth_id: string; auth_token: string }>();
-    if (cfg) {
-      // Primary cleanup: delete the conference (drops every member).
-      await hangupPlivoConference(cfg, conferenceNameFromCallId(id));
-      // Best-effort leg hangup (external_call_id may be a request_uuid, not a
-      // CallUUID, so a 404 here is expected and ignored).
-      if (call.external_call_id) {
-        await hangupPlivoCallLeg(cfg, call.external_call_id);
-      }
-    }
-  }
+  await teardownPlivoCall(c.env, call, 'ended');
+  return c.json({ success: true });
+});
 
-  await c.env.DB.prepare("UPDATE calls SET status = 'ended', ended_at = ? WHERE id = ?").bind(sqliteNow(), id).run();
+router.post('/api/plivo/call/:id/decline', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  const id = c.req.param('id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
-  if (call.assigned_user_id) {
-    await c.env.DB.prepare(
-      "UPDATE workspace_members SET voice_status = 'live', voice_status_updated_at = ? WHERE workspace_id = ? AND user_id = ? AND voice_status = 'busy'"
-    ).bind(sqliteNow(), workspaceId, call.assigned_user_id).run();
-  }
+  const call = await c.env.DB.prepare(
+    "SELECT id, workspace_id, plivo_config_id, external_call_id, assigned_user_id FROM calls WHERE id = ? AND workspace_id = ? AND source = 'plivo'"
+  ).bind(id, workspaceId).first<{ id: string; workspace_id: string; plivo_config_id?: string | null; external_call_id?: string | null; assigned_user_id?: string | null }>();
+  if (!call) return c.json({ error: 'Call not found' }, 404);
 
-  await broadcastToWorkspace(c.env, workspaceId, {
-    type: 'call_status_updated',
-    call_id: id,
-    status: 'ended',
-    duration: 0,
-    source: 'plivo',
-  });
-
+  await teardownPlivoCall(c.env, call, 'declined');
   return c.json({ success: true });
 });
 
@@ -949,7 +975,7 @@ router.post('/api/plivo/webhook/voice', async (c) => {
     // answer. If no agent, the caller simply hears hold music until they hang up.
     const xml = XML_DECL +
       '<Response>' +
-      '<Conference startConferenceOnEnter="false" endConferenceOnExit="true" stayAlone="false" waitSound="' + escXml(holdUrl) + '" callbackUrl="' + escXml(statusCallbackUrl) + '" callbackMethod="POST">' + escXml(conferenceName) + '</Conference>' +
+      '<Conference startConferenceOnEnter="false" endConferenceOnExit="true" waitSound="' + escXml(holdUrl) + '" callbackUrl="' + escXml(statusCallbackUrl) + '" callbackMethod="POST">' + escXml(conferenceName) + '</Conference>' +
       '</Response>';
     return plivoXmlResponse(xml, 200);
   } catch (e: any) {
@@ -1011,17 +1037,27 @@ router.post('/api/plivo/webhook/status', async (c) => {
     };
     const status = statusMap[rawStatus] || rawStatus;
 
-    if (rawStatus === 'completed') {
+    // Tear down the conference on every terminal state so a leftover agent or
+    // softphone leg cannot stay connected in silence (no-answer/busy/failed).
+    // Plivo can also deliver 'timeout' for unanswered outbound legs.
+    const terminalStatuses = new Set(['completed', 'busy', 'failed', 'no-answer', 'canceled', 'timeout']);
+
+    if (terminalStatuses.has(rawStatus)) {
       await c.env.DB.prepare("UPDATE calls SET status = ?, duration = ?, ended_at = ? WHERE id = ?")
         .bind(status, duration, sqliteNow(), call.id).run();
       await cleanupPlivoCall(c.env, call);
       await broadcastToWorkspace(c.env, call.workspace_id, { type: 'call_status_updated', call_id: call.id, status, duration, source: 'plivo' });
     } else {
       // Guarded update: never downgrade an in_progress/ended call to ringing
-      // (Plivo can deliver ring callbacks after answer in rare cases).
+      // (Plivo can deliver ring callbacks after answer in rare cases). Also
+      // suppress the broadcast when the update did not apply, so clients never
+      // see a downgrade (e.g. 'ringing' after 'in_progress').
+      const applies = !(call.status === 'in_progress' || call.status === 'ended');
       await c.env.DB.prepare("UPDATE calls SET status = CASE WHEN status IN ('in_progress','ended') THEN status ELSE ? END WHERE id = ?")
         .bind(status, call.id).run();
-      await broadcastToWorkspace(c.env, call.workspace_id, { type: 'call_status_updated', call_id: call.id, status, duration, source: 'plivo' });
+      if (applies) {
+        await broadcastToWorkspace(c.env, call.workspace_id, { type: 'call_status_updated', call_id: call.id, status, duration, source: 'plivo' });
+      }
     }
 
     return c.text('OK', 200);
@@ -1059,7 +1095,7 @@ router.post('/api/plivo/webhook/outbound', async (c) => {
       const holdUrl = baseUrl + '/api/plivo/webhook/hold';
       const xml = XML_DECL +
         '<Response>' +
-        '<Conference startConferenceOnEnter="false" endConferenceOnExit="true" stayAlone="false" waitSound="' + escXml(holdUrl) + '" callbackUrl="' + escXml(statusCallbackUrl) + '" callbackMethod="POST">' + escXml(conferenceName) + '</Conference>' +
+        '<Conference startConferenceOnEnter="false" endConferenceOnExit="true" waitSound="' + escXml(holdUrl) + '" callbackUrl="' + escXml(statusCallbackUrl) + '" callbackMethod="POST">' + escXml(conferenceName) + '</Conference>' +
         '</Response>';
       return plivoXmlResponse(xml, 200);
     }
@@ -1068,7 +1104,7 @@ router.post('/api/plivo/webhook/outbound', async (c) => {
     const endConferenceOnExit = leg === 'customer' ? 'true' : 'false';
     const xml = XML_DECL +
       '<Response>' +
-      '<Conference startConferenceOnEnter="true" endConferenceOnExit="' + endConferenceOnExit + '" stayAlone="false">' + escXml(conferenceName) + '</Conference>' +
+      '<Conference startConferenceOnEnter="true" endConferenceOnExit="' + endConferenceOnExit + '">' + escXml(conferenceName) + '</Conference>' +
       '</Response>';
     return plivoXmlResponse(xml, 200);
   } catch (e: any) {
