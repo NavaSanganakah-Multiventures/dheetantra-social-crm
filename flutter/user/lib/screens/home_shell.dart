@@ -14,6 +14,7 @@ import '../services/notification_router.dart';
 import '../services/websocket_service.dart';
 import '../services/webrtc_service.dart';
 import '../services/twilio_voice_service.dart';
+import '../services/plivo_voice_service.dart';
 import '../services/caller_id_service.dart';
 import 'caller_card_screen.dart';
 import 'after_call_screen.dart';
@@ -105,6 +106,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     // dikhayega.
     unawaited(WebRTCService().ensureMicrophonePermission());
     unawaited(TwilioVoiceService().init());
+    unawaited(PlivoVoiceService().init());
     BatteryOptimizationService().checkAndPrompt(context);
     
     // Start persistent connection service
