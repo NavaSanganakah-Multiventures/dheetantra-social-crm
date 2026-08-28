@@ -81,12 +81,17 @@ class PlivoVoiceService implements SipUaHelperListener {
       return false;
     }
 
-    final uri = 'sip:$username@$_domain';
+    // Single source of truth: backend se mila SIP URI/server/port hi use karo,
+    // taaki registration ka SIP URI hamesha wahi ho jo settings me dikhta hai.
+    final server = (creds['server']?.toString()) ?? _domain;
+    final port = (creds['port']?.toString()) ?? _sipPort;
+    final sipUri = (creds['sipUri']?.toString()) ?? 'sip:$username@$server';
+    debugPrint('[PlivoVoice] registering SIP URI: $sipUri (TCP, $server:$port)');
     final settings = UaSettings()
       ..transportType = TransportType.TCP
-      ..host = _domain
-      ..port = _sipPort
-      ..uri = uri
+      ..host = server
+      ..port = port
+      ..uri = sipUri
       ..authorizationUser = username
       ..password = password
       ..displayName = creds['displayName'] as String? ?? 'DheeTantra'
