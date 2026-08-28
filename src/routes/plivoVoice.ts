@@ -280,7 +280,11 @@ async function pushIncomingCallToAgents(env: Env, c: any, workspaceId: string, c
   c.executionCtx.waitUntil(
     (async () => {
       try {
-        const members = await env.DB.prepare('SELECT user_id FROM workspace_members WHERE workspace_id = ?')
+        // Only available (live) agents should receive an in-app CallKit ring.
+        // For the informational PSTN-forward notification (auto-dial ON) we keep
+        // the existing all-members behavior (the dialed agent is already busy).
+        const liveOnly = answerInApp ? " AND voice_status = 'live'" : '';
+        const members = await env.DB.prepare('SELECT user_id FROM workspace_members WHERE workspace_id = ?' + liveOnly)
           .bind(workspaceId).all<{ user_id: string }>();
         if (!members.results || members.results.length === 0) return;
         const userIds = members.results.map((m) => m.user_id);
@@ -1045,10 +1049,15 @@ router.post('/api/plivo/webhook/status', async (c) => {
       await broadcastToWorkspace(c.env, call.workspace_id, { type: 'call_status_updated', call_id: call.id, status, duration, source: 'plivo' });
     } else {
       // Guarded update: never downgrade an in_progress/ended call to ringing
-      // (Plivo can deliver ring callbacks after answer in rare cases).
+      // (Plivo can deliver ring callbacks after answer in rare cases). Also
+      // suppress the broadcast when the update did not apply, so clients never
+      // see a downgrade (e.g. 'ringing' after 'in_progress').
+      const applies = !(call.status === 'in_progress' || call.status === 'ended');
       await c.env.DB.prepare("UPDATE calls SET status = CASE WHEN status IN ('in_progress','ended') THEN status ELSE ? END WHERE id = ?")
         .bind(status, call.id).run();
-      await broadcastToWorkspace(c.env, call.workspace_id, { type: 'call_status_updated', call_id: call.id, status, duration, source: 'plivo' });
+      if (applies) {
+        await broadcastToWorkspace(c.env, call.workspace_id, { type: 'call_status_updated', call_id: call.id, status, duration, source: 'plivo' });
+      }
     }
 
     return c.text('OK', 200);
