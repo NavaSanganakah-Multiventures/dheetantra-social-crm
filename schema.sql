@@ -257,6 +257,8 @@ CREATE TABLE IF NOT EXISTS plivo_configs (
   auth_token TEXT NOT NULL,
   is_active INTEGER NOT NULL DEFAULT 1,
   auto_dial_agents INTEGER NOT NULL DEFAULT 1,
+  endpoint_username TEXT,
+  endpoint_password TEXT,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
