@@ -631,6 +631,7 @@ router.post('/api/plivo/call', async (c) => {
     to: normalizedTo,
     from,
   });
+});
 
 // ---------------------------------------------------------------
 // App-side hangup for Plivo calls.
