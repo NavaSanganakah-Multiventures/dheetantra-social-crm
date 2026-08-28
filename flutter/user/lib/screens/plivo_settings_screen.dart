@@ -518,7 +518,7 @@ class _PlivoSettingsScreenState extends State<PlivoSettingsScreen> {
         children: [
           const Row(
             children: [
-              Icon(Icons.voip, size: 18, color: AppColors.accent),
+              Icon(Icons.call, size: 18, color: AppColors.accent),
               SizedBox(width: 8),
               Text(
                 'Softphone / Zoiper SIP Details',
