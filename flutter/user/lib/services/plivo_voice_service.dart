@@ -265,9 +265,14 @@ class PlivoVoiceService implements SipUaHelperListener {
         _isMuted = false;
         break;
       case CallStateEnum.ENDED:
-      case CallStateEnum.FAILED:
         _reset();
         _callStateController.add('ended');
+        break;
+      case CallStateEnum.FAILED:
+        // A failed SIP leg is NOT a normal call end. Emitting 'ended' here
+        // made CallScreen pop instantly on registration/dial failures.
+        _reset();
+        _callStateController.add('error: Plivo SIP call failed');
         break;
       default:
         break;
