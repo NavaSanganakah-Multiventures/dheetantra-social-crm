@@ -66,9 +66,12 @@ class _CallScreenState extends State<CallScreen> {
     _wsStatusSub = WebSocketService().onCallStatusUpdated.listen(_onCallStatus);
     _twilioStateSub = TwilioVoiceService().onCallState.listen(_onCallState);
     _plivoStateSub = PlivoVoiceService().onCallState.listen(_onCallState);
-    // Plivo (Phase 2) and Twilio both answer in-app via their own SDKs:
-    // request mic permission and join the conference on accept.
-    if (_isPlivo || _isTwilio) {
+    // Twilio and Plivo (in-app mode) answer via their own SDKs: request mic
+    // permission and join the conference on accept. Plivo's legacy auto-dial
+    // (PSTN bridge) mode has no conferenceName and is answered on the agent's
+    // phone, so it must not auto-join in-app.
+    if (_isTwilio ||
+        (_isPlivo && (widget.callData['conferenceName']?.toString() ?? '').isNotEmpty)) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _requestPermissionAndAnswer());
     } else if ((widget.callData['sdp']?.toString() ?? '').isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _requestPermissionAndAnswer());
