@@ -67,6 +67,27 @@ class CallKitService {
     return true;
   }
 
+  /// Route a decline/auto-reject to the correct backend path for the call's
+  /// source. Plivo must call the decline endpoint so the conference is torn
+  /// down (not just marked 'declined' locally, which left the caller on hold).
+  Future<void> _declineBySource(String uuid, Map<String, dynamic> data) async {
+    final source = data['source']?.toString() ?? '';
+    final callId = data['id']?.toString() ?? uuid;
+    try {
+      if (source == 'plivo') {
+        await ApiService().declinePlivoCall(callId);
+      } else if (source == 'twilio') {
+        if (callId.isNotEmpty) {
+          await ApiService().updateCallStatus(callId, status: 'declined');
+        }
+      } else {
+        await WebRTCService().rejectCall(Map<String, dynamic>.from(data));
+      }
+    } catch (e) {
+      debugPrint('CALLKIT: decline by source error: $e');
+    }
+  }
+
   Future<void> init() async {
     if (_initialized) return;
     _initialized = true;
@@ -99,31 +120,43 @@ class CallKitService {
         _activeCalls.remove(params.id);
         if (callData != null) {
           final data = Map<String, dynamic>.from(callData);
-          if (data['source']?.toString() == 'twilio' || data['source']?.toString() == 'plivo') {
-            // Twilio/Plivo calls ke liye WhatsApp reject API mat bhejo. Server par
-            // generic call status 'declined' update karo taaki log aur UI sahi rahe.
-            final id = data['id']?.toString() ?? params.id;
-            if (id.isNotEmpty) {
-              unawaited(
-                ApiService().updateCallStatus(id, status: 'declined')
-                  .catchError((e) => debugPrint('[CallKit] Twilio decline status error: $e')),
-              );
-            }
-          } else {
-            WebRTCService().rejectCall(data);
-          }
+          // WhatsApp calls: reject via WebRTC. Plivo/Twilio route through
+          // their own backend paths (Plivo decline tears down the conference;
+          // a local-only status update would leave the caller on hold).
+          await _declineBySource(params.id, data);
         }
       } else if (event is CallEventActionCallEnded) {
         debugPrint('CALLKIT: onEvent actionCallEnded id=${event.callKitParams.id}');
         final params = event.callKitParams;
+        final callData = _activeCalls[params.id] ?? params.extra;
+        final wasAccepted = _handledAcceptIds.contains(params.id);
         _currentCallId = null;
         _handledAcceptIds.remove(params.id);
         _activeCalls.remove(params.id);
+        // If a Plivo call ended without being accepted (swiped away / system
+        // dismissed), tear the conference down so the caller does not wait.
+        if (!wasAccepted && callData != null) {
+          final data = Map<String, dynamic>.from(callData);
+          if (data['source']?.toString() == 'plivo') {
+            final id = data['id']?.toString() ?? params.id;
+            unawaited(ApiService().declinePlivoCall(id));
+          }
+        }
       } else if (event is CallEventActionCallTimeout) {
         debugPrint('CALLKIT: onEvent actionCallTimeout id=${event.id}');
+        final callData = _activeCalls[event.id];
         _currentCallId = null;
         _handledAcceptIds.remove(event.id);
         _activeCalls.remove(event.id);
+        // Timeout means the agent never answered; tear down a waiting Plivo
+        // conference so the caller is not left ringing/on hold forever.
+        if (callData != null) {
+          final data = Map<String, dynamic>.from(callData);
+          if (data['source']?.toString() == 'plivo') {
+            final id = data['id']?.toString() ?? event.id;
+            unawaited(ApiService().declinePlivoCall(id));
+          }
+        }
       }
     });
 
@@ -330,13 +363,11 @@ class CallKitService {
   }
 
   Future<void> showIncomingCall(Map<String, dynamic> data) async {
+    final String uuid = data['id']?.toString() ?? 'unknown-call-id';
     if (!await isCallingEnabled()) {
-      try {
-        await WebRTCService().rejectCall(Map<String, dynamic>.from(data));
-      } catch (_) {}
+      await _declineBySource(uuid, Map<String, dynamic>.from(data));
       return;
     }
-    final String uuid = data['id']?.toString() ?? 'unknown-call-id';
 
     // Duplicate guard: agar ye call pehle se dikh rahi hai (WebSocket overlay
     // ya plugin ke through) toh dubara se show mat karo Ã¢ÂÂ warna double ring +
@@ -353,12 +384,8 @@ class CallKitService {
     // case). NOTE: app default dialer banne par PSTN incoming calls ke liye
     // bhi yahi guard chalta rahega Ã¢ÂÂ sirf reject path TelecomManager se hoga.
     if (_currentCallId != null && _currentCallId != uuid) {
-      debugPrint('CALLKIT: line busy ($_currentCallId) Ã¢ÂÂ auto-rejecting $uuid');
-      try {
-        await WebRTCService().rejectCall(Map<String, dynamic>.from(data));
-      } catch (e) {
-        debugPrint('CALLKIT: busy auto-reject error: $e');
-      }
+      debugPrint('CALLKIT: line busy ($_currentCallId) - auto-rejecting $uuid');
+      await _declineBySource(uuid, Map<String, dynamic>.from(data));
       return;
     }
 
