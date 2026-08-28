@@ -434,21 +434,35 @@ router.post('/api/plivo/configs/:id/link', requireRole('owner', 'admin'), async 
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
   const config = await c.env.DB.prepare(
-    'SELECT id, auth_id, auth_token, endpoint_username, endpoint_password, endpoint_id FROM plivo_configs WHERE id = ? AND workspace_id = ?'
-  ).bind(id, workspaceId).first<{ id: string; auth_id: string; auth_token: string; endpoint_username: string | null; endpoint_password: string | null; endpoint_id: string | null }>();
+    'SELECT id, auth_id, auth_token, endpoint_username, endpoint_password, endpoint_id, endpoint_app_id FROM plivo_configs WHERE id = ? AND workspace_id = ?'
+  ).bind(id, workspaceId).first<{ id: string; auth_id: string; auth_token: string; endpoint_username: string | null; endpoint_password: string | null; endpoint_id: string | null; endpoint_app_id: string | null }>();
   if (!config) return c.json({ error: 'Plivo config not found' }, 404);
 
   const body = (await c.req.json().catch(() => ({}))) as any;
   const force = body?.force === true;
 
-  // Already linked -> idempotent; force=true re-creates the endpoint.
-  if (!force && config.endpoint_username && config.endpoint_password) {
-    return c.json({ success: true, endpointUsername: config.endpoint_username, sipUri: 'sip:' + config.endpoint_username + '@phone.plivo.com', alreadyLinked: true });
-  }
-
   const baseUrl = ((c.env as any).APP_URL as string | undefined) || ('https://' + (c.req.header('host') || 'dheetantra.navasanganakah.com'));
   const answerUrl = baseUrl + '/api/plivo/webhook/app';
   const appName = 'DheeTantra-Softphone-' + workspaceId.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 12);
+
+  // Already linked -> idempotent; force=true re-creates the endpoint.
+  if (!force && config.endpoint_username && config.endpoint_password) {
+    let appId = config.endpoint_app_id;
+    if (!appId) {
+      const existingApp = await findOrCreateSoftphoneApp({ auth_id: config.auth_id, auth_token: config.auth_token }, appName, answerUrl);
+      if (existingApp.ok && existingApp.appId) {
+        appId = existingApp.appId;
+        await c.env.DB.prepare('UPDATE plivo_configs SET endpoint_app_id = ?, updated_at = ? WHERE id = ?').bind(appId, sqliteNow(), id).run();
+      }
+    }
+    return c.json({
+      success: true,
+      endpointUsername: config.endpoint_username,
+      sipUri: 'sip:' + config.endpoint_username + '@phone.plivo.com',
+      applicationSipUri: appId ? 'sip:' + appId + '@app.plivo.com' : null,
+      alreadyLinked: true,
+    });
+  }
 
   const app = await findOrCreateSoftphoneApp({ auth_id: config.auth_id, auth_token: config.auth_token }, appName, answerUrl);
   if (!app.ok) {
@@ -470,11 +484,18 @@ router.post('/api/plivo/configs/:id/link', requireRole('owner', 'admin'), async 
   }
 
   const endpointUsername = endpointRes.username || username;
+  const appId = app.appId || null;
   await c.env.DB.prepare(
-    'UPDATE plivo_configs SET endpoint_username = ?, endpoint_password = ?, endpoint_id = ?, updated_at = ? WHERE id = ?'
-  ).bind(endpointUsername, password, endpointRes.endpointId || null, sqliteNow(), id).run();
+    'UPDATE plivo_configs SET endpoint_username = ?, endpoint_password = ?, endpoint_id = ?, endpoint_app_id = ?, updated_at = ? WHERE id = ?'
+  ).bind(endpointUsername, password, endpointRes.endpointId || null, appId, sqliteNow(), id).run();
 
-  return c.json({ success: true, endpointUsername, sipUri: 'sip:' + endpointUsername + '@phone.plivo.com', alreadyLinked: false });
+  return c.json({
+    success: true,
+    endpointUsername,
+    sipUri: 'sip:' + endpointUsername + '@phone.plivo.com',
+    applicationSipUri: appId ? 'sip:' + appId + '@app.plivo.com' : null,
+    alreadyLinked: false,
+  });
 });
 
 router.delete('/api/plivo/configs/:id', requireRole('owner', 'admin'), async (c) => {
@@ -567,8 +588,8 @@ router.get('/api/plivo/sip-credentials', async (c) => {
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
   const cfg = await c.env.DB.prepare(
-    "SELECT endpoint_username, endpoint_password FROM plivo_configs WHERE workspace_id = ? AND is_active = 1 AND endpoint_username IS NOT NULL AND endpoint_username != '' AND endpoint_password IS NOT NULL AND endpoint_password != '' ORDER BY created_at ASC LIMIT 1"
-  ).bind(workspaceId).first<{ endpoint_username: string; endpoint_password: string } | null>();
+    "SELECT endpoint_username, endpoint_password, endpoint_app_id FROM plivo_configs WHERE workspace_id = ? AND is_active = 1 AND endpoint_username IS NOT NULL AND endpoint_username != '' AND endpoint_password IS NOT NULL AND endpoint_password != '' ORDER BY created_at ASC LIMIT 1"
+  ).bind(workspaceId).first<{ endpoint_username: string; endpoint_password: string; endpoint_app_id: string | null } | null>();
 
   if (!cfg || !cfg.endpoint_username || !cfg.endpoint_password) {
     return c.json({ error: 'Plivo softphone endpoint not configured' }, 400);
@@ -582,6 +603,7 @@ router.get('/api/plivo/sip-credentials', async (c) => {
     port: 5060,
     transport: 'UDP/TCP',
     sipUri: `sip:${cfg.endpoint_username}@phone.plivo.com`,
+    applicationSipUri: cfg.endpoint_app_id ? `sip:${cfg.endpoint_app_id}@app.plivo.com` : null,
   });
 });
 
