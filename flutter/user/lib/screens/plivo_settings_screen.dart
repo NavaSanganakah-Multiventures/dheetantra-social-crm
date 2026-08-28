@@ -262,6 +262,17 @@ class _PlivoSettingsScreenState extends State<PlivoSettingsScreen> {
     await _load();
   }
 
+  Future<void> _setAutoDialAgents(String configId, bool value) async {
+    final res = await ApiService().setPlivoAutoDialAgents(configId, value);
+    if (!mounted) return;
+    if (res['success'] == true) {
+      _snack(value ? 'Auto-forward चालू' : 'Auto-forward बंद');
+      await _load();
+    } else {
+      _snack('Error: ${res['error']}');
+    }
+  }
+
   Future<void> _deleteConfig(String id) async {
     final ok = await showDialog<bool>(
       context: context,
@@ -387,6 +398,25 @@ class _PlivoSettingsScreenState extends State<PlivoSettingsScreen> {
                                   onPressed: () => _showAddNumberDialog(cfg['id'] as String),
                                   icon: const Icon(Icons.add, size: 18),
                                   label: const Text('Number जोड़ें'),
+                                ),
+                              ],
+                            ),
+                            const Divider(height: 20),
+                            Row(
+                              children: [
+                                const Expanded(
+                                  child: Text(
+                                    'Auto-forward to live agent',
+                                    style: TextStyle(
+                                      color: AppColors.textPrimary,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ),
+                                Switch(
+                                  value: cfg['autoDialAgents'] != false,
+                                  onChanged: (v) => _setAutoDialAgents(cfg['id'] as String, v),
                                 ),
                               ],
                             ),
