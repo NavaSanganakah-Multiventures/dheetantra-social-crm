@@ -257,8 +257,8 @@ router.get('/api/plivo/configs', async (c) => {
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
   const { results } = await c.env.DB.prepare(
-    'SELECT id, name, auth_id, auth_token, is_active, created_at, updated_at FROM plivo_configs WHERE workspace_id = ? ORDER BY created_at ASC'
-  ).bind(workspaceId).all<{ id: string; name: string; auth_id: string; auth_token: string; is_active: number; created_at: string; updated_at: string }>();
+    'SELECT id, name, auth_id, auth_token, is_active, auto_dial_agents, created_at, updated_at FROM plivo_configs WHERE workspace_id = ? ORDER BY created_at ASC'
+  ).bind(workspaceId).all<{ id: string; name: string; auth_id: string; auth_token: string; is_active: number; auto_dial_agents: number; created_at: string; updated_at: string }>();
 
   const configs: any[] = [];
   for (const cfg of results || []) {
@@ -272,6 +272,7 @@ router.get('/api/plivo/configs', async (c) => {
       authId: cfg.auth_id,
       authTokenMasked: maskAuthToken(cfg.auth_token),
       isActive: cfg.is_active === 1,
+      autoDialAgents: cfg.auto_dial_agents === 1,
       fromNumbers: (nums.results || []).map((n) => ({
         id: n.id,
         fromNumber: n.from_number,
@@ -288,15 +289,15 @@ router.post('/api/plivo/configs', requireRole('owner', 'admin'), async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
-  const { name, authId, authToken, fromNumbers } = await c.req.json() as any;
+  const { name, authId, authToken, fromNumbers, autoDialAgents } = await c.req.json() as any;
   if (!authId || !authToken) {
     return c.json({ error: 'authId and authToken are required' }, 400);
   }
 
   const id = crypto.randomUUID();
   await c.env.DB.prepare(
-    'INSERT INTO plivo_configs (id, workspace_id, name, auth_id, auth_token, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 1, ?, ?)'
-  ).bind(id, workspaceId, name || 'My Plivo Account', authId, authToken, sqliteNow(), sqliteNow()).run();
+    'INSERT INTO plivo_configs (id, workspace_id, name, auth_id, auth_token, is_active, auto_dial_agents, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?)'
+  ).bind(id, workspaceId, name || 'My Plivo Account', authId, authToken, autoDialAgents === false ? 0 : 1, sqliteNow(), sqliteNow()).run();
 
   const nums = Array.isArray(fromNumbers) ? fromNumbers.filter((n: any) => typeof n === 'string' && n.trim()) : [];
   for (let i = 0; i < nums.length; i++) {
@@ -325,6 +326,7 @@ router.put('/api/plivo/configs/:id', requireRole('owner', 'admin'), async (c) =>
   if (body.authId !== undefined) { updates.push('auth_id = ?'); params.push(body.authId); }
   if (body.authToken !== undefined && body.authToken) { updates.push('auth_token = ?'); params.push(body.authToken); }
   if (body.isActive !== undefined) { updates.push('is_active = ?'); params.push(body.isActive ? 1 : 0); }
+  if (body.autoDialAgents !== undefined) { updates.push('auto_dial_agents = ?'); params.push(body.autoDialAgents ? 1 : 0); }
 
   if (updates.length === 0) return c.json({ error: 'No fields to update' }, 400);
 
@@ -617,8 +619,8 @@ router.post('/api/plivo/webhook/voice', async (c) => {
 
     const candidates = dialedNumberCandidates(to);
     const config = await c.env.DB.prepare(
-      'SELECT tc.id AS plivo_config_id, tc.workspace_id, tc.auth_id, tc.auth_token, tfn.id AS from_number_id, tfn.from_number FROM plivo_configs tc JOIN plivo_from_numbers tfn ON tc.id = tfn.plivo_config_id WHERE tfn.from_number IN (?, ?, ?) AND tfn.is_active = 1 AND tc.is_active = 1 LIMIT 1'
-    ).bind(candidates[0], candidates[1], candidates[2]).first<{ plivo_config_id: string; workspace_id: string; auth_id: string; auth_token: string; from_number_id: string; from_number: string }>();
+      'SELECT tc.id AS plivo_config_id, tc.workspace_id, tc.auth_id, tc.auth_token, tc.auto_dial_agents, tfn.id AS from_number_id, tfn.from_number FROM plivo_configs tc JOIN plivo_from_numbers tfn ON tc.id = tfn.plivo_config_id WHERE tfn.from_number IN (?, ?, ?) AND tfn.is_active = 1 AND tc.is_active = 1 LIMIT 1'
+    ).bind(candidates[0], candidates[1], candidates[2]).first<{ plivo_config_id: string; workspace_id: string; auth_id: string; auth_token: string; auto_dial_agents: number; from_number_id: string; from_number: string }>();
 
     if (!config) {
       console.warn('[Plivo Webhook] no workspace config for dialed number', to);
@@ -641,7 +643,10 @@ router.post('/api/plivo/webhook/voice', async (c) => {
     // Assign an available (live) agent, if any. Fire the agent leg first and
     // only mark them busy once the leg was accepted by Plivo.
     let assignedAgentId: string | null = null;
-    const agent = await pickAvailableAgent(c.env.DB, config.workspace_id);
+    // Honor the per-account "auto-forward to live agent" toggle. When OFF, no
+    // outbound PSTN leg is dialed (no Plivo forwarding charge); the caller waits
+    // in the conference and agents can answer in the app (Phase 2).
+    const agent = config.auto_dial_agents === 1 ? await pickAvailableAgent(c.env.DB, config.workspace_id) : null;
     if (agent) {
       const baseUrl = ((c.env as any).APP_URL as string | undefined) || ('https://' + (c.req.header('host') || 'dheetantra.navasanganakah.com'));
       const agentAnswerUrl = baseUrl + '/api/plivo/webhook/outbound?callId=' + callId + '&conferenceName=' + encodeURIComponent(conferenceName) + '&leg=agent';
