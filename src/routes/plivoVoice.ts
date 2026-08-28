@@ -421,11 +421,12 @@ router.post('/api/plivo/from-numbers/:id/default', requireRole('owner', 'admin')
 // then joins the inbound caller's conference via a SIP outbound call.
 // ---------------------------------------------------------------
 router.get('/api/plivo/sip-credentials', async (c) => {
-  const user = c.get('user');
-  if (!user) {
+  const user = c.get('user') as any;
+  if (!user || !user.id) {
     return c.json({ error: 'Authentication required' }, 401);
   }
-  const workspaceId = user.workspace_id;
+  const workspaceId = c.req.header('x-workspace-id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
   const cfg = await c.env.DB.prepare(
     "SELECT endpoint_username, endpoint_password FROM plivo_configs WHERE workspace_id = ? AND is_active = 1 AND endpoint_username IS NOT NULL AND endpoint_username != '' AND endpoint_password IS NOT NULL AND endpoint_password != '' ORDER BY created_at ASC LIMIT 1"
