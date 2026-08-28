@@ -71,6 +71,96 @@ function plivoXmlResponse(xml: string, status = 200): Response {
   });
 }
 
+// Plivo V3 signature validation (matches plivo-node SDK's validateV3Signature).
+// X-Plivo-Signature-V3 is HMAC-SHA256(auth_token, assembledUrl + '.' + nonce),
+// base64-encoded. For POST the assembled string is: scheme://host:port/path
+// + '?' + sorted query params (key=value&...) + '.' + sorted body params
+// (key+value concatenated), then '.' + nonce.
+async function hmacSha256Base64(key: string, message: string): Promise<string> {
+  const cryptoKey = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(key),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const signature = await crypto.subtle.sign('HMAC', cryptoKey, new TextEncoder().encode(message));
+  const bytes = new Uint8Array(signature);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  return btoa(binary);
+}
+
+function plivoSortedQueryString(params: Record<string, string[]>): string {
+  const parts: string[] = [];
+  for (const key of Object.keys(params).sort()) {
+    const values = (params[key] || []).slice().sort();
+    for (const value of values) parts.push(key + '=' + value);
+  }
+  return parts.join('&');
+}
+
+function plivoSortedParamsString(params: Record<string, string[]>): string {
+  let out = '';
+  for (const key of Object.keys(params).sort()) {
+    const values = (params[key] || []).slice().sort();
+    for (const value of values) out += key + value;
+  }
+  return out;
+}
+
+function plivoConstructGetUrl(uri: string, params: Record<string, string[]>, emptyPostParams = true): string {
+  const u = new URL(uri);
+  const base = u.protocol + '//' + u.host + u.pathname;
+  const merged: Record<string, string[]> = {};
+  for (const [k, v] of u.searchParams.entries()) {
+    if (!merged[k]) merged[k] = [];
+    merged[k].push(v);
+  }
+  for (const [k, values] of Object.entries(params)) {
+    if (!merged[k]) merged[k] = [];
+    merged[k].push(...values);
+  }
+  const q = plivoSortedQueryString(merged);
+  let out = base;
+  if (q.length > 0 || !emptyPostParams) out += '?' + q;
+  if (q.length > 0 && !emptyPostParams) out += '.';
+  return out;
+}
+
+function plivoConstructPostUrl(uri: string, params: Record<string, string[]>): string {
+  const empty = Object.keys(params).length === 0;
+  const base = plivoConstructGetUrl(uri, {}, empty);
+  return base + plivoSortedParamsString(params);
+}
+
+function plivoBodyToParams(body: Record<string, string>): Record<string, string[]> {
+  const out: Record<string, string[]> = {};
+  for (const [k, v] of Object.entries(body)) {
+    if (v) out[k] = [v];
+  }
+  return out;
+}
+
+async function verifyPlivoSignature(c: any, authToken: string | undefined, body: Record<string, string>): Promise<boolean> {
+  if (!authToken) return false;
+  const signature = c.req.header('X-Plivo-Signature-V3') || '';
+  const nonce = c.req.header('X-Plivo-Signature-V3-Nonce') || '';
+  if (!signature || !nonce) return false;
+  const method = c.req.method;
+  const uri = c.req.url;
+  let baseUrl = uri;
+  if (method === 'GET') {
+    baseUrl = plivoConstructGetUrl(uri, {});
+  } else if (method === 'POST') {
+    baseUrl = plivoConstructPostUrl(uri, plivoBodyToParams(body));
+  } else {
+    return false;
+  }
+  const expected = await hmacSha256Base64(authToken, baseUrl + '.' + nonce);
+  return signature.split(',').some((s) => s === expected);
+}
+
 async function findOrCreateGsmContact(db: D1Database, workspaceId: string, phone: string, name?: string) {
   const normalizedPhone = phone.replace(/[^0-9+]/g, '');
   const existing = await db.prepare(
@@ -872,6 +962,11 @@ router.post('/api/plivo/webhook/voice', async (c) => {
       return plivoXmlResponse(XML_DECL + '<Response><Hangup/></Response>', 200);
     }
 
+    if (!(await verifyPlivoSignature(c, config.auth_token, body))) {
+      console.warn('[Plivo Webhook] invalid signature for voice call', to);
+      return c.text('Forbidden', 403);
+    }
+
     const callId = crypto.randomUUID();
     const conferenceName = conferenceNameFromCallId(callId);
     const timestamp = sqliteNow();
@@ -981,6 +1076,12 @@ router.post('/api/plivo/webhook/status', async (c) => {
 
     if (!call) return c.text('OK', 200);
 
+    const plivoConfig = await c.env.DB.prepare('SELECT auth_token FROM plivo_configs WHERE id = ?').bind(call.plivo_config_id).first<{ auth_token: string }>();
+    if (!(await verifyPlivoSignature(c, plivoConfig?.auth_token, body))) {
+      console.warn('[Plivo Webhook] invalid signature on status webhook', callId || callUuid);
+      return c.text('Forbidden', 403);
+    }
+
     // Conference callbackUrl events (inbound caller leg).
     if (conferenceAction) {
       if (conferenceAction === 'enter' && call.status !== 'in_progress' && call.status !== 'ended') {
@@ -1041,6 +1142,14 @@ router.post('/api/plivo/webhook/outbound', async (c) => {
     const waiting = c.req.query('waiting') === '1';
     const callUuid = body.CallUUID || '';
     const conferenceName = c.req.query('conferenceName') || (callId ? conferenceNameFromCallId(callId) : 'default_room');
+
+    if (callId) {
+      const callConfig = await c.env.DB.prepare('SELECT pc.auth_token FROM calls c JOIN plivo_configs pc ON pc.id = c.plivo_config_id WHERE c.id = ?').bind(callId).first<{ auth_token: string }>();
+      if (!(await verifyPlivoSignature(c, callConfig?.auth_token, body))) {
+        console.warn('[Plivo Webhook] invalid signature on outbound webhook', callId);
+        return c.text('Forbidden', 403);
+      }
+    }
 
     if (callId && leg === 'customer' && callUuid) {
       const call = await c.env.DB.prepare('SELECT id, workspace_id FROM calls WHERE id = ?').bind(callId).first<{ id: string; workspace_id: string }>();
