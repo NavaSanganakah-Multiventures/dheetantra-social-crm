@@ -486,6 +486,15 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> declinePlivoCall(String callId) async {
+    try {
+      final res = await _dio.post('/api/plivo/call/$callId/decline');
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
   // ========== PLIVO WORKSPACE CONFIG ==========
 
   Future<List<dynamic>> getPlivoConfigs() async {
