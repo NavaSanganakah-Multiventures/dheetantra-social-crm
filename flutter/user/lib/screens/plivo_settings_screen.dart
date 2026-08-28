@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
@@ -16,6 +17,8 @@ class _PlivoSettingsScreenState extends State<PlivoSettingsScreen> {
   String _agentStatus = 'not_live';
   String _agentPhoneMasked = '';
   String? _linkingConfigId;
+  Map<String, dynamic>? _sipCreds;
+  bool _showSipPassword = false;
 
   @override
   void initState() {
@@ -29,6 +32,14 @@ class _PlivoSettingsScreenState extends State<PlivoSettingsScreen> {
     });
     final configs = await ApiService().getPlivoConfigs();
     final agents = await ApiService().getVoiceAgents();
+
+    Map<String, dynamic>? sipCreds;
+    try {
+      final sip = await ApiService().getPlivoSipCredentials();
+      if ((sip['username']?.toString() ?? '').isNotEmpty) sipCreds = sip;
+    } catch (_) {
+      sipCreds = null;
+    }
 
     var me = ApiService().currentUser;
     if (me == null) {
@@ -52,6 +63,7 @@ class _PlivoSettingsScreenState extends State<PlivoSettingsScreen> {
       _configs = configs;
       _agentStatus = meAgent?['voiceStatus'] as String? ?? 'not_live';
       _agentPhoneMasked = meAgent?['phoneMasked'] as String? ?? '';
+      _sipCreds = sipCreds;
       _loading = false;
     });
   }
@@ -59,6 +71,12 @@ class _PlivoSettingsScreenState extends State<PlivoSettingsScreen> {
   void _snack(String msg) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  Future<void> _copy(String value) async {
+    await Clipboard.setData(ClipboardData(text: value));
+    if (!mounted) return;
+    _snack('कॉपी हो गया');
   }
 
   Future<void> _setAgentStatus(String status) async {
@@ -338,6 +356,8 @@ class _PlivoSettingsScreenState extends State<PlivoSettingsScreen> {
               children: [
                 _buildAgentCard(),
                 const SizedBox(height: 16),
+                _buildSipDetailsCard(),
+                const SizedBox(height: 16),
                 if (_configs.isEmpty)
                   const Padding(
                     padding: EdgeInsets.all(24),
@@ -473,6 +493,156 @@ class _PlivoSettingsScreenState extends State<PlivoSettingsScreen> {
                   }).toList(),
               ],
             ),
+    );
+  }
+
+  Widget _buildSipDetailsCard() {
+    final creds = _sipCreds;
+    final username = creds?['username']?.toString() ?? '';
+    final password = creds?['password']?.toString() ?? '';
+    final server = creds?['server']?.toString() ?? 'phone.plivo.com';
+    final port = creds?['port']?.toString() ?? '5060';
+    final transport = creds?['transport']?.toString() ?? 'UDP/TCP';
+    final sipUri = creds?['sipUri']?.toString() ??
+        (username.isNotEmpty ? 'sip:$username@$server' : '');
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.voip, size: 18, color: AppColors.accent),
+              SizedBox(width: 8),
+              Text(
+                'Softphone / Zoiper SIP Details',
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'इन्हीं credentials से app का softphone register होता है। Zoiper (या किसी भी SIP softphone) में यही details डालकर उसी endpoint से connect कर सकते हैं।',
+            style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+          ),
+          const SizedBox(height: 12),
+          if (creds == null)
+            const Text(
+              'SIP endpoint अभी link नहीं हुआ — नीचे "Link SIP Endpoint" दबाएं।',
+              style: TextStyle(color: AppColors.warning, fontSize: 13, fontWeight: FontWeight.w600),
+            )
+          else ...[
+            _sipDetailRow('Server', server),
+            _sipDetailRow('Port', '$port ($transport)'),
+            _sipDetailRow('Username', username, mono: true),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                children: [
+                  const SizedBox(
+                    width: 110,
+                    child: Text('Password', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                  ),
+                  Expanded(
+                    child: SelectableText(
+                      _showSipPassword ? password : '••••••••••••',
+                      style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 13,
+                        fontFamily: 'monospace',
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: _showSipPassword ? 'छुपाएं' : 'दिखाएं',
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () => setState(() => _showSipPassword = !_showSipPassword),
+                    icon: Icon(_showSipPassword ? Icons.visibility_off : Icons.visibility, size: 18),
+                  ),
+                  IconButton(
+                    tooltip: 'कॉपी करें',
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () => _copy(password),
+                    icon: const Icon(Icons.copy, size: 18),
+                  ),
+                ],
+              ),
+            ),
+            if (sipUri.isNotEmpty) _sipDetailRow('SIP URI', sipUri, mono: true),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppColors.accent.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Zoiper में कैसे डालें:',
+                    style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w700, fontSize: 12),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    '• Account type: SIP\n'
+                    '• Username / Auth ID: ऊपर वाला Username\n'
+                    '• Password: ऊपर वाला Password\n'
+                    '• Domain / Host: phone.plivo.com\n'
+                    '• Transport: UDP (port 5060) — TCP (port 5060) भी चलता है\n'
+                    '• ध्यान दें: app का softphone और Zoiper एक साथ एक ही endpoint पर register न करें — एक समय में एक ही device इस्तेमाल करें।',
+                    style: TextStyle(color: AppColors.textMuted, fontSize: 12, height: 1.5),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _sipDetailRow(String label, String value, {bool mono = false}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 110,
+            child: Text(label, style: const TextStyle(color: AppColors.textMuted, fontSize: 12)),
+          ),
+          Expanded(
+            child: SelectableText(
+              value,
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 13,
+                fontFamily: mono ? 'monospace' : null,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          InkWell(
+            onTap: () => _copy(value),
+            child: const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 6),
+              child: Icon(Icons.copy, size: 16, color: AppColors.textMuted),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
