@@ -221,7 +221,9 @@ class _CallScreenState extends State<CallScreen> {
           widget.callData['id']?.toString() ??
           widget.callData['callId']?.toString() ?? '';
       final ok = await PlivoVoiceService().joinConference(conferenceName);
-      if (!ok && mounted) {
+      if (!ok && mounted && !_status.startsWith('error:')) {
+        // joinConference() ne specific error (e.g. SIP registration) already
+        // set kar diya hai — generic message se override na karein.
         setState(() => _status = 'error: Failed to connect Plivo call');
       }
       return;

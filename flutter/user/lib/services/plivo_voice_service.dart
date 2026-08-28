@@ -65,10 +65,11 @@ class PlivoVoiceService implements SipUaHelperListener {
   }
 
   /// Backend se endpoint credentials lekar SIP UA ko start/register karta hai.
+  /// Concurrent callers (init + outbound join) ek hi attempt par wait karte hain.
   Future<bool> _register() async {
-    final existing = _registrationCompleter;
-    if (existing != null && !existing.isCompleted) {
-      return existing.future;
+    final inflight = _registrationCompleter;
+    if (inflight != null && !inflight.isCompleted) {
+      return _waitRegistration(inflight);
     }
 
     final creds = await ApiService().getPlivoSipCredentials();
@@ -97,12 +98,39 @@ class PlivoVoiceService implements SipUaHelperListener {
         {'urls': 'stun:stun.l.google.com:19302'},
       ];
 
-    _registrationCompleter = Completer<bool>();
-    await _helper.start(settings);
-    return _registrationCompleter!.future.timeout(
-      const Duration(seconds: 15),
-      onTimeout: () => false,
-    );
+    final completer = Completer<bool>();
+    _registrationCompleter = completer;
+
+    try {
+      await _helper.start(settings);
+    } catch (e) {
+      debugPrint('[PlivoVoice] SIP start error: $e');
+      if (!completer.isCompleted) completer.complete(false);
+      return false;
+    }
+
+    return _waitRegistration(completer);
+  }
+
+  /// Registration attempt ka result wait karta hai (timeout ke saath). Fail
+  /// hone par specific error stream par bhejta hai taaki CallScreen sahi wajah
+  /// dikha sake.
+  Future<bool> _waitRegistration(Completer<bool> completer) async {
+    try {
+      final ok = await completer.future.timeout(const Duration(seconds: 15));
+      if (!ok) {
+        _callStateController.add('error: SIP registration failed');
+      }
+      return ok;
+    } on TimeoutException {
+      debugPrint('[PlivoVoice] SIP registration timed out');
+      _callStateController.add('error: SIP registration failed');
+      return false;
+    } finally {
+      if (identical(_registrationCompleter, completer)) {
+        _registrationCompleter = null;
+      }
+    }
   }
 
   /// Conference join karne ke liye SIP outbound call. Dest = conference name
@@ -117,9 +145,9 @@ class PlivoVoiceService implements SipUaHelperListener {
 
     try {
       if (!_helper.registered) {
-        await _register();
-        if (!_helper.registered) {
-          _callStateController.add('error: SIP registration failed');
+        final registered = await _register();
+        if (!registered) {
+          // _register() ne specific error already stream par bheja hai.
           return false;
         }
       }
