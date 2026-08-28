@@ -191,7 +191,7 @@ async function cleanupPlivoCall(env: Env, call: { id: string; workspace_id: stri
   }
 }
 
-async function pushIncomingCallToAgents(env: Env, c: any, workspaceId: string, callId: string, from: string, callerName: string, conferenceName: string, plivoConfigId: string) {
+async function pushIncomingCallToAgents(env: Env, c: any, workspaceId: string, callId: string, from: string, callerName: string, conferenceName: string, plivoConfigId: string, answerInApp: boolean) {
   c.executionCtx.waitUntil(
     (async () => {
       try {
@@ -220,7 +220,7 @@ async function pushIncomingCallToAgents(env: Env, c: any, workspaceId: string, c
                 'Call from ' + callerName,
                 {
                   workspaceId,
-                  type: 'plivo_incoming_call',
+                  type: answerInApp ? 'incoming_call' : 'plivo_incoming_call',
                   source: 'plivo',
                   id: callId,
                   callerNumber: from,
@@ -257,8 +257,8 @@ router.get('/api/plivo/configs', async (c) => {
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
   const { results } = await c.env.DB.prepare(
-    'SELECT id, name, auth_id, auth_token, is_active, auto_dial_agents, created_at, updated_at FROM plivo_configs WHERE workspace_id = ? ORDER BY created_at ASC'
-  ).bind(workspaceId).all<{ id: string; name: string; auth_id: string; auth_token: string; is_active: number; auto_dial_agents: number; created_at: string; updated_at: string }>();
+    'SELECT id, name, auth_id, auth_token, is_active, auto_dial_agents, endpoint_username, endpoint_password, created_at, updated_at FROM plivo_configs WHERE workspace_id = ? ORDER BY created_at ASC'
+  ).bind(workspaceId).all<{ id: string; name: string; auth_id: string; auth_token: string; is_active: number; auto_dial_agents: number; endpoint_username: string | null; endpoint_password: string | null; created_at: string; updated_at: string }>();
 
   const configs: any[] = [];
   for (const cfg of results || []) {
@@ -273,6 +273,9 @@ router.get('/api/plivo/configs', async (c) => {
       authTokenMasked: maskAuthToken(cfg.auth_token),
       isActive: cfg.is_active === 1,
       autoDialAgents: cfg.auto_dial_agents === 1,
+      endpointUsername: cfg.endpoint_username ?? '',
+      endpointPasswordMasked: cfg.endpoint_password ? maskAuthToken(cfg.endpoint_password) : '',
+      endpointConfigured: !!(cfg.endpoint_username && cfg.endpoint_password),
       fromNumbers: (nums.results || []).map((n) => ({
         id: n.id,
         fromNumber: n.from_number,
@@ -289,15 +292,15 @@ router.post('/api/plivo/configs', requireRole('owner', 'admin'), async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
-  const { name, authId, authToken, fromNumbers, autoDialAgents } = await c.req.json() as any;
+  const { name, authId, authToken, fromNumbers, autoDialAgents, endpointUsername, endpointPassword } = await c.req.json() as any;
   if (!authId || !authToken) {
     return c.json({ error: 'authId and authToken are required' }, 400);
   }
 
   const id = crypto.randomUUID();
   await c.env.DB.prepare(
-    'INSERT INTO plivo_configs (id, workspace_id, name, auth_id, auth_token, is_active, auto_dial_agents, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?)'
-  ).bind(id, workspaceId, name || 'My Plivo Account', authId, authToken, autoDialAgents === false ? 0 : 1, sqliteNow(), sqliteNow()).run();
+    'INSERT INTO plivo_configs (id, workspace_id, name, auth_id, auth_token, is_active, auto_dial_agents, endpoint_username, endpoint_password, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?)'
+  ).bind(id, workspaceId, name || 'My Plivo Account', authId, authToken, autoDialAgents === false ? 0 : 1, endpointUsername || null, endpointPassword || null, sqliteNow(), sqliteNow()).run();
 
   const nums = Array.isArray(fromNumbers) ? fromNumbers.filter((n: any) => typeof n === 'string' && n.trim()) : [];
   for (let i = 0; i < nums.length; i++) {
@@ -327,6 +330,8 @@ router.put('/api/plivo/configs/:id', requireRole('owner', 'admin'), async (c) =>
   if (body.authToken !== undefined && body.authToken) { updates.push('auth_token = ?'); params.push(body.authToken); }
   if (body.isActive !== undefined) { updates.push('is_active = ?'); params.push(body.isActive ? 1 : 0); }
   if (body.autoDialAgents !== undefined) { updates.push('auto_dial_agents = ?'); params.push(body.autoDialAgents ? 1 : 0); }
+  if (body.endpointUsername !== undefined) { updates.push('endpoint_username = ?'); params.push(body.endpointUsername || null); }
+  if (body.endpointPassword !== undefined && body.endpointPassword) { updates.push('endpoint_password = ?'); params.push(body.endpointPassword); }
 
   if (updates.length === 0) return c.json({ error: 'No fields to update' }, 400);
 
@@ -408,6 +413,35 @@ router.post('/api/plivo/from-numbers/:id/default', requireRole('owner', 'admin')
   await c.env.DB.prepare('UPDATE plivo_from_numbers SET is_default = 0 WHERE plivo_config_id = ?').bind(row.plivo_config_id).run();
   await c.env.DB.prepare('UPDATE plivo_from_numbers SET is_default = 1 WHERE id = ?').bind(id).run();
   return c.json({ success: true });
+});
+
+// ---------------------------------------------------------------
+// Softphone (SIP) credentials for in-app Plivo answering. The Flutter
+// app registers a SIP endpoint against phone.plivo.com using these and
+// then joins the inbound caller's conference via a SIP outbound call.
+// ---------------------------------------------------------------
+router.get('/api/plivo/sip-credentials', async (c) => {
+  const user = c.get('user');
+  if (!user) {
+    return c.json({ error: 'Authentication required' }, 401);
+  }
+  const workspaceId = user.workspace_id;
+
+  const cfg = await c.env.DB.prepare(
+    "SELECT endpoint_username, endpoint_password FROM plivo_configs WHERE workspace_id = ? AND is_active = 1 AND endpoint_username IS NOT NULL AND endpoint_username != '' AND endpoint_password IS NOT NULL AND endpoint_password != '' ORDER BY created_at ASC LIMIT 1"
+  ).bind(workspaceId).first<{ endpoint_username: string; endpoint_password: string } | null>();
+
+  if (!cfg || !cfg.endpoint_username || !cfg.endpoint_password) {
+    return c.json({ error: 'Plivo softphone endpoint not configured' }, 400);
+  }
+
+  return c.json({
+    username: cfg.endpoint_username,
+    password: cfg.endpoint_password,
+    domain: 'phone.plivo.com',
+    websocketUrl: 'wss://phone.plivo.com',
+    sipUri: `sip:${cfg.endpoint_username}@phone.plivo.com`,
+  });
 });
 
 // ---------------------------------------------------------------
@@ -675,6 +709,9 @@ router.post('/api/plivo/webhook/voice', async (c) => {
       }
     }
 
+    // App answering (auto-forward toggle OFF) vs PSTN forward (toggle ON).
+    const answerInApp = config.auto_dial_agents !== 1;
+
     // Notify all online dashboard/web clients via the workspace Durable Object.
     await broadcastToWorkspace(c.env, config.workspace_id, {
       type: 'plivo_incoming_call',
@@ -684,11 +721,13 @@ router.post('/api/plivo/webhook/voice', async (c) => {
       conferenceName,
       workspaceId: config.workspace_id,
       assignedAgentId,
+      answerInApp,
     });
 
-    // Push notification to agents (app killed/background wake-up). Data-only so
-    // the Flutter app can route it without CallKit (agent answers on PSTN).
-    await pushIncomingCallToAgents(c.env, c, config.workspace_id, callId, from, callerName, conferenceName, config.plivo_config_id);
+    // Push to the agents' apps. When the auto-forward toggle is OFF, the push
+    // is routed as an in-app CallKit ring (type 'incoming_call'); when ON, the
+    // agent answers on PSTN and the push stays a local-only notification.
+    await pushIncomingCallToAgents(c.env, c, config.workspace_id, callId, from, callerName, conferenceName, config.plivo_config_id, answerInApp);
 
     const baseUrl = ((c.env as any).APP_URL as string | undefined) || ('https://' + (c.req.header('host') || 'dheetantra.navasanganakah.com'));
     const statusCallbackUrl = baseUrl + '/api/plivo/webhook/status?callId=' + callId + '&leg=inbound';
@@ -811,6 +850,20 @@ router.post('/api/plivo/webhook/outbound', async (c) => {
     console.error('[Plivo Webhook] outbound error:', e);
     return plivoXmlResponse(XML_DECL + '<Response><Hangup/></Response>', 500);
   }
+});
+
+// Answer URL for outbound SIP calls placed by the app's softphone. The app
+// dials sip:<conferenceName>@phone.plivo.com; Plivo's SIP endpoint routing
+// sends that INVITE here, and we bridge the SIP leg into the matching
+// conference (the one the inbound caller is already held in).
+router.post('/api/plivo/webhook/app', async (c) => {
+  const body = await parseWebhookBody(c);
+  const to = (body.To || body.to || '').toString();
+  const m = /^sip:([^@]+)@/i.exec(to);
+  const conferenceName = m ? m[1] : 'default_room';
+  return plivoXmlResponse(
+    `<Response><Conference startConferenceOnEnter="true" endConferenceOnExit="false" beep="false">${escXml(conferenceName)}</Conference></Response>`
+  );
 });
 
 // Fallback URL for all Plivo webhooks. Returns a benign empty response so
