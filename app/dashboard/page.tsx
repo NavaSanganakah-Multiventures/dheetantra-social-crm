@@ -279,7 +279,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
           setWsStatus('connected');
         };
 
-        socket.onmessage = (event) => {
+        socket.onmessage = async (event) => {
           try {
             const data = JSON.parse(event.data);
             if (data.type === 'whatsapp_incoming_call') {
