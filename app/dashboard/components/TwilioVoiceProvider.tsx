@@ -27,7 +27,7 @@ interface TwilioVoiceContextValue {
   isMuted: boolean;
   speakerOn: boolean;
   duration: number;
-  startCall: (contact: TwilioContact) => Promise<void>;
+  startCall: (contact: TwilioContact, opts?: { fromNumber?: string; twilioConfigId?: string }) => Promise<void>;
   answer: () => void;
   reject: () => void;
   hangup: () => void;
@@ -259,7 +259,7 @@ export function TwilioVoiceProvider({ children }: { children: React.ReactNode })
   );
 
   const startCall = useCallback(
-    async (contact: TwilioContact) => {
+    async (contact: TwilioContact, opts?: { fromNumber?: string; twilioConfigId?: string }) => {
       if (!workspaceId) throw new Error("No workspace selected");
       setStatus("connecting");
       try {
@@ -272,6 +272,8 @@ export function TwilioVoiceProvider({ children }: { children: React.ReactNode })
           body: JSON.stringify({
             to: contact.phone,
             contactId: contact.id,
+            ...(opts?.twilioConfigId ? { twilioConfigId: opts.twilioConfigId } : {}),
+            ...(opts?.fromNumber ? { fromNumber: opts.fromNumber } : {}),
           }),
         });
         const data = await res.json() as any;
