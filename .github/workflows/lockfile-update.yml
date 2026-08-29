@@ -1,7 +1,9 @@
 name: Regenerate lockfile
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - plivo-web-softphone
 
 permissions:
   contents: write
