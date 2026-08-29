@@ -225,7 +225,7 @@ router.post('/api/whatsapp/calls/:id/answer', async (c) => {
   const url = `https://graph.facebook.com/v20.0/${phoneNumberId}/calls`;
   const headers = { 'Authorization': `Bearer ${config.access_token}`, 'Content-Type': 'application/json' };
 
-  // Step 1: pre_accept â signal readiness and establish media connection
+  // Step 1: pre_accept Ã¢ÂÂ signal readiness and establish media connection
   const preAcceptRes = await fetch(url, {
     method: 'POST',
     headers,
@@ -238,7 +238,7 @@ router.post('/api/whatsapp/calls/:id/answer', async (c) => {
   const preAcceptData: any = await preAcceptRes.json();
   console.log('[Calling] pre_accept response:', JSON.stringify(preAcceptData));
 
-  // Step 2: accept â formally answer the call
+  // Step 2: accept Ã¢ÂÂ formally answer the call
   const acceptRes = await fetch(url, {
     method: 'POST',
     headers,
@@ -273,6 +273,11 @@ router.post('/api/whatsapp/calls/:id/terminate', async (c) => {
   }
   if (!config) return c.json({ error: 'WhatsApp not configured' }, 400);
 
+  // For outbound calls the local id is different from Meta's call_id.
+  const callRow = await c.env.DB.prepare('SELECT external_call_id FROM calls WHERE id = ? AND workspace_id = ?')
+    .bind(callId, workspaceId).first<{ external_call_id: string | null }>();
+  const externalCallId = callRow?.external_call_id || callId;
+
   const url = `https://graph.facebook.com/v20.0/${phoneNumberId}/calls`;
 
   const res = await fetch(url, {
@@ -280,7 +285,7 @@ router.post('/api/whatsapp/calls/:id/terminate', async (c) => {
     headers: { 'Authorization': `Bearer ${config.access_token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       messaging_product: 'whatsapp',
-      call_id: callId,
+      call_id: externalCallId,
       action: 'terminate'
     })
   });
@@ -325,7 +330,7 @@ router.post('/api/whatsapp/calls/:id/reject', async (c) => {
   console.log('[Calling] reject response:', JSON.stringify(data));
 
   // Busy-rejected calls ka status preserve karo (app-side busy guard bhi isi
-  // route par aata hai) â warna 'busy' record 'declined' se overwrite ho jayega.
+  // route par aata hai) Ã¢ÂÂ warna 'busy' record 'declined' se overwrite ho jayega.
   await c.env.DB.prepare("UPDATE calls SET status = 'declined' WHERE id = ? AND workspace_id = ? AND status != 'busy'")
     .bind(callId, workspaceId).run();
 
@@ -357,7 +362,7 @@ router.post('/api/whatsapp/calls/recordings', async (c) => {
   }
 });
 
-// TOGGLE calling configuration â syncs with Meta Graph API
+// TOGGLE calling configuration Ã¢ÂÂ syncs with Meta Graph API
 router.post('/api/whatsapp/calls/toggle', async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
@@ -499,7 +504,7 @@ router.get('/api/whatsapp/calls/config', async (c) => {
   return c.json({ calling_enabled: config ? config.calling_enabled === 1 : true });
 });
 
-// GET calling status from Meta API â verify calling is actually enabled on Meta's side
+// GET calling status from Meta API Ã¢ÂÂ verify calling is actually enabled on Meta's side
 router.get('/api/whatsapp/calls/status', async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
