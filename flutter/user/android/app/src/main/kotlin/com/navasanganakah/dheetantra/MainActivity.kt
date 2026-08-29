@@ -7,8 +7,12 @@ import android.content.Intent
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import com.navasanganakah.dheetantra.callerid.CallerIdChannel
+import com.navasanganakah.dheetantra.plivo.PlivoChannel
+import com.navasanganakah.dheetantra.plivo.PlivoManager
 
 class MainActivity: FlutterActivity() {
+    private lateinit var plivoChannel: PlivoChannel
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -16,6 +20,8 @@ class MainActivity: FlutterActivity() {
         CallerIdChannel.setInitialIntent(intent)
         CallerIdChannel.setActivity(this)
 
+        plivoChannel = PlivoChannel(this)
+        PlivoManager.get().ensureInitialized(applicationContext)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             setShowWhenLocked(true)
@@ -32,6 +38,7 @@ class MainActivity: FlutterActivity() {
         super.configureFlutterEngine(flutterEngine)
         CallerIdChannel.register(flutterEngine, this)
         CallerIdChannel.setActivity(this)
+        plivoChannel.register(flutterEngine)
     }
 
     override fun onNewIntent(intent: Intent) {
