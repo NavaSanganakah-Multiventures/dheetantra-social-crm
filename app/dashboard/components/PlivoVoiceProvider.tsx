@@ -48,6 +48,12 @@ function formatDuration(seconds: number) {
   return `${m}:${s}`;
 }
 
+// Plivo call IDs are server-generated UUIDs (crypto.randomUUID()). Validate
+// before interpolating into a request URL to satisfy CodeQL SSRF checks.
+function isSafeCallId(id: string | null | undefined): id is string {
+  return !!id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+}
+
 export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) {
   const [workspaceId, setWorkspaceId] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
@@ -342,9 +348,9 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
   const reject = useCallback(async () => {
     const callId = incoming?.id;
     setIncoming(null);
-    if (callId && workspaceId) {
+    if (isSafeCallId(callId) && workspaceId) {
       try {
-        await fetch(`/api/plivo/call/${callId}/decline`, {
+        await fetch(`/api/plivo/call/${encodeURIComponent(callId)}/decline`, {
           method: "POST",
           headers: { "x-workspace-id": workspaceId },
         });
@@ -362,9 +368,9 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
       console.error("[PlivoWeb] hangup error", e);
     }
     cleanupCall();
-    if (callId && workspaceId) {
+    if (isSafeCallId(callId) && workspaceId) {
       try {
-        await fetch(`/api/plivo/call/${callId}/hangup`, {
+        await fetch(`/api/plivo/call/${encodeURIComponent(callId)}/hangup`, {
           method: "POST",
           headers: { "x-workspace-id": workspaceId },
         });

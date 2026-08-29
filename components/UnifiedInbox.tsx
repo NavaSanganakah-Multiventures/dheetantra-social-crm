@@ -100,8 +100,12 @@ const MEDIA_LABELS: Record<string, string> = {
   reaction: 'रिएक्शन', system: 'सिस्टम', system_call: 'कॉल', button: 'बटन',
 };
 
-const isMediaUrl = (url: string | null | undefined): url is string =>
-  !!url && (url.startsWith('/api/') || url.startsWith('http'));
+const isMediaUrl = (url: string | null | undefined): url is string => {
+  if (!url) return false;
+  // Only same-origin proxy paths and absolute http(s) URLs are safe. This
+  // blocks javascript:, data:, and protocol-relative URLs (XSS/open redirect).
+  return url.startsWith('/api/') || url.startsWith('http://') || url.startsWith('https://');
+};
 
 function parseJsonMedia(value: string | null): any {
   if (!value) return null;
