@@ -177,11 +177,11 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
 
     return () => {
       cancelled = true;
-      if (sdkRef.current?.client && typeof sdkRef.current.client.disconnect === "function") {
+      if (sdkRef.current?.client && typeof sdkRef.current.client.logout === "function") {
         try {
-          sdkRef.current.client.disconnect();
+          sdkRef.current.client.logout();
         } catch (e) {
-          console.error("[PlivoWeb] client disconnect error", e);
+          console.error("[PlivoWeb] client logout error", e);
         }
       }
       sdkRef.current = null;
@@ -390,7 +390,7 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
   const toggleSpeaker = useCallback(() => {
     const client = clientRef.current;
     try {
-      const speaker = client?.speakerDevices;
+      const speaker = client?.audio?.speakerDevices;
       if (speaker) {
         if (!speakerOn) {
           if (typeof speaker.set === "function") speaker.set("default");
