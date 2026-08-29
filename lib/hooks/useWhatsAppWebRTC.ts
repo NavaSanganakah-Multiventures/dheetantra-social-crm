@@ -224,7 +224,7 @@ export function useWhatsAppWebRTC() {
 
       // Validate that we have SDP before proceeding
       if (!call.sdp) {
-        throw new Error('SDP (Session Description Protocol) à¤¡à¥à¤à¤¾ à¤à¤ªà¤²à¤¬à¥à¤§ à¤¨à¤¹à¥à¤ à¤¹à¥à¥¤ à¤à¥à¤ªà¤¯à¤¾ WhatsApp Cloud API à¤à¥ Calling Webhook à¤¸à¥à¤à¤¿à¤à¤ à¤à¤¾à¤à¤à¥à¤à¥¤');
+        throw new Error('SDP (Session Description Protocol) डेटा उपलब्ध नहीं है। कृपया WhatsApp Cloud API की Calling Webhook सेटिंग जांचें।');
       }
       
       // 1. Fetch Cloudflare TURN/STUN credentials
@@ -256,7 +256,7 @@ export function useWhatsAppWebRTC() {
           setStatus('connected');
           startDurationTimer();
         } else if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
-          setError('à¤à¤¨à¥à¤à¥à¤¶à¤¨ à¤µà¤¿à¤«à¤² à¤¹à¥ à¤à¤¯à¤¾');
+          setError('कनेक्शन विफल हो गया');
           cleanup();
         }
       };
@@ -284,7 +284,7 @@ export function useWhatsAppWebRTC() {
             }
           };
           pc.addEventListener('icegatheringstatechange', checkState);
-          // Timeout fallback â Meta requires response within 30-60 seconds
+          // Timeout fallback — Meta requires response within 30-60 seconds
           setTimeout(() => {
             pc.removeEventListener('icegatheringstatechange', checkState);
             resolve();
@@ -294,7 +294,7 @@ export function useWhatsAppWebRTC() {
 
       const finalSdp = pc.localDescription?.sdp;
 
-      // 7. Send SDP answer to backend â backend sends to Meta Graph API (pre_accept + accept)
+      // 7. Send SDP answer to backend → backend sends to Meta Graph API (pre_accept + accept)
       const res = await fetch(`/api/whatsapp/calls/${call.id}/answer`, {
         method: 'POST',
         headers: {
@@ -315,7 +315,7 @@ export function useWhatsAppWebRTC() {
       setStatus('connected');
       startDurationTimer();
 
-      // 8. Start recording (optional â using MediaRecorder)
+      // 8. Start recording (optional — using MediaRecorder)
       try {
         const combinedStream = new MediaStream();
         // Add local audio
@@ -338,7 +338,7 @@ export function useWhatsAppWebRTC() {
 
     } catch (err: any) {
       console.error('[WebRTC] Failed to answer call:', err);
-      setError(err.message || 'à¤à¥à¤² à¤à¤¤à¥à¤¤à¤° à¤¦à¥à¤¨à¥ à¤®à¥à¤ à¤µà¤¿à¤«à¤²');
+      setError(err.message || 'कॉल उत्तर देने में विफल');
       cleanup();
       throw err;
     }
@@ -369,7 +369,7 @@ export function useWhatsAppWebRTC() {
       }
     }
 
-    // Send terminate to backend â Meta Graph API
+    // Send terminate to backend → Meta Graph API
     try {
       await fetch(`/api/whatsapp/calls/${call.id}/terminate`, {
         method: 'POST',
