@@ -412,9 +412,40 @@ class _ContactDetailScreenState extends State<_ContactDetailScreen> {
   }
 
   Future<void> _initiateTwilioCall(Contact contact) async {
+    final configs = await ApiService().getTwilioConfigs();
+    final options = <Map<String, String>>[];
+    for (final c in configs) {
+      final configId = (c['id'] ?? '').toString();
+      final configName = (c['name'] ?? '').toString();
+      final fromNumbers = (c['fromNumbers'] as List?) ?? const [];
+      for (final fn in fromNumbers) {
+        final number = (fn['fromNumber'] ?? '').toString();
+        if (number.isEmpty) continue;
+        if (fn['isActive'] == false) continue;
+        options.add({
+          'configId': configId,
+          'configName': configName,
+          'fromNumber': number,
+          'isDefault': (fn['isDefault'] == true).toString(),
+        });
+      }
+    }
+    if (options.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Twilio के लिए कोई सक्रिय नंबर नहीं है')),
+        );
+      }
+      return;
+    }
+    final picked = await _pickFromNumber('Twilio', options);
+    if (picked == null) return;
+
     final res = await ApiService().initiateTwilioCall(
       to: contact.phone,
       contactId: contact.id,
+      twilioConfigId: picked['configId'],
+      fromNumber: picked['fromNumber'],
     );
     if (!mounted) return;
     if (res['success'] == true) {
@@ -436,9 +467,40 @@ class _ContactDetailScreenState extends State<_ContactDetailScreen> {
   }
 
   Future<void> _initiatePlivoCall(Contact contact) async {
+    final configs = await ApiService().getPlivoConfigs();
+    final options = <Map<String, String>>[];
+    for (final c in configs) {
+      final configId = (c['id'] ?? '').toString();
+      final configName = (c['name'] ?? '').toString();
+      final fromNumbers = (c['fromNumbers'] as List?) ?? const [];
+      for (final fn in fromNumbers) {
+        final number = (fn['fromNumber'] ?? '').toString();
+        if (number.isEmpty) continue;
+        if (fn['isActive'] == false) continue;
+        options.add({
+          'configId': configId,
+          'configName': configName,
+          'fromNumber': number,
+          'isDefault': (fn['isDefault'] == true).toString(),
+        });
+      }
+    }
+    if (options.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Plivo के लिए कोई सक्रिय नंबर नहीं है')),
+        );
+      }
+      return;
+    }
+    final picked = await _pickFromNumber('Plivo', options);
+    if (picked == null) return;
+
     final res = await ApiService().initiatePlivoCall(
       to: contact.phone,
       contactId: contact.id,
+      plivoConfigId: picked['configId'],
+      fromNumber: picked['fromNumber'],
     );
     if (!mounted) return;
     if (res['success'] == true) {
@@ -457,6 +519,45 @@ class _ContactDetailScreenState extends State<_ContactDetailScreen> {
         SnackBar(content: Text('Plivo call failed: ${res['error']}')),
       );
     }
+  }
+
+  Future<Map<String, String>?> _pickFromNumber(
+    String provider,
+    List<Map<String, String>> options,
+  ) async {
+    if (options.length == 1) return options.first;
+    final selected = await showModalBottomSheet<Map<String, String>>(
+      context: context,
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  '$provider से कॉल करने के लिए नंबर चुनें',
+                  style: Theme.of(ctx).textTheme.titleMedium,
+                ),
+              ),
+              for (final o in options)
+                ListTile(
+                  leading: const Icon(Icons.phone_outlined),
+                  title: Text(o['fromNumber']!),
+                  subtitle: o['configName']!.isEmpty
+                      ? null
+                      : Text(o['configName']!),
+                  trailing: o['isDefault'] == 'true'
+                      ? const Icon(Icons.star, size: 18)
+                      : null,
+                  onTap: () => Navigator.of(ctx).pop(o),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+    return selected;
   }
 
   Future<void> _delete() async {
