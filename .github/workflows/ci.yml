@@ -10,6 +10,9 @@ jobs:
   lint-test-build:
     name: Lint, Test & Build
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
 
     steps:
       - name: Checkout repository
@@ -25,10 +28,54 @@ jobs:
         run: npm install --no-audit --no-fund
 
       - name: Run linter
-        run: npm run lint
+        id: lint
+        run: npm run lint 2>&1 | tee lint.log
+        continue-on-error: true
 
       - name: Run tests
-        run: npm run test
+        id: test
+        run: npm run test 2>&1 | tee test.log
+        continue-on-error: true
 
       - name: Build Next.js static export
-        run: npm run build
+        id: build
+        run: npm run build 2>&1 | tee build.log
+        continue-on-error: true
+
+      - name: Post failure summary
+        if: steps.lint.outcome == 'failure' || steps.test.outcome == 'failure' || steps.build.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "### CI failure summary for `${{ github.sha }}`" > summary.md
+          echo "" >> summary.md
+          if [ "${{ steps.lint.outcome }}" == "failure" ]; then
+            echo "#### Lint errors" >> summary.md
+            echo '```' >> summary.md
+            tail -c 8000 lint.log >> summary.md
+            echo '```' >> summary.md
+            echo "" >> summary.md
+          fi
+          if [ "${{ steps.test.outcome }}" == "failure" ]; then
+            echo "#### Test errors" >> summary.md
+            echo '```' >> summary.md
+            tail -c 8000 test.log >> summary.md
+            echo '```' >> summary.md
+            echo "" >> summary.md
+          fi
+          if [ "${{ steps.build.outcome }}" == "failure" ]; then
+            echo "#### Build errors" >> summary.md
+            echo '```' >> summary.md
+            tail -c 8000 build.log >> summary.md
+            echo '```' >> summary.md
+            echo "" >> summary.md
+          fi
+          if [ -n "${{ github.event.pull_request.number }}" ]; then
+            gh pr comment ${{ github.event.pull_request.number }} --body-file summary.md
+          fi
+          cat summary.md
+          exit 1
+
+      - name: Fail if any step failed
+        if: steps.lint.outcome == 'failure' || steps.test.outcome == 'failure' || steps.build.outcome == 'failure'
+        run: exit 1
