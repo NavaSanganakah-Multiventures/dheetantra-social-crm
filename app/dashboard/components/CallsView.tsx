@@ -171,6 +171,10 @@ export function CallsView({
     phone: string,
     option: { configId: string; fromNumber: string; name: string }
   ) => {
+    if (!plivoVoice) {
+      alert('Plivo वॉयस सेवा उपलब्ध नहीं है।');
+      return;
+    }
     try {
       await plivoVoice.startCall(
         { id: contact?.id, name: contact?.name || phone, phone },
