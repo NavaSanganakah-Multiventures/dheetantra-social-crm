@@ -93,6 +93,129 @@ export function useWhatsAppWebRTC() {
     }
   }, []);
 
+  // Start recording helper
+  const startRecording = useCallback((stream: MediaStream) => {
+    try {
+      const combinedStream = new MediaStream();
+      stream.getAudioTracks().forEach(track => combinedStream.addTrack(track));
+      const recorder = new MediaRecorder(combinedStream, { mimeType: 'audio/webm;codecs=opus' });
+      mediaRecorderRef.current = recorder;
+      recordingChunksRef.current = [];
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) recordingChunksRef.current.push(e.data);
+      };
+      recorder.start(1000);
+    } catch (recErr) {
+      console.warn('[WebRTC] Recording not supported:', recErr);
+    }
+  }, []);
+
+  // Initiate an outbound WhatsApp call
+  const startCall = useCallback(async (call: { to: string; phoneNumberId: string; workspace_id: string; contact_id?: string }) => {
+    try {
+      setStatus('requesting');
+      setError(null);
+
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('Browser does not support WebRTC calling');
+      }
+
+      const iceServers = await fetchIceServers();
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      localStreamRef.current = stream;
+      setLocalStream(stream);
+
+      const pc = new RTCPeerConnection({ iceServers });
+      peerConnectionRef.current = pc;
+
+      stream.getTracks().forEach(track => pc.addTrack(track, stream));
+
+      pc.ontrack = (event) => {
+        if (event.streams && event.streams[0]) {
+          setRemoteStream(event.streams[0]);
+        }
+      };
+
+      pc.onconnectionstatechange = () => {
+        console.log('[WebRTC] Connection state:', pc.connectionState);
+        if (pc.connectionState === 'connected') {
+          setStatus('connected');
+          startDurationTimer();
+          startRecording(stream);
+        } else if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
+          setError('Connection failed');
+          cleanup();
+        }
+      };
+
+      pc.oniceconnectionstatechange = () => {
+        console.log('[WebRTC] ICE state:', pc.iceConnectionState);
+      };
+
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+
+      await new Promise<void>((resolve) => {
+        if (pc.iceGatheringState === 'complete') {
+          resolve();
+        } else {
+          const checkState = () => {
+            if (pc.iceGatheringState === 'complete') {
+              pc.removeEventListener('icegatheringstatechange', checkState);
+              resolve();
+            }
+          };
+          pc.addEventListener('icegatheringstatechange', checkState);
+          setTimeout(() => {
+            pc.removeEventListener('icegatheringstatechange', checkState);
+            resolve();
+          }, 5000);
+        }
+      });
+
+      const finalSdp = pc.localDescription?.sdp;
+      const res = await fetch('/api/whatsapp/calls/outbound', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-workspace-id': call.workspace_id
+        },
+        body: JSON.stringify({
+          phoneNumberId: call.phoneNumberId,
+          contactId: call.contact_id,
+          to: call.to,
+          sdp: finalSdp,
+          sdpType: 'offer'
+        })
+      });
+
+      const result: any = await res.json();
+      if (!result.success) {
+        throw new Error(result.error || 'Backend failed to initiate call');
+      }
+
+      setStatus('ringing');
+      return result.callId;
+    } catch (err: any) {
+      console.error('[WebRTC] Failed to start call:', err);
+      setError(err.message || 'Call initiation failed');
+      cleanup();
+      throw err;
+    }
+  }, [cleanup, fetchIceServers, startDurationTimer, startRecording]);
+
+  // Accept the remote answer SDP for an outbound call
+  const acceptAnswer = useCallback(async ({ sdp, sdpType }: { sdp: string; sdpType?: string }) => {
+    const pc = peerConnectionRef.current;
+    if (!pc) throw new Error('No active peer connection');
+    if (!sdp) throw new Error('No answer SDP received');
+
+    const type = sdpType === 'answer' ? 'answer' : 'offer';
+    await pc.setRemoteDescription(new RTCSessionDescription({ type, sdp }));
+    setStatus('connecting');
+    console.log('[WebRTC] Remote description set for outbound call');
+  }, []);
+
   // Answer incoming call
   const answer = useCallback(async (call: WhatsAppCallEvent) => {
     try {
@@ -101,7 +224,7 @@ export function useWhatsAppWebRTC() {
 
       // Validate that we have SDP before proceeding
       if (!call.sdp) {
-        throw new Error('SDP (Session Description Protocol) डेटा उपलब्ध नहीं है। कृपया WhatsApp Cloud API की Calling Webhook सेटिंग जांचें।');
+        throw new Error('SDP (Session Description Protocol) à¤¡à¥à¤à¤¾ à¤à¤ªà¤²à¤¬à¥à¤§ à¤¨à¤¹à¥à¤ à¤¹à¥à¥¤ à¤à¥à¤ªà¤¯à¤¾ WhatsApp Cloud API à¤à¥ Calling Webhook à¤¸à¥à¤à¤¿à¤à¤ à¤à¤¾à¤à¤à¥à¤à¥¤');
       }
       
       // 1. Fetch Cloudflare TURN/STUN credentials
@@ -133,7 +256,7 @@ export function useWhatsAppWebRTC() {
           setStatus('connected');
           startDurationTimer();
         } else if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
-          setError('कनेक्शन विफल हो गया');
+          setError('à¤à¤¨à¥à¤à¥à¤¶à¤¨ à¤µà¤¿à¤«à¤² à¤¹à¥ à¤à¤¯à¤¾');
           cleanup();
         }
       };
@@ -161,7 +284,7 @@ export function useWhatsAppWebRTC() {
             }
           };
           pc.addEventListener('icegatheringstatechange', checkState);
-          // Timeout fallback — Meta requires response within 30-60 seconds
+          // Timeout fallback â Meta requires response within 30-60 seconds
           setTimeout(() => {
             pc.removeEventListener('icegatheringstatechange', checkState);
             resolve();
@@ -171,7 +294,7 @@ export function useWhatsAppWebRTC() {
 
       const finalSdp = pc.localDescription?.sdp;
 
-      // 7. Send SDP answer to backend → backend sends to Meta Graph API (pre_accept + accept)
+      // 7. Send SDP answer to backend â backend sends to Meta Graph API (pre_accept + accept)
       const res = await fetch(`/api/whatsapp/calls/${call.id}/answer`, {
         method: 'POST',
         headers: {
@@ -192,7 +315,7 @@ export function useWhatsAppWebRTC() {
       setStatus('connected');
       startDurationTimer();
 
-      // 8. Start recording (optional — using MediaRecorder)
+      // 8. Start recording (optional â using MediaRecorder)
       try {
         const combinedStream = new MediaStream();
         // Add local audio
@@ -215,7 +338,7 @@ export function useWhatsAppWebRTC() {
 
     } catch (err: any) {
       console.error('[WebRTC] Failed to answer call:', err);
-      setError(err.message || 'कॉल उत्तर देने में विफल');
+      setError(err.message || 'à¤à¥à¤² à¤à¤¤à¥à¤¤à¤° à¤¦à¥à¤¨à¥ à¤®à¥à¤ à¤µà¤¿à¤«à¤²');
       cleanup();
       throw err;
     }
@@ -246,7 +369,7 @@ export function useWhatsAppWebRTC() {
       }
     }
 
-    // Send terminate to backend → Meta Graph API
+    // Send terminate to backend â Meta Graph API
     try {
       await fetch(`/api/whatsapp/calls/${call.id}/terminate`, {
         method: 'POST',
@@ -280,6 +403,8 @@ export function useWhatsAppWebRTC() {
     error,
     answer,
     hangup,
+    startCall,
+    acceptAnswer,
     toggleMute,
     handleRemoteHangup
   };
