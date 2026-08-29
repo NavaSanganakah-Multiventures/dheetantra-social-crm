@@ -889,6 +889,11 @@ router.post('/api/whatsapp/send', async (c) => {
     let config: any = null;
     if (phoneNumberId) {
       config = await c.env.DB.prepare('SELECT phone_number_id, access_token FROM whatsapp_configs WHERE workspace_id = ? AND phone_number_id = ?').bind(workspaceId, phoneNumberId).first();
+      if (!config) {
+        // Fail loudly instead of silently falling back when the client
+        // explicitly requested a sender number that is not configured here.
+        return c.json({ error: 'Selected WhatsApp number is not configured for this workspace' }, 400);
+      }
     }
     if (!config) {
       // Reply from the same WhatsApp number that received the message when
