@@ -81,7 +81,7 @@ flutter {
 // alag slf4j-api version (2.x) laati hain, jisse duplicate-class error aata hai.
 // Isliye external slf4j ko exclude karke sirf SDK-wala bundled slf4j rakhte hain.
 configurations.all {
-    exclude(group = "org.slf4j")
+    exclude(group = "org.slf4j", module = "slf4j-api")
 }
 
 dependencies {
