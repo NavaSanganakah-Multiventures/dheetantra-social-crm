@@ -68,6 +68,114 @@ router.post('/api/whatsapp/calls', async (c) => {
 });
 
 // UPDATE call status (answered, ended, duration, etc.)
+// INITIATE an outbound WhatsApp WebRTC call (Official Meta Graph API)
+router.post('/api/whatsapp/calls/outbound', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  const user = c.get('user') as any;
+  const body = await c.req.json();
+  const { phoneNumberId, contactId, to, sdp, sdpType } = body as any;
+
+  if (!sdp || typeof sdp !== 'string') {
+    return c.json({ error: 'SDP offer required' }, 400);
+  }
+
+  let targetPhone = '';
+  let finalContactId = contactId || '';
+  if (finalContactId) {
+    const contact = await c.env.DB.prepare(
+      'SELECT platform_contact_id FROM contacts WHERE id = ? AND workspace_id = ?'
+    ).bind(finalContactId, workspaceId).first<{ platform_contact_id: string }>();
+    if (!contact) return c.json({ error: 'Contact not found' }, 400);
+    targetPhone = contact.platform_contact_id || '';
+  } else if (to && typeof to === 'string') {
+    targetPhone = to;
+  }
+  if (!targetPhone) return c.json({ error: 'contactId or to required' }, 400);
+
+  const normalizedPhone = targetPhone.replace(/\D/g, '').replace(/^0/, '');
+  if (!normalizedPhone) return c.json({ error: 'Invalid phone number' }, 400);
+
+  let config = await c.env.DB.prepare(
+    'SELECT phone_number_id, access_token, calling_enabled FROM whatsapp_configs WHERE workspace_id = ? AND phone_number_id = ?'
+  ).bind(workspaceId, phoneNumberId).first<{ phone_number_id: string; access_token: string; calling_enabled: number }>();
+  if (!config) {
+    config = await c.env.DB.prepare(
+      'SELECT phone_number_id, access_token, calling_enabled FROM whatsapp_configs WHERE workspace_id = ?'
+    ).bind(workspaceId).first<{ phone_number_id: string; access_token: string; calling_enabled: number }>();
+  }
+  if (!config) return c.json({ error: 'WhatsApp not configured' }, 400);
+  if (config.calling_enabled === 0) return c.json({ error: 'WhatsApp calling disabled' }, 400);
+
+  const finalPhoneNumberId = phoneNumberId || config.phone_number_id;
+
+  // Busy guard: only one active WhatsApp call per workspace at a time
+  const activeCall = await c.env.DB.prepare(
+    "SELECT id FROM calls WHERE workspace_id = ? AND source = 'whatsapp' AND status IN ('dialing','ringing','in_progress') LIMIT 1"
+  ).bind(workspaceId).first<{ id: string }>();
+  if (activeCall) {
+    return c.json({ error: 'Another WhatsApp call is already active in this workspace' }, 409);
+  }
+
+  const callId = crypto.randomUUID();
+  const callCreatedAt = sqliteNow();
+  await c.env.DB.prepare(`
+    INSERT INTO calls (id, workspace_id, contact_id, phone_number_id, caller_number, type, direction, status, source, assigned_user_id, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).bind(
+    callId, workspaceId, finalContactId || null, finalPhoneNumberId, normalizedPhone,
+    'voice', 'outgoing', 'dialing', 'whatsapp', user?.id || null, callCreatedAt
+  ).run();
+
+  const url = `https://graph.facebook.com/v20.0/${finalPhoneNumberId}/calls`;
+
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${config.access_token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        to: normalizedPhone,
+        action: 'offer',
+        session: { sdp, sdp_type: sdpType || 'offer' }
+      })
+    });
+    const data: any = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      await c.env.DB.prepare('UPDATE calls SET status = ?, hangup_cause = ? WHERE id = ? AND workspace_id = ?')
+        .bind('failed', (data?.error?.message || `Meta HTTP ${res.status}`), callId, workspaceId).run();
+      return c.json({ success: false, error: data?.error?.message || `Meta HTTP ${res.status}`, meta: data }, 502);
+    }
+
+    const externalCallId = data.call_id || data.id || callId;
+    await c.env.DB.prepare('UPDATE calls SET external_call_id = ?, status = ? WHERE id = ? AND workspace_id = ?')
+      .bind(externalCallId, 'ringing', callId, workspaceId).run();
+
+    try {
+      const globalDoId = c.env.CHAT_DO.idFromName(`global-${workspaceId}`);
+      const globalStub = c.env.CHAT_DO.get(globalDoId);
+      await globalStub.fetch(new Request('http://do/broadcast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'call_status_updated',
+          call_id: callId,
+          status: 'ringing',
+          direction: 'outgoing',
+          source: 'whatsapp'
+        })
+      }));
+    } catch (e) { }
+
+    return c.json({ success: true, callId, externalCallId, status: 'ringing' });
+  } catch (e: any) {
+    await c.env.DB.prepare('UPDATE calls SET status = ?, hangup_cause = ? WHERE id = ? AND workspace_id = ?')
+      .bind('failed', e.message || 'Network error', callId, workspaceId).run();
+    return c.json({ success: false, error: e.message || 'Failed to initiate WhatsApp call' }, 502);
+  }
+});
+
 router.post('/api/whatsapp/calls/:id/status', async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
   const callId = c.req.param('id');
@@ -117,7 +225,7 @@ router.post('/api/whatsapp/calls/:id/answer', async (c) => {
   const url = `https://graph.facebook.com/v20.0/${phoneNumberId}/calls`;
   const headers = { 'Authorization': `Bearer ${config.access_token}`, 'Content-Type': 'application/json' };
 
-  // Step 1: pre_accept — signal readiness and establish media connection
+  // Step 1: pre_accept â signal readiness and establish media connection
   const preAcceptRes = await fetch(url, {
     method: 'POST',
     headers,
@@ -130,7 +238,7 @@ router.post('/api/whatsapp/calls/:id/answer', async (c) => {
   const preAcceptData: any = await preAcceptRes.json();
   console.log('[Calling] pre_accept response:', JSON.stringify(preAcceptData));
 
-  // Step 2: accept — formally answer the call
+  // Step 2: accept â formally answer the call
   const acceptRes = await fetch(url, {
     method: 'POST',
     headers,
@@ -217,7 +325,7 @@ router.post('/api/whatsapp/calls/:id/reject', async (c) => {
   console.log('[Calling] reject response:', JSON.stringify(data));
 
   // Busy-rejected calls ka status preserve karo (app-side busy guard bhi isi
-  // route par aata hai) — warna 'busy' record 'declined' se overwrite ho jayega.
+  // route par aata hai) â warna 'busy' record 'declined' se overwrite ho jayega.
   await c.env.DB.prepare("UPDATE calls SET status = 'declined' WHERE id = ? AND workspace_id = ? AND status != 'busy'")
     .bind(callId, workspaceId).run();
 
@@ -249,7 +357,7 @@ router.post('/api/whatsapp/calls/recordings', async (c) => {
   }
 });
 
-// TOGGLE calling configuration — syncs with Meta Graph API
+// TOGGLE calling configuration â syncs with Meta Graph API
 router.post('/api/whatsapp/calls/toggle', async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
@@ -391,7 +499,7 @@ router.get('/api/whatsapp/calls/config', async (c) => {
   return c.json({ calling_enabled: config ? config.calling_enabled === 1 : true });
 });
 
-// GET calling status from Meta API — verify calling is actually enabled on Meta's side
+// GET calling status from Meta API â verify calling is actually enabled on Meta's side
 router.get('/api/whatsapp/calls/status', async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
