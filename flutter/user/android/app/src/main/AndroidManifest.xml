@@ -73,6 +73,15 @@
             </intent-filter>
         </service>
 
+        <!-- Plivo SDK: network switch (wifi <-> mobile) par re-register -->
+        <receiver
+            android:name="com.plivo.endpoint.NetworkChangeReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.net.conn.CONNECTIVITY_CHANGE" />
+            </intent-filter>
+        </receiver>
+
         <service
             android:name="com.hiennv.flutter_callkit_incoming.CallkitNotificationService"
             android:foregroundServiceType="phoneCall|microphone|camera"
@@ -80,7 +89,7 @@
 
         <!-- NOTE: CallkitSoundPlayerService plugin 3.1.3 mein exist nahi karta
              (sound CallkitNotificationService ke andar CallkitSoundPlayerManager
-             se bajta hai). Ghost service declaration hataya â warna Android
+             se bajta hai). Ghost service declaration hataya Ã¢ÂÂ warna Android
              ClassNotFoundException crash de sakta hai. -->
 
         <service
