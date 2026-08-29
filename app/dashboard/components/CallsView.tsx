@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useToast } from '@/components/ui/Toast';
 import { formatUserDateTime } from '../lib/dates';
 import { useTwilioVoice } from './TwilioVoiceProvider';
+import { usePlivoVoice } from './PlivoVoiceProvider';
 import { activeTab } from '../lib/types';
 
 export function CallsView({ 
@@ -17,6 +18,7 @@ export function CallsView({
 }) {
   const { toast } = useToast();
   const twilioVoice = useTwilioVoice();
+  const plivoVoice = usePlivoVoice();
   const [calls, setCalls] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [callingEnabled, setCallingEnabled] = useState(true);
@@ -36,7 +38,7 @@ export function CallsView({
     if (!wId) return;
 
     // Fetch calls
-    fetch('/api/whatsapp/calls', {
+    fetch('/api/calls', {
       headers: { 'x-workspace-id': wId }
     })
     .then(r => r.json())
@@ -113,7 +115,24 @@ export function CallsView({
   };
 
   const startOutgoingCall = async (contact: any) => {
-    alert('WhatsApp à¤à¤à¤à¤¬à¤¾à¤à¤à¤¡ à¤à¥à¤²à¥à¤¸ à¤à¤­à¥ à¤¸à¤ªà¥à¤°à¥à¤ à¤¨à¤¹à¥à¤ à¤¹à¥à¤à¥¤ à¤¸à¤¿à¤°à¥à¤« à¤à¤¨à¤à¤®à¤¿à¤à¤ à¤à¥à¤²à¥à¤¸ à¤¹à¥ à¤ªà¥à¤°à¤¾à¤ªà¥à¤¤ à¤¹à¥ à¤¸à¤à¤¤à¥ à¤¹à¥à¤à¥¤');
+    const phone = ((contact?.phone || contact?.platform_contact_id) || '').replace(/[^0-9+]/g, '');
+    if (!phone) {
+      alert('इस कॉन्टैक्ट का फ़ोन नंबर उपलब्ध नहीं है।');
+      return;
+    }
+    if (!plivoVoice) {
+      alert('Plivo वॉयस सेवा उपलब्ध नहीं है। पहले Settings में Plivo अकाउंट जोड़ें और SIP Endpoint लिंक करें।');
+      return;
+    }
+    try {
+      await plivoVoice.startCall({
+        id: contact?.id,
+        name: contact?.name || phone,
+        phone,
+      });
+    } catch (e: any) {
+      alert('कॉल शुरू करने में विफल: ' + (e?.message || 'अज्ञात त्रुटि'));
+    }
   };
 
   const filteredCalls = calls.filter(c => {
@@ -126,13 +145,40 @@ export function CallsView({
     if (filter === "all") return true;
     if (filter === "incoming") return c.direction === "incoming";
     if (filter === "outgoing") return c.direction === "outgoing";
-    if (filter === "missed") return c.status === "missed";
+    if (filter === "missed") return missedStatuses.includes(c.status);
     return true;
   });
 
+  const completedStatuses = ['completed', 'answered', 'ended'];
+  const missedStatuses = ['missed', 'no_answer', 'busy', 'failed', 'canceled'];
+
+  function callStatusInfo(status: string) {
+    switch (status) {
+      case 'completed': case 'answered': case 'ended':
+        return { label: 'सफल', cls: 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600' };
+      case 'in_progress':
+        return { label: 'चालू', cls: 'bg-sky-50 dark:bg-sky-950/20 text-sky-600' };
+      case 'ringing': case 'queued':
+        return { label: 'बज रहा है', cls: 'bg-amber-50 dark:bg-amber-950/20 text-amber-600' };
+      case 'missed':
+        return { label: 'छूट गया', cls: 'bg-rose-50 dark:bg-rose-950/20 text-rose-600' };
+      case 'no_answer':
+        return { label: 'कोई जवाब नहीं', cls: 'bg-rose-50 dark:bg-rose-950/20 text-rose-600' };
+      case 'busy':
+        return { label: 'व्यस्त', cls: 'bg-rose-50 dark:bg-rose-950/20 text-rose-600' };
+      case 'failed':
+        return { label: 'विफल', cls: 'bg-rose-50 dark:bg-rose-950/20 text-rose-600' };
+      case 'canceled':
+        return { label: 'रद्द', cls: 'bg-rose-50 dark:bg-rose-950/20 text-rose-600' };
+      case 'declined':
+        return { label: 'अस्वीकृत', cls: 'bg-rose-50 dark:bg-rose-950/20 text-rose-600' };
+      default:
+        return { label: 'अस्वीकृत', cls: 'bg-surface-100 dark:bg-surface-800 text-surface-500' };
+    }
+  }
   const totalCalls = calls.length;
-  const missedCalls = calls.filter(c => c.status === 'missed').length;
-  const completedCalls = calls.filter(c => c.status === 'completed' || c.status === 'answered').length;
+  const missedCalls = calls.filter(c => missedStatuses.includes(c.status)).length;
+  const completedCalls = calls.filter(c => completedStatuses.includes(c.status)).length;
   const outgoingCalls = calls.filter(c => c.direction === 'outgoing').length;
 
   return (
@@ -141,7 +187,7 @@ export function CallsView({
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-surface-900 p-6 rounded-2xl border border-surface-200 dark:border-surface-800 shadow-sm">
         <div>
           <h2 className="text-xl font-bold text-surface-900 dark:text-white font-display">à¤à¥à¤² à¤ªà¥à¤°à¤¬à¤à¤§à¤¨ à¤à¤° à¤à¤¤à¤¿à¤¹à¤¾à¤¸</h2>
-          <p className="text-xs text-surface-500 mt-1">à¤µà¥à¤¹à¤¾à¤à¥à¤¸à¤à¤ª à¤¬à¤¿à¤à¤¨à¥à¤¸ à¤à¥à¤²à¤¾à¤à¤¡ à¤à¤ªà¥à¤à¤ à¤à¥ à¤®à¤¾à¤§à¥à¤¯à¤® à¤¸à¥ à¤¸à¤­à¥ à¤à¥à¤²à¥à¤¸ à¤à¥ à¤¸à¤à¥à¤·à¤®/à¤à¤à¥à¤·à¤® à¤à¤°à¥à¤ à¤à¤° à¤à¥à¤°à¥à¤ à¤à¤°à¥à¤</p>
+          <p className="text-xs text-surface-500 mt-1">Plivo और WhatsApp के सभी कॉल्स को ट्रैक करें और Plivo सॉफ्टफोन से नए कॉल डायल करें</p>
         </div>
         <div className="flex items-center gap-4 shrink-0">
           <button
@@ -330,22 +376,21 @@ export function CallsView({
                           <span className="text-[10px] text-surface-500 dark:text-surface-400 capitalize">
                             {call.type === 'voice' ? 'à¤µà¥à¤¯à¤¸ à¤à¥à¤²' : 'à¤µà¥à¤¡à¤¿à¤¯à¥ à¤à¥à¤²'}
                           </span>
+                          {call.source && (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-surface-100 dark:bg-surface-800 text-surface-500 font-bold uppercase">
+                              {call.source}
+                            </span>
+                          )}
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                          call.status === 'completed' || call.status === 'answered'
-                            ? 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600'
-                            : call.status === 'missed'
-                            ? 'bg-rose-50 dark:bg-rose-950/20 text-rose-600'
-                            : 'bg-surface-100 dark:bg-surface-800 text-surface-500'
-                        }`}>
-                          {call.status === 'completed' || call.status === 'answered' ? 'à¤¸à¤«à¤²' : call.status === 'missed' ? 'à¤à¥à¤ à¤à¤¯à¤¾' : 'à¤à¤¸à¥à¤µà¥à¤à¥à¤¤'}
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${callStatusInfo(call.status).cls}`}>
+                          {callStatusInfo(call.status).label}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-surface-500 dark:text-surface-400">{dateStr}</td>
                       <td className="px-6 py-4 font-mono text-[11px] text-surface-600 dark:text-surface-400">
-                        {call.status === 'missed' ? '-' : `${Math.floor(call.duration / 60)}m ${call.duration % 60}s`}
+                        {completedStatuses.includes(call.status) ? `${Math.floor((call.duration || 0) / 60)}m ${(call.duration || 0) % 60}s` : '-'}
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
@@ -412,7 +457,7 @@ export function CallsView({
                   <Phone className="w-6 h-6" />
                 </div>
                 <h3 className="font-bold text-surface-950 dark:text-white">à¤¨à¤¯à¤¾ à¤à¥à¤² à¤¶à¥à¤°à¥ à¤à¤°à¥à¤</h3>
-                <p className="text-[10px] text-surface-400 mt-1">à¤à¤ªà¤¨à¥ à¤à¤¿à¤¸à¥ à¤­à¥ à¤µà¥à¤¹à¤¾à¤à¥à¤¸à¤à¤ª à¤à¤¾à¤à¤à¥à¤à¥à¤ à¤à¥ à¤¡à¤¾à¤¯à¤² à¤à¤°à¥à¤</p>
+                <p className="text-[10px] text-surface-400 mt-1">किसी भी कॉन्टैक्ट को Plivo सॉफ्टफोन से डायल करें</p>
               </div>
 
               {/* Contact List */}
