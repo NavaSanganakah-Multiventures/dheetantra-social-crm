@@ -80,6 +80,12 @@ class PlivoManager private constructor() : EventListener {
             lastUsername = username
             lastPassword = password
             lastCertificateId = cert
+
+            // Killed-state re-login ke liye secure storage mein persist karo (M4).
+            val ctx = appContext
+            if (ctx != null) {
+                PlivoCredentialStore.store(ctx, username, password, cert, token)
+            }
         }
         return ok
     }
@@ -90,7 +96,36 @@ class PlivoManager private constructor() : EventListener {
         return login(u, p, fcmToken, lastCertificateId)
     }
 
-    fun logout(): Boolean = endpoint?.logout() ?: false
+    /** Killed-state push wake: secure storage se creds load karke re-login. */
+    fun reloginFromStoredCredentials(): Boolean {
+        val ctx = appContext ?: return false
+        if (isLoggedIn()) return true
+        val u = PlivoCredentialStore.getUsername(ctx) ?: return false
+        val p = PlivoCredentialStore.getPassword(ctx) ?: return false
+        val cert = PlivoCredentialStore.getCertificateId(ctx)
+        val token = PlivoCredentialStore.getFcmToken(ctx)
+        return login(u, p, token, cert)
+    }
+
+    /** FCM token rotate hone par naya token persist karo (re-register M6/M7 mein idle state par). */
+    fun updateDeviceToken(token: String) {
+        val ctx = appContext
+        if (ctx != null) {
+            PlivoCredentialStore.updateFcmToken(ctx, token)
+        }
+    }
+
+    fun logout(): Boolean {
+        val ok = endpoint?.logout() ?: false
+        val ctx = appContext
+        if (ctx != null) {
+            PlivoCredentialStore.clear(ctx)
+        }
+        lastUsername = null
+        lastPassword = null
+        lastCertificateId = null
+        return ok
+    }
 
     /** FCM/Plivo push headers ko SDK tak pahunchao (killed-state wake path). */
     fun relayPush(data: Map<String, String>) {
