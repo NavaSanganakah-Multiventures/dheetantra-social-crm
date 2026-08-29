@@ -1,6 +1,9 @@
 package com.navasanganakah.dheetantra.plivo
 
 import android.content.Context
+import android.content.Intent
+import android.os.Handler
+import android.os.Looper
 import com.plivo.endpoint.Endpoint
 import com.plivo.endpoint.EventListener
 import com.plivo.endpoint.Incoming
@@ -18,6 +21,9 @@ import com.plivo.endpoint.Outgoing
 class PlivoManager private constructor() : EventListener {
 
     companion object {
+        /** PlivoIncomingCallActivity ko band karne ke liye local broadcast. */
+        const val ACTION_INCOMING_ENDED = "com.navasanganakah.dheetantra.plivo.ACTION_INCOMING_ENDED"
+
         @Volatile
         private var INSTANCE: PlivoManager? = null
 
@@ -38,12 +44,21 @@ class PlivoManager private constructor() : EventListener {
     /** Flutter ko events bhejne ka hook - PlivoChannel register karte waqt set hota hai. */
     var eventSink: ((event: String, data: Map<String, Any?>) -> Unit)? = null
 
+    private val mainHandler = Handler(Looper.getMainLooper())
+
+    private var appContext: Context? = null
     private var lastUsername: String? = null
     private var lastPassword: String? = null
     private var lastCertificateId: String? = null
 
+    /** Native incoming UI ko caller info dene ke liye. */
+    private var lastIncomingCaller: String? = null
+    private var lastIncomingSip: String? = null
+
     fun ensureInitialized(context: Context): Boolean {
         if (endpoint != null) return true
+
+        appContext = context.applicationContext
 
         val options = HashMap<String, Any>()
         options["context"] = context.applicationContext
@@ -112,6 +127,45 @@ class PlivoManager private constructor() : EventListener {
         currentOutgoing = null
     }
 
+    /** Native incoming UI ke liye caller display name. */
+    fun incomingCallerName(): String {
+        return lastIncomingCaller?.takeIf { it.isNotBlank() } ?: "Incoming call"
+    }
+
+    /** Native incoming UI ke liye caller number/SIP. */
+    fun incomingCallerNumber(): String {
+        return lastIncomingSip ?: ""
+    }
+
+    private fun launchIncomingActivity() {
+        val ctx = appContext ?: return
+        mainHandler.post {
+            try {
+                val intent = Intent(ctx, PlivoIncomingCallActivity::class.java).apply {
+                    addFlags(
+                        Intent.FLAG_ACTIVITY_NEW_TASK or
+                            Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                            Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS,
+                    )
+                }
+                ctx.startActivity(intent)
+            } catch (e: Exception) {
+                // Lock screen / background launch restrictions par fail ho sakta hai.
+            }
+        }
+    }
+
+    private fun notifyIncomingEnded() {
+        val ctx = appContext ?: return
+        mainHandler.post {
+            try {
+                ctx.sendBroadcast(Intent(ACTION_INCOMING_ENDED).setPackage(ctx.packageName))
+            } catch (e: Exception) {
+                // ignore
+            }
+        }
+    }
+
     private fun emit(event: String, data: Map<String, Any?> = emptyMap()) {
         eventSink?.invoke(event, data)
     }
@@ -132,6 +186,8 @@ class PlivoManager private constructor() : EventListener {
 
     override fun onIncomingCall(incoming: Incoming) {
         currentIncoming = incoming
+        lastIncomingCaller = incoming.getFromContact()
+        lastIncomingSip = incoming.getFromSip()
         emit(
             "onIncomingCall",
             mapOf(
@@ -146,21 +202,25 @@ class PlivoManager private constructor() : EventListener {
                 }),
             ),
         )
+        launchIncomingActivity()
     }
 
     override fun onIncomingCallHangup(incoming: Incoming) {
         currentIncoming = null
         emit("onIncomingCallHangup", mapOf("callId" to incoming.getCallId()))
+        notifyIncomingEnded()
     }
 
     override fun onIncomingCallRejected(incoming: Incoming) {
         currentIncoming = null
         emit("onIncomingCallRejected", mapOf("callId" to incoming.getCallId()))
+        notifyIncomingEnded()
     }
 
     override fun onIncomingCallInvalid(incoming: Incoming) {
         currentIncoming = null
         emit("onIncomingCallInvalid", mapOf("callId" to incoming.getCallId()))
+        notifyIncomingEnded()
     }
 
     override fun onOutgoingCall(outgoing: Outgoing) {
