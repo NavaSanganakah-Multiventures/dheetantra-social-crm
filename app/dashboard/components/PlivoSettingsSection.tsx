@@ -59,8 +59,39 @@ export function PlivoSettingsSection() {
   }, []);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    let cancelled = false;
+
+    (async () => {
+      const wId = localStorage.getItem("workspaceId");
+      if (!wId) return;
+      try {
+        const [meRes, agentsRes, configsRes] = await Promise.all([
+          fetch("/api/auth/me"),
+          fetch("/api/voice/agents", { headers: { "x-workspace-id": wId } }),
+          fetch("/api/plivo/configs", { headers: { "x-workspace-id": wId } }),
+        ]);
+        const meData: any = meRes.ok ? await meRes.json() : {};
+        const agentsData: any = agentsRes.ok ? await agentsRes.json() : { agents: [] };
+        const configsData: any = configsRes.ok ? await configsRes.json() : { configs: [] };
+
+        if (cancelled) return;
+        if (meData.user) {
+          setMe(meData.user);
+          setPhoneInput(meData.user.phone || "");
+          const row = (agentsData.agents || []).find((a: any) => a.userId === meData.user.id);
+          if (row) setVoiceStatus(row.voiceStatus || "not_live");
+        }
+        setAgents(agentsData.agents || []);
+        setConfigs(configsData.configs || []);
+      } catch (e) {
+        console.error("[PlivoSettings] load error", e);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const saveStatus = async (status: string) => {
     const wId = localStorage.getItem("workspaceId");
@@ -485,7 +516,7 @@ export function PlivoSettingsSection() {
             <div className="flex flex-col items-center justify-center p-10 border-2 border-dashed border-surface-200 dark:border-surface-800 rounded-2xl bg-surface-50 dark:bg-surface-950/50">
               <Phone className="w-10 h-10 text-surface-300 dark:text-surface-700 mb-4" />
               <p className="text-sm text-surface-500 font-medium text-center">
-                कोई Plivo अकाउंट नहीं जुड़ा। ऊपर "नया अकाउंट" से शुरू करें।
+                कोई Plivo अकाउंट नहीं जुड़ा। ऊपर &quot;नया अकाउंट&quot; से शुरू करें।
               </p>
             </div>
           )}
