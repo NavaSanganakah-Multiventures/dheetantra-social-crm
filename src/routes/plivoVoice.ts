@@ -137,7 +137,7 @@ function plivoConstructPostUrl(uri: string, params: Record<string, string[]>): s
 function plivoBodyToParams(body: Record<string, string>): Record<string, string[]> {
   const out: Record<string, string[]> = {};
   for (const [k, v] of Object.entries(body)) {
-    if (v) out[k] = [v];
+    out[k] = [v];
   }
   return out;
 }
@@ -852,6 +852,8 @@ router.post('/api/plivo/call', async (c) => {
       from: from,
       answer_url: answerUrl + '&leg=agent',
       answer_method: 'POST',
+      hangup_url: statusUrl + '&leg=agent',
+      hangup_method: 'POST',
       fallback_url: fallbackUrl,
       fallback_method: 'POST',
     }),
@@ -1017,6 +1019,7 @@ router.post('/api/plivo/webhook/voice', async (c) => {
       const baseUrl = ((c.env as any).APP_URL as string | undefined) || ('https://' + (c.req.header('host') || 'dheetantra.navasanganakah.com'));
       const agentAnswerUrl = baseUrl + '/api/plivo/webhook/outbound?callId=' + callId + '&conferenceName=' + encodeURIComponent(conferenceName) + '&leg=agent';
       const agentFallbackUrl = baseUrl + '/api/plivo/webhook/fallback';
+      const agentHangupUrl = baseUrl + '/api/plivo/webhook/status?callId=' + callId + '&leg=agent';
 
       const res = await createPlivoCall(
         { auth_id: config.auth_id, auth_token: config.auth_token },
@@ -1025,6 +1028,8 @@ router.post('/api/plivo/webhook/voice', async (c) => {
           from: normalizeE164(config.from_number),
           answer_url: agentAnswerUrl,
           answer_method: 'POST',
+          hangup_url: agentHangupUrl,
+          hangup_method: 'POST',
           fallback_url: agentFallbackUrl,
           fallback_method: 'POST',
         }
