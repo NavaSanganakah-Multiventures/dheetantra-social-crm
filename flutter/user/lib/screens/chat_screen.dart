@@ -165,6 +165,7 @@ class _ChatScreenState extends State<ChatScreen> {
       text: text,
       conversationId: widget.conversation.id,
       platform: widget.conversation.platform,
+      phoneNumberId: widget.conversation.phoneNumberId,
     );
 
     if (res['error'] != null && mounted) {

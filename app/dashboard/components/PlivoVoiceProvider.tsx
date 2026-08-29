@@ -28,7 +28,7 @@ interface PlivoVoiceContextValue {
   isMuted: boolean;
   speakerOn: boolean;
   duration: number;
-  startCall: (contact: PlivoContact) => Promise<void>;
+  startCall: (contact: PlivoContact, opts?: { fromNumber?: string; plivoConfigId?: string }) => Promise<void>;
   answer: () => void;
   reject: () => void;
   hangup: () => void;
@@ -299,7 +299,7 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
   );
 
   const startCall = useCallback(
-    async (contact: PlivoContact) => {
+    async (contact: PlivoContact, opts?: { fromNumber?: string; plivoConfigId?: string }) => {
       if (!workspaceId) throw new Error("No workspace selected");
       setStatus("connecting");
       try {
@@ -313,6 +313,8 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
             to: contact.phone,
             contactId: contact.id || undefined,
             mode: "in_app",
+            ...(opts?.plivoConfigId ? { plivoConfigId: opts.plivoConfigId } : {}),
+            ...(opts?.fromNumber ? { fromNumber: opts.fromNumber } : {}),
           }),
         });
         const data: any = await res.json();

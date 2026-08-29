@@ -278,6 +278,7 @@ class ApiService {
     String type = 'text',
     String platform = 'whatsapp',
     String? subject,
+    String? phoneNumberId,
   }) async {
     try {
       if (platform == 'email') {
@@ -293,6 +294,7 @@ class ApiService {
           'text': text,
           'conversationId': conversationId,
           'type': type,
+          if (phoneNumberId != null && phoneNumberId.isNotEmpty) 'phoneNumberId': phoneNumberId,
         });
         return res.data;
       }

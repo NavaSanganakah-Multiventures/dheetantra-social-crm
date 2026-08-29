@@ -32,6 +32,13 @@ export function CallsView({
     turn_configured: boolean;
     all_ready: boolean;
   } | null>(null);
+  const [plivoConfigs, setPlivoConfigs] = useState<any[]>([]);
+  const [plivoConfigsLoading, setPlivoConfigsLoading] = useState(true);
+  const [plivoConfigsError, setPlivoConfigsError] = useState(false);
+  const [fromNumberPicker, setFromNumberPicker] = useState<{
+    contact: any;
+    options: { configId: string; fromNumber: string; name: string }[];
+  } | null>(null);
 
   const fetchCallsAndConfigs = useCallback(() => {
     const wId = localStorage.getItem('workspaceId');
@@ -85,6 +92,22 @@ export function CallsView({
     })
     .catch(err => console.error(err));
 
+    // Fetch Plivo configs so outbound calls can choose a from-number
+    fetch('/api/plivo/configs', {
+      headers: { 'x-workspace-id': wId }
+    })
+    .then(r => r.json())
+    .then((data: any) => {
+      if (data.configs) setPlivoConfigs(data.configs);
+      setPlivoConfigsLoading(false);
+      setPlivoConfigsError(false);
+    })
+    .catch(err => {
+      console.error(err);
+      setPlivoConfigsError(true);
+      setPlivoConfigsLoading(false);
+    });
+
       }, []);
 
   useEffect(() => {
@@ -114,6 +137,25 @@ export function CallsView({
     }
   };
 
+  const callWithFromNumber = async (
+    contact: any,
+    phone: string,
+    option: { configId: string; fromNumber: string; name: string }
+  ) => {
+    if (!plivoVoice) {
+      alert('Plivo वॉयस सेवा उपलब्ध नहीं है।');
+      return;
+    }
+    try {
+      await plivoVoice.startCall(
+        { id: contact?.id, name: contact?.name || phone, phone },
+        { fromNumber: option.fromNumber, plivoConfigId: option.configId || undefined }
+      );
+    } catch (e: any) {
+      alert('कॉल शुरू करने में विफल: ' + (e?.message || 'अज्ञात त्रुटि'));
+    }
+  };
+
   const startOutgoingCall = async (contact: any) => {
     const phone = ((contact?.phone || contact?.platform_contact_id) || '').replace(/[^0-9+]/g, '');
     if (!phone) {
@@ -124,15 +166,40 @@ export function CallsView({
       alert('Plivo वॉयस सेवा उपलब्ध नहीं है। पहले Settings में Plivo अकाउंट जोड़ें और SIP Endpoint लिंक करें।');
       return;
     }
-    try {
-      await plivoVoice.startCall({
-        id: contact?.id,
-        name: contact?.name || phone,
-        phone,
-      });
-    } catch (e: any) {
-      alert('कॉल शुरू करने में विफल: ' + (e?.message || 'अज्ञात त्रुटि'));
+
+    if (plivoConfigsLoading) {
+      alert('Plivo कॉन्फ़िगरेशन लोड हो रहा है। एक पल रुककर दोबारा कोशिश करें।');
+      return;
     }
+    if (plivoConfigsError) {
+      alert('Plivo कॉन्फ़िगरेशन लोड नहीं हो सका। नेटवर्क जाँचें और दोबारा कोशिश करें।');
+      return;
+    }
+
+    // Gather active Plivo from-numbers so the user can choose which caller ID
+    // to dial from (when more than one is configured).
+    const options: { configId: string; fromNumber: string; name: string }[] = [];
+    for (const cfg of plivoConfigs) {
+      const configId = cfg?.id ? String(cfg.id) : '';
+      const configName = cfg?.name ? String(cfg.name) : 'Plivo';
+      const fromNumbers = Array.isArray(cfg?.fromNumbers) ? cfg.fromNumbers : [];
+      for (const fn of fromNumbers) {
+        const fromNumber = fn?.fromNumber ? String(fn.fromNumber) : '';
+        if (!fromNumber) continue;
+        if (fn?.isActive === false) continue;
+        options.push({ configId, fromNumber, name: configName });
+      }
+    }
+
+    if (options.length === 0) {
+      alert('Plivo के लिए कोई सक्रिय from-number नहीं है। पहले Settings में Plivo नंबर जोड़ें।');
+      return;
+    }
+    if (options.length === 1) {
+      await callWithFromNumber(contact, phone, options[0]);
+      return;
+    }
+    setFromNumberPicker({ contact, options });
   };
 
   const filteredCalls = calls.filter(c => {
@@ -482,6 +549,56 @@ export function CallsView({
                     </button>
                   ))
                 )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* From-number chooser modal */}
+      <AnimatePresence>
+        {fromNumberPicker && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white dark:bg-surface-900 rounded-2xl border border-surface-200 dark:border-surface-800 max-w-sm w-full p-6 shadow-2xl relative"
+            >
+              <button
+                onClick={() => setFromNumberPicker(null)}
+                className="absolute top-4 right-4 p-1.5 text-surface-400 hover:text-surface-600 dark:hover:text-white rounded-lg hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+              <div className="text-center mb-6">
+                <div className="w-12 h-12 bg-primary-50 dark:bg-primary-950/40 text-primary-600 dark:text-primary-400 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <Phone className="w-6 h-6" />
+                </div>
+                <h3 className="font-bold text-surface-950 dark:text-white">किस नंबर से कॉल करें?</h3>
+                <p className="text-[10px] text-surface-400 mt-1">अपनी Plivo caller ID चुनें</p>
+              </div>
+              <div className="max-h-60 overflow-y-auto space-y-2 pr-1">
+                {fromNumberPicker.options.map(o => (
+                  <button
+                    key={o.configId + ':' + o.fromNumber}
+                    onClick={() => {
+                      const pick = fromNumberPicker;
+                      setFromNumberPicker(null);
+                      const phone = ((pick.contact?.phone || pick.contact?.platform_contact_id) || '').replace(/[^0-9+]/g, '');
+                      callWithFromNumber(pick.contact, phone, o);
+                    }}
+                    className="w-full flex items-center gap-3 p-2.5 rounded-xl border border-surface-100 dark:border-surface-800/50 hover:bg-surface-50 dark:hover:bg-surface-800/40 transition-colors text-left"
+                  >
+                    <div className="w-8 h-8 rounded-full bg-surface-100 dark:bg-surface-800 flex items-center justify-center shrink-0">
+                      <Phone className="w-3.5 h-3.5 text-primary-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-surface-900 dark:text-white truncate">{o.fromNumber}</p>
+                      <p className="text-[10px] text-surface-400 truncate">{o.name}</p>
+                    </div>
+                  </button>
+                ))}
               </div>
             </motion.div>
           </div>
