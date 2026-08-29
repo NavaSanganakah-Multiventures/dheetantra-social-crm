@@ -93,8 +93,6 @@ export function CallsView({
     .catch(err => console.error(err));
 
     // Fetch Plivo configs so outbound calls can choose a from-number
-    setPlivoConfigsLoading(true);
-    setPlivoConfigsError(false);
     fetch('/api/plivo/configs', {
       headers: { 'x-workspace-id': wId }
     })
@@ -102,6 +100,7 @@ export function CallsView({
     .then((data: any) => {
       if (data.configs) setPlivoConfigs(data.configs);
       setPlivoConfigsLoading(false);
+      setPlivoConfigsError(false);
     })
     .catch(err => {
       console.error(err);
