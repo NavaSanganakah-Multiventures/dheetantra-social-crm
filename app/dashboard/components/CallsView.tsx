@@ -245,25 +245,25 @@ export function CallsView({
   function callStatusInfo(status: string) {
     switch (status) {
       case 'completed': case 'answered': case 'ended':
-        return { label: 'à¤¸à¤«à¤²', cls: 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600' };
+        return { label: 'सफल', cls: 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600' };
       case 'in_progress':
-        return { label: 'à¤à¤¾à¤²à¥', cls: 'bg-sky-50 dark:bg-sky-950/20 text-sky-600' };
+        return { label: 'चालू', cls: 'bg-sky-50 dark:bg-sky-950/20 text-sky-600' };
       case 'ringing': case 'queued':
-        return { label: 'à¤¬à¤ à¤°à¤¹à¤¾ à¤¹à¥', cls: 'bg-amber-50 dark:bg-amber-950/20 text-amber-600' };
+        return { label: 'बज रहा है', cls: 'bg-amber-50 dark:bg-amber-950/20 text-amber-600' };
       case 'missed':
-        return { label: 'à¤à¥à¤ à¤à¤¯à¤¾', cls: 'bg-rose-50 dark:bg-rose-950/20 text-rose-600' };
+        return { label: 'छूट गया', cls: 'bg-rose-50 dark:bg-rose-950/20 text-rose-600' };
       case 'no_answer':
-        return { label: 'à¤à¥à¤ à¤à¤µà¤¾à¤¬ à¤¨à¤¹à¥à¤', cls: 'bg-rose-50 dark:bg-rose-950/20 text-rose-600' };
+        return { label: 'कोई जवाब नहीं', cls: 'bg-rose-50 dark:bg-rose-950/20 text-rose-600' };
       case 'busy':
-        return { label: 'à¤µà¥à¤¯à¤¸à¥à¤¤', cls: 'bg-rose-50 dark:bg-rose-950/20 text-rose-600' };
+        return { label: 'व्यस्त', cls: 'bg-rose-50 dark:bg-rose-950/20 text-rose-600' };
       case 'failed':
-        return { label: 'à¤µà¤¿à¤«à¤²', cls: 'bg-rose-50 dark:bg-rose-950/20 text-rose-600' };
+        return { label: 'विफल', cls: 'bg-rose-50 dark:bg-rose-950/20 text-rose-600' };
       case 'canceled':
-        return { label: 'à¤°à¤¦à¥à¤¦', cls: 'bg-rose-50 dark:bg-rose-950/20 text-rose-600' };
+        return { label: 'रद्द', cls: 'bg-rose-50 dark:bg-rose-950/20 text-rose-600' };
       case 'declined':
-        return { label: 'à¤à¤¸à¥à¤µà¥à¤à¥à¤¤', cls: 'bg-rose-50 dark:bg-rose-950/20 text-rose-600' };
+        return { label: 'अस्वीकृत', cls: 'bg-rose-50 dark:bg-rose-950/20 text-rose-600' };
       default:
-        return { label: 'à¤à¤¸à¥à¤µà¥à¤à¥à¤¤', cls: 'bg-surface-100 dark:bg-surface-800 text-surface-500' };
+        return { label: 'अस्वीकृत', cls: 'bg-surface-100 dark:bg-surface-800 text-surface-500' };
     }
   }
   const totalCalls = calls.length;
@@ -276,8 +276,8 @@ export function CallsView({
       {/* Top Banner & Calling Switch */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-surface-900 p-6 rounded-2xl border border-surface-200 dark:border-surface-800 shadow-sm">
         <div>
-          <h2 className="text-xl font-bold text-surface-900 dark:text-white font-display">Ã Â¤ÂÃ Â¥ÂÃ Â¤Â² Ã Â¤ÂªÃ Â¥ÂÃ Â¤Â°Ã Â¤Â¬Ã Â¤ÂÃ Â¤Â§Ã Â¤Â¨ Ã Â¤ÂÃ Â¤Â° Ã Â¤ÂÃ Â¤Â¤Ã Â¤Â¿Ã Â¤Â¹Ã Â¤Â¾Ã Â¤Â¸</h2>
-          <p className="text-xs text-surface-500 mt-1">Plivo à¤à¤° WhatsApp à¤à¥ à¤¸à¤­à¥ à¤à¥à¤²à¥à¤¸ à¤à¥ à¤à¥à¤°à¥à¤ à¤à¤°à¥à¤ à¤à¤° Plivo à¤¸à¥à¤«à¥à¤à¤«à¥à¤¨ à¤¸à¥ à¤¨à¤ à¤à¥à¤² à¤¡à¤¾à¤¯à¤² à¤à¤°à¥à¤</p>
+          <h2 className="text-xl font-bold text-surface-900 dark:text-white font-display">à¤à¥à¤² à¤ªà¥à¤°à¤¬à¤à¤§à¤¨ à¤à¤° à¤à¤¤à¤¿à¤¹à¤¾à¤¸</h2>
+          <p className="text-xs text-surface-500 mt-1">Plivo और WhatsApp के सभी कॉल्स को ट्रैक करें और Plivo सॉफ्टफोन से नए कॉल डायल करें</p>
         </div>
         <div className="flex items-center gap-4 shrink-0">
           <button
@@ -285,11 +285,11 @@ export function CallsView({
             className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-primary-500/10"
           >
             <Phone className="w-3.5 h-3.5" />
-            Ã Â¤Â¨Ã Â¤Â¯Ã Â¤Â¾ Ã Â¤ÂÃ Â¥ÂÃ Â¤Â² Ã Â¤Â¡Ã Â¤Â¾Ã Â¤Â¯Ã Â¤Â² Ã Â¤ÂÃ Â¤Â°Ã Â¥ÂÃ Â¤Â
+            à¤¨à¤¯à¤¾ à¤à¥à¤² à¤¡à¤¾à¤¯à¤² à¤à¤°à¥à¤
           </button>
           
           <div className="flex items-center gap-3 bg-surface-50 dark:bg-surface-950 p-2 rounded-xl border border-surface-200/50 dark:border-surface-800">
-            <span className="text-xs font-semibold text-surface-600 dark:text-surface-400">Ã Â¤ÂÃ Â¥ÂÃ Â¤Â²Ã Â¤Â¿Ã Â¤ÂÃ Â¤Â Ã Â¤Â¸Ã Â¥ÂÃ Â¤ÂµÃ Â¤Â¾</span>
+            <span className="text-xs font-semibold text-surface-600 dark:text-surface-400">à¤à¥à¤²à¤¿à¤à¤ à¤¸à¥à¤µà¤¾</span>
             <button
               onClick={toggleCalling}
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-300 outline-none ${
@@ -303,7 +303,7 @@ export function CallsView({
               />
             </button>
             <span className={`text-[10px] font-bold uppercase tracking-wider ${callingEnabled ? 'text-emerald-500' : 'text-surface-400'}`}>
-              {callingEnabled ? 'Ã Â¤Â¸Ã Â¤ÂÃ Â¥ÂÃ Â¤Â°Ã Â¤Â¿Ã Â¤Â¯' : 'Ã Â¤Â¬Ã Â¤ÂÃ Â¤Â¦'}
+              {callingEnabled ? 'à¤¸à¤à¥à¤°à¤¿à¤¯' : 'à¤¬à¤à¤¦'}
             </span>
           </div>
         </div>
@@ -316,15 +316,15 @@ export function CallsView({
             <span className={`w-2 h-2 rounded-full ${health.all_ready ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
             <span>
               {health.all_ready
-                ? 'WhatsApp Calling Ã Â¤Â¤Ã Â¥ÂÃ Â¤Â¯Ã Â¤Â¾Ã Â¤Â° Ã Â¤Â¹Ã Â¥Â: Ã Â¤ÂÃ Â¤Â¨Ã Â¤ÂÃ Â¤Â®Ã Â¤Â¿Ã Â¤ÂÃ Â¤Â Ã Â¤ÂÃ Â¥ÂÃ Â¤Â²Ã Â¥ÂÃ Â¤Â¸ Ã Â¤ÂªÃ Â¥ÂÃ Â¤Â°Ã Â¤Â¾Ã Â¤ÂªÃ Â¥ÂÃ Â¤Â¤ Ã Â¤Â¹Ã Â¥ÂÃ Â¤ÂÃ Â¤ÂÃ Â¥ÂÃ Â¥Â¤'
-                : `WhatsApp Calling Ã Â¤Â¸Ã Â¥ÂÃ Â¤ÂÃ Â¤ÂÃ Â¤Âª Ã Â¤ÂÃ Â¤Â§Ã Â¥ÂÃ Â¤Â°Ã Â¤Â¾ Ã Â¤Â¹Ã Â¥Â: webhook ${health.webhook_subscribed ? 'Ã Â¤Â Ã Â¥ÂÃ Â¤Â Ã Â¤Â¹Ã Â¥Â' : 'Ã Â¤ÂÃ Â¤Â¾Ã Â¤Â¯Ã Â¤Â¬ Ã Â¤Â¹Ã Â¥Â'}, TURN ${health.turn_configured ? 'Ã Â¤Â Ã Â¥ÂÃ Â¤Â Ã Â¤Â¹Ã Â¥Â' : 'Ã Â¤ÂÃ Â¤Â¾Ã Â¤Â¯Ã Â¤Â¬ Ã Â¤Â¹Ã Â¥Â'}Ã Â¥Â¤ Ã Â¤Â¸Ã Â¥ÂÃ Â¤ÂÃ Â¤Â¿Ã Â¤ÂÃ Â¤ÂÃ Â¥ÂÃ Â¤Â¸ Ã Â¤Â®Ã Â¥ÂÃ Â¤Â Ã Â¤ÂÃ Â¤Â¾Ã Â¤ÂÃ Â¤Â° Ã Â¤ÂÃ Â¤Â¾Ã Â¤ÂÃ Â¤Â Ã Â¤ÂÃ Â¤Â°Ã Â¥ÂÃ Â¤ÂÃ Â¥Â¤`}
+                ? 'WhatsApp Calling à¤¤à¥à¤¯à¤¾à¤° à¤¹à¥: à¤à¤¨à¤à¤®à¤¿à¤à¤ à¤à¥à¤²à¥à¤¸ à¤ªà¥à¤°à¤¾à¤ªà¥à¤¤ à¤¹à¥à¤à¤à¥à¥¤'
+                : `WhatsApp Calling à¤¸à¥à¤à¤à¤ª à¤à¤§à¥à¤°à¤¾ à¤¹à¥: webhook ${health.webhook_subscribed ? 'à¤ à¥à¤ à¤¹à¥' : 'à¤à¤¾à¤¯à¤¬ à¤¹à¥'}, TURN ${health.turn_configured ? 'à¤ à¥à¤ à¤¹à¥' : 'à¤à¤¾à¤¯à¤¬ à¤¹à¥'}à¥¤ à¤¸à¥à¤à¤¿à¤à¤à¥à¤¸ à¤®à¥à¤ à¤à¤¾à¤à¤° à¤à¤¾à¤à¤ à¤à¤°à¥à¤à¥¤`}
             </span>
           </div>
           <button
             onClick={() => fetchCallsAndConfigs()}
             className="px-2 py-1 rounded-md bg-white dark:bg-surface-900 border border-current opacity-80 hover:opacity-100"
           >
-            Ã Â¤Â°Ã Â¤Â¿Ã Â¤Â«Ã Â¥ÂÃ Â¤Â°Ã Â¥ÂÃ Â¤Â¶
+            à¤°à¤¿à¤«à¥à¤°à¥à¤¶
           </button>
         </div>
       )}
@@ -336,7 +336,7 @@ export function CallsView({
             <Phone className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-[10px] text-surface-500 uppercase font-bold tracking-wider">Ã Â¤ÂÃ Â¥ÂÃ Â¤Â² Ã Â¤ÂÃ Â¥ÂÃ Â¤Â²Ã Â¥ÂÃ Â¤Â¸</p>
+            <p className="text-[10px] text-surface-500 uppercase font-bold tracking-wider">à¤à¥à¤² à¤à¥à¤²à¥à¤¸</p>
             <p className="text-xl font-bold text-surface-900 dark:text-white mt-0.5">{totalCalls}</p>
           </div>
         </div>
@@ -346,7 +346,7 @@ export function CallsView({
             <X className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-[10px] text-surface-500 uppercase font-bold tracking-wider">Ã Â¤Â®Ã Â¤Â¿Ã Â¤Â¸Ã Â¥ÂÃ Â¤Â¡ Ã Â¤ÂÃ Â¥ÂÃ Â¤Â²Ã Â¥ÂÃ Â¤Â¸</p>
+            <p className="text-[10px] text-surface-500 uppercase font-bold tracking-wider">à¤®à¤¿à¤¸à¥à¤¡ à¤à¥à¤²à¥à¤¸</p>
             <p className="text-xl font-bold text-surface-900 dark:text-white mt-0.5">{missedCalls}</p>
           </div>
         </div>
@@ -356,7 +356,7 @@ export function CallsView({
             <Check className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-[10px] text-surface-500 uppercase font-bold tracking-wider">Ã Â¤Â¸Ã Â¤Â«Ã Â¤Â² Ã Â¤ÂÃ Â¤Â¤Ã Â¥ÂÃ Â¤Â¤Ã Â¤Â°</p>
+            <p className="text-[10px] text-surface-500 uppercase font-bold tracking-wider">à¤¸à¤«à¤² à¤à¤¤à¥à¤¤à¤°</p>
             <p className="text-xl font-bold text-surface-900 dark:text-white mt-0.5">{completedCalls}</p>
           </div>
         </div>
@@ -366,7 +366,7 @@ export function CallsView({
             <Phone className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-[10px] text-surface-500 uppercase font-bold tracking-wider">Ã Â¤ÂÃ Â¤ÂÃ Â¤ÂÃ Â¤ÂÃ Â¥ÂÃ Â¤ÂÃ Â¤ÂÃ Â¤Â</p>
+            <p className="text-[10px] text-surface-500 uppercase font-bold tracking-wider">à¤à¤à¤à¤à¥à¤à¤à¤</p>
             <p className="text-xl font-bold text-surface-900 dark:text-white mt-0.5">{outgoingCalls}</p>
           </div>
         </div>
@@ -388,7 +388,7 @@ export function CallsView({
                     : 'text-surface-500 hover:text-surface-900 dark:hover:text-white'
                 }`}
               >
-                {type === 'all' ? 'Ã Â¤Â¸Ã Â¤Â­Ã Â¥Â' : type === 'incoming' ? 'Ã Â¤ÂÃ Â¤Â¨Ã Â¤ÂÃ Â¤Â®Ã Â¤Â¿Ã Â¤ÂÃ Â¤Â' : type === 'outgoing' ? 'Ã Â¤ÂÃ Â¤ÂÃ Â¤ÂÃ Â¤ÂÃ Â¥ÂÃ Â¤ÂÃ Â¤ÂÃ Â¤Â' : 'Ã Â¤Â®Ã Â¤Â¿Ã Â¤Â¸Ã Â¥ÂÃ Â¤Â¡'}
+                {type === 'all' ? 'à¤¸à¤­à¥' : type === 'incoming' ? 'à¤à¤¨à¤à¤®à¤¿à¤à¤' : type === 'outgoing' ? 'à¤à¤à¤à¤à¥à¤à¤à¤' : 'à¤®à¤¿à¤¸à¥à¤¡'}
               </button>
             ))}
           </div>
@@ -397,7 +397,7 @@ export function CallsView({
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-surface-400" />
             <input
               type="text"
-              placeholder="Ã Â¤Â¨Ã Â¤Â¾Ã Â¤Â® Ã Â¤Â¯Ã Â¤Â¾ Ã Â¤Â¨Ã Â¤ÂÃ Â¤Â¬Ã Â¤Â° Ã Â¤Â¸Ã Â¥Â Ã Â¤ÂÃ Â¥ÂÃ Â¤ÂÃ Â¥ÂÃ Â¤Â..."
+              placeholder="à¤¨à¤¾à¤® à¤¯à¤¾ à¤¨à¤à¤¬à¤° à¤¸à¥ à¤à¥à¤à¥à¤..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-9 pr-4 py-2 text-xs bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-surface-800 focus:bg-white dark:focus:bg-surface-900 focus:border-primary-500 rounded-xl outline-none transition-all"
@@ -409,25 +409,25 @@ export function CallsView({
         {loading ? (
           <div className="p-12 text-center">
             <div className="w-6 h-6 border-2 border-primary-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-            <p className="text-xs text-surface-500">Ã Â¤ÂÃ Â¥ÂÃ Â¤Â² Ã Â¤Â²Ã Â¥ÂÃ Â¤ÂÃ Â¥ÂÃ Â¤Â¸ Ã Â¤Â²Ã Â¥ÂÃ Â¤Â¡ Ã Â¤Â¹Ã Â¥Â Ã Â¤Â°Ã Â¤Â¹Ã Â¥Â Ã Â¤Â¹Ã Â¥ÂÃ Â¤Â...</p>
+            <p className="text-xs text-surface-500">à¤à¥à¤² à¤²à¥à¤à¥à¤¸ à¤²à¥à¤¡ à¤¹à¥ à¤°à¤¹à¥ à¤¹à¥à¤...</p>
           </div>
         ) : filteredCalls.length === 0 ? (
           <div className="p-16 text-center">
             <Phone className="w-10 h-10 text-surface-300 dark:text-surface-700 mx-auto mb-3" />
-            <p className="text-sm font-semibold text-surface-700 dark:text-surface-300">Ã Â¤ÂÃ Â¥ÂÃ Â¤Â Ã Â¤ÂÃ Â¥ÂÃ Â¤Â² Ã Â¤Â²Ã Â¥ÂÃ Â¤Â Ã Â¤Â¨Ã Â¤Â¹Ã Â¥ÂÃ Â¤Â Ã Â¤Â®Ã Â¤Â¿Ã Â¤Â²Ã Â¤Â¾</p>
-            <p className="text-xs text-surface-400 mt-1">Ã Â¤ÂÃ Â¤Â¸ Ã Â¤Â«Ã Â¤Â¼Ã Â¤Â¿Ã Â¤Â²Ã Â¥ÂÃ Â¤ÂÃ Â¤Â° Ã Â¤ÂÃ Â¥Â Ã Â¤Â¸Ã Â¤Â¾Ã Â¤Â¥ Ã Â¤ÂÃ Â¥ÂÃ Â¤Â Ã Â¤Â°Ã Â¤Â¿Ã Â¤ÂÃ Â¥ÂÃ Â¤Â°Ã Â¥ÂÃ Â¤Â¡ Ã Â¤Â¨Ã Â¤Â¹Ã Â¥ÂÃ Â¤Â Ã Â¤Â¹Ã Â¥ÂÃ Â¥Â¤</p>
+            <p className="text-sm font-semibold text-surface-700 dark:text-surface-300">à¤à¥à¤ à¤à¥à¤² à¤²à¥à¤ à¤¨à¤¹à¥à¤ à¤®à¤¿à¤²à¤¾</p>
+            <p className="text-xs text-surface-400 mt-1">à¤à¤¸ à¤«à¤¼à¤¿à¤²à¥à¤à¤° à¤à¥ à¤¸à¤¾à¤¥ à¤à¥à¤ à¤°à¤¿à¤à¥à¤°à¥à¤¡ à¤¨à¤¹à¥à¤ à¤¹à¥à¥¤</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-surface-50 dark:bg-surface-950 text-[10px] font-bold text-surface-500 uppercase tracking-wider border-b border-surface-200 dark:border-surface-800">
-                  <th className="px-6 py-3">Ã Â¤Â¸Ã Â¤Â®Ã Â¥ÂÃ Â¤ÂªÃ Â¤Â°Ã Â¥ÂÃ Â¤Â</th>
-                  <th className="px-6 py-3">Ã Â¤Â¦Ã Â¤Â¿Ã Â¤Â¶Ã Â¤Â¾/Ã Â¤ÂªÃ Â¥ÂÃ Â¤Â°Ã Â¤ÂÃ Â¤Â¾Ã Â¤Â°</th>
-                  <th className="px-6 py-3">Ã Â¤Â¸Ã Â¥ÂÃ Â¤Â¥Ã Â¤Â¿Ã Â¤Â¤Ã Â¤Â¿</th>
-                  <th className="px-6 py-3">Ã Â¤ÂÃ Â¥ÂÃ Â¤Â² Ã Â¤ÂÃ Â¥Â Ã Â¤Â¤Ã Â¤Â¾Ã Â¤Â°Ã Â¥ÂÃ Â¤Â Ã Â¤ÂÃ Â¤Â° Ã Â¤Â¸Ã Â¤Â®Ã Â¤Â¯</th>
-                  <th className="px-6 py-3">Ã Â¤ÂÃ Â¤ÂµÃ Â¤Â§Ã Â¤Â¿</th>
-                  <th className="px-6 py-3 text-right">Ã Â¤ÂÃ Â¤Â¾Ã Â¤Â°Ã Â¥ÂÃ Â¤Â°Ã Â¤ÂµÃ Â¤Â¾Ã Â¤Â</th>
+                  <th className="px-6 py-3">à¤¸à¤®à¥à¤ªà¤°à¥à¤</th>
+                  <th className="px-6 py-3">à¤¦à¤¿à¤¶à¤¾/à¤ªà¥à¤°à¤à¤¾à¤°</th>
+                  <th className="px-6 py-3">à¤¸à¥à¤¥à¤¿à¤¤à¤¿</th>
+                  <th className="px-6 py-3">à¤à¥à¤² à¤à¥ à¤¤à¤¾à¤°à¥à¤ à¤à¤° à¤¸à¤®à¤¯</th>
+                  <th className="px-6 py-3">à¤à¤µà¤§à¤¿</th>
+                  <th className="px-6 py-3 text-right">à¤à¤¾à¤°à¥à¤°à¤µà¤¾à¤</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-surface-200 dark:divide-surface-800 text-xs">
@@ -445,7 +445,7 @@ export function CallsView({
                             {call.contact_name?.[0] || '?'}
                           </div>
                           <div>
-                            <p className="font-semibold text-surface-800 dark:text-surface-200">{call.contact_name || 'Ã Â¤ÂÃ Â¤ÂÃ Â¥ÂÃ Â¤ÂÃ Â¤Â¾Ã Â¤Â¤ Ã Â¤Â¸Ã Â¤ÂÃ Â¤ÂªÃ Â¤Â°Ã Â¥ÂÃ Â¤Â'}</p>
+                            <p className="font-semibold text-surface-800 dark:text-surface-200">{call.contact_name || 'à¤à¤à¥à¤à¤¾à¤¤ à¤¸à¤à¤ªà¤°à¥à¤'}</p>
                             <p className="text-[10px] text-surface-400">+{call.phone}</p>
                           </div>
                         </div>
@@ -455,16 +455,16 @@ export function CallsView({
                           {call.direction === 'incoming' ? (
                             <span className="flex items-center gap-1.5 px-2 py-1 bg-teal-50 dark:bg-teal-950/20 text-teal-600 dark:text-teal-400 rounded-lg text-[10px] font-bold">
                               <span className="w-1.5 h-1.5 rounded-full bg-teal-500"></span>
-                              Ã Â¤ÂÃ Â¤Â¨Ã Â¤ÂÃ Â¤Â®Ã Â¤Â¿Ã Â¤ÂÃ Â¤Â
+                              à¤à¤¨à¤à¤®à¤¿à¤à¤
                             </span>
                           ) : (
                             <span className="flex items-center gap-1.5 px-2 py-1 bg-blue-50 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400 rounded-lg text-[10px] font-bold">
                               <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
-                              Ã Â¤ÂÃ Â¤ÂÃ Â¤ÂÃ Â¤ÂÃ Â¥ÂÃ Â¤ÂÃ Â¤ÂÃ Â¤Â
+                              à¤à¤à¤à¤à¥à¤à¤à¤
                             </span>
                           )}
                           <span className="text-[10px] text-surface-500 dark:text-surface-400 capitalize">
-                            {call.type === 'voice' ? 'Ã Â¤ÂµÃ Â¥ÂÃ Â¤Â¯Ã Â¤Â¸ Ã Â¤ÂÃ Â¥ÂÃ Â¤Â²' : 'Ã Â¤ÂµÃ Â¥ÂÃ Â¤Â¡Ã Â¤Â¿Ã Â¤Â¯Ã Â¥Â Ã Â¤ÂÃ Â¥ÂÃ Â¤Â²'}
+                            {call.type === 'voice' ? 'à¤µà¥à¤¯à¤¸ à¤à¥à¤²' : 'à¤µà¥à¤¡à¤¿à¤¯à¥ à¤à¥à¤²'}
                           </span>
                           {call.source && (
                             <span className="text-[9px] px-1.5 py-0.5 rounded bg-surface-100 dark:bg-surface-800 text-surface-500 font-bold uppercase">
@@ -503,14 +503,14 @@ export function CallsView({
                               });
                             }}
                             className="p-1.5 text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800 rounded-lg transition-colors"
-                            title="Ã Â¤ÂÃ Â¤Â¨Ã Â¤Â¬Ã Â¥ÂÃ Â¤ÂÃ Â¥ÂÃ Â¤Â¸ Ã Â¤ÂÃ Â¥ÂÃ Â¤Â Ã Â¤ÂÃ Â¥ÂÃ Â¤Â²Ã Â¥ÂÃ Â¤Â"
+                            title="à¤à¤¨à¤¬à¥à¤à¥à¤¸ à¤à¥à¤ à¤à¥à¤²à¥à¤"
                           >
                             <MessageSquare className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => startOutgoingCall({ id: call.contact_id, name: call.contact_name, phone: call.phone })}
                             className="p-1.5 text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-950/40 rounded-lg transition-colors"
-                            title="Ã Â¤ÂÃ Â¥ÂÃ Â¤Â² Ã Â¤Â¬Ã Â¥ÂÃ Â¤Â Ã Â¤ÂÃ Â¤Â°Ã Â¥ÂÃ Â¤Â"
+                            title="à¤à¥à¤² à¤¬à¥à¤ à¤à¤°à¥à¤"
                           >
                             <Phone className="w-4 h-4" />
                           </button>
@@ -546,8 +546,8 @@ export function CallsView({
                 <div className="w-12 h-12 bg-primary-50 dark:bg-primary-950/40 text-primary-600 dark:text-primary-400 rounded-full flex items-center justify-center mx-auto mb-3">
                   <Phone className="w-6 h-6" />
                 </div>
-                <h3 className="font-bold text-surface-950 dark:text-white">Ã Â¤Â¨Ã Â¤Â¯Ã Â¤Â¾ Ã Â¤ÂÃ Â¥ÂÃ Â¤Â² Ã Â¤Â¶Ã Â¥ÂÃ Â¤Â°Ã Â¥Â Ã Â¤ÂÃ Â¤Â°Ã Â¥ÂÃ Â¤Â</h3>
-                <p className="text-[10px] text-surface-400 mt-1">à¤à¤¿à¤¸à¥ à¤­à¥ à¤à¥à¤¨à¥à¤à¥à¤à¥à¤ à¤à¥ Plivo à¤¸à¥à¤«à¥à¤à¤«à¥à¤¨ à¤¸à¥ à¤¡à¤¾à¤¯à¤² à¤à¤°à¥à¤</p>
+                <h3 className="font-bold text-surface-950 dark:text-white">à¤¨à¤¯à¤¾ à¤à¥à¤² à¤¶à¥à¤°à¥ à¤à¤°à¥à¤</h3>
+                <p className="text-[10px] text-surface-400 mt-1">किसी भी कॉन्टैक्ट को Plivo सॉफ्टफोन से डायल करें</p>
               </div>
 
               {/* Source selector */}
@@ -583,7 +583,7 @@ export function CallsView({
               {/* Contact List */}
               <div className="max-h-60 overflow-y-auto space-y-2 pr-1">
                 {contacts.length === 0 ? (
-                  <p className="text-center text-xs text-surface-400 py-6">Ã Â¤ÂÃ Â¥ÂÃ Â¤Â Ã Â¤Â­Ã Â¥Â Ã Â¤ÂµÃ Â¥ÂÃ Â¤Â¹Ã Â¤Â¾Ã Â¤ÂÃ Â¥ÂÃ Â¤Â¸Ã Â¤ÂÃ Â¤Âª Ã Â¤ÂÃ Â¤Â¾Ã Â¤ÂÃ Â¤ÂÃ Â¥ÂÃ Â¤ÂÃ Â¥ÂÃ Â¤Â Ã Â¤ÂÃ Â¤ÂªÃ Â¤Â²Ã Â¤Â¬Ã Â¥ÂÃ Â¤Â§ Ã Â¤Â¨Ã Â¤Â¹Ã Â¥ÂÃ Â¤Â Ã Â¤Â¹Ã Â¥ÂÃ Â¥Â¤</p>
+                  <p className="text-center text-xs text-surface-400 py-6">à¤à¥à¤ à¤­à¥ à¤µà¥à¤¹à¤¾à¤à¥à¤¸à¤à¤ª à¤à¤¾à¤à¤à¥à¤à¥à¤ à¤à¤ªà¤²à¤¬à¥à¤§ à¤¨à¤¹à¥à¤ à¤¹à¥à¥¤</p>
                 ) : (
                   contacts.map(c => (
                     <button
@@ -628,8 +628,8 @@ export function CallsView({
                 <div className="w-12 h-12 bg-primary-50 dark:bg-primary-950/40 text-primary-600 dark:text-primary-400 rounded-full flex items-center justify-center mx-auto mb-3">
                   <Phone className="w-6 h-6" />
                 </div>
-                <h3 className="font-bold text-surface-950 dark:text-white">à¤à¤¿à¤¸ à¤¨à¤à¤¬à¤° à¤¸à¥ à¤à¥à¤² à¤à¤°à¥à¤?</h3>
-                <p className="text-[10px] text-surface-400 mt-1">à¤à¤ªà¤¨à¥ Plivo caller ID à¤à¥à¤¨à¥à¤</p>
+                <h3 className="font-bold text-surface-950 dark:text-white">किस नंबर से कॉल करें?</h3>
+                <p className="text-[10px] text-surface-400 mt-1">अपनी Plivo caller ID चुनें</p>
               </div>
               <div className="max-h-60 overflow-y-auto space-y-2 pr-1">
                 {fromNumberPicker.options.map(o => (
