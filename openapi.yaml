@@ -287,3 +287,60 @@ paths:
             text/xml:
               schema:
                 type: string
+  # -------------------------------------------------------------
+  # WhatsApp Outbound Calling
+  # -------------------------------------------------------------
+  /whatsapp/calls/outbound:
+    post:
+      summary: Initiate an outbound WhatsApp voice call
+      description: |
+        Creates an outbound WhatsApp WebRTC call by sending an SDP offer to
+        the Meta Graph API /phone_number_id/calls endpoint. The browser is
+        responsible for generating the SDP offer; this route proxies it and
+        tracks the call in the calls table.
+      security:
+        - ApiKeyAuth: []
+        - WorkspaceHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - sdp
+              properties:
+                phoneNumberId:
+                  type: string
+                contactId:
+                  type: string
+                to:
+                  type: string
+                  example: '919669509952'
+                sdp:
+                  type: string
+                sdpType:
+                  type: string
+                  enum: [offer]
+      responses:
+        '200':
+          description: Call initiated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  callId:
+                    type: string
+                  externalCallId:
+                    type: string
+                  status:
+                    type: string
+        '400':
+          description: Missing SDP, contact/phone or disabled calling
+        '409':
+          description: Another WhatsApp call is already active in this workspace
+        '502':
+          description: Meta Graph API returned an error
