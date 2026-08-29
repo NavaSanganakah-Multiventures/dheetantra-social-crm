@@ -33,6 +33,8 @@ export function CallsView({
     all_ready: boolean;
   } | null>(null);
   const [plivoConfigs, setPlivoConfigs] = useState<any[]>([]);
+  const [plivoConfigsLoading, setPlivoConfigsLoading] = useState(true);
+  const [plivoConfigsError, setPlivoConfigsError] = useState(false);
   const [fromNumberPicker, setFromNumberPicker] = useState<{
     contact: any;
     options: { configId: string; fromNumber: string; name: string }[];
@@ -91,14 +93,21 @@ export function CallsView({
     .catch(err => console.error(err));
 
     // Fetch Plivo configs so outbound calls can choose a from-number
+    setPlivoConfigsLoading(true);
+    setPlivoConfigsError(false);
     fetch('/api/plivo/configs', {
       headers: { 'x-workspace-id': wId }
     })
     .then(r => r.json())
     .then((data: any) => {
       if (data.configs) setPlivoConfigs(data.configs);
+      setPlivoConfigsLoading(false);
     })
-    .catch(err => console.error(err));
+    .catch(err => {
+      console.error(err);
+      setPlivoConfigsError(true);
+      setPlivoConfigsLoading(false);
+    });
 
       }, []);
 
@@ -129,6 +138,25 @@ export function CallsView({
     }
   };
 
+  const callWithFromNumber = async (
+    contact: any,
+    phone: string,
+    option: { configId: string; fromNumber: string; name: string }
+  ) => {
+    if (!plivoVoice) {
+      alert('Plivo वॉयस सेवा उपलब्ध नहीं है।');
+      return;
+    }
+    try {
+      await plivoVoice.startCall(
+        { id: contact?.id, name: contact?.name || phone, phone },
+        { fromNumber: option.fromNumber, plivoConfigId: option.configId || undefined }
+      );
+    } catch (e: any) {
+      alert('कॉल शुरू करने में विफल: ' + (e?.message || 'अज्ञात त्रुटि'));
+    }
+  };
+
   const startOutgoingCall = async (contact: any) => {
     const phone = ((contact?.phone || contact?.platform_contact_id) || '').replace(/[^0-9+]/g, '');
     if (!phone) {
@@ -137,6 +165,15 @@ export function CallsView({
     }
     if (!plivoVoice) {
       alert('Plivo वॉयस सेवा उपलब्ध नहीं है। पहले Settings में Plivo अकाउंट जोड़ें और SIP Endpoint लिंक करें।');
+      return;
+    }
+
+    if (plivoConfigsLoading) {
+      alert('Plivo कॉन्फ़िगरेशन लोड हो रहा है। एक पल रुककर दोबारा कोशिश करें।');
+      return;
+    }
+    if (plivoConfigsError) {
+      alert('Plivo कॉन्फ़िगरेशन लोड नहीं हो सका। नेटवर्क जाँचें और दोबारा कोशिश करें।');
       return;
     }
 
@@ -164,25 +201,6 @@ export function CallsView({
       return;
     }
     setFromNumberPicker({ contact, options });
-  };
-
-  const callWithFromNumber = async (
-    contact: any,
-    phone: string,
-    option: { configId: string; fromNumber: string; name: string }
-  ) => {
-    if (!plivoVoice) {
-      alert('Plivo वॉयस सेवा उपलब्ध नहीं है।');
-      return;
-    }
-    try {
-      await plivoVoice.startCall(
-        { id: contact?.id, name: contact?.name || phone, phone },
-        { fromNumber: option.fromNumber, plivoConfigId: option.configId || undefined }
-      );
-    } catch (e: any) {
-      alert('कॉल शुरू करने में विफल: ' + (e?.message || 'अज्ञात त्रुटि'));
-    }
   };
 
   const filteredCalls = calls.filter(c => {
