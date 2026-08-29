@@ -7,6 +7,7 @@ import 'services/api_service.dart';
 import 'services/fcm_service.dart';
 import 'services/notification_router.dart';
 import 'services/callkit_service.dart';
+import 'services/plivo_native_voice_service.dart';
 import 'theme/app_theme.dart';
 
 import 'package:firebase_core/firebase_core.dart';
@@ -44,7 +45,7 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   }
 }
 
-/// CallKit background handler â plugin ka apna background FlutterEngine isolate
+/// CallKit background handler Ã¢ÂÂ plugin ka apna background FlutterEngine isolate
 /// ise chalata hai jab app terminated ho aur user native call UI se accept/
 /// decline kare. acceptCallHandle (CallKitService.init mein) main isolate ke
 /// MethodChannel par wahi event deta hai jab app wapas khulta hai, isliye yahan
@@ -67,12 +68,12 @@ Future<void> main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-  // acceptCallHandle native callback ko sabse pehle register karo â cold-start
+  // acceptCallHandle native callback ko sabse pehle register karo Ã¢ÂÂ cold-start
   // accept (plugin ka 750ms callback window) main isolate ka method channel
   // ready hone se pehle aa jata hai, tab event lost ho jata hai. Early
   // register se us race ka window kafi kam ho jata hai.
   CallKitService().registerAcceptHandleEarly();
-  // CallKit background engine start karo â iske bina app killed hone par native
+  // CallKit background engine start karo Ã¢ÂÂ iske bina app killed hone par native
   // accept/decline events kisi ko nahi milte aur call attend nahi ho pati.
   try {
     await FlutterCallkitIncoming.onBackgroundMessage(_callkitBackgroundEventHandler);
@@ -82,6 +83,20 @@ Future<void> main() async {
   await ApiService().init();
   await FcmService().init();
   await CallKitService().init();
+
+  // Plivo official Android SDK bridge init (sip_ua ke saath parallel migration).
+  try {
+    await PlivoNativeVoiceService().init();
+    // Best-effort login; call karne par bhi retry hota hai.
+    // ignore: unawaited_futures
+    PlivoNativeVoiceService().registerEndpoint().catchError((e) {
+      debugPrint('[PlivoNative] startup register error: ' + e.toString());
+      return false;
+    });
+  } catch (e) {
+    debugPrint('[PlivoNative] init error: ' + e.toString());
+  }
+
   FcmService().onNotificationTap = (data) => NotificationRouter().dispatch(data);
   runApp(const DheeTantraApp());
 }
