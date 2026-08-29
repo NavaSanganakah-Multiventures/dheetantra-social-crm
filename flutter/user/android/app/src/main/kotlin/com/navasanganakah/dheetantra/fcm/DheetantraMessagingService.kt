@@ -19,8 +19,10 @@ class DheetantraMessagingService : FlutterFirebaseMessagingService() {
 
         // 2) Plivo SDK push relay: SDK non-Plivo payloads ko khud ignore karta hai,
         //    isliye backend ke data messages bhi safe hain.
-        //    (Killed-state re-login + push wake M4 mein aayega.)
+        //    Killed-state mein process fresh start hota hai: secure storage se
+        //    re-login karo, phir push relay karo (Plivo official example order).
         PlivoManager.get().ensureInitialized(applicationContext)
+        PlivoManager.get().reloginFromStoredCredentials()
         PlivoManager.get().relayPush(remoteMessage.data)
 
         // 3) Baaki sab flutterfire messaging ko.
@@ -30,7 +32,10 @@ class DheetantraMessagingService : FlutterFirebaseMessagingService() {
     override fun onNewToken(token: String) {
         // Keep Twilio push binding in sync with FCM token rotations.
         TwilioVoiceFcm.updateToken(this, token)
-        // Plivo endpoint ko naye token par re-register karna M4 (credential persistence) mein.
+        // Plivo: naya token persist karo taaki killed-state re-login fresh token use kare.
+        // (Idle state par re-register karna M6/M7 mein.)
+        PlivoManager.get().ensureInitialized(applicationContext)
+        PlivoManager.get().updateDeviceToken(token)
         super.onNewToken(token)
     }
 }
