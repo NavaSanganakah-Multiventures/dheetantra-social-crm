@@ -516,13 +516,13 @@ app.post('/api/whatsapp/webhook', async (c) => {
               if (direction === 'BUSINESS_INITIATED') {
                 let localCall = await c.env.DB.prepare(
                   'SELECT id, contact_id, status FROM calls WHERE workspace_id = ? AND external_call_id = ?'
-                ).bind(config.workspace_id, callId).first<{ id: string; contact_id: string; status: string } | null>();
+                ).bind(config.workspace_id, callId).first<{ id: string; contact_id: string; status: string }>();
 
                 if (!localCall) {
                   // Fallback: attach to the most recent dialing/ringing outbound WhatsApp row for this callee
                   localCall = await c.env.DB.prepare(
                     "SELECT id, contact_id, status FROM calls WHERE workspace_id = ? AND source = 'whatsapp' AND direction = 'outgoing' AND caller_number = ? AND status IN ('dialing','ringing') ORDER BY created_at DESC LIMIT 1"
-                  ).bind(config.workspace_id, callerNumber).first<{ id: string; contact_id: string; status: string } | null>();
+                  ).bind(config.workspace_id, callerNumber).first<{ id: string; contact_id: string; status: string }>();
                   if (localCall) {
                     await c.env.DB.prepare('UPDATE calls SET external_call_id = ? WHERE id = ?')
                       .bind(callId, localCall.id).run();
