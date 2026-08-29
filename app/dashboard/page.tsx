@@ -27,6 +27,7 @@ import { IntegrationsView } from './components/IntegrationsView';
 import { WhatsAppManagerView } from './components/WhatsAppManagerView';
 import { unregisterFcmToken } from '@/components/FcmRegistration';
 import { TwilioVoiceProvider } from '@/app/dashboard/components/TwilioVoiceProvider';
+import { PlivoVoiceProvider } from '@/app/dashboard/components/PlivoVoiceProvider';
 
 export { formatUserTimeOnly, formatUserDateOnly, formatUserDateTime } from './lib/dates';
 
@@ -374,6 +375,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
   }, []);
 
   return (
+    <PlivoVoiceProvider>
     <TwilioVoiceProvider>
       <div className="flex h-screen overflow-hidden bg-surface-100 dark:bg-surface-950">
       {/* Sidebar Overlay for Mobile */}
@@ -707,5 +709,6 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
       </AnimatePresence>
     </div>
     </TwilioVoiceProvider>
+    </PlivoVoiceProvider>
   );
 }

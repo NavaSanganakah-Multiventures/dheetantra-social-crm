@@ -713,7 +713,7 @@ router.post('/api/plivo/call', async (c) => {
   const user = c.get('user') as any;
   if (!user || !user.id) return c.json({ error: 'Authentication required' }, 401);
 
-  const { to, contactId, plivoConfigId, fromNumber } = await c.req.json() as any;
+  const { to, contactId, plivoConfigId, fromNumber, mode, inApp } = await c.req.json() as any;
   if (!to || typeof to !== 'string') {
     return c.json({ error: 'To number is required' }, 400);
   }
@@ -774,7 +774,7 @@ router.post('/api/plivo/call', async (c) => {
   // In-app (softphone) answering mode: fire only the customer leg into a
   // conference waiting room. The agent's app answers via the Plivo softphone
   // endpoint (same flow as inbound with auto-forward OFF).
-  if (!autoDialAgents) {
+  if (mode === 'in_app' || inApp === true || !autoDialAgents) {
     await c.env.DB.prepare(
       "INSERT INTO calls (id, workspace_id, contact_id, phone_number_id, caller_number, source, type, direction, status, duration, plivo_config_id, assigned_user_id, external_call_id, created_at) VALUES (?, ?, ?, ?, ?, 'plivo', 'voice', 'outgoing', 'ringing', 0, ?, ?, ?, ?)"
     ).bind(callId, workspaceId, resolvedContactId, fromRow.id, normalizedTo, config.id, user.id, null, createdAt).run();

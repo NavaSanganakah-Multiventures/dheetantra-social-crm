@@ -9,6 +9,12 @@
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
+    "types": [
+      "node",
+      "react",
+      "react-dom",
+      "papaparse"
+    ],
     "noEmit": true,
     "esModuleInterop": true,
     "module": "esnext",

@@ -3,6 +3,7 @@ import { Bot, MessageSquare, Megaphone, Settings, User, Users, UserPlus, UserX, 
 import { useToast } from '@/components/ui/Toast';
 import { formatUserDateOnly } from '../lib/dates';
 import { SubscriptionModal } from './SubscriptionModal';
+import { PlivoSettingsSection } from './PlivoSettingsSection';
 
 export function SettingsView() {
     const { toast } = useToast();
@@ -931,6 +932,9 @@ export function SettingsView() {
                      </div>
                  </div>
              </div>
+        {/* Plivo Voice (Plivo Browser SDK) Settings */}
+        <PlivoSettingsSection />
+
         </div>
 
         {/* Subscription / Upgrade Popup */}
