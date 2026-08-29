@@ -891,9 +891,24 @@ router.post('/api/whatsapp/send', async (c) => {
       config = await c.env.DB.prepare('SELECT phone_number_id, access_token FROM whatsapp_configs WHERE workspace_id = ? AND phone_number_id = ?').bind(workspaceId, phoneNumberId).first();
     }
     if (!config) {
+      // Reply from the same WhatsApp number that received the message when
+      // the client did not explicitly pick a number. Falls back to the
+      // workspace's default/first configured number.
+      const convNum = await c.env.DB.prepare('SELECT phone_number_id FROM conversations WHERE id = ? AND workspace_id = ?').bind(conversationId, workspaceId).first();
+      if (convNum?.phone_number_id) {
+        config = await c.env.DB.prepare('SELECT phone_number_id, access_token FROM whatsapp_configs WHERE workspace_id = ? AND phone_number_id = ?').bind(workspaceId, convNum.phone_number_id).first();
+      }
+    }
+    if (!config) {
       config = await c.env.DB.prepare('SELECT phone_number_id, access_token FROM whatsapp_configs WHERE workspace_id = ?').bind(workspaceId).first();
     }
     if (!config) return c.json({ error: 'WhatsApp is not configured for this workspace' }, 400);
+
+    // Pin the conversation to the number actually used for this send so
+    // future replies keep going out from the same number.
+    if (config?.phone_number_id) {
+      await c.env.DB.prepare('UPDATE conversations SET phone_number_id = ? WHERE id = ? AND workspace_id = ?').bind(config.phone_number_id, conversationId, workspaceId).run();
+    }
 
     // Build the Meta Cloud API payload
     let payload: any = {
