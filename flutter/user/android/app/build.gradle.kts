@@ -77,6 +77,13 @@ flutter {
     source = "../.."
 }
 
+// Plivo SDK apne AAR ke andar slf4j classes bundle karta hai. Doosri dependencies
+// alag slf4j-api version (2.x) laati hain, jisse duplicate-class error aata hai.
+// Isliye external slf4j ko exclude karke sirf SDK-wala bundled slf4j rakhte hain.
+configurations.all {
+    exclude(group = "org.slf4j")
+}
+
 dependencies {
     // Firebase BoM so the app module can see firebase-messaging classes
     implementation(platform("com.google.firebase:firebase-bom:33.5.0"))
