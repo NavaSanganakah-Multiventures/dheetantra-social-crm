@@ -411,8 +411,7 @@ class _ContactDetailScreenState extends State<_ContactDetailScreen> {
     widget.onChanged?.call();
   }
 
-  Future<void> _initiateTwilioCall(Contact contact) async {
-    final configs = await ApiService().getTwilioConfigs();
+  List<Map<String, String>> _buildFromNumberOptions(List<dynamic> configs) {
     final options = <Map<String, String>>[];
     for (final c in configs) {
       final configId = (c['id'] ?? '').toString();
@@ -430,6 +429,12 @@ class _ContactDetailScreenState extends State<_ContactDetailScreen> {
         });
       }
     }
+    return options;
+  }
+
+  Future<void> _initiateTwilioCall(Contact contact) async {
+    final configs = await ApiService().getTwilioConfigs();
+    final options = _buildFromNumberOptions(configs);
     if (options.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -468,23 +473,7 @@ class _ContactDetailScreenState extends State<_ContactDetailScreen> {
 
   Future<void> _initiatePlivoCall(Contact contact) async {
     final configs = await ApiService().getPlivoConfigs();
-    final options = <Map<String, String>>[];
-    for (final c in configs) {
-      final configId = (c['id'] ?? '').toString();
-      final configName = (c['name'] ?? '').toString();
-      final fromNumbers = (c['fromNumbers'] as List?) ?? const [];
-      for (final fn in fromNumbers) {
-        final number = (fn['fromNumber'] ?? '').toString();
-        if (number.isEmpty) continue;
-        if (fn['isActive'] == false) continue;
-        options.add({
-          'configId': configId,
-          'configName': configName,
-          'fromNumber': number,
-          'isDefault': (fn['isDefault'] == true).toString(),
-        });
-      }
-    }
+    final options = _buildFromNumberOptions(configs);
     if (options.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
