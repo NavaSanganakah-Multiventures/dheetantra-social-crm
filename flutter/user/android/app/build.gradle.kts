@@ -63,6 +63,12 @@ android {
                 logger.warn("WARNING: android/key.properties not found - release APK will be signed with the DEBUG key. Not safe for production distribution.")
                 signingConfig = signingConfigs.getByName("debug")
             }
+
+            // Plivo SDK: slf4j binding absent hai (benign); R8 ko warn na karne ko kaho.
+            proguardFiles(
+                getDefaultProguardFile("proguard-android.txt"),
+                "proguard-rules.pro"
+            )
         }
     }
 }
