@@ -68,6 +68,114 @@ router.post('/api/whatsapp/calls', async (c) => {
 });
 
 // UPDATE call status (answered, ended, duration, etc.)
+// INITIATE an outbound WhatsApp WebRTC call (Official Meta Graph API)
+router.post('/api/whatsapp/calls/outbound', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  const user = (c as any).get('user') as any;
+  const body = await c.req.json();
+  const { phoneNumberId, contactId, to, sdp, sdpType } = body as any;
+
+  if (!sdp || typeof sdp !== 'string') {
+    return c.json({ error: 'SDP offer required' }, 400);
+  }
+
+  let targetPhone = '';
+  let finalContactId = contactId || '';
+  if (finalContactId) {
+    const contact = await c.env.DB.prepare(
+      'SELECT platform_contact_id FROM contacts WHERE id = ? AND workspace_id = ?'
+    ).bind(finalContactId, workspaceId).first<{ platform_contact_id: string }>();
+    if (!contact) return c.json({ error: 'Contact not found' }, 400);
+    targetPhone = contact.platform_contact_id || '';
+  } else if (to && typeof to === 'string') {
+    targetPhone = to;
+  }
+  if (!targetPhone) return c.json({ error: 'contactId or to required' }, 400);
+
+  const normalizedPhone = targetPhone.replace(/\D/g, '').replace(/^0/, '');
+  if (!normalizedPhone) return c.json({ error: 'Invalid phone number' }, 400);
+
+  let config = await c.env.DB.prepare(
+    'SELECT phone_number_id, access_token, calling_enabled FROM whatsapp_configs WHERE workspace_id = ? AND phone_number_id = ?'
+  ).bind(workspaceId, phoneNumberId).first<{ phone_number_id: string; access_token: string; calling_enabled: number }>();
+  if (!config) {
+    config = await c.env.DB.prepare(
+      'SELECT phone_number_id, access_token, calling_enabled FROM whatsapp_configs WHERE workspace_id = ?'
+    ).bind(workspaceId).first<{ phone_number_id: string; access_token: string; calling_enabled: number }>();
+  }
+  if (!config) return c.json({ error: 'WhatsApp not configured' }, 400);
+  if (config.calling_enabled === 0) return c.json({ error: 'WhatsApp calling disabled' }, 400);
+
+  const finalPhoneNumberId = phoneNumberId || config.phone_number_id;
+
+  // Busy guard: only one active WhatsApp call per workspace at a time
+  const activeCall = await c.env.DB.prepare(
+    "SELECT id FROM calls WHERE workspace_id = ? AND source = 'whatsapp' AND status IN ('dialing','ringing','in_progress') LIMIT 1"
+  ).bind(workspaceId).first<{ id: string }>();
+  if (activeCall) {
+    return c.json({ error: 'Another WhatsApp call is already active in this workspace' }, 409);
+  }
+
+  const callId = crypto.randomUUID();
+  const callCreatedAt = sqliteNow();
+  await c.env.DB.prepare(`
+    INSERT INTO calls (id, workspace_id, contact_id, phone_number_id, caller_number, type, direction, status, source, assigned_user_id, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).bind(
+    callId, workspaceId, finalContactId || null, finalPhoneNumberId, normalizedPhone,
+    'voice', 'outgoing', 'dialing', 'whatsapp', user?.id || null, callCreatedAt
+  ).run();
+
+  const url = `https://graph.facebook.com/v20.0/${finalPhoneNumberId}/calls`;
+
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${config.access_token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        to: normalizedPhone,
+        action: 'offer',
+        session: { sdp, sdp_type: sdpType || 'offer' }
+      })
+    });
+    const data: any = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      await c.env.DB.prepare('UPDATE calls SET status = ?, hangup_cause = ? WHERE id = ? AND workspace_id = ?')
+        .bind('failed', (data?.error?.message || `Meta HTTP ${res.status}`), callId, workspaceId).run();
+      return c.json({ success: false, error: data?.error?.message || `Meta HTTP ${res.status}`, meta: data }, 502);
+    }
+
+    const externalCallId = data.call_id || data.id || callId;
+    await c.env.DB.prepare('UPDATE calls SET external_call_id = ?, status = ? WHERE id = ? AND workspace_id = ?')
+      .bind(externalCallId, 'ringing', callId, workspaceId).run();
+
+    try {
+      const globalDoId = c.env.CHAT_DO.idFromName(`global-${workspaceId}`);
+      const globalStub = c.env.CHAT_DO.get(globalDoId);
+      await globalStub.fetch(new Request('http://do/broadcast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'call_status_updated',
+          call_id: callId,
+          status: 'ringing',
+          direction: 'outgoing',
+          source: 'whatsapp'
+        })
+      }));
+    } catch (e) { }
+
+    return c.json({ success: true, callId, externalCallId, status: 'ringing' });
+  } catch (e: any) {
+    await c.env.DB.prepare('UPDATE calls SET status = ?, hangup_cause = ? WHERE id = ? AND workspace_id = ?')
+      .bind('failed', e.message || 'Network error', callId, workspaceId).run();
+    return c.json({ success: false, error: e.message || 'Failed to initiate WhatsApp call' }, 502);
+  }
+});
+
 router.post('/api/whatsapp/calls/:id/status', async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
   const callId = c.req.param('id');
@@ -165,6 +273,11 @@ router.post('/api/whatsapp/calls/:id/terminate', async (c) => {
   }
   if (!config) return c.json({ error: 'WhatsApp not configured' }, 400);
 
+  // For outbound calls the local id is different from Meta's call_id.
+  const callRow = await c.env.DB.prepare('SELECT external_call_id FROM calls WHERE id = ? AND workspace_id = ?')
+    .bind(callId, workspaceId).first<{ external_call_id: string | null }>();
+  const externalCallId = callRow?.external_call_id || callId;
+
   const url = `https://graph.facebook.com/v20.0/${phoneNumberId}/calls`;
 
   const res = await fetch(url, {
@@ -172,7 +285,7 @@ router.post('/api/whatsapp/calls/:id/terminate', async (c) => {
     headers: { 'Authorization': `Bearer ${config.access_token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       messaging_product: 'whatsapp',
-      call_id: callId,
+      call_id: externalCallId,
       action: 'terminate'
     })
   });

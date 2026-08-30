@@ -512,6 +512,74 @@ app.post('/api/whatsapp/webhook', async (c) => {
               }
 
               if (event === 'connect' || event === 'offer') {
+              // Outgoing call progression (business/user-initiated)
+              if (direction === 'BUSINESS_INITIATED') {
+                let localCall = await c.env.DB.prepare(
+                  'SELECT id, contact_id, status FROM calls WHERE workspace_id = ? AND external_call_id = ?'
+                ).bind(config.workspace_id, callId).first<{ id: string; contact_id: string; status: string }>();
+
+                if (!localCall) {
+                  // Fallback: attach to the most recent dialing/ringing outbound WhatsApp row for this callee
+                  localCall = await c.env.DB.prepare(
+                    "SELECT id, contact_id, status FROM calls WHERE workspace_id = ? AND source = 'whatsapp' AND direction = 'outgoing' AND caller_number = ? AND status IN ('dialing','ringing') ORDER BY created_at DESC LIMIT 1"
+                  ).bind(config.workspace_id, callerNumber).first<{ id: string; contact_id: string; status: string }>();
+                  if (localCall) {
+                    await c.env.DB.prepare('UPDATE calls SET external_call_id = ? WHERE id = ?')
+                      .bind(callId, localCall.id).run();
+                  }
+                }
+
+                if (!localCall) {
+                  // No originating row found; create a minimal log so the event is not lost
+                  let fallbackContactId = '';
+                  if (callerNumber) {
+                    const existing = await c.env.DB.prepare(
+                      "SELECT id FROM contacts WHERE workspace_id = ? AND platform = 'whatsapp' AND platform_contact_id = ?"
+                    ).bind(config.workspace_id, callerNumber).first<{ id: string }>();
+                    if (existing) {
+                      fallbackContactId = existing.id;
+                    } else {
+                      fallbackContactId = crypto.randomUUID();
+                      await c.env.DB.prepare(
+                        "INSERT INTO contacts (id, workspace_id, platform, name, platform_contact_id) VALUES (?, ?, ?, ?, ?)"
+                      ).bind(fallbackContactId, config.workspace_id, 'whatsapp', `+${callerNumber}`, callerNumber).run();
+                    }
+                  }
+                  const fallbackId = crypto.randomUUID();
+                  await c.env.DB.prepare(`
+                    INSERT INTO calls (id, workspace_id, contact_id, phone_number_id, caller_number, type, direction, status, duration, source, external_call_id)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                  `).bind(fallbackId, config.workspace_id, fallbackContactId || null, phoneNumberId, callerNumber, 'voice', 'outgoing', 'ringing', 0, 'whatsapp', callId).run();
+                  localCall = { id: fallbackId, contact_id: fallbackContactId, status: 'ringing' };
+                }
+
+                const hasAnswerSdp = !!sdp;
+                const nextStatus = hasAnswerSdp ? 'in_progress' : 'ringing';
+                await c.env.DB.prepare('UPDATE calls SET status = ? WHERE id = ?')
+                  .bind(nextStatus, localCall.id).run();
+
+                try {
+                  const globalDoId = c.env.CHAT_DO.idFromName(`global-${config.workspace_id}`);
+                  const globalDo = c.env.CHAT_DO.get(globalDoId);
+                  await globalDo.fetch(new Request('http://internal/broadcast', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                      type: hasAnswerSdp ? 'whatsapp_outgoing_answer' : 'whatsapp_outgoing_ringing',
+                      callId: localCall.id,
+                      externalCallId: callId,
+                      from: callerNumber,
+                      sdp: sdp || '',
+                      sdpType: sdpType || 'offer',
+                      phoneNumberId: phoneNumberId
+                    })
+                  }));
+                } catch (e) {
+                  console.error('[Calling] Failed to broadcast outgoing call progress:', e);
+                }
+
+                continue;
+              }
+
                 // Incoming call â save to DB + broadcast to frontend
                 let contactId = '';
                 let callerName = callerNumber ? `+${callerNumber}` : 'Unknown';
@@ -723,8 +791,8 @@ app.post('/api/whatsapp/webhook', async (c) => {
                 const hangupCause = callData.hangup_cause || 'normal';
                 const duration = callData.duration || 0;
 
-                const existingCall = await c.env.DB.prepare('SELECT direction, status FROM calls WHERE id = ?')
-                  .bind(callId).first<{ direction: string, status: string }>();
+                const existingCall = await c.env.DB.prepare('SELECT id, direction, status FROM calls WHERE id = ? OR external_call_id = ?')
+                  .bind(callId, callId).first<{ id: string; direction: string, status: string }>();
 
                 const wasMissed = existingCall && existingCall.direction === 'incoming' &&
                   existingCall.status === 'ringing' && duration === 0;
@@ -737,7 +805,7 @@ app.post('/api/whatsapp/webhook', async (c) => {
                   : (wasMissed ? 'missed' : 'ended');
 
                 await c.env.DB.prepare('UPDATE calls SET status = ?, duration = ?, hangup_cause = ? WHERE id = ?')
-                  .bind(finalStatus, duration, hangupCause, callId).run();
+                  .bind(finalStatus, duration, hangupCause, existingCall?.id || callId).run();
 
                 try {
                   const globalDoId = c.env.CHAT_DO.idFromName(`global-${config.workspace_id}`);
@@ -746,7 +814,7 @@ app.post('/api/whatsapp/webhook', async (c) => {
                     method: 'POST',
                     body: JSON.stringify({
                       type: 'whatsapp_call_terminated',
-                      callId: callId,
+                      callId: existingCall?.id || callId,
                       duration: duration
                     })
                   }));

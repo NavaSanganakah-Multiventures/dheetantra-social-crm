@@ -93,7 +93,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
   const [wsStatus, setWsStatus] = useState<'connecting' | 'connected' | 'disconnected'>('disconnected');
   const [callsFieldStatus, setCallsFieldStatus] = useState<'checking' | 'subscribed' | 'not_subscribed' | 'unknown'>('unknown');
 
-  const { status: rtcStatus, answer: answerWebRTC, hangup: hangupWebRTC, handleRemoteHangup, remoteStream: rtcRemoteStream, localStream: rtcLocalStream } = useWhatsAppWebRTC();
+  const { status: rtcStatus, answer: answerWebRTC, hangup: hangupWebRTC, startCall: startWhatsAppCall, acceptAnswer: acceptWhatsAppAnswer, handleRemoteHangup, remoteStream: rtcRemoteStream, localStream: rtcLocalStream } = useWhatsAppWebRTC();
 
   // Load Calling Config
   useEffect(() => {
@@ -193,6 +193,37 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
     activeCallRef.current = activeCall;
   }, [incomingCall, activeCall]);
 
+  const handleStartWhatsAppCall = useCallback(async (contact: any) => {
+    const wId = localStorage.getItem('workspaceId');
+    if (!wId) throw new Error('No workspace selected');
+
+    const phone = (contact?.phone || contact?.platform_contact_id || '').replace(/\D/g, '');
+    if (!phone) throw new Error('Contact has no phone number');
+
+    const cfgRes: any = await fetch('/api/whatsapp/config', {
+      headers: { 'x-workspace-id': wId }
+    }).then(r => r.json());
+    const phoneNumberId = cfgRes.config?.phone_number_id || cfgRes.configs?.[0]?.phone_number_id;
+    if (!phoneNumberId) throw new Error('WhatsApp not configured');
+
+    const callId = await startWhatsAppCall({
+      to: phone,
+      phoneNumberId,
+      workspace_id: wId,
+      contact_id: contact?.id
+    });
+
+    setActiveCall({
+      id: callId,
+      contact_name: contact?.name || phone,
+      phone,
+      status: 'ringing',
+      direction: 'outgoing',
+      phoneNumberId,
+      workspace_id: wId
+    });
+  }, [startWhatsAppCall]);
+
   // Play ringtone instantly and robustly
   useEffect(() => {
     let interval: any;
@@ -248,7 +279,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
           setWsStatus('connected');
         };
 
-        socket.onmessage = (event) => {
+        socket.onmessage = async (event) => {
           try {
             const data = JSON.parse(event.data);
             if (data.type === 'whatsapp_incoming_call') {
@@ -279,6 +310,16 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
               });
               // Auto-dismiss after 8 seconds
               // Auto-dismiss is handled by a dedicated useEffect hook
+            } else if (data.type === 'whatsapp_outgoing_answer') {
+              try {
+                await acceptWhatsAppAnswer({ sdp: data.sdp, sdpType: data.sdpType });
+                setActiveCall((prev: any) => prev ? { ...prev, status: 'connected', connectedAt: Date.now() } : null);
+              } catch (e) {
+                console.error('Outbound WhatsApp call answer failed:', e);
+                setActiveCall(null);
+              }
+            } else if (data.type === 'whatsapp_outgoing_ringing') {
+              setActiveCall((prev: any) => prev ? { ...prev, status: 'ringing' } : null);
             } else if (data.type === 'call_status_updated' || data.type === 'whatsapp_call_terminated') {
               const callIdToUpdate = data.call_id || data.callId;
               const newStatus = data.status || 'ended';
@@ -525,6 +566,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                   setActiveTab={setActiveTab} 
                   setActiveCall={setActiveCall} 
                   setPreselectedChat={setPreselectedChat} 
+                  startWhatsAppCall={handleStartWhatsAppCall}
                 />
               )}
             </motion.div>

@@ -11,10 +11,12 @@ export function CallsView({
   setActiveTab, 
   setActiveCall, 
   setPreselectedChat,
+  startWhatsAppCall,
 }: { 
   setActiveTab: (tab: activeTab) => void, 
   setActiveCall: (call: any) => void, 
   setPreselectedChat: (chat: any) => void,
+  startWhatsAppCall?: (contact: any) => Promise<void>,
 }) {
   const { toast } = useToast();
   const twilioVoice = useTwilioVoice();
@@ -26,6 +28,7 @@ export function CallsView({
   const [filter, setFilter] = useState<"all" | "incoming" | "outgoing" | "missed">("all");
   const [contacts, setContacts] = useState<any[]>([]);
   const [showDialer, setShowDialer] = useState(false);
+  const [callSource, setCallSource] = useState<'plivo' | 'whatsapp'>('plivo');
   const [health, setHealth] = useState<{
     phone_numbers: any[];
     webhook_subscribed: boolean;
@@ -143,7 +146,7 @@ export function CallsView({
     option: { configId: string; fromNumber: string; name: string }
   ) => {
     if (!plivoVoice) {
-      alert('Plivo वॉयस सेवा उपलब्ध नहीं है।');
+      toast('error', 'Plivo voice service not available');
       return;
     }
     try {
@@ -152,32 +155,52 @@ export function CallsView({
         { fromNumber: option.fromNumber, plivoConfigId: option.configId || undefined }
       );
     } catch (e: any) {
-      alert('कॉल शुरू करने में विफल: ' + (e?.message || 'अज्ञात त्रुटि'));
+      toast('error', 'Call failed: ' + (e?.message || 'Unknown error'));
     }
   };
 
   const startOutgoingCall = async (contact: any) => {
     const phone = ((contact?.phone || contact?.platform_contact_id) || '').replace(/[^0-9+]/g, '');
     if (!phone) {
-      alert('इस कॉन्टैक्ट का फ़ोन नंबर उपलब्ध नहीं है।');
+      toast('error', 'This contact has no phone number');
       return;
     }
+
+    if (callSource === 'whatsapp') {
+      if (!startWhatsAppCall) {
+        toast('error', 'WhatsApp outbound call not initialised');
+        return;
+      }
+      if (!callingEnabled) {
+        toast('error', 'WhatsApp calling is disabled for this workspace');
+        return;
+      }
+      if (contact?.platform !== 'whatsapp') {
+        toast('error', 'This contact is not a WhatsApp contact');
+        return;
+      }
+      try {
+        await startWhatsAppCall(contact);
+      } catch (e: any) {
+        toast('error', 'WhatsApp call failed: ' + (e?.message || 'Unknown error'));
+      }
+      return;
+    }
+
     if (!plivoVoice) {
-      alert('Plivo वॉयस सेवा उपलब्ध नहीं है। पहले Settings में Plivo अकाउंट जोड़ें और SIP Endpoint लिंक करें।');
+      toast('error', 'Plivo voice service not available. Please configure Plivo in Settings.');
       return;
     }
 
     if (plivoConfigsLoading) {
-      alert('Plivo कॉन्फ़िगरेशन लोड हो रहा है। एक पल रुककर दोबारा कोशिश करें।');
+      toast('error', 'Plivo configuration is still loading. Please try again.');
       return;
     }
     if (plivoConfigsError) {
-      alert('Plivo कॉन्फ़िगरेशन लोड नहीं हो सका। नेटवर्क जाँचें और दोबारा कोशिश करें।');
+      toast('error', 'Failed to load Plivo configuration. Check your network and retry.');
       return;
     }
 
-    // Gather active Plivo from-numbers so the user can choose which caller ID
-    // to dial from (when more than one is configured).
     const options: { configId: string; fromNumber: string; name: string }[] = [];
     for (const cfg of plivoConfigs) {
       const configId = cfg?.id ? String(cfg.id) : '';
@@ -192,7 +215,7 @@ export function CallsView({
     }
 
     if (options.length === 0) {
-      alert('Plivo के लिए कोई सक्रिय from-number नहीं है। पहले Settings में Plivo नंबर जोड़ें।');
+      toast('error', 'No active Plivo from-number found. Add one in Settings.');
       return;
     }
     if (options.length === 1) {
@@ -526,6 +549,36 @@ export function CallsView({
                 <h3 className="font-bold text-surface-950 dark:text-white">à¤¨à¤¯à¤¾ à¤à¥à¤² à¤¶à¥à¤°à¥ à¤à¤°à¥à¤</h3>
                 <p className="text-[10px] text-surface-400 mt-1">किसी भी कॉन्टैक्ट को Plivo सॉफ्टफोन से डायल करें</p>
               </div>
+
+              {/* Source selector */}
+              <div className="flex items-center justify-center gap-2 mb-4 p-1 bg-surface-50 dark:bg-surface-950 rounded-xl border border-surface-100 dark:border-surface-800/50">
+                <button
+                  onClick={() => setCallSource('plivo')}
+                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${
+                    callSource === 'plivo'
+                      ? 'bg-white dark:bg-surface-800 text-primary-600 dark:text-primary-400 shadow-sm border border-surface-200/50 dark:border-surface-700/50'
+                      : 'text-surface-500 hover:text-surface-700 dark:hover:text-surface-300'
+                  }`}
+                >
+                  Plivo / PSTN
+                </button>
+                <button
+                  onClick={() => setCallSource('whatsapp')}
+                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${
+                    callSource === 'whatsapp'
+                      ? 'bg-white dark:bg-surface-800 text-primary-600 dark:text-primary-400 shadow-sm border border-surface-200/50 dark:border-surface-700/50'
+                      : 'text-surface-500 hover:text-surface-700 dark:hover:text-surface-300'
+                  }`}
+                >
+                  WhatsApp
+                </button>
+              </div>
+
+              {callSource === 'whatsapp' && (
+                <div className="mb-4 p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30 text-[10px] text-amber-800 dark:text-amber-300 text-center">
+                  WhatsApp calling requires the contact to be on WhatsApp and the number to have calling enabled in Meta Business Manager.
+                </div>
+              )}
 
               {/* Contact List */}
               <div className="max-h-60 overflow-y-auto space-y-2 pr-1">
