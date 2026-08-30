@@ -174,20 +174,21 @@ export function useWhatsAppWebRTC() {
       });
 
       const finalSdp = pc.localDescription?.sdp;
+      const outboundBody: Record<string, any> = {
+        phoneNumberId: call.phoneNumberId,
+        contactId: call.contact_id,
+        to: call.to,
+        sdp: finalSdp,
+        sdpType: 'offer'
+      };
+      if (call.recipient) outboundBody.recipient = call.recipient;
+
       const res = await fetch('/api/whatsapp/calls/outbound', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'x-workspace-id': call.workspace_id
         },
-        const outboundBody: Record<string, any> = {
-          phoneNumberId: call.phoneNumberId,
-          contactId: call.contact_id,
-          to: call.to,
-          sdp: finalSdp,
-          sdpType: 'offer'
-        };
-        if (call.recipient) outboundBody.recipient = call.recipient;
         body: JSON.stringify(outboundBody)
       });
 
