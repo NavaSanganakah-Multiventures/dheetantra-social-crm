@@ -568,8 +568,9 @@ app.post('/api/whatsapp/webhook', async (c) => {
                       callId: localCall.id,
                       externalCallId: callId,
                       from: callerNumber,
-                      sdp: sdp || '',
-                      sdpType: sdpType || 'offer',
+                      // NOTE: full SDP is intentionally omitted from the FCM push.
+                      // A WebRTC offer can exceed FCM's ~4KB data-payload limit;
+                      // the app fetches it via GET /api/whatsapp/calls/:id/sdp on accept.
                       phoneNumberId: phoneNumberId
                     })
                   }));
@@ -614,6 +615,11 @@ app.post('/api/whatsapp/webhook', async (c) => {
               `).bind(callId, config.workspace_id, contactId, phoneNumberId, callerNumber, 'voice',
                   direction === 'BUSINESS_INITIATED' ? 'outgoing' : 'incoming', 'ringing', 0).run();
                 console.log(`[Calling] Call saved to DB: ${callId}`);
+
+                // Persist Meta's SDP offer so the mobile app can fetch it on accept
+                // (GET /api/whatsapp/calls/:id/sdp) instead of shipping it via FCM.
+                await c.env.DB.prepare('UPDATE calls SET sdp = ?, sdp_type = ? WHERE id = ?')
+                  .bind(sdp || '', sdpType || 'offer', callId).run();
 
                 // ==========================================
                 // LINE-BUSY CHECK (WhatsApp-style busy)
@@ -760,7 +766,7 @@ app.post('/api/whatsapp/webhook', async (c) => {
                                   callerNumber: callerNumber || '',
                                   callerName: callerName,
                                   contactEmail: contactEmail,
-                                  lastMessage: lastMessage,
+                                  lastMessage: (lastMessage || '').slice(0, 160),
                                   conversationId: pushConvId,
                                   phoneNumberId: phoneNumberId || '',
                                   sdp: sdp || '',
