@@ -75,7 +75,7 @@ router.post('/api/whatsapp/calls/outbound', async (c) => {
 
   const user = (c as any).get('user') as any;
   const body = await c.req.json();
-  const { phoneNumberId, contactId, to, sdp, sdpType } = body as any;
+  const { phoneNumberId, contactId, to, recipient, sdp, sdpType } = body as any;
 
   if (!sdp || typeof sdp !== 'string') {
     return c.json({ error: 'SDP offer required' }, 400);
@@ -134,12 +134,14 @@ router.post('/api/whatsapp/calls/outbound', async (c) => {
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${config.access_token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+      const metaPayload: Record<string, any> = {
         messaging_product: 'whatsapp',
         to: normalizedPhone,
-        action: 'offer',
+        action: 'connect',
         session: { sdp, sdp_type: sdpType || 'offer' }
-      })
+      };
+      if (recipient) metaPayload.recipient = recipient;
+      body: JSON.stringify(metaPayload)
     });
     const data: any = await res.json().catch(() => ({}));
     if (!res.ok) {
