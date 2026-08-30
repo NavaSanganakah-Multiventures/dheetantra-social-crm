@@ -261,6 +261,31 @@ router.post('/api/whatsapp/calls/:id/answer', async (c) => {
   return c.json({ success: true, preAccept: preAcceptData, accept: acceptData });
 });
 
+// Fetch the stored Meta SDP offer for an incoming call. The FCM push omits
+// the (potentially large) SDP, so the app retrieves it here right before
+// answering. SDP is persisted by the webhook handler in src/index.ts.
+router.get('/api/whatsapp/calls/:id/sdp', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  const callId = c.req.param('id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  const call = await c.env.DB.prepare(
+    'SELECT sdp, sdp_type, phone_number_id FROM calls WHERE id = ? AND workspace_id = ?'
+  ).bind(callId, workspaceId).first<{ sdp: string | null; sdp_type: string | null; phone_number_id: string | null }>();
+
+  if (!call || !call.sdp) {
+    return c.json({ success: false, error: 'SDP not available for this call' }, 404);
+  }
+
+  return c.json({
+    success: true,
+    callId,
+    sdp: call.sdp,
+    sdpType: call.sdp_type || 'offer',
+    phoneNumberId: call.phone_number_id,
+  });
+});
+
 // TERMINATE a WhatsApp WebRTC call (Official Meta Graph API)
 router.post('/api/whatsapp/calls/:id/terminate', async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
