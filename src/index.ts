@@ -568,9 +568,8 @@ app.post('/api/whatsapp/webhook', async (c) => {
                       callId: localCall.id,
                       externalCallId: callId,
                       from: callerNumber,
-                      // NOTE: full SDP is intentionally omitted from the FCM push.
-                      // A WebRTC offer can exceed FCM's ~4KB data-payload limit;
-                      // the app fetches it via GET /api/whatsapp/calls/:id/sdp on accept.
+                      sdp: sdp || '',
+                      sdpType: sdpType || 'offer',
                       phoneNumberId: phoneNumberId
                     })
                   }));
@@ -769,8 +768,9 @@ app.post('/api/whatsapp/webhook', async (c) => {
                                   lastMessage: (lastMessage || '').slice(0, 160),
                                   conversationId: pushConvId,
                                   phoneNumberId: phoneNumberId || '',
-                                  sdp: sdp || '',
-                                  sdpType: sdpType || 'offer',
+                                  // NOTE: SDP is intentionally omitted from the FCM push
+                                  // (a WebRTC offer can exceed FCM's ~4KB data limit);
+                                  // the app fetches it via GET /api/whatsapp/calls/:id/sdp.
                                 },
                                 { ttlSeconds: 0, category: 'call', sound: 'default' }
                               )
