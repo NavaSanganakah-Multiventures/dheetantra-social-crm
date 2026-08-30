@@ -130,17 +130,18 @@ router.post('/api/whatsapp/calls/outbound', async (c) => {
 
   const url = `https://graph.facebook.com/v20.0/${finalPhoneNumberId}/calls`;
 
+  const metaPayload: Record<string, any> = {
+    messaging_product: 'whatsapp',
+    to: normalizedPhone,
+    action: 'connect',
+    session: { sdp, sdp_type: sdpType || 'offer' }
+  };
+  if (recipient) metaPayload.recipient = recipient;
+
   try {
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${config.access_token}`, 'Content-Type': 'application/json' },
-      const metaPayload: Record<string, any> = {
-        messaging_product: 'whatsapp',
-        to: normalizedPhone,
-        action: 'connect',
-        session: { sdp, sdp_type: sdpType || 'offer' }
-      };
-      if (recipient) metaPayload.recipient = recipient;
       body: JSON.stringify(metaPayload)
     });
     const data: any = await res.json().catch(() => ({}));
