@@ -73,7 +73,7 @@ router.post('/api/whatsapp/calls/outbound', async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
-  const user = c.get('user') as any;
+  const user = (c as any).get('user') as any;
   const body = await c.req.json();
   const { phoneNumberId, contactId, to, sdp, sdpType } = body as any;
 
