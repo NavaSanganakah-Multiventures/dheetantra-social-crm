@@ -200,7 +200,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
     const phone = (contact?.phone || contact?.platform_contact_id || '').replace(/\D/g, '');
     if (!phone) throw new Error('Contact has no phone number');
 
-    const cfgRes = await fetch('/api/whatsapp/config', {
+    const cfgRes: any = await fetch('/api/whatsapp/config', {
       headers: { 'x-workspace-id': wId }
     }).then(r => r.json());
     const phoneNumberId = cfgRes.config?.phone_number_id || cfgRes.configs?.[0]?.phone_number_id;
