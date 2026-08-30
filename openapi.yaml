@@ -317,6 +317,10 @@ paths:
                 to:
                   type: string
                   example: '919669509952'
+                recipient:
+                  type: string
+                  description: Meta WhatsApp recipient identifier (e.g. US.13491208655302741918)
+                  example: 'US.13491208655302741918'
                 sdp:
                   type: string
                 sdpType:

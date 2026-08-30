@@ -111,7 +111,7 @@ export function useWhatsAppWebRTC() {
   }, []);
 
   // Initiate an outbound WhatsApp call
-  const startCall = useCallback(async (call: { to: string; phoneNumberId: string; workspace_id: string; contact_id?: string }) => {
+  const startCall = useCallback(async (call: { to: string; phoneNumberId: string; workspace_id: string; contact_id?: string; recipient?: string }) => {
     try {
       setStatus('requesting');
       setError(null);
@@ -174,19 +174,22 @@ export function useWhatsAppWebRTC() {
       });
 
       const finalSdp = pc.localDescription?.sdp;
+      const outboundBody: Record<string, any> = {
+        phoneNumberId: call.phoneNumberId,
+        contactId: call.contact_id,
+        to: call.to,
+        sdp: finalSdp,
+        sdpType: 'offer'
+      };
+      if (call.recipient) outboundBody.recipient = call.recipient;
+
       const res = await fetch('/api/whatsapp/calls/outbound', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'x-workspace-id': call.workspace_id
         },
-        body: JSON.stringify({
-          phoneNumberId: call.phoneNumberId,
-          contactId: call.contact_id,
-          to: call.to,
-          sdp: finalSdp,
-          sdpType: 'offer'
-        })
+        body: JSON.stringify(outboundBody)
       });
 
       const result: any = await res.json();

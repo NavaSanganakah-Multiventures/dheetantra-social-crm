@@ -210,7 +210,8 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
       to: phone,
       phoneNumberId,
       workspace_id: wId,
-      contact_id: contact?.id
+      contact_id: contact?.id,
+      recipient: contact?.recipient || contact?.platform_contact_recipient
     });
 
     setActiveCall({
