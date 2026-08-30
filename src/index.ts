@@ -615,6 +615,11 @@ app.post('/api/whatsapp/webhook', async (c) => {
                   direction === 'BUSINESS_INITIATED' ? 'outgoing' : 'incoming', 'ringing', 0).run();
                 console.log(`[Calling] Call saved to DB: ${callId}`);
 
+                // Persist Meta's SDP offer so the mobile app can fetch it on accept
+                // (GET /api/whatsapp/calls/:id/sdp) instead of shipping it via FCM.
+                await c.env.DB.prepare('UPDATE calls SET sdp = ?, sdp_type = ? WHERE id = ?')
+                  .bind(sdp || '', sdpType || 'offer', callId).run();
+
                 // ==========================================
                 // LINE-BUSY CHECK (WhatsApp-style busy)
                 // Agar is workspace mein pehle se koi call 'ringing' mein hai toh
@@ -760,11 +765,12 @@ app.post('/api/whatsapp/webhook', async (c) => {
                                   callerNumber: callerNumber || '',
                                   callerName: callerName,
                                   contactEmail: contactEmail,
-                                  lastMessage: lastMessage,
+                                  lastMessage: (lastMessage || '').slice(0, 160),
                                   conversationId: pushConvId,
                                   phoneNumberId: phoneNumberId || '',
-                                  sdp: sdp || '',
-                                  sdpType: sdpType || 'offer',
+                                  // NOTE: SDP is intentionally omitted from the FCM push
+                                  // (a WebRTC offer can exceed FCM's ~4KB data limit);
+                                  // the app fetches it via GET /api/whatsapp/calls/:id/sdp.
                                 },
                                 { ttlSeconds: 0, category: 'call', sound: 'default' }
                               )

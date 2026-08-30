@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'api_service.dart';
+import 'websocket_service.dart';
 
 class WebRTCService {
   static final WebRTCService _instance = WebRTCService._internal();
@@ -27,6 +28,9 @@ class WebRTCService {
   // 'ended' → double pop/cleanup banata tha. _emitEnded() se dedupe karte
   // hain; agli call ke liye answerCall() mein reset hota hai.
   bool _endEmitted = false;
+
+  // Outbound WhatsApp call progress (ringing/answer) subscription.
+  StreamSubscription? _outgoingSub;
 
   void _emitEnded() {
     if (_endEmitted) return;
@@ -133,8 +137,24 @@ class WebRTCService {
         }
       };
 
+      var offerSdp = callData['sdp']?.toString() ?? '';
+      var answerPhoneNumberId = callData['phoneNumberId']?.toString() ?? '';
+      if (offerSdp.isEmpty) {
+        // FCM push SDP nahi bhejta (payload size limit) - accept ke waqt
+        // backend se stored offer fetch karo.
+        final callId = callData['id']?.toString() ?? callData['callId']?.toString() ?? '';
+        final sdpRes = await ApiService().getCallSdp(callId);
+        offerSdp = sdpRes['sdp']?.toString() ?? '';
+        if (sdpRes['phoneNumberId'] != null) {
+          answerPhoneNumberId = sdpRes['phoneNumberId'].toString();
+        }
+      }
+      if (offerSdp.isEmpty) {
+        throw Exception('WebRTC SDP is missing. This might be a standard WhatsApp call, not a WebRTC call.');
+      }
+
       await _peerConnection!.setRemoteDescription(
-        RTCSessionDescription(callData['sdp']?.toString().isNotEmpty == true ? callData['sdp'] : throw Exception('WebRTC SDP is missing. This might be a standard WhatsApp call, not a WebRTC call.'), 'offer'),
+        RTCSessionDescription(offerSdp, 'offer'),
       );
 
       final answer = await _peerConnection!.createAnswer();
@@ -149,7 +169,7 @@ class WebRTCService {
           '/api/whatsapp/calls/${callData['id']}/answer',
           data: {
             'sdp': finalSdp.sdp,
-            'phoneNumberId': callData['phoneNumberId'],
+            'phoneNumberId': answerPhoneNumberId,
           },
         );
       }
@@ -158,6 +178,129 @@ class WebRTCService {
       _callStateController.add('error: $e');
       cleanup();
     }
+  }
+
+  /// WhatsApp outbound WebRTC call: creates an offer, sends it to the backend
+  /// (which proxies Meta Graph API), then applies Meta's answer when it arrives
+  /// via the `whatsapp_outgoing_answer` WebSocket event. Returns the local callId.
+  Future<String> startOutgoingCall(Map<String, dynamic> callData) async {
+    debugPrint('[WebRTC] startOutgoingCall to ${callData['to']}');
+    try {
+      _callStateController.add('ringing');
+      _endEmitted = false;
+
+      int attempts = 0;
+      while (WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed && attempts < 50) {
+        await Future.delayed(const Duration(milliseconds: 100));
+        attempts++;
+      }
+
+      if (!await ensureMicrophonePermission()) {
+        throw Exception('Microphone permission is required to place calls');
+      }
+
+      final iceServers = await _getIceServers();
+      final configuration = {
+        'iceServers': iceServers,
+        'sdpSemantics': 'unified-plan',
+      };
+
+      _peerConnection = await createPeerConnection(configuration);
+
+      _localStream = await navigator.mediaDevices.getUserMedia({
+        'audio': true,
+        'video': false,
+      });
+
+      _localStream!.getTracks().forEach((track) {
+        _peerConnection!.addTrack(track, _localStream!);
+      });
+
+      await setSpeaker(false);
+
+      _peerConnection!.onAddStream = (stream) {
+        _remoteStreamController.add(stream);
+      };
+
+      _peerConnection!.onConnectionState = (state) {
+        debugPrint('[WebRTC] connectionState changed to: $state');
+        if (state == RTCPeerConnectionState.RTCPeerConnectionStateConnected) {
+          _disconnectTimer?.cancel();
+          _disconnectTimer = null;
+          _callStateController.add('connected');
+        } else if (state == RTCPeerConnectionState.RTCPeerConnectionStateDisconnected) {
+          _disconnectTimer ??= Timer(const Duration(seconds: 12), () {
+            _disconnectTimer = null;
+            debugPrint('[WebRTC] disconnected 12s - ending call');
+            _emitEnded();
+          });
+        } else if (state == RTCPeerConnectionState.RTCPeerConnectionStateFailed ||
+            state == RTCPeerConnectionState.RTCPeerConnectionStateClosed) {
+          _disconnectTimer?.cancel();
+          _disconnectTimer = null;
+          _emitEnded();
+        }
+      };
+
+      final offer = await _peerConnection!.createOffer();
+      await _peerConnection!.setLocalDescription(offer);
+
+      // Wait for ICE gathering so the full offer reaches the backend.
+      await Future.delayed(const Duration(seconds: 2));
+      final finalOffer = await _peerConnection!.getLocalDescription();
+      if (finalOffer == null || finalOffer.sdp.isEmpty) {
+        throw Exception('Failed to create SDP offer');
+      }
+
+      final res = await ApiService().initiateWhatsAppCall(
+        to: callData['to']?.toString() ?? '',
+        contactId: callData['contactId']?.toString(),
+        phoneNumberId: callData['phoneNumberId']?.toString(),
+        recipient: callData['recipient']?.toString(),
+        sdp: finalOffer.sdp,
+        sdpType: 'offer',
+      );
+
+      if (res['success'] != true) {
+        throw Exception(res['error'] ?? 'Call initiation failed');
+      }
+
+      final localCallId = res['callId']?.toString() ?? '';
+      if (localCallId.isEmpty) {
+        throw Exception('Backend did not return a call id');
+      }
+
+      // Meta's ringing/answer arrives over WebSocket; filter by local callId.
+      _outgoingSub?.cancel();
+      _outgoingSub = WebSocketService().onOutgoingCallUpdate.listen((data) {
+        if (data['callId']?.toString() != localCallId) return;
+        final type = data['type']?.toString() ?? '';
+        if (type == 'whatsapp_outgoing_ringing') {
+          _callStateController.add('ringing');
+        } else if (type == 'whatsapp_outgoing_answer') {
+          final sdp = data['sdp']?.toString() ?? '';
+          if (sdp.isNotEmpty) {
+            _applyAnswerSdp(sdp, data['sdpType']?.toString() ?? 'answer');
+          }
+        }
+      });
+
+      return localCallId;
+    } catch (e) {
+      debugPrint('[WebRTC] startOutgoingCall error: $e');
+      _callStateController.add('error: $e');
+      cleanup();
+      rethrow;
+    }
+  }
+
+  Future<void> _applyAnswerSdp(String sdp, String sdpType) async {
+    final pc = _peerConnection;
+    if (pc == null) return;
+    debugPrint('[WebRTC] applying remote answer SDP');
+    final type = sdpType == 'offer' ? 'offer' : 'answer';
+    await pc.setRemoteDescription(RTCSessionDescription(sdp, type));
+    _callStateController.add('connecting');
   }
 
   Future<void> rejectCall(Map<String, dynamic> callData) async {
@@ -216,6 +359,8 @@ class WebRTCService {
     debugPrint('[WebRTC] cleanup()');
     _disconnectTimer?.cancel();
     _disconnectTimer = null;
+    _outgoingSub?.cancel();
+    _outgoingSub = null;
     _localStream?.getTracks().forEach((track) => track.stop());
     _localStream?.dispose();
     _localStream = null;

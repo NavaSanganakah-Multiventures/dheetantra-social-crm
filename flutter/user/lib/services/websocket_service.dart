@@ -62,6 +62,10 @@ class WebSocketService with WidgetsBindingObserver {
   final _incomingCallController = StreamController<Map<String, dynamic>>.broadcast();
   Stream<Map<String, dynamic>> get onIncomingCall => _incomingCallController.stream;
 
+  final _outgoingCallController = StreamController<Map<String, dynamic>>.broadcast();
+  /// WhatsApp outbound call ke progression events (ringing / answer SDP).
+  Stream<Map<String, dynamic>> get onOutgoingCallUpdate => _outgoingCallController.stream;
+
   final _callStatusController = StreamController<Map<String, dynamic>>.broadcast();
   Stream<Map<String, dynamic>> get onCallStatusUpdated => _callStatusController.stream;
 
@@ -196,6 +200,18 @@ class WebSocketService with WidgetsBindingObserver {
             'direction': 'incoming',
             'type': 'voice',
             'status': 'ringing',
+          });
+          break;
+        case 'whatsapp_outgoing_ringing':
+        case 'whatsapp_outgoing_answer':
+          _outgoingCallController.add({
+            'type': type,
+            'callId': data['callId'],
+            'externalCallId': data['externalCallId'],
+            'from': data['from'],
+            'sdp': data['sdp'],
+            'sdpType': data['sdpType'],
+            'phoneNumberId': data['phoneNumberId'],
           });
           break;
         case 'whatsapp_call_terminated':

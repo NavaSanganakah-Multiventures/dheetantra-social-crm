@@ -315,6 +315,43 @@ class ApiService {
     }
   }
 
+  /// WhatsApp WebRTC outbound call initiate karta hai. Client offer SDP banata
+  /// hai aur backend use Meta Graph API (/phone_number_id/calls) ko proxy karta hai.
+  Future<Map<String, dynamic>> initiateWhatsAppCall({
+    required String to,
+    String? contactId,
+    String? phoneNumberId,
+    String? recipient,
+    required String sdp,
+    String sdpType = 'offer',
+  }) async {
+    try {
+      final res = await _dio.post('/api/whatsapp/calls/outbound', data: {
+        'to': to,
+        if (contactId != null) 'contactId': contactId,
+        if (phoneNumberId != null) 'phoneNumberId': phoneNumberId,
+        if (recipient != null) 'recipient': recipient,
+        'sdp': sdp,
+        'sdpType': sdpType,
+      });
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  /// Incoming call ka stored Meta SDP offer fetch karta hai. FCM push payload
+  /// size limit ki wajah se offer push mein nahi bhejte; accept ke waqt yahan
+  /// se lete hain.
+  Future<Map<String, dynamic>> getCallSdp(String callId) async {
+    try {
+      final res = await _dio.get('/api/whatsapp/calls/$callId/sdp');
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
 
   // ========== CALLER ID / AFTER-CALL CRM ==========
 

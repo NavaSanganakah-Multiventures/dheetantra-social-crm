@@ -1,0 +1,2 @@
+ALTER TABLE calls ADD COLUMN sdp TEXT;
+ALTER TABLE calls ADD COLUMN sdp_type TEXT;

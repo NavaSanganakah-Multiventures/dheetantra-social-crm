@@ -9,6 +9,8 @@ import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
 import '../services/websocket_service.dart';
+import '../services/webrtc_service.dart';
+import 'call_screen.dart';
 import 'media_viewer_screen.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -24,6 +26,7 @@ class _ChatScreenState extends State<ChatScreen> {
   final _inputController = TextEditingController();
   List<Message> _messages = [];
   bool _loading = true;
+  bool _startingCall = false;
   String _contactName = '';
   String _contactPhone = '';
   StreamSubscription? _newMessageSub;
@@ -199,28 +202,38 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _initiateCall() async {
-    final contactId = widget.conversation.contact.id;
-    if (contactId.isEmpty) return;
+    final contact = widget.conversation.contact;
+    final phone = contact.phone.replaceAll(RegExp(r'\D'), '');
+    final phoneNumberId = widget.conversation.phoneNumberId ?? '';
+    if (contact.id.isEmpty && phone.isEmpty) return;
+
+    setState(() => _startingCall = true);
     try {
-      final res = await ApiService().dio.post('/api/whatsapp/calls', data: {
-        'contactId': contactId,
-        'type': 'voice',
+      final localCallId = await WebRTCService().startOutgoingCall({
+        'to': phone,
+        'contactId': contact.id,
+        'phoneNumberId': phoneNumberId,
+        'contact_name': _contactName.isNotEmpty ? _contactName : contact.name,
+        'phone': phone,
         'direction': 'outgoing',
-        'status': 'ringing',
+        'source': 'whatsapp',
       });
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            res.data['success'] == true ? 'कॉल शुरू की गई' : 'कॉल शुरू नहीं हो सकी',
-          ),
-        ),
-      );
+      CallScreen.push(context, {
+        'id': localCallId,
+        'direction': 'outgoing',
+        'source': 'whatsapp',
+        'contact_name': _contactName.isNotEmpty ? _contactName : contact.name,
+        'phone': contact.phone,
+      });
     } catch (e) {
+      debugPrint('Initiate WhatsApp call error: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('कॉल शुरू नहीं हो सकी')),
       );
+    } finally {
+      if (mounted) setState(() => _startingCall = false);
     }
   }
 
@@ -342,7 +355,7 @@ class _ChatScreenState extends State<ChatScreen> {
         actions: [
           if (widget.conversation.platform != 'email')
             IconButton(
-              onPressed: widget.conversation.contact.id.isEmpty ? null : _initiateCall,
+              onPressed: (_startingCall || widget.conversation.contact.id.isEmpty) ? null : _initiateCall,
               icon: const Icon(Icons.call_outlined, color: AppColors.success, size: 21),
             ),
           IconButton(

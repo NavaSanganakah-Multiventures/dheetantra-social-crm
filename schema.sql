@@ -210,6 +210,8 @@ CREATE TABLE IF NOT EXISTS calls (
   plivo_config_id TEXT,
   assigned_user_id TEXT,
   external_call_id TEXT,
+  sdp TEXT,
+  sdp_type TEXT,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
   FOREIGN KEY (contact_id) REFERENCES contacts(id) ON DELETE CASCADE
