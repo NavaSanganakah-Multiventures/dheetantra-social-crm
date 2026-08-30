@@ -80,9 +80,14 @@ class _CallScreenState extends State<CallScreen> {
     // permission and join the conference on accept. Plivo's legacy auto-dial
     // (PSTN bridge) mode has no conferenceName and is answered on the agent's
     // phone, so it must not auto-join in-app.
+    final isOutgoingWhatsApp =
+        (widget.callData['direction']?.toString() ?? '') == 'outgoing';
     if (_isTwilio || _isInAppPlivo) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _requestPermissionAndAnswer());
-    } else if ((widget.callData['sdp']?.toString() ?? '').isNotEmpty) {
+    } else if (!isOutgoingWhatsApp) {
+      // Incoming WhatsApp WebRTC: foreground WS path carries the SDP offer
+      // inline; the FCM background path intentionally omits it (payload size).
+      // answerCall() fetches the stored offer from the backend when missing.
       WidgetsBinding.instance.addPostFrameCallback((_) => _requestPermissionAndAnswer());
     }
   }
