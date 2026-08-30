@@ -580,6 +580,13 @@ app.post('/api/whatsapp/webhook', async (c) => {
                 continue;
               }
 
+                // An incoming call that has already connected must not ring again.
+                if (event === 'connect') {
+                  await c.env.DB.prepare('UPDATE calls SET status = ? WHERE id = ? AND workspace_id = ?')
+                    .bind('in_progress', callId, config.workspace_id).run();
+                  continue;
+                }
+
                 // Incoming call â save to DB + broadcast to frontend
                 let contactId = '';
                 let callerName = callerNumber ? `+${callerNumber}` : 'Unknown';
