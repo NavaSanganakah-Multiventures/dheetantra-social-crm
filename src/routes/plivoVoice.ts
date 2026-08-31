@@ -332,7 +332,7 @@ async function findOrCreateIncomingApp(config: { auth_id: string; auth_token: st
       return { ok: false, error: data.error || 'Failed to create incoming application', status: res.status };
     }
     return { ok: true, appId: data.app_id };
-  } catch (e) {
+  } catch (e: any) {
     console.error('[Plivo] create incoming application exception', e);
     return { ok: false, error: e?.message || 'Plivo incoming application request exception' };
   }
