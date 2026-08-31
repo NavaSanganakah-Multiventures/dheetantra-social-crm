@@ -46,7 +46,7 @@ class PlivoVoiceService implements SipUaHelperListener {
     _helper.addSipUaHelperListener(this);
 
     try {
-      await _ensureMicrophonePermission();
+      await _ensureMicrophonePermissionGranted();
     } catch (e) {
       debugPrint('[PlivoVoice] mic permission error: $e');
     }
@@ -63,11 +63,6 @@ class PlivoVoiceService implements SipUaHelperListener {
     if (status.isGranted) return true;
     final result = await Permission.microphone.request();
     return result.isGranted;
-  }
-
-  /// Deprecated compatibility method: returns silently after requesting mic.
-  Future<void> _ensureMicrophonePermission() async {
-    await _ensureMicrophonePermissionGranted();
   }
 
   /// Backend se endpoint credentials lekar SIP UA ko start/register karta hai.

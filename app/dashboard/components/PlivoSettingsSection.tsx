@@ -6,12 +6,34 @@ import { useToast } from "@/components/ui/Toast";
 
 // Plivo Voice settings: agent availability + PSTN phone, Plivo accounts CRUD,
 // SIP endpoint linking (for the Browser SDK softphone) and from-number setup.
+
+interface Agent {
+  userId: string;
+  name?: string;
+  email?: string;
+  voiceStatus?: string;
+  phoneMasked?: string;
+}
+
+interface PlivoConfig {
+  id: string;
+  name: string;
+  authId: string;
+  authTokenMasked: string;
+  isActive: boolean;
+  autoDialAgents: boolean;
+  endpointConfigured: boolean;
+  endpointUsername?: string;
+  endpointPasswordMasked?: string;
+  fromNumbers?: any[];
+}
+
 export function PlivoSettingsSection() {
   const { toast } = useToast();
 
-  const [me, setMe] = useState<any>(null);
-  const [agents, setAgents] = useState<any[]>([]);
-  const [configs, setConfigs] = useState<any[]>([]);
+  const [me, setMe] = useState<PlivoConfig | null>(null);
+  const [agents, setAgents] = useState<Agent[]>([]);
+  const [configs, setConfigs] = useState<PlivoConfig[]>([]);
 
   const [voiceStatus, setVoiceStatus] = useState<string>("not_live");
   const [savingStatus, setSavingStatus] = useState(false);

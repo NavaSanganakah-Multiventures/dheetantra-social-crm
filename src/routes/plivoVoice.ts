@@ -1,4 +1,4 @@
-import { Hono } from 'hono';
+import { Hono, Context } from 'hono';
 import { Env } from '../types';
 import { sqliteNow, requireRole } from '../shared';
 
@@ -62,6 +62,12 @@ async function parseWebhookBody(c: any): Promise<Record<string, string>> {
     out[k] = Array.isArray(v) ? v[0] : String(v ?? '');
   }
   return out;
+}
+
+
+function getBaseUrl(c: Context): string {
+  const env = c.env as any;
+  return (env.APP_URL as string | undefined) || ('https://' + (c.req.header('host') || 'dheetantra.navasanganakah.com'));
 }
 
 function plivoXmlResponse(xml: string, status = 200): Response {
@@ -208,7 +214,7 @@ async function createPlivoCall(config: { auth_id: string; auth_token: string }, 
         await new Promise((r) => setTimeout(r, 500 * Math.pow(2, attempt)));
         continue;
       }
-      const data: any = await res.json().catch(() => ({}));
+      const data: any = await res.json().catch((err) => { console.error('[Plivo] fetch error:', err); return {}; });
       if (!res.ok) {
         console.error('[Plivo] create call failed', res.status, JSON.stringify(data));
         return { ok: false, error: (data && (data.error || data.message)) || ('Plivo HTTP ' + res.status), status: res.status };
@@ -230,7 +236,7 @@ async function hangupPlivoConference(config: { auth_id: string; auth_token: stri
       headers: { Authorization: plivoAuthHeader(config.auth_id, config.auth_token) },
     });
     if (res.status === 204 || res.ok || res.status === 404) return true;
-    const data: any = await res.json().catch(() => ({}));
+    const data: any = await res.json().catch((err) => { console.error('[Plivo] fetch error:', err); return {}; });
     console.warn('[Plivo] conference hangup returned', res.status, JSON.stringify(data));
     return false;
   } catch (e) {
@@ -301,7 +307,7 @@ async function findOrCreateIncomingApp(config: { auth_id: string; auth_token: st
   try {
     const listRes = await fetch(base + 'Application/?limit=20', { headers });
     if (listRes.ok) {
-      const data: any = await listRes.json().catch(() => ({}));
+      const data: any = await listRes.json().catch((err) => { console.error('[Plivo] fetch error:', err); return {}; });
       const apps = (data && Array.isArray(data.objects)) ? data.objects : [];
       for (const app of apps) {
         if (app && app.app_id && app.app_name === appName) {
@@ -326,7 +332,7 @@ async function findOrCreateIncomingApp(config: { auth_id: string; auth_token: st
       headers,
       body: JSON.stringify({ app_name: appName, ...payload }),
     });
-    const data: any = await res.json().catch(() => ({}));
+    const data: any = await res.json().catch((err) => { console.error('[Plivo] fetch error:', err); return {}; });
     if (!res.ok) {
       console.error('[Plivo] create incoming application failed', res.status, JSON.stringify(data));
       return { ok: false, error: data.error || 'Failed to create incoming application', status: res.status };
@@ -348,7 +354,7 @@ async function findOrCreateSoftphoneApp(config: { auth_id: string; auth_token: s
   try {
     const listRes = await fetch(base + 'Application/?limit=20', { headers });
     if (listRes.ok) {
-      const data: any = await listRes.json().catch(() => ({}));
+      const data: any = await listRes.json().catch((err) => { console.error('[Plivo] fetch error:', err); return {}; });
       const apps = (data && Array.isArray(data.objects)) ? data.objects : [];
       for (const app of apps) {
         if (app && app.app_id && app.app_name === appName) {
@@ -375,7 +381,7 @@ async function findOrCreateSoftphoneApp(config: { auth_id: string; auth_token: s
       headers,
       body: JSON.stringify({ app_name: appName, ...payload }),
     });
-    const data: any = await res.json().catch(() => ({}));
+    const data: any = await res.json().catch((err) => { console.error('[Plivo] fetch error:', err); return {}; });
     if (!res.ok) {
       console.error('[Plivo] create application failed', res.status, JSON.stringify(data));
       return { ok: false, error: (data && (data.error || data.message)) || ('Plivo HTTP ' + res.status), status: res.status };
@@ -395,7 +401,7 @@ async function createPlivoEndpoint(config: { auth_id: string; auth_token: string
   };
   try {
     const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(payload) });
-    const data: any = await res.json().catch(() => ({}));
+    const data: any = await res.json().catch((err) => { console.error('[Plivo] fetch error:', err); return {}; });
     if (!res.ok) {
       console.error('[Plivo] create endpoint failed', res.status, JSON.stringify(data));
       return { ok: false, error: (data && (data.error || data.message)) || ('Plivo HTTP ' + res.status), status: res.status };
@@ -570,7 +576,7 @@ router.post('/api/plivo/configs', requireRole('owner', 'admin'), async (c) => {
   const linkedNumbers: string[] = [];
   const failedNumbers: { from: string; error: string }[] = [];
   if (nums.length > 0) {
-    const baseUrl = ((c.env as any).APP_URL as string | undefined) || ('https://' + (c.req.header('host') || 'dheetantra.navasanganakah.com'));
+    const baseUrl = getBaseUrl(c as Context);
     const incomingAppName = 'DheeTantra-Incoming-Voice-' + workspaceId.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 12);
     const incomingApp = await findOrCreateIncomingApp({ auth_id: authId, auth_token: authToken }, incomingAppName, baseUrl);
 
@@ -591,7 +597,7 @@ router.post('/api/plivo/configs', requireRole('owner', 'admin'), async (c) => {
           body: JSON.stringify({ app_id: incomingApp.appId }),
         });
         if (!numUpdateRes.ok) {
-          const numErr: any = await numUpdateRes.json().catch(() => ({}));
+          const numErr: any = await numUpdateRes.json().catch((err) => { console.error('[Plivo] fetch error:', err); return {}; });
           console.error('[Plivo] config-create number app link failed', numUpdateRes.status, JSON.stringify(numErr));
           failedNumbers.push({ from, error: numErr.error || ('Plivo HTTP ' + numUpdateRes.status) });
           continue;
@@ -651,10 +657,10 @@ router.post('/api/plivo/configs/:id/link', requireRole('owner', 'admin'), async 
   ).bind(id, workspaceId).first<{ id: string; auth_id: string; auth_token: string; endpoint_username: string | null; endpoint_password: string | null; endpoint_id: string | null; endpoint_app_id: string | null }>();
   if (!config) return c.json({ error: 'Plivo config not found' }, 404);
 
-  const body = (await c.req.json().catch(() => ({}))) as any;
+  const body = (await c.req.json().catch((err) => { console.error('[Plivo] fetch error:', err); return {}; })) as any;
   const force = body?.force === true;
 
-  const baseUrl = ((c.env as any).APP_URL as string | undefined) || ('https://' + (c.req.header('host') || 'dheetantra.navasanganakah.com'));
+  const baseUrl = getBaseUrl(c as Context);
   const answerUrl = baseUrl + '/api/plivo/webhook/app';
   const appName = 'DheeTantra-Softphone-' + workspaceId.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 12);
 
@@ -748,7 +754,7 @@ router.post('/api/plivo/configs/:id/from-numbers', requireRole('owner', 'admin')
 
   // Plivo ke official docs ke anusaar: number ko incoming application se link karna padta hai.
   // https://www.plivo.com/docs/numbers/account-phone-numbers#update-an-account-phone-number
-  const baseUrl = ((c.env as any).APP_URL as string | undefined) || ('https://' + (c.req.header('host') || 'dheetantra.navasanganakah.com'));
+  const baseUrl = getBaseUrl(c as Context);
   const incomingAppName = 'DheeTantra-Incoming-Voice-' + workspaceId.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 12);
   const incomingApp = await findOrCreateIncomingApp({ auth_id: config.auth_id, auth_token: config.auth_token }, incomingAppName, baseUrl);
   if (!incomingApp.ok || !incomingApp.appId) {
@@ -765,7 +771,7 @@ router.post('/api/plivo/configs/:id/from-numbers', requireRole('owner', 'admin')
     body: JSON.stringify({ app_id: incomingApp.appId }),
   });
   if (!numUpdateRes.ok) {
-    const numErr: any = await numUpdateRes.json().catch(() => ({}));
+    const numErr: any = await numUpdateRes.json().catch((err) => { console.error('[Plivo] fetch error:', err); return {}; });
     console.error('[Plivo] number app link failed', numUpdateRes.status, JSON.stringify(numErr));
     return c.json({ error: numErr.error || 'Failed to link Plivo number to incoming application' }, 502);
   }
@@ -910,7 +916,7 @@ router.post('/api/plivo/call', async (c) => {
   const callId = crypto.randomUUID();
   const conferenceName = conferenceNameFromCallId(callId);
   const createdAt = sqliteNow();
-  const baseUrl = ((c.env as any).APP_URL as string | undefined) || ('https://' + (c.req.header('host') || 'dheetantra.navasanganakah.com'));
+  const baseUrl = getBaseUrl(c as Context);
   const statusUrl = baseUrl + '/api/plivo/webhook/status?callId=' + callId;
   const fallbackUrl = baseUrl + '/api/plivo/webhook/fallback';
 
@@ -1117,7 +1123,6 @@ router.post('/api/plivo/webhook/voice', async (c) => {
     const requestUuid = body.RequestUUID || '';
     const direction = body.Direction || 'inbound';
 
-    console.log('[Plivo Webhook] incoming voice call', { from, to, callUuid, requestUuid, direction });
 
     if (!to || !callUuid) {
       return plivoXmlResponse(XML_DECL + '<Response><Hangup/></Response>', 200);
@@ -1159,7 +1164,7 @@ router.post('/api/plivo/webhook/voice', async (c) => {
     // in the conference and agents can answer in the app (Phase 2).
     const agent = config.auto_dial_agents === 1 ? await pickAvailableAgent(c.env.DB, config.workspace_id) : null;
     if (agent) {
-      const baseUrl = ((c.env as any).APP_URL as string | undefined) || ('https://' + (c.req.header('host') || 'dheetantra.navasanganakah.com'));
+      const baseUrl = getBaseUrl(c as Context);
       const agentAnswerUrl = baseUrl + '/api/plivo/webhook/outbound?callId=' + callId + '&conferenceName=' + encodeURIComponent(conferenceName) + '&leg=agent';
       const agentFallbackUrl = baseUrl + '/api/plivo/webhook/fallback';
       const agentHangupUrl = baseUrl + '/api/plivo/webhook/status?callId=' + callId + '&leg=agent';
@@ -1209,7 +1214,7 @@ router.post('/api/plivo/webhook/voice', async (c) => {
     // agent answers on PSTN and the push stays a local-only notification.
     await pushIncomingCallToAgents(c.env, c, config.workspace_id, callId, from, callerName, conferenceName, config.plivo_config_id, answerInApp);
 
-    const baseUrl = ((c.env as any).APP_URL as string | undefined) || ('https://' + (c.req.header('host') || 'dheetantra.navasanganakah.com'));
+    const baseUrl = getBaseUrl(c as Context);
     const statusCallbackUrl = baseUrl + '/api/plivo/webhook/status?callId=' + callId + '&leg=inbound';
     const holdUrl = baseUrl + '/api/plivo/webhook/hold';
 
@@ -1347,7 +1352,7 @@ router.post('/api/plivo/webhook/outbound', async (c) => {
     // In-app answer mode: the customer waits with hold music until the agent
     // joins the conference via the softphone endpoint (/api/plivo/webhook/app).
     if (waiting) {
-      const baseUrl = ((c.env as any).APP_URL as string | undefined) || ('https://' + (c.req.header('host') || 'dheetantra.navasanganakah.com'));
+      const baseUrl = getBaseUrl(c as Context);
       const statusCallbackUrl = baseUrl + '/api/plivo/webhook/status?callId=' + callId + '&leg=customer';
       const holdUrl = baseUrl + '/api/plivo/webhook/hold';
       const xml = XML_DECL +
