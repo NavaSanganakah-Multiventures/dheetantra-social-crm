@@ -229,19 +229,30 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
   useEffect(() => {
     let interval: any;
     let audioCtx: any = null;
-    if (incomingCall && incomingCall.status === 'ringing') {
+    let cancelled = false;
+
+    async function startRing() {
+      if (!incomingCall || incomingCall.status !== 'ringing') return;
       try {
         audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-        if (audioCtx.state === 'suspended') audioCtx.resume();
+        // Browser autoplay policies often suspend a new AudioContext until the
+        // user interacts with the page. Resume first and wait for it so we know
+        // the context is actually running before we schedule any oscillator.
+        if (audioCtx.state === 'suspended') {
+          await audioCtx.resume();
+        }
+        if (cancelled) return;
         const playRing = () => {
-          if (!audioCtx) return;
+          if (!audioCtx || audioCtx.state !== 'running') return;
           const osc = audioCtx.createOscillator();
           const gain = audioCtx.createGain();
           osc.connect(gain);
           gain.connect(audioCtx.destination);
           osc.type = 'sine';
           osc.frequency.setValueAtTime(587.33, audioCtx.currentTime);
-          gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+          // Louder, audible on mobile/laptop speakers; smooth fade to avoid clicks.
+          gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.2);
           osc.start();
           osc.stop(audioCtx.currentTime + 1.2);
         };
@@ -251,7 +262,10 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
         console.error("Audio playback error", e);
       }
     }
+    startRing();
+
     return () => {
+      cancelled = true;
       if (interval) clearInterval(interval);
       if (audioCtx) {
         audioCtx.close().catch(() => {});
