@@ -260,7 +260,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
   }, [incomingCall?.status]);
 
   useEffect(() => {
-    const wId = localStorage.getItem('workspaceId');
+    const wId = user?.workspace_id || localStorage.getItem('workspaceId');
     if (!wId) return;
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -646,15 +646,31 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                 <button
                   onClick={async () => {
                     try {
-                      if (!incomingCall.sdp) {
-                        alert('SDP à¤¡à¥à¤à¤¾ à¤à¤ªà¤²à¤¬à¥à¤§ à¤¨à¤¹à¥à¤ à¤¹à¥à¥¤ à¤à¥à¤ªà¤¯à¤¾ WhatsApp Cloud API à¤à¥ Calling Webhook à¤¸à¥à¤à¤¿à¤à¤ à¤à¤¾à¤à¤à¥à¤ à¤à¤° à¤¸à¥à¤¨à¤¿à¤¶à¥à¤à¤¿à¤¤ à¤à¤°à¥à¤ à¤à¤¿ "calls" à¤«à¤¼à¥à¤²à¥à¤¡ à¤¸à¤¬à¥à¤¸à¤à¥à¤°à¤¾à¤à¤¬ à¤¹à¥à¥¤');
+                      if (callTimeoutRef.current) { clearTimeout(callTimeoutRef.current); callTimeoutRef.current = null; }
+                      let callSdp = incomingCall.sdp;
+                      if (!callSdp) {
+                        try {
+                          const sdpRes = await fetch(`/api/whatsapp/calls/${incomingCall.id}/sdp`, {
+                            headers: { 'x-workspace-id': incomingCall.workspace_id }
+                          });
+                          const sdpData: any = await sdpRes.json();
+                          callSdp = sdpData.sdp || '';
+                          if (callSdp) {
+                            setIncomingCall((prev: any) => prev ? { ...prev, sdp: callSdp } : prev);
+                          }
+                        } catch (e) {
+                          console.error('[IncomingCall] Failed to fetch SDP from backend:', e);
+                        }
+                      }
+                      if (!callSdp) {
+                        alert('SDP data upalabdh nahi hai. Kripya "calls" webhook field subscribed hone ki jaanch karein.');
                         setIncomingCall(null);
                         return;
                       }
                       await answerWebRTC({
                         id: incomingCall.id,
                         from: incomingCall.from || incomingCall.phone,
-                        sdp: incomingCall.sdp,
+                        sdp: callSdp,
                         phoneNumberId: incomingCall.phoneNumberId,
                         workspace_id: incomingCall.workspace_id
                       });
