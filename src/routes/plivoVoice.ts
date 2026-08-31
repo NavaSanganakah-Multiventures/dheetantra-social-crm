@@ -260,7 +260,26 @@ function randomAlnum(length: number): string {
   return out;
 }
 
-async function findOrCreateSoftphoneApp(config: { auth_id: string; auth_token: string }, appName: string, answerUrl: string): Promise<{ ok: boolean; appId?: string; error?: string; status?: number }> {
+function softphoneAppPayload(baseUrl: string) {
+  return {
+    answer_url: baseUrl + '/api/plivo/webhook/app',
+    answer_method: 'POST',
+    fallback_url: baseUrl + '/api/plivo/webhook/app?fallback=1',
+    fallback_method: 'POST',
+    hangup_url: baseUrl + '/api/plivo/webhook/status?leg=softphone',
+    hangup_method: 'POST',
+  } as const;
+}
+
+function shouldUpdateApp(app: any, payload: any) {
+  return !app.answer_url ||
+    app.answer_url !== payload.answer_url ||
+    app.fallback_url !== payload.fallback_url ||
+    app.hangup_url !== payload.hangup_url ||
+    app.answer_method !== payload.answer_method;
+}
+
+async function findOrCreateSoftphoneApp(config: { auth_id: string; auth_token: string }, appName: string, baseUrl: string): Promise<{ ok: boolean; appId?: string; error?: string; status?: number }> {
   const base = plivoApiBase(config.auth_id);
   const headers = {
     Authorization: plivoAuthHeader(config.auth_id, config.auth_token),
@@ -274,11 +293,12 @@ async function findOrCreateSoftphoneApp(config: { auth_id: string; auth_token: s
       const apps = (data && Array.isArray(data.objects)) ? data.objects : [];
       for (const app of apps) {
         if (app && app.app_id && app.app_name === appName) {
-          if (app.answer_url && app.answer_url !== answerUrl) {
+          const payload = softphoneAppPayload(baseUrl);
+          if (shouldUpdateApp(app, payload)) {
             await fetch(base + 'Application/' + encodeURIComponent(app.app_id) + '/', {
               method: 'POST',
               headers,
-              body: JSON.stringify({ answer_url: answerUrl, answer_method: 'POST' }),
+              body: JSON.stringify(payload),
             }).catch(() => {});
           }
           return { ok: true, appId: app.app_id };
@@ -290,10 +310,11 @@ async function findOrCreateSoftphoneApp(config: { auth_id: string; auth_token: s
   }
 
   try {
+    const payload = softphoneAppPayload(baseUrl);
     const res = await fetch(base + 'Application/', {
       method: 'POST',
       headers,
-      body: JSON.stringify({ app_name: appName, answer_url: answerUrl, answer_method: 'POST' }),
+      body: JSON.stringify({ app_name: appName, ...payload }),
     });
     const data: any = await res.json().catch(() => ({}));
     if (!res.ok) {
@@ -543,7 +564,7 @@ router.post('/api/plivo/configs/:id/link', requireRole('owner', 'admin'), async 
   if (!force && config.endpoint_username && config.endpoint_password) {
     let appId = config.endpoint_app_id;
     if (!appId) {
-      const existingApp = await findOrCreateSoftphoneApp({ auth_id: config.auth_id, auth_token: config.auth_token }, appName, answerUrl);
+      const existingApp = await findOrCreateSoftphoneApp({ auth_id: config.auth_id, auth_token: config.auth_token }, appName, baseUrl);
       if (existingApp.ok && existingApp.appId) {
         appId = existingApp.appId;
         await c.env.DB.prepare('UPDATE plivo_configs SET endpoint_app_id = ?, updated_at = ? WHERE id = ?').bind(appId, sqliteNow(), id).run();
@@ -558,7 +579,7 @@ router.post('/api/plivo/configs/:id/link', requireRole('owner', 'admin'), async 
     });
   }
 
-  const app = await findOrCreateSoftphoneApp({ auth_id: config.auth_id, auth_token: config.auth_token }, appName, answerUrl);
+  const app = await findOrCreateSoftphoneApp({ auth_id: config.auth_id, auth_token: config.auth_token }, appName, baseUrl);
   if (!app.ok) {
     return c.json({ error: app.error || 'Failed to create Plivo softphone application' }, 502);
   }
