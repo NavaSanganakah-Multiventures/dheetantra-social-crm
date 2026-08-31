@@ -417,7 +417,7 @@ app.post('/api/whatsapp/webhook', async (c) => {
     // Meta signs webhook deliveries with the app secret (x-hub-signature-256).
     // Verification is enforced whenever WHATSAPP_APP_SECRET is present in
     // SECRETS_KV. If the secret is NOT configured we FAIL OPEN (accept the
-    // event) with a loud error log Ã¢ÂÂ a hard 503 here silently kills every
+    // event) with a loud error log - a hard 503 here silently kills every
     // incoming message (no DB save, no realtime broadcast, no push), which is
     // worse than accepting unverified webhooks until the operator sets the
     // secret. Set WHATSAPP_APP_SECRET to restore strict verification.
@@ -440,7 +440,7 @@ app.post('/api/whatsapp/webhook', async (c) => {
         }, 403);
       }
     } else {
-      console.error('[WhatsApp] WHATSAPP_APP_SECRET missing in SECRETS_KV Ã¢ÂÂ accepting webhook WITHOUT signature verification. Add WHATSAPP_APP_SECRET (Meta App Secret) to SECRETS_KV to enable verification.');
+      console.error('[WhatsApp] WHATSAPP_APP_SECRET missing in SECRETS_KV - accepting webhook WITHOUT signature verification. Add WHATSAPP_APP_SECRET (Meta App Secret) to SECRETS_KV to enable verification.');
     }
     const body = rawBody ? JSON.parse(rawBody) : {};
     // Log only metadata, never the full body (it may contain PII, tokens and
@@ -457,7 +457,7 @@ app.post('/api/whatsapp/webhook', async (c) => {
         for (const change of entry.changes) {
           // ==========================================
           // OFFICIAL WhatsApp Cloud API Calling Webhook Handler
-          // Field: 'calls' Ã¢ÂÂ Meta sends call events here
+          // Field: 'calls' - Meta sends call events here
           // ==========================================
           if (change.field === 'calls') {
             // Safe access: change.value could be undefined
@@ -468,7 +468,7 @@ app.post('/api/whatsapp/webhook', async (c) => {
             const callsArray = change.value.calls;
             if (!callsArray || !Array.isArray(callsArray)) continue;
 
-            console.log(`[Calling] Ã¢ÂÂ calls field handler FIRED. phone_number_id from payload: ${change.value.metadata?.phone_number_id}`);
+            console.log(`[Calling] [OK] calls field handler FIRED. phone_number_id from payload: ${change.value.metadata?.phone_number_id}`);
 
             const phoneNumberId = change.value.metadata?.phone_number_id;
 
@@ -491,7 +491,7 @@ app.post('/api/whatsapp/webhook', async (c) => {
                 .bind(phoneNumberId).first<{ workspace_id: string; calling_enabled: number; call_schedule: string; access_token: string }>();
 
               if (!config) {
-                console.error(`[Calling] Ã¢ÂÂ No config found for phone_number_id: ${phoneNumberId}`);
+                console.error(`[Calling] [ERR] No config found for phone_number_id: ${phoneNumberId}`);
                 continue;
               }
 
@@ -499,7 +499,7 @@ app.post('/api/whatsapp/webhook', async (c) => {
 
               // Check call schedule for incoming calls
               if (config.calling_enabled === 0) {
-                console.log(`[Calling] Ã¢ÂÂ Calling is disabled for ${phoneNumberId}. Skipping incoming call.`);
+                console.log(`[Calling] [SKIP] Calling is disabled for ${phoneNumberId}. Skipping incoming call.`);
                 continue;
               }
               if (config.call_schedule && (event === 'connect' || event === 'offer')) {
@@ -507,18 +507,20 @@ app.post('/api/whatsapp/webhook', async (c) => {
                   const schedule = JSON.parse(config.call_schedule);
                   if (schedule.enabled) {
                     const now = new Date();
-                    const currentHour = now.getHours();
-                    const currentMin = now.getMinutes();
+                    // Schedule times are defined in India time (IST = UTC+5:30); Workers' Date is UTC.
+                    const ist = new Date(now.getTime() + (5.5 * 60 * 60 * 1000));
+                    const currentHour = ist.getUTCHours();
+                    const currentMin = ist.getUTCMinutes();
                     const currentTime = currentHour * 60 + currentMin;
                     const startParts = (schedule.start_time || '09:00').split(':').map(Number);
                     const endParts = (schedule.end_time || '17:00').split(':').map(Number);
                     const startMin = startParts[0] * 60 + (startParts[1] || 0);
                     const endMin = endParts[0] * 60 + (endParts[1] || 0);
-                    const dayOfWeek = now.getDay() === 0 ? 7 : now.getDay();
+                    const dayOfWeek = ist.getUTCDay() === 0 ? 7 : ist.getUTCDay();
                     const days = Array.isArray(schedule.days) ? schedule.days : [1,2,3,4,5];
 
                     if (!days.includes(dayOfWeek) || currentTime < startMin || currentTime > endMin) {
-                      console.log(`[Calling] Ã¢ÂÂ Outside call schedule for ${phoneNumberId}. Day=${dayOfWeek}, Time=${currentHour}:${currentMin}, Schedule=${schedule.start_time}-${schedule.end_time}`);
+                      console.log(`[Calling] [SKIP] Outside call schedule for ${phoneNumberId}. Day=${dayOfWeek}, Time=${currentHour}:${currentMin}, Schedule=${schedule.start_time}-${schedule.end_time}`);
                       // Resolve/create a contact for the missed call before logging it.
                       // calls.contact_id is NOT NULL with a FK to contacts(id); the previous
                       // empty-string value violated the FK (insert failed with foreign_keys
@@ -636,7 +638,7 @@ app.post('/api/whatsapp/webhook', async (c) => {
                   continue;
                 }
 
-                // Incoming call Ã¢ÂÂ save to DB + broadcast to frontend
+                // Incoming call - save to DB + broadcast to frontend
                 let contactId = '';
                 let callerName = callerNumber ? `+${callerNumber}` : 'Unknown';
                 const existingContact = await c.env.DB.prepare(
@@ -681,14 +683,14 @@ app.post('/api/whatsapp/webhook', async (c) => {
                 // LINE-BUSY CHECK (WhatsApp-style busy)
                 // Agar is workspace mein pehle se koi call 'ringing' mein hai toh
                 // nayi incoming call ko turant Meta ko
-                // reject bhej dete hain Ã¢ÂÂ caller ko busy tone milega, app par
+                // reject bhej dete hain - caller ko busy tone milega, app par
                 // ring/push nahi aayegi. Ye "oldest wins" hai: do calls ek
                 // saath aayein (race) toh jo pehle insert hui wo ring karegi,
-                // baaki sab busy Ã¢ÂÂ dono webhooks isi same answer par converge
+                // baaki sab busy - dono webhooks isi same answer par converge
                 // karte hain, isliye ye deterministic hai.
                 //
                 // NOTE (default dialer): PSTN calls mein bhi yahi line-busy
-                // concept use hoga Ã¢ÂÂ app default dialer banne par incoming
+                // concept use hoga - app default dialer banne par incoming
                 // PSTN call ko TelecomManager se auto-reject karega jab ek
                 // call pehle se active ho.
                 if (direction !== 'BUSINESS_INITIATED') {
@@ -710,8 +712,8 @@ app.post('/api/whatsapp/webhook', async (c) => {
                   `).bind(config.workspace_id, callId).first<{ id: string; status: string }>();
 
                   if (activeCall) {
-                    console.log(`[Calling] Ã¢ÂÂ Line busy (existing ${activeCall.status}: ${activeCall.id}) Ã¢ÂÂ auto-rejecting call ${callId} from ${callerNumber}`);
-                    // Meta ko reject Ã¢ÂÂ caller ko WhatsApp jaisa busy tone milega
+                    console.log(`[Calling] [SKIP] Line busy (existing ${activeCall.status}: ${activeCall.id}) - auto-rejecting call ${callId} from ${callerNumber}`);
+                    // Meta ko reject - caller ko WhatsApp jaisa busy tone milega
                     try {
                       const rejectUrl = `https://graph.facebook.com/v20.0/${phoneNumberId}/calls`;
                       await fetch(rejectUrl, {
@@ -726,11 +728,11 @@ app.post('/api/whatsapp/webhook', async (c) => {
                     } catch (e) {
                       console.error('[Calling] Busy auto-reject to Meta failed:', e);
                     }
-                    // Call log mein 'busy' status ke saath record Ã¢ÂÂ ring/push
+                    // Call log mein 'busy' status ke saath record - ring/push
                     // broadcast skip (neeche continue).
                     await c.env.DB.prepare('UPDATE calls SET status = ?, hangup_cause = ? WHERE id = ?')
                       .bind('busy', 'busy', callId).run();
-                    console.log(`[Calling] Call ${callId} marked busy Ã¢ÂÂ no ring, no push`);
+                    console.log(`[Calling] Call ${callId} marked busy - no ring, no push`);
                     continue;
                   }
                 }
@@ -753,9 +755,9 @@ app.post('/api/whatsapp/webhook', async (c) => {
                     })
                   }));
                   const broadcastBody = await broadcastResp.text();
-                  console.log(`[Calling] Ã¢ÂÂ Broadcast response from DO: ${broadcastBody}`);
+                  console.log(`[Calling] [OK] Broadcast response from DO: ${broadcastBody}`);
                 } catch (e) {
-                  console.error('[Calling] Ã¢ÂÂ Failed to broadcast incoming call:', e);
+                  console.error('[Calling] [ERR] Failed to broadcast incoming call:', e);
                 }
 
                 // High-priority FCM push so the incoming call is shown even when the
@@ -774,7 +776,7 @@ app.post('/api/whatsapp/webhook', async (c) => {
 
                         const { sendPushNotification } = await import('../lib/fcm');
                         if (!tokens.results || tokens.results.length === 0) {
-                          console.warn(`[Calling] No FCM tokens for workspace ${config.workspace_id} Ã¢ÂÂ incoming call push skipped`);
+                          console.warn(`[Calling] No FCM tokens for workspace ${config.workspace_id} - incoming call push skipped`);
                           return;
                         }
 
@@ -1069,7 +1071,7 @@ app.post('/api/whatsapp/webhook', async (c) => {
                             }
                           }
                         } else {
-                          console.warn(`[Webhook] No FCM tokens for workspace ${config.workspace_id} Ã¢ÂÂ push skipped`);
+                          console.warn(`[Webhook] No FCM tokens for workspace ${config.workspace_id} - push skipped`);
                         }
 
                         // NOTE: Email notifications for incoming WhatsApp messages are
@@ -1153,7 +1155,7 @@ app.post('/api/whatsapp/webhook', async (c) => {
 // B2C & B2B API ROUTES (API Domains)
 // ==========================================
 // ---------------------------------------------------------------------------
-// WebSocket auth helper Ã¢ÂÂ validates the auth_session cookie or a ?sid=...
+// WebSocket auth helper - validates the auth_session cookie or a ?sid=...
 // query parameter and verifies workspace membership before allowing an
 // upgrade to the global workspace Durable Object.
 // ---------------------------------------------------------------------------
@@ -1190,7 +1192,7 @@ async function getAuthenticatedUserForWs(c: Context<{ Bindings: Env }>): Promise
   }
 
   if (!c.env.DB) {
-    // Local development fallback Ã¢ÂÂ still require a known room shape but skip DB.
+    // Local development fallback - still require a known room shape but skip DB.
     return { user, workspaceId };
   }
 
@@ -1420,7 +1422,7 @@ const worker = {
   },
 
   // Queue consumer (Broadcast deliveries: sends WhatsApp template messages
-  // via Meta API and updates campaign counters Ã¢ÂÂ see workers/broadcast-queue.ts)
+  // via Meta API and updates campaign counters - see workers/broadcast-queue.ts)
   async queue(batch: any, env: any, ctx: any) {
     await broadcastQueueConsumer.queue(batch as any, env as any);
   },
