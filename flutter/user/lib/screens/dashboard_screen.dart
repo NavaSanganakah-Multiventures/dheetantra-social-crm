@@ -123,19 +123,58 @@ class _DashboardScreenState extends State<DashboardScreen> with RouteAware {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
         children: [
-          const Text(
-            'आपका स्वागत है! 👋',
-            style: TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 22,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.4,
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: AppColors.heroGradient,
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(color: AppColors.accent.withValues(alpha: 0.3)),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.accent.withValues(alpha: 0.15),
+                  blurRadius: 24,
+                  offset: const Offset(0, 8),
+                ),
+              ],
             ),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            'यहाँ आपके वर्कस्पेस का अवलोकन है।',
-            style: TextStyle(color: AppColors.textMuted, fontSize: 13),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Welcome Back! 👋',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.4,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Here is your workspace overview and quick activity status.',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.8),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Icon(Icons.bolt_rounded, color: Colors.white, size: 26),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 24),
           LayoutBuilder(
@@ -148,18 +187,18 @@ class _DashboardScreenState extends State<DashboardScreen> with RouteAware {
                   SizedBox(
                     width: cardWidth,
                     child: StatCard(
-                      title: 'कुल संपर्क',
+                      title: 'Total Contacts',
                       value: '$_totalContacts',
-                      trend: 'CRM डेटा',
+                      trend: 'CRM Database',
                       icon: Icons.people_alt_outlined,
                     ),
                   ),
                   SizedBox(
                     width: cardWidth,
                     child: StatCard(
-                      title: 'खुली बातचीत',
+                      title: 'Open Chats',
                       value: '$_openConversations',
-                      trend: 'सक्रिय कनेक्शन',
+                      trend: 'Active Now',
                       icon: Icons.forum_outlined,
                     ),
                   ),
@@ -175,8 +214,8 @@ class _DashboardScreenState extends State<DashboardScreen> with RouteAware {
           ),
           const SizedBox(height: 28),
           SectionHeader(
-            title: 'हाल की बातचीत',
-            actionLabel: 'सभी देखें',
+            title: 'Recent Conversations',
+            actionLabel: 'View All',
             onAction: widget.onOpenInbox,
           ),
           const SizedBox(height: 12),
@@ -202,18 +241,18 @@ class _QuickActions extends StatelessWidget {
   Widget build(BuildContext context) {
     final actions = [
       _QuickActionData(
-        icon: Icons.chat_outlined,
-        label: 'इनबॉक्स',
+        icon: Icons.chat_bubble_outline_rounded,
+        label: 'Inbox',
         onTap: onOpenInbox,
       ),
       _QuickActionData(
         icon: Icons.notifications_outlined,
-        label: 'सूचनाएं',
+        label: 'Alerts',
         onTap: onOpenNotifications,
       ),
       _QuickActionData(
-        icon: Icons.call_outlined,
-        label: 'कॉल लॉग्स',
+        icon: Icons.phone_in_talk_outlined,
+        label: 'Call Logs',
         onTap: () {
           Navigator.of(context).push(
             MaterialPageRoute(builder: (_) => const CallsScreen()),
@@ -221,8 +260,8 @@ class _QuickActions extends StatelessWidget {
         },
       ),
       _QuickActionData(
-        icon: Icons.event_outlined,
-        label: 'शेड्यूल',
+        icon: Icons.calendar_today_outlined,
+        label: 'Schedule',
         onTap: () {
           Navigator.of(context).push(
             MaterialPageRoute(builder: (_) => const ScheduleScreen()),
@@ -231,12 +270,12 @@ class _QuickActions extends StatelessWidget {
       ),
       _QuickActionData(
         icon: Icons.campaign_outlined,
-        label: 'ब्रॉडकास्ट',
+        label: 'Broadcast',
         onTap: onOpenBroadcast,
       ),
       _QuickActionData(
         icon: Icons.storefront_outlined,
-        label: 'कैटलॉग',
+        label: 'Catalog',
         onTap: () {
           Navigator.of(context).push(
             MaterialPageRoute(builder: (_) => const CatalogListScreen()),
@@ -248,7 +287,7 @@ class _QuickActions extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionHeader(title: 'क्विक एक्शन्स'),
+        const SectionHeader(title: 'Quick Actions'),
         const SizedBox(height: 12),
         // Responsive: grid on wide screens, horizontal scroll on narrow ones.
         LayoutBuilder(
@@ -344,8 +383,8 @@ class _RecentChats extends StatelessWidget {
     if (conversations.isEmpty) {
       return const EmptyState(
         icon: Icons.forum_outlined,
-        title: 'कोई सक्रिय बातचीत नहीं मिली।',
-        subtitle: 'जब ग्राहक संदेश भेजेंगे तो यहाँ दिखेगा।',
+        title: 'No active conversations found',
+        subtitle: 'When customers message your business, they will appear here.',
       );
     }
     return Container(

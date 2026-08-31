@@ -20,7 +20,7 @@ class InboxScreen extends StatefulWidget {
 
 class _InboxScreenState extends State<InboxScreen> with RouteAware {
   String _query = '';
-  String _filter = 'सभी';
+  String _filter = 'All';
   String _platformFilter = 'all'; // 'all' | 'whatsapp' | 'email' (future: instagram/facebook)
   bool _loading = true;
   List<Conversation> _allConversations = [];
@@ -30,9 +30,9 @@ class _InboxScreenState extends State<InboxScreen> with RouteAware {
   StreamSubscription? _refreshSub;
   Timer? _autoRefresh;
 
-  static const _filters = ['सभी', 'खुली', 'बंद'];
+  static const _filters = ['All', 'Open', 'Closed'];
   static const _platformFilters = [
-    ('सभी सोर्स', 'all'),
+    ('All Channels', 'all'),
     ('WhatsApp', 'whatsapp'),
     ('Email', 'email'),
   ];
@@ -106,8 +106,8 @@ class _InboxScreenState extends State<InboxScreen> with RouteAware {
     final api = ApiService();
 
     String? statusFilter;
-    if (_filter == 'खुली') statusFilter = 'open';
-    if (_filter == 'बंद') statusFilter = 'closed';
+    if (_filter == 'Open') statusFilter = 'open';
+    if (_filter == 'Closed') statusFilter = 'closed';
 
     final data = await api.getConversations(
       status: statusFilter,
@@ -140,7 +140,7 @@ class _InboxScreenState extends State<InboxScreen> with RouteAware {
           child: TextField(
             onChanged: (v) => setState(() => _query = v),
             decoration: const InputDecoration(
-              hintText: 'खोजें...',
+              hintText: 'Search chats or phone numbers...',
               prefixIcon: Icon(Icons.search_rounded, color: AppColors.textMuted),
               contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             ),
@@ -197,8 +197,8 @@ class _InboxScreenState extends State<InboxScreen> with RouteAware {
                   ? const Center(
                       child: EmptyState(
                         icon: Icons.search_off_rounded,
-                        title: 'कोई बातचीत नहीं मिली',
-                        subtitle: 'जब ग्राहक संदेश भेजेंगे तो यहाँ दिखेगा।',
+                        title: 'No conversations found',
+                        subtitle: 'When customers send messages, they will appear here.',
                       ),
                     )
                   : RefreshIndicator(

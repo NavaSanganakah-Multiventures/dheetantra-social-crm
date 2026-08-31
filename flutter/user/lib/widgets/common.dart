@@ -30,9 +30,9 @@ String timeLabel(DateTime time) {
     final m = time.minute.toString().padLeft(2, '0');
     return '$h:$m';
   }
-  if (diff == 1) return 'कल';
+  if (diff == 1) return 'Yesterday';
   if (diff < 7) {
-    const days = ['सोम', 'मंगल', 'बुध', 'गुरु', 'शुक्र', 'शनि', 'रवि'];
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     return days[time.weekday - 1];
   }
   return '${time.day}/${time.month}';
@@ -42,6 +42,66 @@ String durationLabel(int seconds) {
   final m = (seconds ~/ 60).toString().padLeft(2, '0');
   final s = (seconds % 60).toString().padLeft(2, '0');
   return '$m:$s';
+}
+
+class QuickActionButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  const QuickActionButton({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.surface,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: color, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.2,
+                  ),
+                ),
+              ),
+              const Icon(Icons.arrow_forward_ios_rounded, size: 13, color: AppColors.textMuted),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class Avatar extends StatelessWidget {

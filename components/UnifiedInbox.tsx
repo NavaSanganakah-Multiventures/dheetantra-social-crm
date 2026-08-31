@@ -45,23 +45,23 @@ const fmtDay = (dateStr: string | Date | number) => {
 type Platform = 'all' | 'whatsapp' | 'instagram' | 'facebook' | 'email';
 
 const PLATFORMS: { key: Platform; label: string; icon: React.ReactNode; color: string }[] = [
-  { key: 'all', label: 'सभी', icon: <Inbox className="w-3.5 h-3.5" />, color: 'text-surface-400' },
+  { key: 'all', label: 'All', icon: <Inbox className="w-3.5 h-3.5" />, color: 'text-surface-400' },
   { key: 'whatsapp', label: 'WhatsApp', icon: <MessageCircle className="w-3.5 h-3.5" />, color: 'text-emerald-500' },
   { key: 'instagram', label: 'Instagram', icon: <Instagram className="w-3.5 h-3.5" />, color: 'text-pink-500' },
   { key: 'facebook', label: 'Facebook', icon: <Facebook className="w-3.5 h-3.5" />, color: 'text-blue-500' },
-  { key: 'email', label: 'ईमेल', icon: <Mail className="w-3.5 h-3.5" />, color: 'text-primary-500' },
+  { key: 'email', label: 'Email', icon: <Mail className="w-3.5 h-3.5" />, color: 'text-primary-500' },
 ];
 
 // AI filter categories (match src/services/inboxAI.ts)
 const AI_FILTERS = [
-  { key: 'all', label: 'AI फ़िल्टर: सभी' },
-  { key: 'lead', label: '🎯 लीड्स' },
-  { key: 'urgent', label: '🚨 अर्जेंट' },
-  { key: 'complaint', label: '😠 शिकायतें' },
-  { key: 'inquiry', label: '❓ पूछताछ' },
-  { key: 'support', label: '🛟 सपोर्ट' },
-  { key: 'follow_up', label: '⏰ फॉलो-अप' },
-  { key: 'spam', label: '🗑 स्पैम' },
+  { key: 'all', label: 'AI Filter: All' },
+  { key: 'lead', label: '🎯 Leads' },
+  { key: 'urgent', label: '🚨 Urgent' },
+  { key: 'complaint', label: '😠 Complaints' },
+  { key: 'inquiry', label: '❓ Inquiries' },
+  { key: 'support', label: '🛟 Support' },
+  { key: 'follow_up', label: '⏰ Follow-ups' },
+  { key: 'spam', label: '🗑 Spam' },
 ];
 
 const AI_LABEL_STYLE: Record<string, string> = {
@@ -75,8 +75,8 @@ const AI_LABEL_STYLE: Record<string, string> = {
 };
 
 const AI_LABEL_TEXT: Record<string, string> = {
-  lead: 'लीड', urgent: 'अर्जेंट', complaint: 'शिकायत', inquiry: 'पूछताछ',
-  support: 'सपोर्ट', follow_up: 'फॉलो-अप', spam: 'स्पैम', other: 'अन्य',
+  lead: 'Lead', urgent: 'Urgent', complaint: 'Complaint', inquiry: 'Inquiry',
+  support: 'Support', follow_up: 'Follow-up', spam: 'Spam', other: 'Other',
 };
 
 function parseEmailMedia(value: string | null): { subject?: string; to?: string } {
@@ -94,10 +94,10 @@ function parseEmailMedia(value: string | null): { subject?: string; to?: string 
 // URL या JSON payload हो सकता है)
 // ---------------------------------------------------------------
 const MEDIA_LABELS: Record<string, string> = {
-  image: 'फ़ोटो', video: 'वीडियो', audio: 'ऑडियो', document: 'दस्तावेज़',
-  sticker: 'स्टिकर', location: 'लोकेशन', contacts: 'कॉन्टैक्ट',
-  template: 'टेम्पलेट', interactive: 'इंटरैक्टिव', order: 'ऑर्डर',
-  reaction: 'रिएक्शन', system: 'सिस्टम', system_call: 'कॉल', button: 'बटन',
+  image: 'Photo', video: 'Video', audio: 'Audio', document: 'Document',
+  sticker: 'Sticker', location: 'Location', contacts: 'Contact',
+  template: 'Template', interactive: 'Interactive', order: 'Order',
+  reaction: 'Reaction', system: 'System', system_call: 'Call', button: 'Button',
 };
 
 const getSafeUrl = (url: string | null | undefined): string | undefined => {

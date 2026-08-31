@@ -192,7 +192,7 @@ class WebSocketService with WidgetsBindingObserver {
           if (direction == 'outgoing' || direction == 'BUSINESS_INITIATED') break;
           _incomingCallController.add({
             'id': data['callId'],
-            'contact_name': data['contactName'] ?? data['from'] ?? 'à¤à¤à¥à¤à¤¾à¤¤',
+            'contact_name': data['contactName'] ?? data['from'] ?? 'Unknown',
             'phone': data['from'] ?? '',
             'sdp': data['sdp'],
             'sdpType': data['sdpType'],

@@ -48,13 +48,13 @@ class _GlobalCallOverlayState extends State<GlobalCallOverlay> {
         return;
       }
       // Outgoing calls we start ourselves also come back over the same channel
-      // (callRoutes broadcasts `incoming_call` to every socket) â never show
+      // (callRoutes broadcasts `incoming_call` to every socket) â€” never show
       // an "incoming" overlay for a call this device initiated.
       final direction = callData['direction'] ?? 'incoming';
       if (direction == 'outgoing' || direction == 'BUSINESS_INITIATED') return;
 
       final callId = callData['id']?.toString() ?? callData['callId']?.toString() ?? '';
-      // Respect the "à¤à¥à¤²à¤¿à¤à¤ à¤¸à¤à¥à¤·à¤®" toggle (settings).
+      // Respect the "Calling Enabled" toggle (settings).
       if (!await CallKitService().isCallingEnabled()) {
         try {
           WebRTCService().rejectCall(Map<String, dynamic>.from(callData));
@@ -62,18 +62,18 @@ class _GlobalCallOverlayState extends State<GlobalCallOverlay> {
         return;
       }
       // Agar FCM/plugin wali isi call ki ring pehle se chal rahi hai (CallKit
-      // registry mein) toh double ring + double UI mat dikhao â plugin wala
+      // registry mein) toh double ring + double UI mat dikhao â€” plugin wala
       // native UI hi accept/decline karega.
       if (callId.isNotEmpty && CallKitService().hasCall(callId)) {
         debugPrint('CallOverlay: call $callId already shown by CallKit, skipping overlay');
         return;
       }
       // Line-busy guard (WhatsApp-style): koi call pehle se ringing/active
-      // hai toh nayi incoming call ko turant auto-reject â double ring mat
+      // hai toh nayi incoming call ko turant auto-reject â€” double ring mat
       // dikhao aur caller ko busy tone mile. Server normal flow mein busy
       // calls broadcast nahi karta; ye sirf defense-in-depth hai.
       if (_callStatus != 'idle') {
-        debugPrint('CallOverlay: line busy ($_callStatus) â auto-rejecting $callId');
+        debugPrint('CallOverlay: line busy ($_callStatus) â€” auto-rejecting $callId');
         try {
           WebRTCService().rejectCall(Map<String, dynamic>.from(callData));
         } catch (e) {
@@ -118,7 +118,7 @@ class _GlobalCallOverlayState extends State<GlobalCallOverlay> {
       } else if (_incomingCall != null && _incomingCall!['id'] == data['call_id']) {
         if (data['status'] == 'completed' || data['status'] == 'ended' || data['status'] == 'declined') {
           _stopRingtone();
-          // Registry se bhi entry hatana zaroori hai â warna caller ne ring
+          // Registry se bhi entry hatana zaroori hai â€” warna caller ne ring
           // mein hi call kati toh stale entry agli same-id call ko block
           // karegi (duplicate guard hamesha skip kar dega).
           final ringingId = _incomingCall!['id']?.toString() ??
@@ -218,7 +218,7 @@ class _GlobalCallOverlayState extends State<GlobalCallOverlay> {
         callData['callId']?.toString() ??
         '';
     // CallKit plugin ka native incoming UI band karo aur duplicate accept
-    // event ko block karo â warna overlay accept ke baad plugin accept se
+    // event ko block karo â€” warna overlay accept ke baad plugin accept se
     // dobara CallScreen + double answerCall ho sakta hai.
     CallKitService().markAnsweredByApp(incomingId);
     CallKitService().unregisterInAppCall(incomingId);
@@ -245,7 +245,7 @@ class _GlobalCallOverlayState extends State<GlobalCallOverlay> {
     if (callData != null) {
       await WebRTCService().rejectCall(callData);
     }
-    // Plugin ki native incoming UI bhi band kar do taaki reject ke baad
+    // Plugin की native incoming UI bhi band kar do taaki reject ke baad
     // notification/ringing na baje.
     CallKitService().handleCallEnded(rejectedId);
     CallKitService().unregisterInAppCall(rejectedId);
@@ -312,7 +312,7 @@ class _GlobalCallOverlayState extends State<GlobalCallOverlay> {
   }
 
   Widget _buildIncomingCallDialog() {
-    final name = _incomingCall!['contact_name'] ?? 'à¤à¤à¥à¤à¤¾à¤¤';
+    final name = _incomingCall!['contact_name'] ?? 'Unknown';
     final phone = _incomingCall!['phone'] ?? '';
 
     return Container(
@@ -355,7 +355,7 @@ class _GlobalCallOverlayState extends State<GlobalCallOverlay> {
                 ),
                 const SizedBox(height: 2),
                 const Text(
-                  'à¤à¤¨à¤à¤®à¤¿à¤à¤ à¤à¥à¤²...',
+                  'Incoming call...',
                   style: TextStyle(
                     color: AppColors.whatsapp,
                     fontSize: 12,
@@ -401,7 +401,7 @@ class _GlobalCallOverlayState extends State<GlobalCallOverlay> {
   }
 
   Widget _buildActiveCallPanel() {
-    final name = _activeCall!['contact_name'] ?? 'à¤à¤à¥à¤à¤¾à¤¤';
+    final name = _activeCall!['contact_name'] ?? 'Unknown';
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -436,7 +436,7 @@ class _GlobalCallOverlayState extends State<GlobalCallOverlay> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  _callStatus == 'connecting' ? 'à¤à¤¨à¥à¤à¥à¤ à¤¹à¥ à¤°à¤¹à¤¾ à¤¹à¥...' : _formatDuration(_callDuration),
+                  _callStatus == 'connecting' ? 'Connecting...' : _formatDuration(_callDuration),
                   style: TextStyle(
                     color: _callStatus == 'connecting' ? AppColors.textMuted : AppColors.success,
                     fontSize: 12,
