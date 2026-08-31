@@ -24,6 +24,23 @@ export function ActiveCallManager({ activeCall, setActiveCall, onHangup, remoteS
     }
   }, [isMuted, localStream]);
 
+  // Route remote audio to speaker or earpiece when the browser supports setSinkId.
+  useEffect(() => {
+    const el = audioRef.current;
+    if (!el || typeof (el as any).setSinkId !== 'function') return;
+    const applySink = (deviceId: string) => (el as any).setSinkId(deviceId).catch(() => {});
+    if (isSpeaker) {
+      applySink('');
+    } else if (navigator.mediaDevices && typeof navigator.mediaDevices.enumerateDevices === 'function') {
+      navigator.mediaDevices.enumerateDevices()
+        .then((devices) => {
+          const comm = devices.find((d) => d.kind === 'audiooutput' && (d.deviceId === 'communications' || /comm/i.test(d.label)));
+          if (comm) applySink(comm.deviceId);
+        })
+        .catch(() => {});
+    }
+  }, [isSpeaker]);
+
   // Track call start and current time for elapsed display
   // Synchronizes React state with an external clock — a legitimate use of setState in an effect
   useEffect(() => {
