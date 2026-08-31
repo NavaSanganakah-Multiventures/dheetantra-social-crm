@@ -517,8 +517,8 @@ class _MessageBubble extends StatelessWidget {
     return buffer.toString();
   }
 
-  // media_url के अनुसार media preview (image/sticker inline, बाकी
-  // types के लिए tappable tile जो बाहरी ऐप में खोलता है)
+  // media preview per media_url (image/sticker inline, other
+  // types use a tappable tile that opens in an external app)
   Widget? _buildMedia(BuildContext context) {
     final type = message.messageType;
     final raw = message.mediaUrl;
@@ -543,7 +543,7 @@ class _MessageBubble extends StatelessWidget {
       final address = parsed['address'];
       return _mediaTile(
         icon: Icons.location_on,
-        title: (name != null && name.toString().isNotEmpty) ? name.toString() : 'लोकेशन',
+        title: (name != null && name.toString().isNotEmpty) ? name.toString() : 'Location',
         subtitle: (address != null && address.toString().isNotEmpty)
             ? address.toString()
             : (lat != null && lng != null ? '$lat, $lng' : null),
@@ -662,12 +662,12 @@ class _MessageBubble extends StatelessWidget {
         final p = (c is Map && c['phones'] is List && (c['phones'] as List).isNotEmpty)
             ? ((c['phones'][0] is Map) ? c['phones'][0]['phone'] : c['phones'][0])
             : null;
-        return '👤 ${n ?? 'कॉन्टैक्ट'}${p != null ? ' — $p' : ''}';
+        return '👤 ${n ?? 'Contact'}${p != null ? ' — $p' : ''}';
       }).toList();
       return _mediaTile(icon: Icons.contacts, title: rows.join('\n'), fg: fg);
     }
 
-    // Relative R2 paths को absolute बनाएँ
+    // Make relative R2 paths absolute
     final url = raw.startsWith('/api/') ? '${ApiService.baseUrl}$raw' : raw;
     final isUrl = url.startsWith('http');
 
@@ -718,7 +718,7 @@ class _MessageBubble extends StatelessWidget {
     if (type == 'video' && isUrl) {
       return _mediaTile(
         icon: Icons.play_circle_fill,
-        title: 'वीडियो',
+        title: 'Video',
         fg: fg,
         onTap: () => _openUrl(url),
       );
@@ -727,9 +727,9 @@ class _MessageBubble extends StatelessWidget {
     if (type == 'audio' && isUrl) {
       return _mediaTile(
         icon: Icons.mic,
-        title: message.text.contains('Voice') || message.text.contains('वॉयस')
-            ? 'वॉयस नोट'
-            : 'ऑडियो',
+        title: message.text.contains('Voice')
+            ? 'Voice Note'
+            : 'Audio',
         fg: fg,
         onTap: () => _openUrl(url),
       );
@@ -740,7 +740,7 @@ class _MessageBubble extends StatelessWidget {
         icon: Icons.description,
         title: (message.text.isNotEmpty && message.text != 'Document Message')
             ? message.text
-            : 'दस्तावेज़',
+            : 'Document',
         fg: fg,
         onTap: () => _openUrl(url),
       );
@@ -846,7 +846,7 @@ class _MessageBubble extends StatelessWidget {
               const SizedBox(height: 6),
             ],
             // Media (image/sticker inline, video/audio/document/location/
-            // contacts tiles) — text/caption उसके नीचे
+            // contacts tiles) — text/caption below it
             if (mediaWidget != null)
               GestureDetector(
                 onTap: () => _openMedia(context),
