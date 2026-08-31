@@ -91,8 +91,18 @@ class _GlobalCallOverlayState extends State<GlobalCallOverlay> {
           CallKitService().registerInAppCall(callData);
         }
         // Ringtone bajao jab tak user accept/reject nahi karta.
+        // playRingtone() is silent on some Android/iOS variants when the
+        // device is in silent/vibrate mode or when the ringtone stream is
+        // too low. We explicitly request the ringtone stream with looping
+        // and asAlarm so the incoming call is audible.
         try {
-          FlutterRingtonePlayer().playRingtone();
+          await FlutterRingtonePlayer().play(
+            android: AndroidSounds.ringtone,
+            ios: IosSounds.electronic,
+            looping: true,
+            asAlarm: true,
+            volume: 1.0,
+          );
         } catch (e) {
           debugPrint('Ringtone play error: $e');
         }
