@@ -58,10 +58,17 @@ class PlivoVoiceService implements SipUaHelperListener {
     }
   }
 
-  Future<void> _ensureMicrophonePermission() async {
+  Future<bool> _ensureMicrophonePermissionGranted() async {
     final status = await Permission.microphone.status;
-    if (status.isGranted) return;
-    await Permission.microphone.request();
+    if (status.isGranted) return true;
+    final result = await Permission.microphone.request();
+    return result.isGranted;
+  }
+
+  /// Deprecated compatibility method: returns silently after requesting mic.
+  Future<void> _ensureMicrophonePermission() async {
+    await _ensureMicrophonePermissionGranted();
+  }
   }
 
   /// Backend se endpoint credentials lekar SIP UA ko start/register karta hai.
@@ -84,11 +91,31 @@ class PlivoVoiceService implements SipUaHelperListener {
     // Single source of truth: backend se mila SIP URI/server/port hi use karo,
     // taaki registration ka SIP URI hamesha wahi ho jo settings me dikhta hai.
     final server = (creds['server']?.toString()) ?? _domain;
-    final port = (creds['port']?.toString()) ?? _sipPort;
+    final portRaw = creds['port']?.toString();
+    final transportRaw = (creds['transport']?.toString() ?? '').toLowerCase();
+    // Plivo normally returns 'UDP/TCP'. For mobile we prefer UDP (lighter /
+    // more reliable across carriers), falling back to TCP/TLS only if the
+    // backend explicitly asks for it.
+    final TransportType transportType;
+    final int port;
+    if (transportRaw.contains('tls')) {
+      transportType = TransportType.TLS;
+      port = int.tryParse(portRaw ?? '') ?? 5061;
+    } else if (transportRaw.contains('udp')) {
+      transportType = TransportType.UDP;
+      port = int.tryParse(portRaw ?? '') ?? 5060;
+    } else if (transportRaw.contains('tcp')) {
+      transportType = TransportType.TCP;
+      port = int.tryParse(portRaw ?? '') ?? 5060;
+    } else {
+      // Default to UDP for Flutter mobile softphones.
+      transportType = TransportType.UDP;
+      port = int.tryParse(portRaw ?? '') ?? 5060;
+    }
     final sipUri = (creds['sipUri']?.toString()) ?? 'sip:$username@$server';
-    debugPrint('[PlivoVoice] registering SIP URI: $sipUri (TCP, $server:$port)');
+    debugPrint('[PlivoVoice] registering SIP URI: $sipUri (${transportType.name.toUpperCase()}, $server:$port)');
     final settings = UaSettings()
-      ..transportType = TransportType.TCP
+      ..transportType = transportType
       ..host = server
       ..port = port
       ..uri = sipUri
@@ -105,6 +132,18 @@ class PlivoVoiceService implements SipUaHelperListener {
 
     final completer = Completer<bool>();
     _registrationCompleter = completer;
+
+
+    // Agar helper pehle se start hai (previous call ya failed attempt),
+    // usko stop karke naye settings se restart karo — sip_ua reconfigure
+    // properly nahi karta pehli start ke baad.
+    try {
+      if (_helper.started) {
+        await _helper.stop();
+      }
+    } catch (e) {
+      debugPrint('[PlivoVoice] helper stop warning: $e');
+    }
 
     try {
       await _helper.start(settings);
@@ -134,6 +173,8 @@ class PlivoVoiceService implements SipUaHelperListener {
     } finally {
       if (identical(_registrationCompleter, completer)) {
         _registrationCompleter = null;
+      // Allow future retries (e.g. network came back, credentials linked later).
+      _initStarted = false;
       }
     }
   }
@@ -158,6 +199,13 @@ class PlivoVoiceService implements SipUaHelperListener {
       }
 
       _callStateController.add('connecting');
+
+      // Mic permission is required before WebRTC can capture audio. Query it
+      // again here because the user may have denied it earlier.
+      if (!await _ensureMicrophonePermissionGranted()) {
+        _callStateController.add('error: Microphone permission required');
+        return false;
+      }
 
       final mediaStream = await navigator.mediaDevices.getUserMedia({
         'audio': true,
@@ -232,8 +280,16 @@ class PlivoVoiceService implements SipUaHelperListener {
   }
 
   @override
+  @override
   void transportStateChanged(TransportState state) {
     debugPrint('[PlivoVoice] transport state: ${state.state}');
+    final completer = _registrationCompleter;
+    if (completer == null || completer.isCompleted) return;
+    if (state.state == TransportStateEnum.DISCONNECTED) {
+      debugPrint('[PlivoVoice] transport disconnected before register response');
+      completer.complete(false);
+    }
+  }
   }
 
   @override
