@@ -1,21 +1,7 @@
 import { Hono } from 'hono';
 import { Env } from '../types';
-import { sqliteNow } from '../shared';
-
-function normalizeE164(raw: string, defaultCountryCode = '91'): string {
-  const trimmed = raw.trim();
-  let digits = trimmed.replace(/\D/g, '');
-
-  if (digits.startsWith('0')) {
-    digits = digits.slice(1);
-  }
-
-  if (!trimmed.startsWith('+') && digits.length === 10) {
-    digits = defaultCountryCode + digits;
-  }
-
-  return '+' + digits;
-}
+import { requireRole, sqliteNow } from '../shared';
+import { normalizeE164 } from '../utils/phoneUtils';
 
 function maskPhone(p: string): string {
   if (!p || p.length <= 4) return '****';

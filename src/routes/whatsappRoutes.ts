@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { Env } from '../types';
+import { formatForWhatsApp } from '../utils/phoneUtils';
 import { requireRole, pagination } from '../shared';
 
 const router = new Hono<{ Bindings: Env }>();
@@ -649,7 +650,7 @@ router.post('/api/whatsapp/templates/send', requireRole('owner', 'admin'), async
   if (!to || !templateName) return c.json({ error: 'Missing to or templateName' }, 400);
 
   // Same normalization as /api/whatsapp/send: Meta rejects '+'-prefixed numbers.
-  const normalizedTo = String(to).replace(/\D/g, '');
+  const normalizedTo = formatForWhatsApp(String(to));
   if (!normalizedTo) return c.json({ error: 'Invalid recipient phone number' }, 400);
 
   try {
@@ -877,7 +878,7 @@ router.post('/api/whatsapp/send', async (c) => {
   // spaces or dashes). The Flutter Send New Message / template screens pass
   // numbers like "+919876543210" unchanged; sending that to Meta made every
   // outbound message fail. Normalize here so every client sends successfully.
-  const normalizedTo = String(to).replace(/\D/g, '');
+  const normalizedTo = formatForWhatsApp(String(to));
   if (!normalizedTo) return c.json({ error: 'Invalid recipient phone number' }, 400);
 
   try {

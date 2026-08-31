@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { Env } from '../types';
 import { requireRole, pagination } from '../shared';
+import { formatForWhatsApp } from '../utils/phoneUtils';
 
 const router = new Hono<{ Bindings: Env }>();
 
@@ -448,7 +449,7 @@ router.post('/api/catalogs/whatsapp/send', requireRole('owner', 'admin', 'member
       'SELECT platform_contact_id, name FROM contacts WHERE id = ? AND workspace_id = ?'
     ).bind(conversation.contact_id, workspaceId).first<any>();
     if (!contact) return c.json({ error: 'Contact not found' }, 404);
-    const to = String(contact.platform_contact_id).replace(/\D/g, '');
+    const to = formatForWhatsApp(String(contact.platform_contact_id));
     if (!to) return c.json({ error: 'Invalid contact phone number' }, 400);
 
     let config: any = null;

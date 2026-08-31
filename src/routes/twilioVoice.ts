@@ -1,21 +1,9 @@
 import { Hono } from 'hono';
 import { Env } from '../types';
 import { sqliteNow, requireRole } from '../shared';
+import { normalizeE164, formatForTwilio } from '../utils/phoneUtils';
 
-function normalizeE164(raw: string, defaultCountryCode = '91'): string {
-  const trimmed = raw.trim();
-  let digits = trimmed.replace(/\D/g, '');
 
-  if (digits.startsWith('0')) {
-    digits = digits.slice(1);
-  }
-
-  if (!trimmed.startsWith('+') && digits.length === 10) {
-    digits = defaultCountryCode + digits;
-  }
-
-  return '+' + digits;
-}
 
 function maskAuthToken(token: string): string {
   if (!token || token.length <= 4) return '****';
