@@ -243,7 +243,7 @@ export function SubscriptionModal({ open, onClose, onSuccess }: SubscriptionModa
               <button
                 onClick={handleClose}
                 className="p-2 rounded-xl text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800 hover:text-surface-900 dark:hover:text-white transition-colors flex-shrink-0"
-                title="बंद करें"
+                title="Close"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -362,7 +362,7 @@ export function SubscriptionModal({ open, onClose, onSuccess }: SubscriptionModa
             {/* Footer */}
             <div className="px-6 py-4 border-t border-surface-200 dark:border-surface-800 flex-shrink-0 bg-surface-50/60 dark:bg-surface-950/40">
               <p className="text-[10px] text-surface-500 text-center">
-                🔒 भुगतान सुरक्षित रूप से Razorpay द्वारा संसाधित किया जाता है। सब्सक्रिप्शन कभी भी रद्द किया जा सकता है।
+                🔒 Payments are securely processed by Razorpay. You can cancel your subscription at any time.
               </p>
             </div>
           </motion.div>
