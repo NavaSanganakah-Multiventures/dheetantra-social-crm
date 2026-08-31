@@ -442,6 +442,9 @@ app.post('/api/whatsapp/webhook', async (c) => {
 
               console.log(`[Calling] Event: ${event}, Call ID: ${callId}, From: ${callerNumber}, Direction: ${direction}, HasSDP: ${!!sdp}`);
 
+              if (event === 'offer' && !sdp) {
+                console.error('[Calling] OFFER without SDP -- callData keys: ' + Object.keys(callData).join(',') + ' | session: ' + JSON.stringify(callData.session || null));
+              }
               const config = await c.env.DB.prepare('SELECT workspace_id, calling_enabled, call_schedule, access_token FROM whatsapp_configs WHERE phone_number_id = ?')
                 .bind(phoneNumberId).first<{ workspace_id: string; calling_enabled: number; call_schedule: string; access_token: string }>();
 
@@ -545,11 +548,15 @@ app.post('/api/whatsapp/webhook', async (c) => {
                       ).bind(fallbackContactId, config.workspace_id, 'whatsapp', `+${callerNumber}`, callerNumber).run();
                     }
                   }
+                  if (!fallbackContactId) {
+                    console.warn('[Calling] Skipping outgoing fallback row for call ' + callId + ': no caller number to resolve a contact');
+                    continue;
+                  }
                   const fallbackId = crypto.randomUUID();
                   await c.env.DB.prepare(`
                     INSERT INTO calls (id, workspace_id, contact_id, phone_number_id, caller_number, type, direction, status, duration, source, external_call_id)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                  `).bind(fallbackId, config.workspace_id, fallbackContactId || null, phoneNumberId, callerNumber, 'voice', 'outgoing', 'ringing', 0, 'whatsapp', callId).run();
+                  `).bind(fallbackId, config.workspace_id, fallbackContactId, phoneNumberId, callerNumber, 'voice', 'outgoing', 'ringing', 0, 'whatsapp', callId).run();
                   localCall = { id: fallbackId, contact_id: fallbackContactId, status: 'ringing' };
                 }
 
@@ -608,17 +615,25 @@ app.post('/api/whatsapp/webhook', async (c) => {
                 }
                 console.log(`[Calling] Contact sorted: ${contactId}`);
 
-                await c.env.DB.prepare(`
+                const insertResult = await c.env.DB.prepare(`
                 INSERT OR IGNORE INTO calls (id, workspace_id, contact_id, phone_number_id, caller_number, type, direction, status, duration)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
               `).bind(callId, config.workspace_id, contactId, phoneNumberId, callerNumber, 'voice',
                   direction === 'BUSINESS_INITIATED' ? 'outgoing' : 'incoming', 'ringing', 0).run();
-                console.log(`[Calling] Call saved to DB: ${callId}`);
+                const insertedFresh = insertResult.meta?.changes === 1;
+                console.log('[Calling] Call saved to DB: ' + callId + ' (fresh insert: ' + insertedFresh + ')');
 
                 // Persist Meta's SDP offer so the mobile app can fetch it on accept
                 // (GET /api/whatsapp/calls/:id/sdp) instead of shipping it via FCM.
                 await c.env.DB.prepare('UPDATE calls SET sdp = ?, sdp_type = ? WHERE id = ?')
                   .bind(sdp || '', sdpType || 'offer', callId).run();
+
+                // Duplicate 'offer' delivery (Meta retry/dedup miss): row already exists,
+                // so skip the busy-check + broadcast + push to avoid a double ring/push.
+                if (!insertedFresh) {
+                  console.log('[Calling] Duplicate offer webhook for ' + callId + ' -- skipping broadcast & push (SDP refreshed)');
+                  continue;
+                }
 
                 // ==========================================
                 // LINE-BUSY CHECK (WhatsApp-style busy)
@@ -689,7 +704,7 @@ app.post('/api/whatsapp/webhook', async (c) => {
                       type: 'whatsapp_incoming_call',
                       callId: callId,
                       from: callerNumber,
-                      sdp: sdp,
+                      sdp: sdp || '',
                       sdpType: sdpType,
                       phoneNumberId: phoneNumberId,
                       direction: direction
