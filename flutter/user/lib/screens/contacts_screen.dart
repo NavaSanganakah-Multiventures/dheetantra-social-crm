@@ -438,7 +438,7 @@ class _ContactDetailScreenState extends State<_ContactDetailScreen> {
     if (options.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Twilio के लिए कोई सक्रिय नंबर नहीं है')),
+          const SnackBar(content: Text('No active Twilio number configured')),
         );
       }
       return;
@@ -477,7 +477,7 @@ class _ContactDetailScreenState extends State<_ContactDetailScreen> {
     if (options.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Plivo के लिए कोई सक्रिय नंबर नहीं है')),
+          const SnackBar(content: Text('No active Plivo number configured')),
         );
       }
       return;
