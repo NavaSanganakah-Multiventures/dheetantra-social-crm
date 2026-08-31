@@ -89,7 +89,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     // App background se wapas aaye to realtime reconnect ke baad data refresh
     // trigger karna chahiye. WebSocketService apne aap reconnect karta hai.
     if (state == AppLifecycleState.resumed) {
-      debugPrint('[HomeShell] app resumed â refresh trigger bhej rahe hain');
+      debugPrint('[HomeShell] app resumed - refresh trigger bhej rahe hain');
       DataRefreshService().trigger(RefreshReason.appResumed);
       _checkPendingAcceptedCall();
     }
