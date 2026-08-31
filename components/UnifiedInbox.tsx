@@ -90,8 +90,8 @@ function parseEmailMedia(value: string | null): { subject?: string; to?: string 
 
 // ---------------------------------------------------------------
 // Message media rendering helpers (WhatsApp: image/video/audio/
-// document/sticker/location/contacts — media_url में R2 path, Graph
-// URL या JSON payload हो सकता है)
+// document/sticker/location/contacts — media_url can be an R2 path, a Graph
+// URL, or a JSON payload)
 // ---------------------------------------------------------------
 const MEDIA_LABELS: Record<string, string> = {
   image: 'Photo', video: 'Video', audio: 'Audio', document: 'Document',
@@ -129,13 +129,13 @@ function renderMessageMedia(m: any): React.ReactNode {
 
   if (t === 'image' && safeUrl) {
     return (
-      <img src={safeUrl} alt="फ़ोटो" loading="lazy"
+      <img src={safeUrl} alt="Photo" loading="lazy"
         className="max-h-64 w-auto max-w-full rounded-xl my-1 object-cover border border-surface-200 dark:border-surface-800" />
     );
   }
   if (t === 'sticker' && safeUrl) {
     return (
-      <img src={safeUrl} alt="स्टिकर" loading="lazy"
+      <img src={safeUrl} alt="Sticker" loading="lazy"
         className="max-h-24 max-w-[140px] my-1 object-contain" />
     );
   }
@@ -152,7 +152,7 @@ function renderMessageMedia(m: any): React.ReactNode {
     );
   }
   if (t === 'document' && safeUrl) {
-    const docName = m.content && m.content !== 'Document Message' ? m.content : 'दस्तावेज़';
+    const docName = m.content && m.content !== 'Document Message' ? m.content : 'Document';
     return (
       <a href={safeUrl} target="_blank" rel="noopener noreferrer"
         className="flex items-center gap-2 my-1 text-xs font-semibold text-primary-600 dark:text-primary-400 underline break-all">
@@ -168,7 +168,7 @@ function renderMessageMedia(m: any): React.ReactNode {
         : undefined;
       const inner = (
         <div className="my-1 rounded-xl border border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-900 p-2.5">
-          <p className="text-xs font-bold">📍 {loc.name || 'लोकेशन'}</p>
+          <p className="text-xs font-bold">📍 {loc.name || 'Location'}</p>
           {loc.address && <p className="text-[11px] opacity-70">{loc.address}</p>}
           {loc.latitude != null && <p className="text-[10px] opacity-60">{loc.latitude}, {loc.longitude}</p>}
         </div>
@@ -185,7 +185,7 @@ function renderMessageMedia(m: any): React.ReactNode {
         <div className="my-1 space-y-1">
           {contacts.map((ct: any, i: number) => (
             <p key={i} className="text-xs rounded-lg bg-surface-50 dark:bg-surface-900 border border-surface-200 dark:border-surface-800 px-2.5 py-1.5">
-              👤 {ct?.name?.formatted_name || 'कॉन्टैक्ट'}
+              👤 {ct?.name?.formatted_name || 'Contact'}
               {ct?.phones?.[0]?.phone ? ` — ${ct.phones[0].phone}` : ''}
             </p>
           ))}
@@ -426,13 +426,13 @@ export default function UnifiedInbox({
       });
       const data: any = await res.json();
       if (data.success) {
-        showToast('success', `AI ने ${data.classified} बातचीत को लेबल किया ✨`);
+        showToast('success', `AI labeled the ${data.classified} conversation ✨`);
         loadConversations();
       } else {
-        showToast('error', data.error || 'AI classify विफल');
+        showToast('error', data.error || 'AI classify failed');
       }
     } catch (e) {
-      showToast('error', 'AI classify विफल');
+      showToast('error', 'AI classify failed');
     } finally {
       setAiClassifying(false);
     }
