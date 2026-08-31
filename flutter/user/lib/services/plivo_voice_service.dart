@@ -90,31 +90,11 @@ class PlivoVoiceService implements SipUaHelperListener {
     // Single source of truth: backend se mila SIP URI/server/port hi use karo,
     // taaki registration ka SIP URI hamesha wahi ho jo settings me dikhta hai.
     final server = (creds['server']?.toString()) ?? _domain;
-    final portRaw = creds['port']?.toString();
-    final transportRaw = (creds['transport']?.toString() ?? '').toLowerCase();
-    // Plivo normally returns 'UDP/TCP'. For mobile we prefer UDP (lighter /
-    // more reliable across carriers), falling back to TCP/TLS only if the
-    // backend explicitly asks for it.
-    final TransportType transportType;
-    final int port;
-    if (transportRaw.contains('tls')) {
-      transportType = TransportType.TLS;
-      port = int.tryParse(portRaw ?? '') ?? 5061;
-    } else if (transportRaw.contains('udp')) {
-      transportType = TransportType.UDP;
-      port = int.tryParse(portRaw ?? '') ?? 5060;
-    } else if (transportRaw.contains('tcp')) {
-      transportType = TransportType.TCP;
-      port = int.tryParse(portRaw ?? '') ?? 5060;
-    } else {
-      // Default to UDP for Flutter mobile softphones.
-      transportType = TransportType.UDP;
-      port = int.tryParse(portRaw ?? '') ?? 5060;
-    }
+    final port = (creds['port']?.toString()) ?? _sipPort;
     final sipUri = (creds['sipUri']?.toString()) ?? 'sip:$username@$server';
-    debugPrint('[PlivoVoice] registering SIP URI: $sipUri (${transportType.name.toUpperCase()}, $server:$port)');
+    debugPrint('[PlivoVoice] registering SIP URI: $sipUri (TCP, $server:$port)');
     final settings = UaSettings()
-      ..transportType = transportType
+      ..transportType = TransportType.TCP
       ..host = server
       ..port = port
       ..uri = sipUri
@@ -133,16 +113,6 @@ class PlivoVoiceService implements SipUaHelperListener {
     _registrationCompleter = completer;
 
 
-    // Agar helper pehle se start hai (previous call ya failed attempt),
-    // usko stop karke naye settings se restart karo — sip_ua reconfigure
-    // properly nahi karta pehli start ke baad.
-    try {
-      if (_helper.started) {
-        await _helper.stop();
-      }
-    } catch (e) {
-      debugPrint('[PlivoVoice] helper stop warning: $e');
-    }
 
     try {
       await _helper.start(settings);
