@@ -258,7 +258,7 @@ class WebRTCService {
         contactId: callData['contactId']?.toString(),
         phoneNumberId: callData['phoneNumberId']?.toString(),
         recipient: callData['recipient']?.toString(),
-        sdp: finalOffer.sdp,
+        sdp: offerSdp,
         sdpType: 'offer',
       );
 
