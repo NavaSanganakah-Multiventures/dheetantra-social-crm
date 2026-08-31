@@ -148,6 +148,18 @@ class PlivoVoiceService implements SipUaHelperListener {
     }
   }
 
+  /// TCP/WebSocket transport register hone ke baad connected hone tak wait
+  /// karta hai, kyunki sip_ua ka call() sirf connected state mein jaata hai.
+  Future<bool> _waitUntilConnected({required Duration timeout}) async {
+    final deadline = DateTime.now().add(timeout);
+    while (DateTime.now().isBefore(deadline)) {
+      if (_helper.registered && _helper.connected) return true;
+      await Future.delayed(const Duration(milliseconds: 200));
+    }
+    debugPrint('[PlivoVoice] timeout waiting for SIP connection (registered=${_helper.registered}, connected=${_helper.connected})');
+    return _helper.registered && _helper.connected;
+  }
+
   /// Conference join karne ke liye SIP outbound call. Dest = conference name
   /// as a SIP URI on phone.plivo.com; backend ka /api/plivo/webhook/app usi
   /// naam ke Plivo conference me dial karke bridge kar deta hai.
@@ -182,8 +194,26 @@ class PlivoVoiceService implements SipUaHelperListener {
       });
       _localStream = mediaStream;
 
+      // sip_ua may report registered before the TCP/WebSocket transport is
+      // fully connected. Wait briefly so the INVITE doesn't fail immediately.
+      final connected = await _waitUntilConnected(timeout: const Duration(seconds: 8));
+      if (!connected) {
+        _callStateController.add('error: SIP UA not connected');
+        _reset();
+        return false;
+      }
+
       final dest = 'sip:$name@$_domain';
-      final ok = await _helper.call(dest, voiceOnly: true, mediaStream: mediaStream);
+      var ok = await _helper.call(dest, voiceOnly: true, mediaStream: mediaStream);
+      if (ok != true) {
+        // One reconnect attempt: re-register and try again.
+        debugPrint('[PlivoVoice] initial call attempt failed, reconnecting...');
+        final registered = await _register();
+        if (registered) {
+          await _waitUntilConnected(timeout: const Duration(seconds: 8));
+          ok = await _helper.call(dest, voiceOnly: true, mediaStream: mediaStream);
+        }
+      }
       if (ok != true) {
         _callStateController.add('error: SIP call failed');
         _reset();
@@ -295,7 +325,10 @@ class PlivoVoiceService implements SipUaHelperListener {
         // A failed SIP leg is NOT a normal call end. Emitting 'ended' here
         // made CallScreen pop instantly on registration/dial failures.
         _reset();
-        _callStateController.add('error: Plivo SIP call failed');
+        final cause = state.cause?.toString();
+        _callStateController.add(cause != null && cause.isNotEmpty
+            ? 'error: Plivo SIP call failed: $cause'
+            : 'error: Plivo SIP call failed');
         break;
       default:
         break;
