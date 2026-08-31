@@ -69,7 +69,6 @@ class PlivoVoiceService implements SipUaHelperListener {
   Future<void> _ensureMicrophonePermission() async {
     await _ensureMicrophonePermissionGranted();
   }
-  }
 
   /// Backend se endpoint credentials lekar SIP UA ko start/register karta hai.
   /// Concurrent callers (init + outbound join) ek hi attempt par wait karte hain.
@@ -173,9 +172,9 @@ class PlivoVoiceService implements SipUaHelperListener {
     } finally {
       if (identical(_registrationCompleter, completer)) {
         _registrationCompleter = null;
+      }
       // Allow future retries (e.g. network came back, credentials linked later).
       _initStarted = false;
-      }
     }
   }
 
@@ -280,7 +279,6 @@ class PlivoVoiceService implements SipUaHelperListener {
   }
 
   @override
-  @override
   void transportStateChanged(TransportState state) {
     debugPrint('[PlivoVoice] transport state: ${state.state}');
     final completer = _registrationCompleter;
@@ -289,7 +287,6 @@ class PlivoVoiceService implements SipUaHelperListener {
       debugPrint('[PlivoVoice] transport disconnected before register response');
       completer.complete(false);
     }
-  }
   }
 
   @override
