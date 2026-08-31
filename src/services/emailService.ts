@@ -175,15 +175,15 @@ export function buildRawMime(input: SendEmailInput): string {
 
 export function stripHtml(html: string): string {
   return (html || '')
-    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
-    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style\b[^>]*>([\s\S]*?)<\/style\s*>/gi, ' ')
+    .replace(/<script\b[^>]*>([\s\S]*?)<\/script\s*>/gi, ' ')
     .replace(/<[^>]+>/g, ' ')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
     .replace(/&#39;/g, "'")
+    .replace(/&amp;/gi, '&')
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -1017,8 +1017,11 @@ function parseRecipient(to: string | undefined): { full: string; local: string; 
   const raw = String(to || '').trim();
   if (!raw) return null;
   let first = raw.split(',')[0].trim();
-  const angleMatch = first.match(/<([^>]+)>/);
-  if (angleMatch) first = angleMatch[1];
+  const startAngle = first.lastIndexOf('<');
+  const endAngle = first.indexOf('>', startAngle + 1);
+  if (startAngle !== -1 && endAngle !== -1) {
+    first = first.slice(startAngle + 1, endAngle);
+  }
   first = first.toLowerCase();
   const at = first.lastIndexOf('@');
   if (at <= 0 || at === first.length - 1) {
@@ -1252,11 +1255,17 @@ function decodeHeader(value: string): string {
 
 function parseAddress(value: string): { address: string; name: string } {
   const cleaned = value.trim();
-  const angleMatch = cleaned.match(/<([^>]+)>/);
-  const address = (angleMatch ? angleMatch[1] : cleaned.split(/\s+/).pop() || cleaned).trim();
+  const start = cleaned.lastIndexOf('<');
+  const end = cleaned.indexOf('>', start + 1);
+  let address = cleaned;
   let name = '';
-  if (angleMatch) {
-    name = decodeHeader(cleaned.replace(/\s*<[^>]+>\s*$/, '').replace(/^"|"$/g, '').trim());
+  
+  if (start !== -1 && end !== -1) {
+    address = cleaned.slice(start + 1, end).trim();
+    const beforeAngle = cleaned.slice(0, start).trim();
+    name = decodeHeader(beforeAngle.replace(/^"|"$/g, '').trim());
+  } else {
+    address = (cleaned.split(/\s+/).pop() || cleaned).trim();
   }
   return { address: address.replace(/^"|"$/g, ''), name };
 }
