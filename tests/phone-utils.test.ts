@@ -21,6 +21,11 @@ describe('normalizeE164', () => {
   it('returns an empty string for empty input', () => {
     expect(normalizeE164('')).toBe('');
   });
+
+  it('returns empty for non-digit input', () => {
+    expect(normalizeE164('abc')).toBe('');
+    expect(normalizeE164('   ')).toBe('');
+  });
 });
 
 describe('formatForWhatsApp', () => {
