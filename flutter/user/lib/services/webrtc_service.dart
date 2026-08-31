@@ -248,7 +248,8 @@ class WebRTCService {
       // Wait for ICE gathering so the full offer reaches the backend.
       await Future.delayed(const Duration(seconds: 2));
       final finalOffer = await _peerConnection!.getLocalDescription();
-      if (finalOffer == null || finalOffer.sdp.isEmpty) {
+      final offerSdp = finalOffer?.sdp;
+      if (offerSdp == null || offerSdp.isEmpty) {
         throw Exception('Failed to create SDP offer');
       }
 
