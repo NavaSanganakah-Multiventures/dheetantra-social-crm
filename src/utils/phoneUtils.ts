@@ -18,18 +18,14 @@ export function normalizeE164(raw: string, defaultCountryCode = '91'): string {
   if (!raw) return '';
   const trimmed = raw.trim();
   let digits = trimmed.replace(/\D/g, '');
-
-  // Remove a leading national-trunk prefix (0). E.g. 09876543210 -> 9876543210.
-  if (digits.startsWith('0')) {
-    digits = digits.slice(1);
-  }
-
-  // Only add the default country code for plain 10-digit numbers without an
-  // explicit '+' prefix, so already-international numbers stay unchanged.
-  if (!trimmed.startsWith('+') && digits.length === 10) {
+  if (!digits) return '';
+  // Remove the domestic trunk prefix before deciding whether to add a
+  // default country code (matches the previous per-route behaviour).
+  digits = digits.replace(/^0/, '');
+  const hasPlus = trimmed.startsWith('+');
+  if (!hasPlus && digits.length === 10) {
     digits = defaultCountryCode + digits;
   }
-
   return '+' + digits;
 }
 
