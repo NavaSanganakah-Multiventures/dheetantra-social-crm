@@ -139,7 +139,7 @@ export default function AdminDashboard() {
         setLoadingStats(false);
       })
       .catch(() => {
-        addNotification('सांख्यिकी लोड करने में विफल', 'error');
+        addNotification('Failed to load statistics', 'error');
         setLoadingStats(false);
       });
   };
@@ -156,7 +156,7 @@ export default function AdminDashboard() {
         setLoadingUsers(false);
       })
       .catch(() => {
-        addNotification('उपयोगकर्ता लोड करने में विफल', 'error');
+        addNotification('Failed to load users', 'error');
         setLoadingUsers(false);
       });
   };
@@ -173,7 +173,7 @@ export default function AdminDashboard() {
         setLoadingWorkspaces(false);
       })
       .catch(() => {
-        addNotification('वर्कस्पेस लोड करने में विफल', 'error');
+        addNotification('Failed to load workspaces', 'error');
         setLoadingWorkspaces(false);
       });
   };
@@ -190,7 +190,7 @@ export default function AdminDashboard() {
         setLoadingPlans(false);
       })
       .catch(() => {
-        addNotification('सब्सक्रिप्शन प्लान्स लोड करने में विफल', 'error');
+        addNotification('Failed to load subscription plans', 'error');
         setLoadingPlans(false);
       });
   };
@@ -208,7 +208,7 @@ export default function AdminDashboard() {
         setLoadingAdminDomains(false);
       })
       .catch(() => {
-        addNotification('डोमेन लोड करने में विफल', 'error');
+        addNotification('Failed to load domains', 'error');
         setLoadingAdminDomains(false);
       });
   };
@@ -223,16 +223,16 @@ export default function AdminDashboard() {
       const data: any = await res.json();
       if (res.ok) {
         addNotification(
-          action === 'approve' ? 'डोमेन approve हो गया'
-          : action === 'unsuspend' ? 'डोमेन unsuspend हो गया'
-          : 'डोमेन reject हो गया'
+          action === 'approve' ? 'Domain approved'
+          : action === 'unsuspend' ? 'Domain unsuspended'
+          : 'Domain rejected'
         );
         loadAdminDomains();
       } else {
         addNotification(data.error || 'Review action failed', 'error');
       }
     } catch {
-      addNotification('सर्वर एरर', 'error');
+      addNotification('Server error', 'error');
     }
   };
 
@@ -248,7 +248,7 @@ export default function AdminDashboard() {
         setLoadingKv(false);
       })
       .catch(() => {
-        addNotification('KV सीक्रेट्स लोड करने में विफल', 'error');
+        addNotification('Failed to load KV secrets', 'error');
         setLoadingKv(false);
       });
   };
@@ -268,7 +268,7 @@ export default function AdminDashboard() {
         setLoadingDiff(false);
       })
       .catch(() => {
-        addNotification('डेटाबेस स्थिति लोड करने में विफल', 'error');
+        addNotification('Failed to load database status', 'error');
         setLoadingDiff(false);
       });
   };
@@ -327,29 +327,29 @@ export default function AdminDashboard() {
       });
       const data: any = await res.json();
       if (res.ok) {
-        addNotification(userModal.mode === 'create' ? 'उपयोगकर्ता सफलतापूर्वक पंजीकृत' : 'उपयोगकर्ता सफलतापूर्वक अपडेट किया गया');
+        addNotification(userModal.mode === 'create' ? 'User registered successfully' : 'User updated successfully');
         setUserModal({ open: false, mode: 'create' });
         loadUsers();
       } else {
-        addNotification(data.error || 'ऑपरेशन विफल रहा', 'error');
+        addNotification(data.error || 'Operation failed', 'error');
       }
     } catch {
-      addNotification('सर्वर एरर', 'error');
+      addNotification('Server error', 'error');
     }
   };
 
   const deleteUser = async (id: string) => {
-    if (!confirm('क्या आप वाकई इस उपयोगकर्ता को हटाना चाहते हैं?')) return;
+    if (!confirm('Are you sure you want to delete this user?')) return;
     try {
       const res = await fetch(`/api/admin/users/${id}`, { method: 'DELETE' });
       if (res.ok) {
-        addNotification('उपयोगकर्ता को सफलतापूर्वक हटा दिया गया है');
+        addNotification('User deleted successfully');
         loadUsers();
       } else {
-        addNotification('उपयोगकर्ता को हटाने में विफल', 'error');
+        addNotification('Failed to delete user', 'error');
       }
     } catch {
-      addNotification('सर्वर एरर', 'error');
+      addNotification('Server error', 'error');
     }
   };
 
@@ -361,7 +361,7 @@ export default function AdminDashboard() {
 
     try {
       const payload: any = { name: workspaceForm.name, plan_id: workspaceForm.plan_id };
-      // Only send owner_id when provided — prevents wiping the workspace owner on edit
+      // Only send owner_id when provided - prevents wiping the workspace owner on edit
       if (workspaceForm.owner_id) {
         payload.owner_id = workspaceForm.owner_id;
       }
@@ -372,29 +372,29 @@ export default function AdminDashboard() {
       });
       const data: any = await res.json();
       if (res.ok) {
-        addNotification(workspaceModal.mode === 'create' ? 'वर्कस्पेस सफलतापूर्वक निर्मित' : 'वर्कस्पेस सफलतापूर्वक अपडेट');
+        addNotification(workspaceModal.mode === 'create' ? 'Workspace created successfully' : 'Workspace updated successfully');
         setWorkspaceModal({ open: false, mode: 'create' });
         loadWorkspaces();
       } else {
-        addNotification(data.error || 'ऑपरेशन विफल रहा', 'error');
+        addNotification(data.error || 'Operation failed', 'error');
       }
     } catch {
-      addNotification('सर्वर एरर', 'error');
+      addNotification('Server error', 'error');
     }
   };
 
   const deleteWorkspace = async (id: string) => {
-    if (!confirm('क्या आप वाकई इस वर्कस्पेस को हटाना चाहते हैं?')) return;
+    if (!confirm('Are you sure you want to delete this workspace?')) return;
     try {
       const res = await fetch(`/api/admin/workspaces/${id}`, { method: 'DELETE' });
       if (res.ok) {
-        addNotification('वर्कस्पेस को सफलतापूर्वक हटा दिया गया है');
+        addNotification('Workspace deleted successfully');
         loadWorkspaces();
       } else {
-        addNotification('वर्कस्पेस को हटाने में विफल', 'error');
+        addNotification('Failed to delete workspace', 'error');
       }
     } catch {
-      addNotification('सर्वर एरर', 'error');
+      addNotification('Server error', 'error');
     }
   };
 
@@ -459,14 +459,14 @@ export default function AdminDashboard() {
       });
       const data: any = await res.json();
       if (res.ok) {
-        addNotification(planModal.mode === 'create' ? 'प्लान सफलतापूर्वक जोड़ा गया' : 'प्लान सफलतापूर्वक अपडेट किया गया');
+        addNotification(planModal.mode === 'create' ? 'Plan added successfully' : 'Plan updated successfully');
         setPlanModal({ open: false, mode: 'create' });
         loadPlans();
       } else {
-        addNotification(data.error || 'ऑपरेशन विफल रहा', 'error');
+        addNotification(data.error || 'Operation failed', 'error');
       }
     } catch {
-      addNotification('सर्वर एरर', 'error');
+      addNotification('Server error', 'error');
     }
   };
 
@@ -487,17 +487,17 @@ export default function AdminDashboard() {
   };
 
 const deletePlan = async (id: string) => {
-    if (!confirm('क्या आप वाकई इस प्लान को हटाना चाहते हैं?')) return;
+    if (!confirm('Are you sure you want to delete this plan?')) return;
     try {
       const res = await fetch(`/api/admin/plans/${id}`, { method: 'DELETE' });
       if (res.ok) {
-        addNotification('प्लान को सफलतापूर्वक हटा दिया गया है');
+        addNotification('Plan deleted successfully');
         loadPlans();
       } else {
-        addNotification('प्लान हटाने में विफल', 'error');
+        addNotification('Failed to delete plan', 'error');
       }
     } catch {
-      addNotification('सर्वर एरर', 'error');
+      addNotification('Server error', 'error');
     }
   };
 
@@ -518,29 +518,29 @@ const deletePlan = async (id: string) => {
       });
       const data: any = await res.json();
       if (res.ok) {
-        addNotification('KV सीक्रेट सफलतापूर्वक सहेजा गया');
+        addNotification('KV secret saved successfully');
         setKvModal({ open: false });
         loadKvSecrets();
       } else {
-        addNotification(data.error || 'सहेजने में विफल', 'error');
+        addNotification(data.error || 'Failed to save', 'error');
       }
     } catch {
-      addNotification('सर्वर एरर', 'error');
+      addNotification('Server error', 'error');
     }
   };
 
   const deleteKvSecret = async (keyName: string) => {
-    if (!confirm(`क्या आप वाकई KV की "${keyName}" को हटाना चाहते हैं?`)) return;
+    if (!confirm(`Are you sure you want to delete KV key "${keyName}"?`)) return;
     try {
       const res = await fetch(`/api/admin/kv/${encodeURIComponent(keyName)}`, { method: 'DELETE' });
       if (res.ok) {
-        addNotification('KV की सफलतापूर्वक हटाई गई');
+        addNotification('KV key deleted successfully');
         loadKvSecrets();
       } else {
-        addNotification('हटाने में विफल', 'error');
+        addNotification('Failed to delete', 'error');
       }
     } catch {
-      addNotification('सर्वर एरर', 'error');
+      addNotification('Server error', 'error');
     }
   };
 
@@ -576,7 +576,7 @@ const deletePlan = async (id: string) => {
       <div className="flex h-screen items-center justify-center bg-surface-950 text-white">
         <div className="text-center space-y-4">
           <div className="w-10 h-10 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="text-sm text-surface-400 font-mono tracking-wide">प्रशासक क्रेडेंशियल्स की जाँच की जा रही है...</p>
+          <p className="text-sm text-surface-400 font-mono tracking-wide">Checking admin credentials...</p>
         </div>
       </div>
     );
@@ -594,9 +594,9 @@ const deletePlan = async (id: string) => {
           <div className="w-16 h-16 bg-rose-500/10 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-6">
             <ShieldAlert className="w-8 h-8" />
           </div>
-          <h2 className="text-xl font-bold mb-2 font-display">अस्वीकृत प्रवेश (Access Denied)</h2>
+          <h2 className="text-xl font-bold mb-2 font-display">Access Denied</h2>
           <p className="text-surface-400 text-sm mb-6 leading-relaxed">
-            आपके पास इस व्यवस्थापक कंसोल को एक्सेस करने का अधिकार नहीं है। यह पृष्ठ केवल अधिकृत सिस्टम प्रशासकों के लिए आरक्षित है।
+            You do not have permission to access this admin console. This page is reserved for authorized system administrators only.
           </p>
           <div className="flex flex-col gap-3">
             <button 
@@ -604,13 +604,13 @@ const deletePlan = async (id: string) => {
               className="w-full bg-primary-600 hover:bg-primary-500 py-3 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2 shadow-lg shadow-primary-600/25"
             >
               <ArrowLeft className="w-4 h-4" />
-              क्लाइंट डैशबोर्ड पर वापस जाएं
+              Back to client dashboard
             </button>
             <button 
               onClick={() => router.push('/login/')} 
               className="w-full bg-surface-800 hover:bg-surface-700 py-3 rounded-xl text-sm font-semibold transition-colors"
             >
-              दूसरे खाते से लॉग इन करें
+              Log in with a different account
             </button>
           </div>
         </motion.div>
@@ -654,53 +654,53 @@ const deletePlan = async (id: string) => {
             <ShieldCheck className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h1 className="font-bold text-base tracking-tight text-white font-display">प्रशासक कंसोल</h1>
+            <h1 className="font-bold text-base tracking-tight text-white font-display">Admin Console</h1>
             <p className="text-[10px] text-surface-500 font-mono">DHEETANTRA PLATFORM</p>
           </div>
         </div>
 
         <nav className="flex-1 min-h-0 px-4 py-6 space-y-2 overflow-y-auto">
-          <div className="text-[10px] font-bold text-surface-500 uppercase tracking-widest mb-4 px-3">कंट्रोल सेंटर</div>
+          <div className="text-[10px] font-bold text-surface-500 uppercase tracking-widest mb-4 px-3">Control Center</div>
           
           <SidebarButton 
             icon={<LayoutDashboard className="w-4 h-4" />} 
-            label="अवलोकन (Overview)" 
+            label="Overview" 
             active={activeTab === 'overview'} 
             onClick={() => { setActiveTab('overview'); setSidebarOpen(false); }} 
           />
           <SidebarButton 
             icon={<Users className="w-4 h-4" />} 
-            label="उपयोगकर्ता (Users)" 
+            label="Users" 
             active={activeTab === 'users'} 
             onClick={() => { setActiveTab('users'); setSidebarOpen(false); }} 
           />
           <SidebarButton 
             icon={<Building2 className="w-4 h-4" />} 
-            label="वर्कस्पेस (Workspaces)" 
+            label="Workspaces" 
             active={activeTab === 'workspaces'} 
             onClick={() => { setActiveTab('workspaces'); setSidebarOpen(false); }} 
           />
           <SidebarButton 
             icon={<CreditCard className="w-4 h-4" />} 
-            label="सब्सक्रिप्शन प्लान्स" 
+            label="Subscription Plans" 
             active={activeTab === 'plans'} 
             onClick={() => { setActiveTab('plans'); setSidebarOpen(false); }} 
           />
           <SidebarButton 
             icon={<Globe className="w-4 h-4" />} 
-            label="डोमेन रिव्यू (Email)" 
+            label="Domain Review (Email)" 
             active={activeTab === 'domains'} 
             onClick={() => { setActiveTab('domains'); setSidebarOpen(false); }} 
           />
           <SidebarButton 
             icon={<Key className="w-4 h-4" />} 
-            label="KV सिस्टम सीक्रेट्स" 
+            label="KV System Secrets" 
             active={activeTab === 'kv'} 
             onClick={() => { setActiveTab('kv'); setSidebarOpen(false); }} 
           />
           <SidebarButton 
             icon={<Database className="w-4 h-4" />} 
-            label="डेटाबेस (Database)" 
+            label="Database" 
             active={activeTab === 'database'} 
             onClick={() => { setActiveTab('database'); setSidebarOpen(false); }} 
           />
@@ -712,7 +712,7 @@ const deletePlan = async (id: string) => {
             className="w-full py-2.5 px-4 bg-surface-800 hover:bg-surface-700 rounded-xl text-xs font-semibold text-surface-300 transition-colors flex items-center justify-center gap-2"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            क्लाइंट डैशबोर्ड पर लौटें
+            Return to client dashboard
           </button>
           
           <div className="mt-4 flex items-center gap-3 px-2">
@@ -734,18 +734,18 @@ const deletePlan = async (id: string) => {
             <button
               onClick={() => setSidebarOpen(true)}
               className="md:hidden p-2 rounded-xl text-surface-400 hover:text-white hover:bg-surface-800 transition-colors"
-              title="मेनू खोलें"
+              title="Open menu"
             >
               <Menu className="w-5 h-5" />
             </button>
             <h2 className="text-lg font-bold text-white capitalize font-display">
-              {activeTab === 'overview' && 'सिस्टम अवलोकन'}
-              {activeTab === 'users' && 'उपयोगकर्ता प्रबंधन'}
-              {activeTab === 'workspaces' && 'वर्कस्पेस प्रबंधन'}
-              {activeTab === 'plans' && 'प्लान कैटलॉग'}
-              {activeTab === 'domains' && 'डोमेन रिव्यू (Email Domains)'}
-              {activeTab === 'kv' && 'KV क्लाउड सीक्रेट्स'}
-              {activeTab === 'database' && 'डेटाबेस (Database)'}
+              {activeTab === 'overview' && 'System Overview'}
+              {activeTab === 'users' && 'User Management'}
+              {activeTab === 'workspaces' && 'Workspace Management'}
+              {activeTab === 'plans' && 'Plan Catalog'}
+              {activeTab === 'domains' && 'Domain Review (Email Domains)'}
+              {activeTab === 'kv' && 'KV Cloud Secrets'}
+              {activeTab === 'database' && 'Database'}
             </h2>
             <div className="px-2 py-0.5 bg-primary-500/15 text-primary-400 rounded-full text-[10px] font-mono border border-primary-500/20 uppercase">
               Admin Mode
@@ -762,10 +762,10 @@ const deletePlan = async (id: string) => {
                 if (activeTab === 'domains') loadAdminDomains();
                 if (activeTab === 'kv') loadKvSecrets();
                 if (activeTab === 'database') loadSchemaDiff();
-                addNotification('डाटा रिफ्रेश किया गया');
+                addNotification('Data refreshed');
               }}
               className="p-2 rounded-xl text-surface-400 hover:text-white hover:bg-surface-800 transition-colors"
-              title="रिफ्रेश करें"
+              title="Refresh"
             >
               <RefreshCw className="w-4 h-4" />
             </button>
@@ -791,10 +791,10 @@ const deletePlan = async (id: string) => {
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                    <StatCard title="कुल उपयोगकर्ता (Users)" value={stats?.users || '0'} icon={<Users className="w-5 h-5 text-primary-400" />} subtitle="CRM और स्टाफ सदस्य" />
-                    <StatCard title="सक्रिय वर्कस्पेस" value={stats?.workspaces || '0'} icon={<Building2 className="w-5 h-5 text-violet-400" />} subtitle="विभागीय संगठन" />
-                    <StatCard title="WABA फोन नंबर" value={stats?.whatsapp || '0'} icon={<Database className="w-5 h-5 text-emerald-400" />} subtitle="Meta APIs कनेक्टेड" />
-                    <StatCard title="व्हाट्सएप संदेश" value={stats?.messages || '0'} icon={<Activity className="w-5 h-5 text-sky-400" />} subtitle="सिस्टम थ्रूपुट वॉल्यूम" />
+                    <StatCard title="Total Users" value={stats?.users || '0'} icon={<Users className="w-5 h-5 text-primary-400" />} subtitle="CRM and staff members" />
+                    <StatCard title="Active Workspaces" value={stats?.workspaces || '0'} icon={<Building2 className="w-5 h-5 text-violet-400" />} subtitle="Departmental organizations" />
+                    <StatCard title="WABA phone numbers" value={stats?.whatsapp || '0'} icon={<Database className="w-5 h-5 text-emerald-400" />} subtitle="Meta APIs connected" />
+                    <StatCard title="WhatsApp messages" value={stats?.messages || '0'} icon={<Activity className="w-5 h-5 text-sky-400" />} subtitle="System throughput volume" />
                   </div>
                 )}
 
@@ -802,7 +802,7 @@ const deletePlan = async (id: string) => {
                   {/* Health Status Dashboard */}
                   <div className="lg:col-span-2 bg-surface-900 border border-surface-800 rounded-3xl p-6 relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-64 h-64 bg-primary-500/5 rounded-full blur-3xl"></div>
-                    <h3 className="text-sm font-semibold tracking-wide uppercase text-surface-400 mb-6">सिस्टम स्वास्थ्य और बुनियादी ढांचा</h3>
+                    <h3 className="text-sm font-semibold tracking-wide uppercase text-surface-400 mb-6">System health and infrastructure</h3>
                     
                     <div className="space-y-4">
                       <div className="flex items-center justify-between p-4 bg-surface-950/60 rounded-2xl border border-surface-800/40">
@@ -832,15 +832,15 @@ const deletePlan = async (id: string) => {
 
                     <div className="mt-6 flex gap-4 pt-6 border-t border-surface-800/60">
                       <div className="text-center p-3 bg-surface-950/30 rounded-xl border border-surface-800/40 flex-1">
-                        <p className="text-[10px] text-surface-500">संपर्क लीड्स</p>
+                        <p className="text-[10px] text-surface-500">Contact leads</p>
                         <p className="text-lg font-bold text-white mt-1">{stats?.contacts || '0'}</p>
                       </div>
                       <div className="text-center p-3 bg-surface-950/30 rounded-xl border border-surface-800/40 flex-1">
-                        <p className="text-[10px] text-surface-500">ब्रॉडकास्ट कैंपेन</p>
+                        <p className="text-[10px] text-surface-500">Broadcast campaigns</p>
                         <p className="text-lg font-bold text-white mt-1">{stats?.campaigns || '0'}</p>
                       </div>
                       <div className="text-center p-3 bg-surface-950/30 rounded-xl border border-surface-800/40 flex-1">
-                        <p className="text-[10px] text-surface-500">कॉल रिकॉर्ड्स</p>
+                        <p className="text-[10px] text-surface-500">Call records</p>
                         <p className="text-lg font-bold text-white mt-1">{stats?.calls || '0'}</p>
                       </div>
                     </div>
@@ -848,12 +848,12 @@ const deletePlan = async (id: string) => {
 
                   {/* Administrative Quick Actions */}
                   <div className="bg-surface-900 border border-surface-800 rounded-3xl p-6">
-                    <h3 className="text-sm font-semibold tracking-wide uppercase text-surface-400 mb-6">त्वरित प्रशासनिक क्रियाएं</h3>
+                    <h3 className="text-sm font-semibold tracking-wide uppercase text-surface-400 mb-6">Quick admin actions</h3>
                     <div className="space-y-3">
-                      <QuickActionButton label="नया उपयोगकर्ता पंजीकृत करें" onClick={() => { setUserModal({ open: true, mode: 'create' }); setUserForm({ name: '', email: '', is_registered: true }); setActiveTab('users'); }} />
-                      <QuickActionButton label="नया वर्कस्पेस बनाएं" onClick={() => { setWorkspaceModal({ open: true, mode: 'create' }); setWorkspaceForm({ name: '', plan_id: '', owner_id: '' }); setActiveTab('workspaces'); }} />
-                      <QuickActionButton label="सब्सक्रिप्शन प्लान जोड़ें" onClick={() => { setPlanModal({ open: true, mode: 'create' }); setPlanForm(defaultPlanForm); setActiveTab('plans'); }} />
-                      <QuickActionButton label="KV सीक्रेट कुंजी जोड़ें" onClick={() => { setKvModal({ open: true }); setKvForm({ name: '', value: '' }); setActiveTab('kv'); }} />
+                      <QuickActionButton label="Register new user" onClick={() => { setUserModal({ open: true, mode: 'create' }); setUserForm({ name: '', email: '', is_registered: true }); setActiveTab('users'); }} />
+                      <QuickActionButton label="Create new workspace" onClick={() => { setWorkspaceModal({ open: true, mode: 'create' }); setWorkspaceForm({ name: '', plan_id: '', owner_id: '' }); setActiveTab('workspaces'); }} />
+                      <QuickActionButton label="Add subscription plan" onClick={() => { setPlanModal({ open: true, mode: 'create' }); setPlanForm(defaultPlanForm); setActiveTab('plans'); }} />
+                      <QuickActionButton label="Add KV secret key" onClick={() => { setKvModal({ open: true }); setKvForm({ name: '', value: '' }); setActiveTab('kv'); }} />
                     </div>
                   </div>
                 </div>
@@ -874,7 +874,7 @@ const deletePlan = async (id: string) => {
                     <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-surface-500" />
                     <input 
                       type="text" 
-                      placeholder="नाम या ईमेल द्वारा उपयोगकर्ता खोजें..." 
+                      placeholder="Search users by name or email..." 
                       value={userSearch}
                       onChange={e => setUserSearch(e.target.value)}
                       className="w-full pl-10 pr-4 py-2.5 bg-surface-900 border border-surface-800 rounded-2xl text-xs text-white focus:outline-none focus:border-primary-500 placeholder-surface-500 transition-colors"
@@ -888,29 +888,29 @@ const deletePlan = async (id: string) => {
                     className="py-2.5 px-4 bg-primary-600 hover:bg-primary-500 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition-colors shadow-lg shadow-primary-600/20"
                   >
                     <Plus className="w-4 h-4" />
-                    उपयोगकर्ता पंजीकृत करें
+                    Register user
                   </button>
                 </div>
 
                 {/* Users Table */}
                 <div className="bg-surface-900 border border-surface-800 rounded-3xl overflow-hidden shadow-sm">
                   {loadingUsers ? (
-                    <div className="p-8 text-center text-surface-500 text-xs">लोड हो रहा है...</div>
+                    <div className="p-8 text-center text-surface-500 text-xs">Loading...</div>
                   ) : filteredUsers.length === 0 ? (
                     <div className="p-12 text-center text-surface-500 space-y-2">
                       <Users className="w-10 h-10 text-surface-700 mx-auto" />
-                      <p className="text-xs">कोई उपयोगकर्ता नहीं मिला</p>
+                      <p className="text-xs">No users found</p>
                     </div>
                   ) : (
                     <div className="overflow-x-auto">
                       <table className="w-full text-left border-collapse">
                         <thead>
                           <tr className="border-b border-surface-800 bg-surface-950/30 text-[10px] font-bold tracking-wider text-surface-400 uppercase">
-                            <th className="px-6 py-4">नाम (Name)</th>
-                            <th className="px-6 py-4">ईमेल (Email)</th>
-                            <th className="px-6 py-4">पंजीकरण स्थिति</th>
-                            <th className="px-6 py-4">दिनांक</th>
-                            <th className="px-6 py-4 text-right">कार्य</th>
+                            <th className="px-6 py-4">Name</th>
+                            <th className="px-6 py-4">Email</th>
+                            <th className="px-6 py-4">Registration status</th>
+                            <th className="px-6 py-4">Date</th>
+                            <th className="px-6 py-4 text-right">Action</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-surface-800/60 text-xs text-surface-300">
@@ -924,7 +924,7 @@ const deletePlan = async (id: string) => {
                                     ? 'bg-emerald-950/30 text-emerald-400 border-emerald-900/40' 
                                     : 'bg-amber-950/30 text-amber-400 border-amber-900/40'
                                 }`}>
-                                  {u.is_registered ? 'पंजीकृत (Active)' : 'लंबित (Pending)'}
+                                  {u.is_registered ? 'Registered (Active)' : 'Pending'}
                                 </span>
                               </td>
                               <td className="px-6 py-4 text-surface-500 font-mono text-[10px]">
@@ -973,7 +973,7 @@ const deletePlan = async (id: string) => {
                     <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-surface-500" />
                     <input 
                       type="text" 
-                      placeholder="वर्कस्पेस या सदस्यों द्वारा खोजें..." 
+                      placeholder="Search by workspace or members..." 
                       value={workspaceSearch}
                       onChange={e => setWorkspaceSearch(e.target.value)}
                       className="w-full pl-10 pr-4 py-2.5 bg-surface-900 border border-surface-800 rounded-2xl text-xs text-white focus:outline-none focus:border-primary-500 placeholder-surface-500 transition-colors"
@@ -987,29 +987,29 @@ const deletePlan = async (id: string) => {
                     className="py-2.5 px-4 bg-primary-600 hover:bg-primary-500 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition-colors shadow-lg shadow-primary-600/20"
                   >
                     <Plus className="w-4 h-4" />
-                    वर्कस्पेस बनाएं
+                    Create workspace
                   </button>
                 </div>
 
                 {/* Workspaces Table */}
                 <div className="bg-surface-900 border border-surface-800 rounded-3xl overflow-hidden shadow-sm">
                   {loadingWorkspaces ? (
-                    <div className="p-8 text-center text-surface-500 text-xs">लोड हो रहा है...</div>
+                    <div className="p-8 text-center text-surface-500 text-xs">Loading...</div>
                   ) : filteredWorkspaces.length === 0 ? (
                     <div className="p-12 text-center text-surface-500 space-y-2">
                       <Building2 className="w-10 h-10 text-surface-700 mx-auto" />
-                      <p className="text-xs">कोई वर्कस्पेस नहीं मिला</p>
+                      <p className="text-xs">No workspaces found</p>
                     </div>
                   ) : (
                     <div className="overflow-x-auto">
                       <table className="w-full text-left border-collapse">
                         <thead>
                           <tr className="border-b border-surface-800 bg-surface-950/30 text-[10px] font-bold tracking-wider text-surface-400 uppercase">
-                            <th className="px-6 py-4">वर्कस्पेस का नाम (Workspace Name)</th>
+                            <th className="px-6 py-4">Workspace Name</th>
                             <th className="px-6 py-4">ID</th>
-                            <th className="px-6 py-4">संबद्ध प्लान (Plan)</th>
-                            <th className="px-6 py-4">सदस्य ईमेल (Members)</th>
-                            <th className="px-6 py-4 text-right">कार्य</th>
+                            <th className="px-6 py-4">Associated Plan</th>
+                            <th className="px-6 py-4">Member Emails</th>
+                            <th className="px-6 py-4 text-right">Action</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-surface-800/60 text-xs text-surface-300">
@@ -1064,7 +1064,7 @@ const deletePlan = async (id: string) => {
               >
                 {/* Actions Row */}
                 <div className="flex justify-between items-center">
-                  <p className="text-xs text-surface-400">प्लेटफ़ॉर्म पर उपलब्ध विभिन्न सदस्यता योजनाओं को प्रबंधित करें।</p>
+                  <p className="text-xs text-surface-400">Manage the various subscription plans available on the platform.</p>
                   <button 
                     onClick={() => {
                       setPlanForm(defaultPlanForm);
@@ -1073,7 +1073,7 @@ const deletePlan = async (id: string) => {
                     className="py-2.5 px-4 bg-primary-600 hover:bg-primary-500 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition-colors shadow-lg shadow-primary-600/20"
                   >
                     <Plus className="w-4 h-4" />
-                    प्लान जोड़ें (Add Plan)
+                    Add Plan
                   </button>
                 </div>
 
@@ -1085,7 +1085,7 @@ const deletePlan = async (id: string) => {
                 ) : plans.length === 0 ? (
                   <div className="p-12 text-center bg-surface-900 border border-surface-800 rounded-3xl text-surface-500">
                     <CreditCard className="w-10 h-10 mx-auto mb-2 text-surface-700" />
-                    <p className="text-xs">कोई सदस्यता प्लान नहीं मिला</p>
+                    <p className="text-xs">No subscription plans found</p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -1157,7 +1157,7 @@ const deletePlan = async (id: string) => {
                               </div>
                             </div>
 
-                            <p className="text-xs text-surface-400 mb-6">{p.description || 'कोई विवरण उपलब्ध नहीं है।'}</p>
+                            <p className="text-xs text-surface-400 mb-6">{p.description || 'No description available.'}</p>
 
                             <div className="flex flex-wrap gap-1.5 mb-4">
                               <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-lg border ${p.is_free === 1 ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : p.billing_type === 'recurring' ? 'bg-primary-500/10 text-primary-400 border-primary-500/20' : 'bg-surface-800 text-surface-300 border-surface-700/30'}`}>
@@ -1176,15 +1176,15 @@ const deletePlan = async (id: string) => {
                             <div className="space-y-4 mb-6">
                               <div className="flex items-baseline gap-1 bg-surface-950/40 p-3 rounded-2xl border border-surface-800/40">
                                 <span className="text-2xl font-bold text-white font-display">₹{p.upfront_price}</span>
-                                <span className="text-[10px] text-surface-500">{p.billing_type === 'recurring' ? '/ महीना' : 'one-time'}</span>
+                                <span className="text-[10px] text-surface-500">{p.billing_type === 'recurring' ? '/ month' : 'one-time'}</span>
                               </div>
                               <div className="text-xs text-primary-400 bg-primary-500/5 py-1.5 px-3 rounded-xl inline-block border border-primary-500/10 font-mono text-[10px]">
-                                PAYG दर: ₹{p.pay_as_you_go_rate} / संदेश
+                                PAYG rate: ₹{p.pay_as_you_go_rate} / message
                               </div>
                             </div>
 
                             <div className="space-y-2">
-                              <p className="text-[10px] font-bold text-surface-500 uppercase tracking-widest">शामिल विशेषताएं (Features):</p>
+                              <p className="text-[10px] font-bold text-surface-500 uppercase tracking-widest">Included Features:</p>
                               <div className="flex flex-wrap gap-1.5 pt-1">
                                 {parsedFeatures.map((f: string, idx: number) => (
                                   <span key={idx} className="text-[10px] bg-surface-800 text-surface-300 py-0.5 px-2 rounded-lg font-medium border border-surface-700/30">
@@ -1235,7 +1235,7 @@ const deletePlan = async (id: string) => {
               >
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <p className="text-xs text-surface-400">
-                    Customer के द्वारा जोड़े गए custom domains admin approve करने के बाद ही Cloudflare पर onboard होंगे।
+                    Custom domains added by customers will only be onboarded to Cloudflare after admin approval.
                   </p>
                   <div className="flex rounded-xl border border-surface-800 overflow-hidden">
                     {(['pending', 'all'] as const).map(f => (
@@ -1255,11 +1255,11 @@ const deletePlan = async (id: string) => {
                 </div>
 
                 {loadingAdminDomains ? (
-                  <div className="p-8 text-center text-surface-500 text-xs">लोड हो रहा है...</div>
+                  <div className="p-8 text-center text-surface-500 text-xs">Loading...</div>
                 ) : adminDomains.length === 0 ? (
                   <div className="bg-surface-900 border border-surface-800 rounded-3xl p-12 text-center text-surface-500">
                     <Globe className="w-10 h-10 mx-auto mb-3 text-surface-700" />
-                    <p className="text-xs">कोई domain नहीं मिला</p>
+                    <p className="text-xs">No domains found</p>
                   </div>
                 ) : (
                   <div className="bg-surface-900 border border-surface-800 rounded-3xl overflow-hidden">
@@ -1364,7 +1364,7 @@ const deletePlan = async (id: string) => {
                     <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-surface-500" />
                     <input 
                       type="text" 
-                      placeholder="सीक्रेट कुंजी या मूल्य द्वारा खोजें..." 
+                      placeholder="Search by secret key or value..." 
                       value={kvSearch}
                       onChange={e => setKvSearch(e.target.value)}
                       className="w-full pl-10 pr-4 py-2.5 bg-surface-900 border border-surface-800 rounded-2xl text-xs text-white focus:outline-none focus:border-primary-500 placeholder-surface-500 transition-colors"
@@ -1378,27 +1378,27 @@ const deletePlan = async (id: string) => {
                     className="py-2.5 px-4 bg-primary-600 hover:bg-primary-500 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition-colors shadow-lg shadow-primary-600/20"
                   >
                     <Plus className="w-4 h-4" />
-                    KV की-वैल्यू जोड़ें
+                    Add KV key-value
                   </button>
                 </div>
 
                 {/* KV Secrets List Table */}
                 <div className="bg-surface-900 border border-surface-800 rounded-3xl overflow-hidden shadow-sm">
                   {loadingKv ? (
-                    <div className="p-8 text-center text-surface-500 text-xs">लोड हो रहा है...</div>
+                    <div className="p-8 text-center text-surface-500 text-xs">Loading...</div>
                   ) : filteredKvKeys.length === 0 ? (
                     <div className="p-12 text-center text-surface-500 space-y-2">
                       <Key className="w-10 h-10 text-surface-700 mx-auto" />
-                      <p className="text-xs">कोई सीक्रेट कुंजी नहीं मिली</p>
+                      <p className="text-xs">No secret keys found</p>
                     </div>
                   ) : (
                     <div className="overflow-x-auto">
                       <table className="w-full text-left border-collapse">
                         <thead>
                           <tr className="border-b border-surface-800 bg-surface-950/30 text-[10px] font-bold tracking-wider text-surface-400 uppercase">
-                            <th className="px-6 py-4">कुंजी नाम (Key Name)</th>
-                            <th className="px-6 py-4">मूल्य (Secret Value)</th>
-                            <th className="px-6 py-4 text-right">कार्य</th>
+                            <th className="px-6 py-4">Key Name</th>
+                            <th className="px-6 py-4">Secret Value</th>
+                            <th className="px-6 py-4 text-right">Action</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-surface-800/60 text-xs text-surface-300">
@@ -1418,7 +1418,7 @@ const deletePlan = async (id: string) => {
                                       <button 
                                         onClick={() => toggleKvReveal(k.name)}
                                         className="p-1.5 hover:bg-surface-800 rounded-lg text-surface-400 hover:text-white transition-colors"
-                                        title={isRevealed ? "छिपाएं" : "देखें"}
+                                        title={isRevealed ? "Hide" : "View"}
                                       >
                                         {isRevealed ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                                       </button>
@@ -1461,22 +1461,22 @@ const deletePlan = async (id: string) => {
               >
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div>
-                    <h2 className="text-xl font-bold text-white mb-1">डेटाबेस माइग्रेशन (Database Migration)</h2>
-                    <p className="text-sm text-surface-400">स्कीमा की जांच करें और सुरक्षित रूप से डेटाबेस अपडेट करें</p>
+                    <h2 className="text-xl font-bold text-white mb-1">Database Migration</h2>
+                    <p className="text-sm text-surface-400">Check the schema and update the database safely</p>
                   </div>
                   <div className="flex items-center gap-3">
                     <button 
                       onClick={loadSchemaDiff}
                       disabled={loadingDiff}
                       className="p-2.5 bg-surface-900 border border-surface-800 hover:border-surface-700 hover:bg-surface-800 rounded-xl transition-colors disabled:opacity-50"
-                      title="स्थिति रीफ्रेश करें"
+                      title="Refresh status"
                     >
                       <RefreshCw className={`w-4 h-4 text-surface-400 ${loadingDiff ? 'animate-spin' : ''}`} />
                     </button>
                     {schemaDiff?.status === 'needs_migration' && (
                       <button 
                         onClick={async () => {
-                          if (confirm("क्या आप सुनिश्चित हैं कि आप डेटाबेस स्कीमा को माइग्रेट करना चाहते हैं?")) {
+                          if (confirm("Are you sure you want to migrate the database schema?")) {
                             setLoadingDiff(true);
                             try {
                               const res = await fetch('/api/admin/migrate', { method: 'POST' });
@@ -1485,11 +1485,11 @@ const deletePlan = async (id: string) => {
                                 addNotification(data.message, 'success');
                                 loadSchemaDiff();
                               } else {
-                                addNotification(data.error || 'माइग्रेशन विफल रहा', 'error');
+                                addNotification(data.error || 'Migration failed', 'error');
                                 setLoadingDiff(false);
                               }
                             } catch {
-                              addNotification('सर्वर एरर', 'error');
+                              addNotification('Server error', 'error');
                               setLoadingDiff(false);
                             }
                           }
@@ -1497,7 +1497,7 @@ const deletePlan = async (id: string) => {
                         className="py-2.5 px-6 bg-primary-600 hover:bg-primary-500 rounded-xl text-xs font-semibold text-white transition-colors shadow-lg shadow-primary-600/20 flex items-center gap-2"
                       >
                         <Save className="w-4 h-4" />
-                        स्कीमा अपडेट लागू करें
+                        Apply schema update
                       </button>
                     )}
                   </div>
@@ -1509,15 +1509,15 @@ const deletePlan = async (id: string) => {
                       <div className="w-8 h-8 border-2 border-primary-500/30 border-t-primary-500 rounded-full animate-spin"></div>
                     </div>
                   ) : !schemaDiff ? (
-                    <div className="text-center py-12 text-surface-500">डेटा लोड नहीं हो पाया</div>
+                    <div className="text-center py-12 text-surface-500">Data could not be loaded</div>
                   ) : schemaDiff.status === 'up_to_date' ? (
                     <div className="flex flex-col items-center justify-center py-12 space-y-4">
                       <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20">
                         <Check className="w-8 h-8 text-emerald-500" />
                       </div>
                       <div className="text-center">
-                        <h3 className="text-lg font-bold text-white mb-1">डेटाबेस स्कीमा पूरी तरह अपडेट है</h3>
-                        <p className="text-sm text-surface-500">सभी टेबल्स और कॉलम्स source of truth (schema.sql) के साथ sync में हैं।</p>
+                        <h3 className="text-lg font-bold text-white mb-1">Database schema is fully up to date</h3>
+                        <p className="text-sm text-surface-500">All tables and columns are in sync with the source of truth (schema.sql).</p>
                       </div>
                     </div>
                   ) : (
@@ -1525,7 +1525,7 @@ const deletePlan = async (id: string) => {
                       <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl flex items-start gap-4">
                         <ShieldAlert className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
                         <div>
-                          <h4 className="text-sm font-semibold text-amber-500 mb-1">माइग्रेशन आवश्यक है</h4>
+                          <h4 className="text-sm font-semibold text-amber-500 mb-1">Migration required</h4>
                           <p className="text-xs text-amber-500/80 leading-relaxed">{schemaDiff.summary}</p>
                         </div>
                       </div>
@@ -1611,12 +1611,12 @@ const deletePlan = async (id: string) => {
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-surface-900 border border-surface-800 rounded-3xl w-full max-w-md p-6 relative max-h-[90vh] overflow-y-auto">
             <h3 className="text-base font-bold text-white mb-4">
-              {userModal.mode === 'create' ? 'नया उपयोगकर्ता पंजीकृत करें' : 'उपयोगकर्ता जानकारी अपडेट करें'}
+              {userModal.mode === 'create' ? 'Register new user' : 'Update user information'}
             </h3>
             
             <form onSubmit={saveUser} className="space-y-4">
               <div>
-                <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider mb-2">ईमेल एड्रेस</label>
+                <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider mb-2">Email address</label>
                 <input 
                   type="email" 
                   required
@@ -1629,10 +1629,10 @@ const deletePlan = async (id: string) => {
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider mb-2">उपयोगकर्ता का नाम</label>
+                <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider mb-2">User name</label>
                 <input 
                   type="text" 
-                  placeholder="उदा. राहुल शर्मा"
+                  placeholder="e.g. Rahul Sharma"
                   value={userForm.name}
                   onChange={e => setUserForm(prev => ({ ...prev, name: e.target.value }))}
                   className="w-full px-4 py-2.5 bg-surface-950 border border-surface-800 rounded-xl text-xs text-white focus:outline-none focus:border-primary-500"
@@ -1647,7 +1647,7 @@ const deletePlan = async (id: string) => {
                   onChange={e => setUserForm(prev => ({ ...prev, is_registered: e.target.checked }))}
                   className="rounded bg-surface-950 border-surface-800 text-primary-600 focus:ring-0 w-4 h-4"
                 />
-                <label htmlFor="is_registered" className="text-xs text-surface-300 font-medium">पंजीकरण को सक्रिय रूप से सक्षम करें (Active Registration)</label>
+                <label htmlFor="is_registered" className="text-xs text-surface-300 font-medium">Actively enable registration (Active Registration)</label>
               </div>
 
               <div className="flex gap-3 justify-end pt-4">
@@ -1656,13 +1656,13 @@ const deletePlan = async (id: string) => {
                   onClick={() => setUserModal({ open: false, mode: 'create' })}
                   className="px-4 py-2 bg-surface-800 hover:bg-surface-700 rounded-xl text-xs font-semibold text-surface-300 transition-colors"
                 >
-                  रद्द करें
+                  Cancel
                 </button>
                 <button 
                   type="submit" 
                   className="px-4 py-2 bg-primary-600 hover:bg-primary-500 rounded-xl text-xs font-semibold text-white transition-colors"
                 >
-                  सहेजें
+                  Save
                 </button>
               </div>
             </form>
@@ -1675,16 +1675,16 @@ const deletePlan = async (id: string) => {
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-surface-900 border border-surface-800 rounded-3xl w-full max-w-md p-6 relative max-h-[90vh] overflow-y-auto">
             <h3 className="text-base font-bold text-white mb-4">
-              {workspaceModal.mode === 'create' ? 'नया वर्कस्पेस बनाएं' : 'वर्कस्पेस कॉन्फ़िगर करें'}
+              {workspaceModal.mode === 'create' ? 'Create new workspace' : 'Configure workspace'}
             </h3>
             
             <form onSubmit={saveWorkspace} className="space-y-4">
               <div>
-                <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider mb-2">वर्कस्पेस नाम</label>
+                <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider mb-2">Workspace name</label>
                 <input 
                   type="text" 
                   required
-                  placeholder="उदा. मार्केटिंग वर्कस्पेस"
+                  placeholder="e.g. Marketing Workspace"
                   value={workspaceForm.name}
                   onChange={e => setWorkspaceForm(prev => ({ ...prev, name: e.target.value }))}
                   className="w-full px-4 py-2.5 bg-surface-950 border border-surface-800 rounded-xl text-xs text-white focus:outline-none focus:border-primary-500"
@@ -1692,13 +1692,13 @@ const deletePlan = async (id: string) => {
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider mb-2">सदस्यता योजना (Plan)</label>
+                <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider mb-2">Subscription Plan</label>
                 <select 
                   value={workspaceForm.plan_id}
                   onChange={e => setWorkspaceForm(prev => ({ ...prev, plan_id: e.target.value }))}
                   className="w-full px-4 py-2.5 bg-surface-950 border border-surface-800 rounded-xl text-xs text-white focus:outline-none focus:border-primary-500"
                 >
-                  <option value="">कोई सदस्यता नहीं (No Plan)</option>
+                  <option value="">No Plan</option>
                   {plans.map(p => (
                     <option key={p.id} value={p.id}>{p.name} (₹{p.upfront_price}/mo)</option>
                   ))}
@@ -1706,16 +1706,16 @@ const deletePlan = async (id: string) => {
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider mb-2">स्वामी (Owner) ID {workspaceModal.mode === 'create' && '- वैकल्पिक'}</label>
+                <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider mb-2">Owner ID {workspaceModal.mode === 'create' && '- optional'}</label>
                 <input 
                   type="text" 
-                  placeholder="उदा. user-uuid-1234"
+                  placeholder="e.g. user-uuid-1234"
                   value={workspaceForm.owner_id}
                   onChange={e => setWorkspaceForm(prev => ({ ...prev, owner_id: e.target.value }))}
                   className="w-full px-4 py-2.5 bg-surface-950 border border-surface-800 rounded-xl text-xs text-white focus:outline-none focus:border-primary-500"
                 />
                 {workspaceModal.mode === 'edit' && (
-                  <p className="text-[10px] text-surface-500 mt-1">खाली रखने पर मौजूदा owner बना रहेगा।</p>
+                  <p className="text-[10px] text-surface-500 mt-1">Leave blank to keep the current owner.</p>
                 )}
               </div>
 
@@ -1725,13 +1725,13 @@ const deletePlan = async (id: string) => {
                   onClick={() => setWorkspaceModal({ open: false, mode: 'create' })}
                   className="px-4 py-2 bg-surface-800 hover:bg-surface-700 rounded-xl text-xs font-semibold text-surface-300 transition-colors"
                 >
-                  रद्द करें
+                  Cancel
                 </button>
                 <button 
                   type="submit" 
                   className="px-4 py-2 bg-primary-600 hover:bg-primary-500 rounded-xl text-xs font-semibold text-white transition-colors"
                 >
-                  सहेजें
+                  Save
                 </button>
               </div>
             </form>
@@ -1744,16 +1744,16 @@ const deletePlan = async (id: string) => {
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-surface-900 border border-surface-800 rounded-3xl w-full max-w-md p-6 relative max-h-[90vh] overflow-y-auto">
             <h3 className="text-base font-bold text-white mb-4">
-              {planModal.mode === 'create' ? 'नया सदस्यता प्लान जोड़ें' : 'प्लान कॉन्फ़िगरेशन विवरण'}
+              {planModal.mode === 'create' ? 'Add new subscription plan' : 'Plan configuration details'}
             </h3>
             
             <form onSubmit={savePlan} className="space-y-4">
               <div>
-                <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider mb-2">प्लान ID (ID name)</label>
+                <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider mb-2">Plan ID</label>
                 <input 
                   type="text" 
                   required
-                  placeholder="उदा. tier_pro, enterprise"
+                  placeholder="e.g. tier_pro, enterprise"
                   value={planForm.id}
                   disabled={planModal.mode === 'edit'}
                   onChange={e => setPlanForm(prev => ({ ...prev, id: e.target.value }))}
@@ -1762,11 +1762,11 @@ const deletePlan = async (id: string) => {
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider mb-2">प्लान नाम (Display Name)</label>
+                <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider mb-2">Plan Name</label>
                 <input 
                   type="text" 
                   required
-                  placeholder="उदा. Pro Business, Free Starter"
+                  placeholder="e.g. Pro Business, Free Starter"
                   value={planForm.name}
                   onChange={e => setPlanForm(prev => ({ ...prev, name: e.target.value }))}
                   className="w-full px-4 py-2.5 bg-surface-950 border border-surface-800 rounded-xl text-xs text-white focus:outline-none focus:border-primary-500"
@@ -1774,9 +1774,9 @@ const deletePlan = async (id: string) => {
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider mb-2">विवरण (Description)</label>
+                <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider mb-2">Description</label>
                 <textarea 
-                  placeholder="प्लान की मुख्य बातों का संक्षेप में वर्णन करें"
+                  placeholder="Briefly describe the plan's key points"
                   value={planForm.description}
                   onChange={e => setPlanForm(prev => ({ ...prev, description: e.target.value }))}
                   className="w-full px-4 py-2.5 bg-surface-950 border border-surface-800 rounded-xl text-xs text-white focus:outline-none focus:border-primary-500 h-16 resize-none"
@@ -1785,7 +1785,7 @@ const deletePlan = async (id: string) => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider mb-2">मासिक मूल्य (₹)</label>
+                  <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider mb-2">Monthly price (₹)</label>
                   <input 
                     type="number" 
                     required
@@ -1796,7 +1796,7 @@ const deletePlan = async (id: string) => {
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider mb-2">PAYG संदेश दर (₹)</label>
+                  <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider mb-2">PAYG message rate (₹)</label>
                   <input 
                     type="number" 
                     step="0.01"
@@ -1811,7 +1811,7 @@ const deletePlan = async (id: string) => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider mb-2">बिलिंग प्रकार (Billing Type)</label>
+                  <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider mb-2">Billing Type</label>
                   <select
                     value={planForm.billing_type}
                     onChange={e => setPlanForm(prev => ({ ...prev, billing_type: e.target.value }))}
@@ -1822,7 +1822,7 @@ const deletePlan = async (id: string) => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider mb-2">अवधि (Period)</label>
+                  <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider mb-2">Period</label>
                   <select
                     value={planForm.billing_period}
                     onChange={e => setPlanForm(prev => ({ ...prev, billing_period: e.target.value }))}
@@ -1835,7 +1835,7 @@ const deletePlan = async (id: string) => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider mb-2">Interval (हर N अवधि)</label>
+                  <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider mb-2">Interval (every N periods)</label>
                   <input
                     type="number"
                     min="1"
@@ -1845,7 +1845,7 @@ const deletePlan = async (id: string) => {
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider mb-2">मुद्रा (Currency)</label>
+                  <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider mb-2">Currency</label>
                   <select
                     value={planForm.currency}
                     onChange={e => setPlanForm(prev => ({ ...prev, currency: e.target.value }))}
@@ -1858,7 +1858,7 @@ const deletePlan = async (id: string) => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider mb-2">क्रम (Sort Order)</label>
+                  <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider mb-2">Sort Order</label>
                   <input
                     type="number"
                     value={planForm.sort_order}
@@ -1876,7 +1876,7 @@ const deletePlan = async (id: string) => {
                     onChange={e => setPlanForm(prev => ({ ...prev, is_active: e.target.checked ? '1' : '0' }))}
                     className="rounded bg-surface-950 border-surface-800 text-primary-600 focus:ring-0 w-4 h-4"
                   />
-                  Active (खरीदने योग्य)
+                  Active (purchasable)
                 </label>
                 <label className="flex items-center gap-2 text-xs text-surface-300 font-medium cursor-pointer">
                   <input
@@ -1885,13 +1885,13 @@ const deletePlan = async (id: string) => {
                     onChange={e => setPlanForm(prev => ({ ...prev, is_free: e.target.checked ? '1' : '0' }))}
                     className="rounded bg-surface-950 border-surface-800 text-emerald-600 focus:ring-0 w-4 h-4"
                   />
-                  Free Plan (डिफ़ॉल्ट / downgrade)
+                  Free Plan (default / downgrade)
                 </label>
               </div>
 
               
               <div className="space-y-3 pt-2 border-t border-surface-800">
-                <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider">ईमेल लिमिट्स (Plan Email Limits)</label>
+                <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider">Plan Email Limits</label>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-[10px] text-surface-400 mb-1">Monthly Email Limit</label>
@@ -1940,7 +1940,7 @@ const deletePlan = async (id: string) => {
 
 
               <div className="space-y-3 pt-2 border-t border-surface-800">
-                <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider">ईमेल लिमिट्स (Plan Email Limits)</label>
+                <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider">Plan Email Limits</label>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-[10px] text-surface-400 mb-1">Monthly Email Limit</label>
@@ -1989,7 +1989,7 @@ const deletePlan = async (id: string) => {
 
 <div className="space-y-2">
                 <div className="flex justify-between items-center mb-1">
-                  <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider">सुविधाएँ (Features)</label>
+                  <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider">Features</label>
                   <button
                     type="button"
                     onClick={() => setPlanForm(prev => ({ ...prev, features: [...prev.features, { id: Math.random().toString(36).substr(2, 9), value: '' }] }))}
@@ -2002,7 +2002,7 @@ const deletePlan = async (id: string) => {
                   <div key={f.id} className="flex gap-2">
                     <input
                       type="text"
-                      placeholder="उदा. Unlimited Messages"
+                      placeholder="e.g. Unlimited Messages"
                       value={f.value}
                       onChange={e => {
                         const newFeatures = [...planForm.features];
@@ -2025,19 +2025,19 @@ const deletePlan = async (id: string) => {
                 ))}
                 {planForm.features.length === 0 && (
                   <div className="text-xs text-surface-500 bg-surface-950/50 p-3 rounded-xl border border-surface-800/50 text-center border-dashed">
-                    कोई सुविधा नहीं जोड़ी गई
+                    No features added
                   </div>
                 )}
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider mb-3">Limits (सीमाएँ)</label>
+                <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider mb-3">Limits</label>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-[10px] text-surface-500 mb-1">Email Monthly Limit</label>
                     <input
                       type="number"
-                      placeholder="उदा. 1000"
+                      placeholder="e.g. 1000"
                       value={planForm.limits?.email_monthly_limit || ''}
                       onChange={e => setPlanForm(prev => ({ ...prev, limits: { ...prev.limits, email_monthly_limit: e.target.value } }))}
                       className="w-full px-4 py-2 bg-surface-950 border border-surface-800 rounded-xl text-xs text-white focus:outline-none focus:border-primary-500"
@@ -2047,7 +2047,7 @@ const deletePlan = async (id: string) => {
                     <label className="block text-[10px] text-surface-500 mb-1">Max Domains</label>
                     <input
                       type="number"
-                      placeholder="उदा. 5"
+                      placeholder="e.g. 5"
                       value={planForm.limits?.max_domains || ''}
                       onChange={e => setPlanForm(prev => ({ ...prev, limits: { ...prev.limits, max_domains: e.target.value } }))}
                       className="w-full px-4 py-2 bg-surface-950 border border-surface-800 rounded-xl text-xs text-white focus:outline-none focus:border-primary-500"
@@ -2057,7 +2057,7 @@ const deletePlan = async (id: string) => {
                     <label className="block text-[10px] text-surface-500 mb-1">Max Mailboxes / Domain</label>
                     <input
                       type="number"
-                      placeholder="उदा. 10"
+                      placeholder="e.g. 10"
                       value={planForm.limits?.max_mailboxes_per_domain || ''}
                       onChange={e => setPlanForm(prev => ({ ...prev, limits: { ...prev.limits, max_mailboxes_per_domain: e.target.value } }))}
                       className="w-full px-4 py-2 bg-surface-950 border border-surface-800 rounded-xl text-xs text-white focus:outline-none focus:border-primary-500"
@@ -2072,13 +2072,13 @@ const deletePlan = async (id: string) => {
                   onClick={() => setPlanModal({ open: false, mode: 'create' })}
                   className="px-4 py-2 bg-surface-800 hover:bg-surface-700 rounded-xl text-xs font-semibold text-surface-300 transition-colors"
                 >
-                  रद्द करें
+                  Cancel
                 </button>
                 <button 
                   type="submit" 
                   className="px-4 py-2 bg-primary-600 hover:bg-primary-500 rounded-xl text-xs font-semibold text-white transition-colors"
                 >
-                  सहेजें
+                  Save
                 </button>
               </div>
             </form>
@@ -2091,16 +2091,16 @@ const deletePlan = async (id: string) => {
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-surface-900 border border-surface-800 rounded-3xl w-full max-w-md p-6 relative max-h-[90vh] overflow-y-auto">
             <h3 className="text-base font-bold text-white mb-4">
-              {kvModal.data ? 'KV सीक्रेट कुंजी अपडेट करें' : 'नया KV कुंजी-मूल्य सहेजें'}
+              {kvModal.data ? 'Update KV secret key' : 'Save new KV key-value'}
             </h3>
             
             <form onSubmit={saveKvSecret} className="space-y-4">
               <div>
-                <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider mb-2">कुंजी (Key Name)</label>
+                <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider mb-2">Key Name</label>
                 <input 
                   type="text" 
                   required
-                  placeholder="उदा. WHATSAPP_API_TOKEN, FB_APP_ID"
+                  placeholder="e.g. WHATSAPP_API_TOKEN, FB_APP_ID"
                   value={kvForm.name}
                   disabled={!!kvModal.data}
                   onChange={e => setKvForm(prev => ({ ...prev, name: e.target.value }))}
@@ -2109,10 +2109,10 @@ const deletePlan = async (id: string) => {
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider mb-2">मूल्य (Value string)</label>
+                <label className="block text-[10px] font-bold text-surface-500 uppercase tracking-wider mb-2">Value string</label>
                 <textarea 
                   required
-                  placeholder="यहाँ सीक्रेट मूल्य दर्ज करें..."
+                  placeholder="Enter the secret value here..."
                   value={kvForm.value}
                   onChange={e => setKvForm(prev => ({ ...prev, value: e.target.value }))}
                   className="w-full px-4 py-2.5 bg-surface-950 border border-surface-800 rounded-xl text-xs text-white focus:outline-none focus:border-primary-500 font-mono text-[11px] h-32"
@@ -2125,13 +2125,13 @@ const deletePlan = async (id: string) => {
                   onClick={() => setKvModal({ open: false })}
                   className="px-4 py-2 bg-surface-800 hover:bg-surface-700 rounded-xl text-xs font-semibold text-surface-300 transition-colors"
                 >
-                  रद्द करें
+                  Cancel
                 </button>
                 <button 
                   type="submit" 
                   className="px-4 py-2 bg-primary-600 hover:bg-primary-500 rounded-xl text-xs font-semibold text-white transition-colors"
                 >
-                  सुरक्षित सहेजें
+                  Save securely
                 </button>
               </div>
             </form>
