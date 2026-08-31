@@ -87,11 +87,11 @@ export function ActiveCallManager({ activeCall, setActiveCall, onHangup, remoteS
           {activeCall.contact_name?.[0] || '?'}
         </div>
         <div className="flex-1 min-w-0">
-          <h4 className="text-xs font-bold text-white truncate">{activeCall.contact_name || 'अज्ञात'}</h4>
+          <h4 className="text-xs font-bold text-white truncate">{activeCall.contact_name || 'Unknown'}</h4>
           <p className="text-[10px] text-surface-400 truncate mt-0.5">
             {activeCall.status === 'ringing' 
-              ? (activeCall.direction === 'incoming' ? 'कॉल आ रही है...' : 'डायल हो रहा है...') 
-              : 'कॉल कनेक्टेड'}
+              ? (activeCall.direction === 'incoming' ? 'Incoming call...' : 'Dialing...') 
+              : 'Call connected'}
           </p>
         </div>
         <div className="text-right">
@@ -107,18 +107,18 @@ export function ActiveCallManager({ activeCall, setActiveCall, onHangup, remoteS
           <button 
             onClick={() => setIsMuted(!isMuted)}
             className="p-1.5 px-2.5 rounded-lg text-[10px] font-bold transition-all bg-surface-800 text-surface-400 hover:bg-surface-700 hover:text-white"
-            title={isMuted ? 'अनम्यूट' : 'म्यूट'}
+            title={isMuted ? 'Unmute' : 'Mute'}
           >
-            {isMuted ? 'अनम्यूट' : 'म्यूट'}
+            {isMuted ? 'Unmute' : 'Mute'}
           </button>
 
           {/* Speaker toggle button */}
           <button 
             onClick={() => setIsSpeaker(!isSpeaker)}
             className="p-1.5 px-2.5 rounded-lg text-[10px] font-bold transition-all bg-surface-800 text-surface-400 hover:bg-surface-700 hover:text-white"
-            title="स्पीकर"
+            title="Speaker"
           >
-            स्पीकर
+            Speaker
           </button>
           {/* Recording handled by useWhatsAppWebRTC hook */}
         </div>
@@ -129,7 +129,7 @@ export function ActiveCallManager({ activeCall, setActiveCall, onHangup, remoteS
           className="bg-rose-500 hover:bg-rose-600 text-white px-3 py-1.5 rounded-xl text-[11px] font-bold transition-colors shadow-lg shadow-rose-500/20 flex items-center gap-1.5"
         >
           <X className="w-3 h-3" />
-          काटें
+          Hang up
         </button>
       </div>
       <audio ref={audioRef} autoPlay style={{ display: 'none' }} />
