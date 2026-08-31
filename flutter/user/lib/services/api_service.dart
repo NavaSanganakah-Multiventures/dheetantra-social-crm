@@ -409,6 +409,17 @@ class ApiService {
     }
   }
 
+  // ========== PLIVO CALL ==========
+
+  Future<Map<String, dynamic>> hangupPlivoCall(String callId) async {
+    try {
+      final res = await _dio.post('/api/plivo/call/$callId/hangup');
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
   // ========== TWILIO WORKSPACE CONFIG ==========
 
   Future<List<dynamic>> getTwilioConfigs() async {
