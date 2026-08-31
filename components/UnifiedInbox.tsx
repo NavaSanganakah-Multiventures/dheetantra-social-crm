@@ -161,7 +161,7 @@ function renderMessageMedia(m: any): React.ReactNode {
     );
   }
   if (t === 'location') {
-    const loc = parseJsonMedia(url);
+    const loc = parseJsonMedia(rawUrl);
     if (loc && (loc.latitude != null || loc.name)) {
       const mapsHref = loc.latitude != null
         ? `https://www.google.com/maps?q=${loc.latitude},${loc.longitude}`
@@ -179,7 +179,7 @@ function renderMessageMedia(m: any): React.ReactNode {
     }
   }
   if (t === 'contacts') {
-    const contacts = parseJsonMedia(url);
+    const contacts = parseJsonMedia(rawUrl);
     if (Array.isArray(contacts) && contacts.length > 0) {
       return (
         <div className="my-1 space-y-1">
