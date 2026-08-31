@@ -76,7 +76,6 @@ class ApiService {
         body: jsonEncode({'token': token, 'device_type': 'android'}),
       ).timeout(const Duration(seconds: 10));
     } catch (e) {
-      print('Failed to register FCM token: $e');
     }
   }
 

@@ -124,11 +124,9 @@ export function TwilioVoiceProvider({ children }: { children: React.ReactNode })
         });
 
         device.on("registered", () => {
-          console.log("[TwilioWeb] device registered");
         });
 
         device.on("incoming", (call: any) => {
-          console.log("[TwilioWeb] SDK incoming call", call.parameters);
           callRef.current = call;
           const params = call.parameters || {};
           setIncoming({

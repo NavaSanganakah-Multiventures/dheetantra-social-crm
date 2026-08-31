@@ -5,7 +5,6 @@ import 'api_service.dart';
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   // Handles background notifications
-  print("Handling a background message: ${message.messageId}");
 }
 
 class NotificationService {
@@ -22,9 +21,7 @@ class NotificationService {
     );
 
     if (settings.authorizationStatus == AuthorizationStatus.authorized) {
-      print('User granted permission');
     } else {
-      print('User declined or has not accepted permission');
     }
 
     // 2. Register background handler
@@ -97,7 +94,6 @@ class NotificationService {
         await ApiService.registerFcmToken(token);
       }
     } catch (e) {
-      print('Error registering FCM token: $e');
     }
   }
 }

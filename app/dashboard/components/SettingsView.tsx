@@ -377,7 +377,6 @@ export function SettingsView() {
       if (typeof window !== 'undefined' && (window as any).FB) {
         (window as any).FB.login((response: any) => {
           if (response.authResponse) {
-             console.log("FB login popup successful, waiting for WA_EMBEDDED_SIGNUP message...");
           } else {
              setMessage("साइनअप रद्द कर दिया गया या विफल रहा।");
           }

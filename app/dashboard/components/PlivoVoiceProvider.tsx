@@ -143,7 +143,6 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
         clientRef.current = client;
 
         client.on("onLogin", () => {
-          console.log("[PlivoWeb] endpoint registered");
           setRegistered(true);
         });
         client.on("onLogout", () => setRegistered(false));
@@ -170,7 +169,6 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
         });
         client.on("onIncomingCall", (callerID: any, extraHeaders: any, callInfo: any) => {
           // Direct endpoint SIP calls are not part of the PSTN conference flow.
-          console.log("[PlivoWeb] direct endpoint incoming call (ignored)", callerID, extraHeaders, callInfo);
         });
 
         client.login(data.username, data.password);

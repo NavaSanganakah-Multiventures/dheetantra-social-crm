@@ -30,7 +30,6 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   // Background isolate mein SchedulerBinding nahi hota, isliye debugPrint ke
   // bajaye print use karo.
   // ignore: avoid_print
-  print('[FCM Background] message type: $type');
 
   // App kill/band hone par bhi har message ka notification aana chahiye.
   // Notification-payload wale messages ko Android system tray dikhata hai,
@@ -54,10 +53,8 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 Future<void> _callkitBackgroundEventHandler(CallEvent event) async {
   try {
     // ignore: avoid_print
-    print('[CallKit BG] event: ${event.eventName}');
   } catch (e) {
     // ignore: avoid_print
-    print('[CallKit BG] error: $e');
   }
 }
 

@@ -290,7 +290,6 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
         socket = new WebSocket(wsUrl);
 
         socket.onopen = () => {
-          console.log('[WS] Global WebSocket connected');
           setWsStatus('connected');
         };
 
