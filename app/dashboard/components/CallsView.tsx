@@ -251,7 +251,7 @@ export function CallsView({
       case 'ringing': case 'queued':
         return { label: 'Ringing', cls: 'bg-amber-50 dark:bg-amber-950/20 text-amber-600' };
       case 'missed':
-        return { label: 'छूट गया', cls: 'bg-rose-50 dark:bg-rose-950/20 text-rose-600' };
+        return { label: 'Missed', cls: 'bg-rose-50 dark:bg-rose-950/20 text-rose-600' };
       case 'no_answer':
         return { label: 'No answer', cls: 'bg-rose-50 dark:bg-rose-950/20 text-rose-600' };
       case 'busy':
