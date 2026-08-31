@@ -653,7 +653,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                           const sdpRes = await fetch(`/api/whatsapp/calls/${incomingCall.id}/sdp`, {
                             headers: { 'x-workspace-id': incomingCall.workspace_id }
                           });
-                          const sdpData = await sdpRes.json();
+                          const sdpData: any = await sdpRes.json();
                           callSdp = sdpData.sdp || '';
                           if (callSdp) {
                             setIncomingCall((prev: any) => prev ? { ...prev, sdp: callSdp } : prev);
