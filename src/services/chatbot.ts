@@ -89,7 +89,7 @@ export async function handleIncomingMessage(
           `).bind(incomingMessageId, conversationId, messageType, messageText, mediaUrl || null, messageId).run();
           console.log(`[handleIncomingMessage] Incoming message saved. id=${incomingMessageId}`);
         } catch (saveErr) {
-          console.error('[handleIncomingMessage] Failed to save message â broadcasting anyway:', saveErr);
+          console.error('[handleIncomingMessage] Failed to save message - broadcasting anyway:', saveErr);
         }
 
         // Check if calling is enabled for this phone number/config

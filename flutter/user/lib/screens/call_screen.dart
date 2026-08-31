@@ -18,7 +18,7 @@ class CallScreen extends StatefulWidget {
 
   const CallScreen({super.key, required this.callData});
 
-  /// Call screen ko bina animation ke turant foreground par lao â incoming
+  /// Call screen ko bina animation ke turant foreground par lao - incoming
   /// accept ke waqt HomeScreen ka flash nahi dikhna chahiye.
   static void push(BuildContext context, Map<String, dynamic> callData) {
     Navigator.of(context).push(
@@ -154,7 +154,7 @@ class _CallScreenState extends State<CallScreen> {
         // softphone connected silently in the background.
         unawaited(PlivoVoiceService().hangUp());
       }
-      debugPrint('[CallScreen] remote ended the call â finishing');
+      debugPrint('[CallScreen] remote ended the call - finishing');
       _finishCall();
     }
   }
@@ -174,11 +174,11 @@ class _CallScreenState extends State<CallScreen> {
   void _finishCall() {
     debugPrint('[CallScreen] _finishCall()');
     // 'ended' duplicate events (WebRTC watchdog + plugin Closed re-fire) se
-    // double pop na ho â ek hi baar teardown chalega.
+    // double pop na ho - ek hi baar teardown chalega.
     if (_finishCalled) return;
     _finishCalled = true;
     _durationTimer?.cancel();
-    // Registry + plugin native UI cleanup â warna same-id agli call
+    // Registry + plugin native UI cleanup - warna same-id agli call
     // duplicate-guard se permanently block ho jayegi.
     CallKitService().handleCallEnded(
       widget.callData['id']?.toString() ??
