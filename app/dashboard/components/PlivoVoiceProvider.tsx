@@ -214,9 +214,6 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
           try {
             const data = JSON.parse(event.data);
             if (data.type === "plivo_incoming_call") {
-              // Only ring inside the browser when the backend is in in-app
-              // answering mode. With auto-dial ON the agent's PSTN phone rings.
-              if (data.answerInApp !== true) return;
               setIncoming({
                 id: data.callId,
                 from: data.from,
@@ -227,6 +224,10 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
               });
             } else if (data.type === "call_status_updated" && data.source === "plivo") {
               const callId = data.call_id || data.callId;
+              // Clear the overlay if the call is answered elsewhere (e.g. PSTN auto-dial).
+              if (data.status === "in_progress") {
+                setIncoming((prev) => (prev && prev.id === callId ? null : prev));
+              }
               if (
                 data.status === "ended" ||
                 data.status === "busy" ||
@@ -276,6 +277,50 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
       if (wsRef.current) wsRef.current.close();
     };
   }, [workspaceId, cleanupCall]);
+
+  // Play an audible ringtone while a Plivo incoming call is waiting.
+  useEffect(() => {
+    let interval: any;
+    let audioCtx: any = null;
+    let cancelled = false;
+
+    async function startRing() {
+      if (!incoming) return;
+      try {
+        audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        if (audioCtx.state === 'suspended') {
+          await audioCtx.resume();
+        }
+        if (cancelled) return;
+        const playRing = () => {
+          if (!audioCtx || audioCtx.state !== 'running') return;
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(587.33, audioCtx.currentTime);
+          gain.gain.setValueAtTime(0.35, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.2);
+          osc.start();
+          osc.stop(audioCtx.currentTime + 1.2);
+        };
+        playRing();
+        interval = setInterval(playRing, 2000);
+      } catch (e) {
+        console.error('[PlivoWeb] ringtone playback error', e);
+      }
+    }
+    startRing();
+
+    return () => {
+      cancelled = true;
+      if (interval) clearInterval(interval);
+      if (audioCtx) {
+        audioCtx.close().catch(() => {});
+      }
+    };
+  }, [incoming?.id]);
 
   // Join the Plivo conference by dialing the conference's SIP address through
   // the registered endpoint. This mirrors the Flutter softphone flow.
@@ -342,10 +387,13 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
   );
 
   const answer = useCallback(() => {
-    if (incoming) {
-      connectConference(incoming);
+    if (!incoming) return;
+    if (!registered || !clientRef.current) {
+      console.warn("[PlivoWeb] cannot answer: softphone not registered");
+      return;
     }
-  }, [incoming, connectConference]);
+    connectConference(incoming);
+  }, [incoming, connectConference, registered]);
 
   const reject = useCallback(async () => {
     const callId = incoming?.id;
