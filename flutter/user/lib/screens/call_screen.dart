@@ -503,7 +503,7 @@ class _CallScreenState extends State<CallScreen> {
                         icon: _muted
                             ? Icons.mic_off_rounded
                             : Icons.mic_rounded,
-                        label: _muted ? 'म्यूट' : 'अनम्यूट',
+                        label: _muted ? 'Mute' : 'Unmute',
                         color: _muted
                             ? AppColors.danger
                             : AppColors.surfaceAlt,
@@ -515,7 +515,7 @@ class _CallScreenState extends State<CallScreen> {
                       const SizedBox(width: 24),
                       _CallButton(
                         icon: Icons.call_end_rounded,
-                        label: 'कट करें',
+                        label: 'End',
                         color: AppColors.danger,
                         iconColor: Colors.white,
                         size: 74,
@@ -527,7 +527,7 @@ class _CallScreenState extends State<CallScreen> {
                         icon: _speakerOn
                             ? Icons.volume_up_rounded
                             : Icons.hearing_rounded,
-                        label: _speakerOn ? 'स्पीकर' : 'ईयरफोन',
+                        label: _speakerOn ? 'Speaker' : 'Earpiece',
                         color: _speakerOn
                             ? AppColors.accent
                             : AppColors.surfaceAlt,
