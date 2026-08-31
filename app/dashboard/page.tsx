@@ -26,6 +26,8 @@ import { ActiveCallManager } from './components/ActiveCallManager';
 import { IntegrationsView } from './components/IntegrationsView';
 import { WhatsAppManagerView } from './components/WhatsAppManagerView';
 import { unregisterFcmToken } from '@/components/FcmRegistration';
+import { TwilioVoiceProvider } from '@/app/dashboard/components/TwilioVoiceProvider';
+import { PlivoVoiceProvider } from '@/app/dashboard/components/PlivoVoiceProvider';
 
 export { formatUserTimeOnly, formatUserDateOnly, formatUserDateTime } from './lib/dates';
 
@@ -91,7 +93,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
   const [wsStatus, setWsStatus] = useState<'connecting' | 'connected' | 'disconnected'>('disconnected');
   const [callsFieldStatus, setCallsFieldStatus] = useState<'checking' | 'subscribed' | 'not_subscribed' | 'unknown'>('unknown');
 
-  const { status: rtcStatus, answer: answerWebRTC, hangup: hangupWebRTC, handleRemoteHangup, remoteStream: rtcRemoteStream, localStream: rtcLocalStream } = useWhatsAppWebRTC();
+  const { status: rtcStatus, answer: answerWebRTC, hangup: hangupWebRTC, startCall: startWhatsAppCall, acceptAnswer: acceptWhatsAppAnswer, handleRemoteHangup, remoteStream: rtcRemoteStream, localStream: rtcLocalStream } = useWhatsAppWebRTC();
 
   // Load Calling Config
   useEffect(() => {
@@ -152,13 +154,13 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
         const wId = localStorage.getItem('workspaceId');
         if (wId && incomingCall.phoneNumberId) {
           try {
-            await fetch(`/api/whatsapp/calls/${incomingCall.id}/reject`, {
+            await fetch(`/api/whatsapp/calls/${encodeURIComponent(incomingCall.id)}/reject`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', 'x-workspace-id': wId },
               body: JSON.stringify({ phoneNumberId: incomingCall.phoneNumberId })
             });
           } catch(e) {}
-          await fetch(`/api/whatsapp/calls/${incomingCall.id}/status`, {
+          await fetch(`/api/whatsapp/calls/${encodeURIComponent(incomingCall.id)}/status`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'x-workspace-id': wId },
             body: JSON.stringify({ status: 'missed', duration: 0 })
@@ -191,23 +193,66 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
     activeCallRef.current = activeCall;
   }, [incomingCall, activeCall]);
 
+  const handleStartWhatsAppCall = useCallback(async (contact: any) => {
+    const wId = localStorage.getItem('workspaceId');
+    if (!wId) throw new Error('No workspace selected');
+
+    const phone = (contact?.phone || contact?.platform_contact_id || '').replace(/\D/g, '');
+    if (!phone) throw new Error('Contact has no phone number');
+
+    const cfgRes: any = await fetch('/api/whatsapp/config', {
+      headers: { 'x-workspace-id': wId }
+    }).then(r => r.json());
+    const phoneNumberId = cfgRes.config?.phone_number_id || cfgRes.configs?.[0]?.phone_number_id;
+    if (!phoneNumberId) throw new Error('WhatsApp not configured');
+
+    const callId = await startWhatsAppCall({
+      to: phone,
+      phoneNumberId,
+      workspace_id: wId,
+      contact_id: contact?.id,
+      recipient: contact?.recipient || contact?.platform_contact_recipient
+    });
+
+    setActiveCall({
+      id: callId,
+      contact_name: contact?.name || phone,
+      phone,
+      status: 'ringing',
+      direction: 'outgoing',
+      phoneNumberId,
+      workspace_id: wId
+    });
+  }, [startWhatsAppCall]);
+
   // Play ringtone instantly and robustly
   useEffect(() => {
     let interval: any;
     let audioCtx: any = null;
-    if (incomingCall && incomingCall.status === 'ringing') {
+    let cancelled = false;
+
+    async function startRing() {
+      if (!incomingCall || incomingCall.status !== 'ringing') return;
       try {
         audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-        if (audioCtx.state === 'suspended') audioCtx.resume();
+        // Browser autoplay policies often suspend a new AudioContext until the
+        // user interacts with the page. Resume first and wait for it so we know
+        // the context is actually running before we schedule any oscillator.
+        if (audioCtx.state === 'suspended') {
+          await audioCtx.resume();
+        }
+        if (cancelled) return;
         const playRing = () => {
-          if (!audioCtx) return;
+          if (!audioCtx || audioCtx.state !== 'running') return;
           const osc = audioCtx.createOscillator();
           const gain = audioCtx.createGain();
           osc.connect(gain);
           gain.connect(audioCtx.destination);
           osc.type = 'sine';
           osc.frequency.setValueAtTime(587.33, audioCtx.currentTime);
-          gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+          // Louder, audible on mobile/laptop speakers; smooth fade to avoid clicks.
+          gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.2);
           osc.start();
           osc.stop(audioCtx.currentTime + 1.2);
         };
@@ -217,7 +262,10 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
         console.error("Audio playback error", e);
       }
     }
+    startRing();
+
     return () => {
+      cancelled = true;
       if (interval) clearInterval(interval);
       if (audioCtx) {
         audioCtx.close().catch(() => {});
@@ -226,7 +274,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
   }, [incomingCall?.status]);
 
   useEffect(() => {
-    const wId = localStorage.getItem('workspaceId');
+    const wId = user?.workspace_id || localStorage.getItem('workspaceId');
     if (!wId) return;
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -242,15 +290,14 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
         socket = new WebSocket(wsUrl);
 
         socket.onopen = () => {
-          console.log('[WS] Global WebSocket connected');
           setWsStatus('connected');
         };
 
-        socket.onmessage = (event) => {
+        socket.onmessage = async (event) => {
           try {
             const data = JSON.parse(event.data);
             if (data.type === 'whatsapp_incoming_call') {
-              // Calls field handler — has SDP, user can answer
+              // Calls field handler â has SDP, user can answer
               setIncomingCall({
                 id: data.callId,
                 from: data.from,
@@ -266,7 +313,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
               setIncomingCallNoSdp(null);
               // Ringtone is now handled by the useEffect watching incomingCall.status
             } else if (data.type === 'incoming_call' && data.call) {
-              // System message fallback — NO SDP, show as missed call notification
+              // System message fallback â NO SDP, show as missed call notification
               setIncomingCallNoSdp({
                 id: data.call.id,
                 contact_name: data.call.contact_name,
@@ -277,6 +324,16 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
               });
               // Auto-dismiss after 8 seconds
               // Auto-dismiss is handled by a dedicated useEffect hook
+            } else if (data.type === 'whatsapp_outgoing_answer') {
+              try {
+                await acceptWhatsAppAnswer({ sdp: data.sdp, sdpType: data.sdpType });
+                setActiveCall((prev: any) => prev ? { ...prev, status: 'connected', connectedAt: Date.now() } : null);
+              } catch (e) {
+                console.error('Outbound WhatsApp call answer failed:', e);
+                setActiveCall(null);
+              }
+            } else if (data.type === 'whatsapp_outgoing_ringing') {
+              setActiveCall((prev: any) => prev ? { ...prev, status: 'ringing' } : null);
             } else if (data.type === 'call_status_updated' || data.type === 'whatsapp_call_terminated') {
               const callIdToUpdate = data.call_id || data.callId;
               const newStatus = data.status || 'ended';
@@ -373,7 +430,9 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
   }, []);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-surface-100 dark:bg-surface-950">
+    <PlivoVoiceProvider>
+    <TwilioVoiceProvider>
+      <div className="flex h-screen overflow-hidden bg-surface-100 dark:bg-surface-950">
       {/* Sidebar Overlay for Mobile */}
       <AnimatePresence>
         {isSidebarOpen && (
@@ -410,35 +469,35 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
             </div>
 
             <nav className="flex-1 min-h-0 px-4 py-6 space-y-2 overflow-y-auto">
-              <div className="text-xs font-semibold text-surface-500 uppercase tracking-wider mb-4 px-3">ओवरव्यू</div>
-              <NavItem icon={<LayoutDashboard />} label="डैशबोर्ड" isActive={activeTab === 'dashboard'} onClick={() => { setActiveTab('dashboard'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
-              <NavItem icon={<MessageSquare />} label="इनबॉक्स" isActive={activeTab === 'inbox'} onClick={() => { setActiveTab('inbox'); if (window.innerWidth < 768) setSidebarOpen(false); }} badge={openConversationsCount > 0 ? openConversationsCount.toString() : undefined} />
-              <NavItem icon={<Activity />} label="सक्रिय चैट" isActive={activeTab === 'active-conversations'} onClick={() => { setActiveTab('active-conversations'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
-              <NavItem icon={<Users />} label="संपर्क और लीड्स" isActive={activeTab === 'contacts'} onClick={() => { setActiveTab('contacts'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
-              <NavItem icon={<Phone />} label="कॉल लॉग्स" isActive={activeTab === 'calls'} onClick={() => { setActiveTab('calls'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
+              <div className="text-xs font-semibold text-surface-500 uppercase tracking-wider mb-4 px-3">à¤à¤µà¤°à¤µà¥à¤¯à¥</div>
+              <NavItem icon={<LayoutDashboard />} label="à¤¡à¥à¤¶à¤¬à¥à¤°à¥à¤¡" isActive={activeTab === 'dashboard'} onClick={() => { setActiveTab('dashboard'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
+              <NavItem icon={<MessageSquare />} label="à¤à¤¨à¤¬à¥à¤à¥à¤¸" isActive={activeTab === 'inbox'} onClick={() => { setActiveTab('inbox'); if (window.innerWidth < 768) setSidebarOpen(false); }} badge={openConversationsCount > 0 ? openConversationsCount.toString() : undefined} />
+              <NavItem icon={<Activity />} label="à¤¸à¤à¥à¤°à¤¿à¤¯ à¤à¥à¤" isActive={activeTab === 'active-conversations'} onClick={() => { setActiveTab('active-conversations'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
+              <NavItem icon={<Users />} label="à¤¸à¤à¤ªà¤°à¥à¤ à¤à¤° à¤²à¥à¤¡à¥à¤¸" isActive={activeTab === 'contacts'} onClick={() => { setActiveTab('contacts'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
+              <NavItem icon={<Phone />} label="à¤à¥à¤² à¤²à¥à¤à¥à¤¸" isActive={activeTab === 'calls'} onClick={() => { setActiveTab('calls'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
               
-              <div className="text-xs font-semibold text-surface-500 uppercase tracking-wider mb-4 mt-8 px-3">अकाउंट्स</div>
+              <div className="text-xs font-semibold text-surface-500 uppercase tracking-wider mb-4 mt-8 px-3">à¤à¤à¤¾à¤à¤à¤à¥à¤¸</div>
               <NavItem icon={<Phone />} label="WhatsApp" isActive={activeTab === 'accounts-whatsapp'} onClick={() => { setActiveTab('accounts-whatsapp'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
 
-              <div className="text-xs font-semibold text-surface-500 uppercase tracking-wider mb-4 mt-8 px-3">मार्केटिंग</div>
-              <NavItem icon={<Megaphone />} label="ब्रॉडकास्ट" isActive={activeTab === 'broadcast'} onClick={() => { setActiveTab('broadcast'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
-              <NavItem icon={<Mail />} label="ईमेल सेवा" isActive={activeTab === 'email'} onClick={() => { setActiveTab('email'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
-              <NavItem icon={<CalendarClock />} label="शेड्यूल्ड पोस्ट्स" isActive={activeTab === 'schedule'} onClick={() => { setActiveTab('schedule'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
+              <div className="text-xs font-semibold text-surface-500 uppercase tracking-wider mb-4 mt-8 px-3">à¤®à¤¾à¤°à¥à¤à¥à¤à¤¿à¤à¤</div>
+              <NavItem icon={<Megaphone />} label="à¤¬à¥à¤°à¥à¤¡à¤à¤¾à¤¸à¥à¤" isActive={activeTab === 'broadcast'} onClick={() => { setActiveTab('broadcast'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
+              <NavItem icon={<Mail />} label="à¤à¤®à¥à¤² à¤¸à¥à¤µà¤¾" isActive={activeTab === 'email'} onClick={() => { setActiveTab('email'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
+              <NavItem icon={<CalendarClock />} label="à¤¶à¥à¤¡à¥à¤¯à¥à¤²à¥à¤¡ à¤ªà¥à¤¸à¥à¤à¥à¤¸" isActive={activeTab === 'schedule'} onClick={() => { setActiveTab('schedule'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
             </nav>
 
             <div className="p-4 bg-surface-100/60 dark:bg-surface-950/50 mt-auto border-t border-surface-200 dark:border-surface-800">
-              <NavItem icon={<Blocks />} label="इंटीग्रेशन्स" isActive={activeTab === 'integrations'} onClick={() => { setActiveTab('integrations'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
-              <NavItem icon={<Settings />} label="सेटिंग्स" isActive={activeTab === 'settings'} onClick={() => { setActiveTab('settings'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
+              <NavItem icon={<Blocks />} label="à¤à¤à¤à¥à¤à¥à¤°à¥à¤¶à¤¨à¥à¤¸" isActive={activeTab === 'integrations'} onClick={() => { setActiveTab('integrations'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
+              <NavItem icon={<Settings />} label="à¤¸à¥à¤à¤¿à¤à¤à¥à¤¸" isActive={activeTab === 'settings'} onClick={() => { setActiveTab('settings'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
               
               <div className="mt-4 pt-4 border-t border-surface-200 dark:border-surface-800 flex items-center gap-3 px-3">
                 <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-primary-500 to-purple-500 flex items-center justify-center text-white font-bold shadow-lg shrink-0">
                   {user?.name?.[0] || user?.email?.[0]?.toUpperCase() || 'U'}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-surface-900 dark:text-white truncate">{user?.name || "उपयोगकर्ता"}</p>
+                  <p className="text-sm font-medium text-surface-900 dark:text-white truncate">{user?.name || "à¤à¤ªà¤¯à¥à¤à¤à¤°à¥à¤¤à¤¾"}</p>
                   <p className="text-xs text-surface-500 truncate">{user?.email}</p>
                 </div>
-                <button onClick={onLogout} className="p-2 hover:bg-surface-100 dark:hover:bg-surface-800 rounded-xl transition-colors text-surface-500 hover:text-surface-900 dark:hover:text-white shrink-0" title="लॉगआउट">
+                <button onClick={onLogout} className="p-2 hover:bg-surface-100 dark:hover:bg-surface-800 rounded-xl transition-colors text-surface-500 hover:text-surface-900 dark:hover:text-white shrink-0" title="à¤²à¥à¤à¤à¤à¤">
                   <LogOut className="w-4 h-4" />
                 </button>
               </div>
@@ -456,7 +515,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
               <Menu className="w-5 h-5" />
             </button>
             <h1 className="text-lg font-bold capitalize text-surface-900 dark:text-white font-display">
-              {activeTab === 'dashboard' ? 'डैशबोर्ड' : activeTab === 'inbox' ? 'इनबॉक्स' : activeTab === 'active-conversations' ? 'सक्रिय बातचीत' : activeTab === 'broadcast' ? 'ब्रॉडकास्ट' : activeTab === 'schedule' ? 'शेड्यूलर' : activeTab === 'contacts' ? 'संपर्क और लीड्स' : activeTab === 'accounts-whatsapp' ? 'WhatsApp अकाउंट्स' : activeTab === 'calls' ? 'कॉल लॉग्स' : activeTab === 'email' ? 'ईमेल सेवा' : 'सेटिंग्स'}
+              {activeTab === 'dashboard' ? 'à¤¡à¥à¤¶à¤¬à¥à¤°à¥à¤¡' : activeTab === 'inbox' ? 'à¤à¤¨à¤¬à¥à¤à¥à¤¸' : activeTab === 'active-conversations' ? 'à¤¸à¤à¥à¤°à¤¿à¤¯ à¤¬à¤¾à¤¤à¤à¥à¤¤' : activeTab === 'broadcast' ? 'à¤¬à¥à¤°à¥à¤¡à¤à¤¾à¤¸à¥à¤' : activeTab === 'schedule' ? 'à¤¶à¥à¤¡à¥à¤¯à¥à¤²à¤°' : activeTab === 'contacts' ? 'à¤¸à¤à¤ªà¤°à¥à¤ à¤à¤° à¤²à¥à¤¡à¥à¤¸' : activeTab === 'accounts-whatsapp' ? 'WhatsApp à¤à¤à¤¾à¤à¤à¤à¥à¤¸' : activeTab === 'calls' ? 'à¤à¥à¤² à¤²à¥à¤à¥à¤¸' : activeTab === 'email' ? 'à¤à¤®à¥à¤² à¤¸à¥à¤µà¤¾' : 'à¤¸à¥à¤à¤¿à¤à¤à¥à¤¸'}
             </h1>
           </div>
           
@@ -465,15 +524,15 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-surface-400" />
               <input 
                 type="text" 
-                placeholder="खोजें..." 
+                placeholder="à¤à¥à¤à¥à¤..." 
                 className="pl-9 pr-4 py-2 w-64 text-sm bg-surface-100 dark:bg-surface-900 border border-transparent focus:bg-white dark:focus:bg-surface-950 focus:border-primary-500 rounded-full outline-none transition-all shadow-sm"
               />
             </div>
             {/* WebSocket Connection Status */}
-            <div className="flex items-center gap-1.5 text-[10px] font-medium" title={wsStatus === 'connecting' ? 'WebSocket कनेक्ट हो रहा है...' : wsStatus === 'connected' ? 'WebSocket कनेक्टेड' : 'WebSocket डिस्कनेक्टेड - कॉल नहीं आएंगी'}>
+            <div className="flex items-center gap-1.5 text-[10px] font-medium" title={wsStatus === 'connecting' ? 'WebSocket à¤à¤¨à¥à¤à¥à¤ à¤¹à¥ à¤°à¤¹à¤¾ à¤¹à¥...' : wsStatus === 'connected' ? 'WebSocket à¤à¤¨à¥à¤à¥à¤à¥à¤¡' : 'WebSocket à¤¡à¤¿à¤¸à¥à¤à¤¨à¥à¤à¥à¤à¥à¤¡ - à¤à¥à¤² à¤¨à¤¹à¥à¤ à¤à¤à¤à¤à¥'}>
               <span className={`w-2 h-2 rounded-full ${wsStatus === 'connected' ? 'bg-emerald-400' : wsStatus === 'connecting' ? 'bg-amber-400 animate-pulse' : 'bg-rose-400'}`}></span>
               <span className="text-surface-400 hidden sm:inline">
-                {wsStatus === 'connecting' ? 'कनेक्ट हो रहा है...' : wsStatus === 'connected' ? 'लाइव' : 'ऑफलाइन'}
+                {wsStatus === 'connecting' ? 'à¤à¤¨à¥à¤à¥à¤ à¤¹à¥ à¤°à¤¹à¤¾ à¤¹à¥...' : wsStatus === 'connected' ? 'à¤²à¤¾à¤à¤µ' : 'à¤à¤«à¤²à¤¾à¤à¤¨'}
               </span>
             </div>
             <ThemeToggle />
@@ -521,6 +580,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                   setActiveTab={setActiveTab} 
                   setActiveCall={setActiveCall} 
                   setPreselectedChat={setPreselectedChat} 
+                  startWhatsAppCall={handleStartWhatsAppCall}
                 />
               )}
             </motion.div>
@@ -552,14 +612,14 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
 
               <div className="flex flex-col items-center mb-3 gap-2">
                 <span className="inline-block px-3 py-1 bg-emerald-500/15 text-emerald-400 text-[10px] font-bold uppercase tracking-widest rounded-full">
-                  इनकमिंग कॉल
+                  à¤à¤¨à¤à¤®à¤¿à¤à¤ à¤à¥à¤²
                 </span>
                 <span className="inline-block px-2 py-1 bg-amber-500/10 text-amber-500 text-[10px] font-semibold rounded-md border border-amber-500/20">
-                  ⚠️ कृपया 30 सेकंड के अंदर जवाब दें
+                  â ï¸ à¤à¥à¤ªà¤¯à¤¾ 30 à¤¸à¥à¤à¤à¤¡ à¤à¥ à¤à¤à¤¦à¤° à¤à¤µà¤¾à¤¬ à¤¦à¥à¤
                 </span>
               </div>
 
-              <h3 className="text-xl font-bold font-display tracking-tight text-white truncate">{incomingCall.contact_name || 'अज्ञात'}</h3>
+              <h3 className="text-xl font-bold font-display tracking-tight text-white truncate">{incomingCall.contact_name || 'à¤à¤à¥à¤à¤¾à¤¤'}</h3>
               <p className="text-xs text-surface-400 font-mono mt-1">+{incomingCall.phone}</p>
 
               <div className="flex gap-4 mt-8">
@@ -569,7 +629,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                     try {
                       // Meta API reject (stops ringing on caller's side)
                       if (incomingCall.phoneNumberId) {
-                        await fetch(`/api/whatsapp/calls/${incomingCall.id}/reject`, {
+                        await fetch(`/api/whatsapp/calls/${encodeURIComponent(incomingCall.id)}/reject`, {
                           method: 'POST',
                           headers: {
                             'Content-Type': 'application/json',
@@ -579,7 +639,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                         });
                       }
                       // Local DB status update
-                      await fetch(`/api/whatsapp/calls/${incomingCall.id}/status`, {
+                      await fetch(`/api/whatsapp/calls/${encodeURIComponent(incomingCall.id)}/status`, {
                         method: 'POST',
                         headers: {
                           'Content-Type': 'application/json',
@@ -593,26 +653,42 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                   className="flex-1 bg-rose-500 hover:bg-rose-600 text-white py-3.5 rounded-2xl text-xs font-bold transition-all shadow-lg shadow-rose-500/20 active:scale-95 flex items-center justify-center gap-2"
                 >
                   <X className="w-4 h-4" />
-                  काटें
+                  à¤à¤¾à¤à¥à¤
                 </button>
 
                 <button
                   onClick={async () => {
                     try {
-                      if (!incomingCall.sdp) {
-                        alert('SDP डेटा उपलब्ध नहीं है। कृपया WhatsApp Cloud API की Calling Webhook सेटिंग जांचें और सुनिश्चित करें कि "calls" फ़ील्ड सब्सक्राइब है।');
+                      if (callTimeoutRef.current) { clearTimeout(callTimeoutRef.current); callTimeoutRef.current = null; }
+                      let callSdp = incomingCall.sdp;
+                      if (!callSdp) {
+                        try {
+                          const sdpRes = await fetch(`/api/whatsapp/calls/${encodeURIComponent(incomingCall.id)}/sdp`, {
+                            headers: { 'x-workspace-id': incomingCall.workspace_id }
+                          });
+                          const sdpData: any = await sdpRes.json();
+                          callSdp = sdpData.sdp || '';
+                          if (callSdp) {
+                            setIncomingCall((prev: any) => prev ? { ...prev, sdp: callSdp } : prev);
+                          }
+                        } catch (e) {
+                          console.error('[IncomingCall] Failed to fetch SDP from backend:', e);
+                        }
+                      }
+                      if (!callSdp) {
+                        alert('SDP data upalabdh nahi hai. Kripya "calls" webhook field subscribed hone ki jaanch karein.');
                         setIncomingCall(null);
                         return;
                       }
                       await answerWebRTC({
                         id: incomingCall.id,
                         from: incomingCall.from || incomingCall.phone,
-                        sdp: incomingCall.sdp,
+                        sdp: callSdp,
                         phoneNumberId: incomingCall.phoneNumberId,
                         workspace_id: incomingCall.workspace_id
                       });
                       try {
-                        await fetch(`/api/whatsapp/calls/${incomingCall.id}/status`, {
+                        await fetch(`/api/whatsapp/calls/${encodeURIComponent(incomingCall.id)}/status`, {
                           method: 'POST',
                           headers: {
                             'Content-Type': 'application/json',
@@ -629,13 +705,13 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                       setIncomingCall(null);
                     } catch(e) {
                       console.error("WebRTC answer failed", e);
-                      alert('कॉल उत्तर देने में विफल: ' + (e instanceof Error ? e.message : 'अज्ञात त्रुटि'));
+                      alert('à¤à¥à¤² à¤à¤¤à¥à¤¤à¤° à¤¦à¥à¤¨à¥ à¤®à¥à¤ à¤µà¤¿à¤«à¤²: ' + (e instanceof Error ? e.message : 'à¤à¤à¥à¤à¤¾à¤¤ à¤¤à¥à¤°à¥à¤à¤¿'));
                     }
                   }}
                   className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white py-3.5 rounded-2xl text-xs font-bold transition-all shadow-lg shadow-emerald-500/20 active:scale-95 flex items-center justify-center gap-2"
                 >
                   <Phone className="w-4 h-4" />
-                  उठाएं
+                  à¤à¤ à¤¾à¤à¤
                 </button>
               </div>
             </motion.div>
@@ -684,15 +760,15 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                 <Phone className="w-5 h-5 text-rose-400" />
               </div>
               <div className="flex-1 min-w-0">
-                <h4 className="text-sm font-bold text-white">मिस्ड कॉल</h4>
+                <h4 className="text-sm font-bold text-white">à¤®à¤¿à¤¸à¥à¤¡ à¤à¥à¤²</h4>
                 <p className="text-xs text-surface-400 mt-0.5 truncate">
-                  {incomingCallNoSdp.contact_name || 'अज्ञात'} ({incomingCallNoSdp.phone || 'अज्ञात'})
+                  {incomingCallNoSdp.contact_name || 'à¤à¤à¥à¤à¤¾à¤¤'} ({incomingCallNoSdp.phone || 'à¤à¤à¥à¤à¤¾à¤¤'})
                 </p>
                 <div className="flex gap-2 mt-2">
                   <span className="text-[10px] text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-full">
                     {callsFieldStatus === 'not_subscribed'
-                      ? '⚠️ WhatsApp Cloud API में "calls" फ़ील्ड सब्सक्राइब नहीं है — कॉल कनेक्ट नहीं हो सकती'
-                      : '⚡ WebRTC SDP उपलब्ध नहीं — केवल मिस्ड कॉल ही दिखाया जा सकता है'}
+                      ? 'â ï¸ WhatsApp Cloud API à¤®à¥à¤ "calls" à¤«à¤¼à¥à¤²à¥à¤¡ à¤¸à¤¬à¥à¤¸à¤à¥à¤°à¤¾à¤à¤¬ à¤¨à¤¹à¥à¤ à¤¹à¥ â à¤à¥à¤² à¤à¤¨à¥à¤à¥à¤ à¤¨à¤¹à¥à¤ à¤¹à¥ à¤¸à¤à¤¤à¥'
+                      : 'â¡ WebRTC SDP à¤à¤ªà¤²à¤¬à¥à¤§ à¤¨à¤¹à¥à¤ â à¤à¥à¤µà¤² à¤®à¤¿à¤¸à¥à¤¡ à¤à¥à¤² à¤¹à¥ à¤¦à¤¿à¤à¤¾à¤¯à¤¾ à¤à¤¾ à¤¸à¤à¤¤à¤¾ à¤¹à¥'}
                   </span>
                 </div>
               </div>
@@ -704,5 +780,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
         )}
       </AnimatePresence>
     </div>
+    </TwilioVoiceProvider>
+    </PlivoVoiceProvider>
   );
 }

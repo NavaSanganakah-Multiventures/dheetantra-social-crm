@@ -13,6 +13,11 @@ import '../services/notification_center.dart';
 import '../services/notification_router.dart';
 import '../services/websocket_service.dart';
 import '../services/webrtc_service.dart';
+import '../services/twilio_voice_service.dart';
+import '../services/plivo_voice_service.dart';
+import '../services/caller_id_service.dart';
+import 'caller_card_screen.dart';
+import 'after_call_screen.dart';
 import '../theme/app_theme.dart';
 import '../widgets/call_overlays.dart';
 import '../widgets/responsive_layout.dart';
@@ -37,6 +42,9 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   bool _wsConnected = false;
   bool _wsInitialized = false;
   int _unread = 0;
+  // Cold-start / killed-state accept par HomeScreen ka flash na dikhe, isliye
+  // pending accept process hone tak blank dark screen rakhte hain.
+  bool _isLaunchingCall = true;
   StreamSubscription? _wsConnSub;
   StreamSubscription? _wsMsgSub;
   StreamSubscription? _wsCallSub;
@@ -44,7 +52,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   StreamSubscription? _notifCenterSub;
   StreamSubscription? _notifRouterSub;
 
-  static const _titles = ['डैशबोर्ड', 'इनबॉक्स', 'संपर्क और लीड्स', 'ब्रॉडकास्ट', 'सेटिंग्स'];
+  static const _titles = ['à¤¡à¥à¤¶à¤¬à¥à¤°à¥à¤¡', 'à¤à¤¨à¤¬à¥à¤à¥à¤¸', 'à¤¸à¤à¤ªà¤°à¥à¤ à¤à¤° à¤²à¥à¤¡à¥à¤¸', 'à¤¬à¥à¤°à¥à¤¡à¤à¤¾à¤¸à¥à¤', 'à¤¸à¥à¤à¤¿à¤à¤à¥à¤¸'];
 
   @override
   void initState() {
@@ -56,6 +64,8 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
       if (mounted) setState(() => _unread = NotificationCenter().unread);
     });
     _notifRouterSub = NotificationRouter().onNotification.listen(_handlePushTap);
+    CallerIdService.events.listen(_handleCallerIdEvent);
+    CallKitService().markHomeShellReady();
     _checkPendingAcceptedCall();
   }
 
@@ -63,14 +73,13 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final pending = CallKitService().takePendingAcceptCall();
       if (pending != null && mounted) {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => CallScreen(callData: pending),
-          ),
-        );
-        Future.delayed(const Duration(milliseconds: 300), () {
-          WebRTCService().answerCall(pending);
-        });
+        debugPrint('[HomeShell] pending accepted call, opening CallScreen');
+        CallScreen.push(context, pending);
+      }
+      // Chahe pending ho ya na ho, first frame ke baad launch guard hata do.
+      // Warna app hamesha blank dark screen par atak jayegi.
+      if (mounted && _isLaunchingCall) {
+        setState(() => _isLaunchingCall = false);
       }
     });
   }
@@ -80,7 +89,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     // App background se wapas aaye to realtime reconnect ke baad data refresh
     // trigger karna chahiye. WebSocketService apne aap reconnect karta hai.
     if (state == AppLifecycleState.resumed) {
-      debugPrint('[HomeShell] app resumed — refresh trigger bhej rahe hain');
+      debugPrint('[HomeShell] app resumed â refresh trigger bhej rahe hain');
       DataRefreshService().trigger(RefreshReason.appResumed);
       _checkPendingAcceptedCall();
     }
@@ -92,6 +101,12 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     FcmService().setupForUser();
     // Android 13+ notification aur Android 14+ full-screen intent permissions.
     CallKitService().requestPermissions();
+    // Call permission: app start/login ke baad hi maang lo taaki call aane
+    // par mic access pehle se ho. Deny hone par bhi CallScreen permission UI
+    // dikhayega.
+    unawaited(WebRTCService().ensureMicrophonePermission());
+    unawaited(TwilioVoiceService().init());
+    unawaited(PlivoVoiceService().init());
     BatteryOptimizationService().checkAndPrompt(context);
     
     // Start persistent connection service
@@ -106,16 +121,16 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
       });
     });
 
-    // New incoming message → notification center + unread badge.
+    // New incoming message â notification center + unread badge.
     _wsMsgSub = ws.onNewMessage.listen((data) {
       final msg = data['message'];
       if (msg == null) return;
       final convId = msg['conversation_id'] ?? '';
       final senderType = msg['sender_type'] ?? '';
-      final text = msg['content'] ?? '(मीडिया)';
+      final text = msg['content'] ?? '(à¤®à¥à¤¡à¤¿à¤¯à¤¾)';
       if (senderType == 'contact' || senderType == 'customer') {
         NotificationCenter().add(
-          title: 'नया संदेश',
+          title: 'à¤¨à¤¯à¤¾ à¤¸à¤à¤¦à¥à¤¶',
           body: text.toString(),
           type: 'message',
           data: {'conversation_id': convId, 'from': msg['from'] ?? ''},
@@ -127,22 +142,22 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
       final status = data['status'] ?? '';
       if (status == 'missed') {
         NotificationCenter().add(
-          title: 'मिस्ड कॉल',
-          body: 'एक WhatsApp वॉयस कॉल मिस हुई',
+          title: 'à¤®à¤¿à¤¸à¥à¤¡ à¤à¥à¤²',
+          body: 'à¤à¤ WhatsApp à¤µà¥à¤¯à¤¸ à¤à¥à¤² à¤®à¤¿à¤¸ à¤¹à¥à¤',
           type: 'call',
           data: {'call_id': data['call_id'] ?? ''},
         );
       }
     });
 
-    // Only surface user-relevant transitions — a reopened conversation. Routine
+    // Only surface user-relevant transitions â a reopened conversation. Routine
     // admin close/reassign events would otherwise flood the notification center.
     _wsConvStatusSub = ws.onConversationStatusUpdated.listen((data) {
       final status = data['status'] ?? '';
       if (status != 'open') return;
       NotificationCenter().add(
-        title: 'बातचीत खुली',
-        body: 'आपकी एक बातचीत फिर से खोली गई',
+        title: 'à¤¬à¤¾à¤¤à¤à¥à¤¤ à¤à¥à¤²à¥',
+        body: 'à¤à¤ªà¤à¥ à¤à¤ à¤¬à¤¾à¤¤à¤à¥à¤¤ à¤«à¤¿à¤° à¤¸à¥ à¤à¥à¤²à¥ à¤à¤',
         type: 'system',
         data: {'conversation_id': data['conversation_id'] ?? ''},
       );
@@ -165,31 +180,20 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     } else if (type == 'incoming_call') {
       final callId = data['id']?.toString() ?? '';
       if (callId.isEmpty) return;
-      // Notification tap par full call screen dikhayein. Agar SDP abhi bhi valid
-      // hai toh turant answer karna possible hai, nahi toh user hangup kar sakta hai.
-      final callData = Map<String, dynamic>.from(data);
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => CallScreen(callData: callData),
-        ),
-      );
-      if ((data['sdp']?.toString() ?? '').isNotEmpty) {
-        Future.delayed(const Duration(milliseconds: 300), () {
-          WebRTCService().answerCall(callData);
-        });
-      }
+      debugPrint('[HomeShell] notification tap incoming_call -> CallScreen');
+      CallScreen.push(context, Map<String, dynamic>.from(data));
     } else if (type == 'missed_call') {
       final phone = data['phone'] ?? '';
       if (mounted) {
         showDialog<void>(
           context: context,
           builder: (ctx) => AlertDialog(
-            title: const Text('मिस्ड कॉल'),
-            content: Text('आपकी एक WhatsApp वॉयस कॉल मिस हुई${phone.isNotEmpty ? ' (+$phone)' : ''}।'),
+            title: const Text('à¤®à¤¿à¤¸à¥à¤¡ à¤à¥à¤²'),
+            content: Text('à¤à¤ªà¤à¥ à¤à¤ WhatsApp à¤µà¥à¤¯à¤¸ à¤à¥à¤² à¤®à¤¿à¤¸ à¤¹à¥à¤${phone.isNotEmpty ? ' (+$phone)' : ''}à¥¤'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(ctx).pop(),
-                child: const Text('ठीक है'),
+                child: const Text('à¤ à¥à¤ à¤¹à¥'),
               ),
             ],
           ),
@@ -245,8 +249,36 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     super.dispose();
   }
 
+
+  void _handleCallerIdEvent(Map<String, dynamic> event) {
+    final route = event['route']?.toString();
+    final phone = event['phone']?.toString();
+    if (phone == null || phone.isEmpty || route == null || route.isEmpty) return;
+    if (!mounted) return;
+    if (route == '/caller-card') {
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => CallerCardScreen(phone: phone)),
+      );
+    } else if (route == '/after-call') {
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => AfterCallScreen(
+          phone: phone,
+          durationSeconds: (event['durationSeconds'] as num?)?.toInt() ?? 0,
+          direction: event['direction']?.toString() ?? 'incoming',
+        )),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Cold-start accept ke waqt HomeScreen flash na dikhe.
+    if (_isLaunchingCall) {
+      return const Scaffold(
+        backgroundColor: AppColors.background,
+        body: SizedBox.expand(),
+      );
+    }
     final screens = [
       DashboardScreen(
         onOpenInbox: () => setState(() => _index = 1),
@@ -283,27 +315,27 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
               NavigationDestination(
                 icon: Icon(Icons.dashboard_outlined),
                 selectedIcon: Icon(Icons.dashboard_rounded),
-                label: 'होम',
+                label: 'à¤¹à¥à¤®',
               ),
               NavigationDestination(
                 icon: Icon(Icons.chat_bubble_outline_rounded),
                 selectedIcon: Icon(Icons.chat_bubble_rounded),
-                label: 'इनबॉक्स',
+                label: 'à¤à¤¨à¤¬à¥à¤à¥à¤¸',
               ),
               NavigationDestination(
                 icon: Icon(Icons.people_alt_outlined),
                 selectedIcon: Icon(Icons.people_alt_rounded),
-                label: 'संपर्क',
+                label: 'à¤¸à¤à¤ªà¤°à¥à¤',
               ),
               NavigationDestination(
                 icon: Icon(Icons.campaign_outlined),
                 selectedIcon: Icon(Icons.campaign_rounded),
-                label: 'ब्रॉडकास्ट',
+                label: 'à¤¬à¥à¤°à¥à¤¡à¤à¤¾à¤¸à¥à¤',
               ),
               NavigationDestination(
                 icon: Icon(Icons.settings_outlined),
                 selectedIcon: Icon(Icons.settings_rounded),
-                label: 'सेटिंग्स',
+                label: 'à¤¸à¥à¤à¤¿à¤à¤à¥à¤¸',
               ),
             ],
           ),
@@ -370,7 +402,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
                 ),
                 const SizedBox(width: 5),
                 Text(
-                  connecting ? 'कनेक्ट' : connected ? 'Live' : 'ऑफलाइन',
+                  connecting ? 'à¤à¤¨à¥à¤à¥à¤' : connected ? 'Live' : 'à¤à¤«à¤²à¤¾à¤à¤¨',
                   style: TextStyle(
                     color: connected
                         ? AppColors.success

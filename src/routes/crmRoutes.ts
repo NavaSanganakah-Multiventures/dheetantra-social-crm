@@ -402,7 +402,7 @@ router.get('/api/crm/contacts', async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
-  // Fetch from D1 (Relational Data) â paginated; frontend already sends limit=
+  // Fetch from D1 (Relational Data) — paginated; frontend already sends limit=
   const { limit, offset } = pagination(c, 500);
   const { results } = await c.env.DB.prepare(
     'SELECT * FROM contacts WHERE workspace_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?'
@@ -483,8 +483,8 @@ router.post('/api/crm/contacts', async (c) => {
     lead_value
   } = body;
 
-  if (!name) return c.json({ error: 'à¤¨à¤¾à¤® à¤à¤µà¤¶à¥à¤¯à¤ à¤¹à¥ (Name is required)' }, 400);
-  if (!phone) return c.json({ error: 'à¤«à¤¼à¥à¤¨ à¤¨à¤à¤¬à¤° à¤à¤µà¤¶à¥à¤¯à¤ à¤¹à¥ (Phone is required)' }, 400);
+  if (!name) return c.json({ error: 'नाम आवश्यक है (Name is required)' }, 400);
+  if (!phone) return c.json({ error: 'फ़ोन नंबर आवश्यक है (Phone is required)' }, 400);
   if (String(name).length > 200) return c.json({ error: 'Name is too long (max 200 characters)' }, 400);
   if (notes && String(notes).length > 5000) return c.json({ error: 'Notes are too long (max 5000 characters)' }, 400);
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email))) {
@@ -499,7 +499,7 @@ router.post('/api/crm/contacts', async (c) => {
   ).bind(workspaceId, platformContactId).first();
 
   if (existing) {
-    return c.json({ error: 'à¤à¤¸ à¤«à¤¼à¥à¤¨ à¤¨à¤à¤¬à¤° à¤µà¤¾à¤²à¤¾ à¤¸à¤à¤ªà¤°à¥à¤ à¤ªà¤¹à¤²à¥ à¤¸à¥ à¤®à¥à¤à¥à¤¦ à¤¹à¥à¥¤' }, 400);
+    return c.json({ error: 'इस फ़ोन नंबर वाला संपर्क पहले से मौजूद है।' }, 400);
   }
 
   const id = crypto.randomUUID();
@@ -556,15 +556,15 @@ router.put('/api/crm/contacts/:contactId', async (c) => {
     lead_value
   } = body;
 
-  if (!name) return c.json({ error: 'à¤¨à¤¾à¤® à¤à¤µà¤¶à¥à¤¯à¤ à¤¹à¥' }, 400);
-  if (!phone) return c.json({ error: 'à¤«à¤¼à¥à¤¨ à¤¨à¤à¤¬à¤° à¤à¤µà¤¶à¥à¤¯à¤ à¤¹à¥' }, 400);
+  if (!name) return c.json({ error: 'नाम आवश्यक है' }, 400);
+  if (!phone) return c.json({ error: 'फ़ोन नंबर आवश्यक है' }, 400);
 
   const platformContactId = phone.replace(/[^0-9]/g, '');
 
   const existing = await c.env.DB.prepare(
     'SELECT id FROM contacts WHERE id = ? AND workspace_id = ?'
   ).bind(contactId, workspaceId).first();
-  if (!existing) return c.json({ error: 'à¤¸à¤à¤ªà¤°à¥à¤ à¤¨à¤¹à¥à¤ à¤®à¤¿à¤²à¤¾' }, 404);
+  if (!existing) return c.json({ error: 'संपर्क नहीं मिला' }, 404);
 
   await c.env.DB.prepare(`
     UPDATE contacts SET
@@ -614,7 +614,7 @@ router.delete('/api/crm/contacts/:contactId', async (c) => {
   const existing = await c.env.DB.prepare(
     'SELECT id FROM contacts WHERE id = ? AND workspace_id = ?'
   ).bind(contactId, workspaceId).first();
-  if (!existing) return c.json({ error: 'à¤¸à¤à¤ªà¤°à¥à¤ à¤¨à¤¹à¥à¤ à¤®à¤¿à¤²à¤¾' }, 404);
+  if (!existing) return c.json({ error: 'संपर्क नहीं मिला' }, 404);
 
   // Delete conversations and messages associated with this contact
   const convs = await c.env.DB.prepare('SELECT id FROM conversations WHERE contact_id = ?').bind(contactId).all<{ id: string }>();
@@ -632,5 +632,113 @@ router.delete('/api/crm/contacts/:contactId', async (c) => {
 });
 
 // Initiate conversation from contact list
+
+
+// ==========================================
+// USER DEFAULT-DIALER SETTING
+// ==========================================
+router.get('/api/crm/user/settings', async (c) => {
+  const userId = await resolveUserId(c);
+  if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+  const row = await c.env.DB.prepare('SELECT default_dialer_enabled FROM users WHERE id = ?').bind(userId).first() as { default_dialer_enabled: number } | null;
+  return c.json({ default_dialer_enabled: row ? row.default_dialer_enabled === 1 : false });
+});
+
+router.patch('/api/crm/user/settings', async (c) => {
+  const userId = await resolveUserId(c);
+  if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+  const { default_dialer_enabled } = await c.req.json();
+  await c.env.DB.prepare('UPDATE users SET default_dialer_enabled = ? WHERE id = ?')
+    .bind(default_dialer_enabled ? 1 : 0, userId).run();
+  return c.json({ success: true, default_dialer_enabled: !!default_dialer_enabled });
+});
+
+// ==========================================
+// FIND OR CREATE GSM CONTACT BY PHONE
+// ==========================================
+router.post('/api/crm/contacts/find-or-create', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+  const { phone, name } = await c.req.json();
+  if (!phone) return c.json({ error: 'phone required' }, 400);
+  const normalizedPhone = phone.replace(/[^0-9+]/g, '');
+  const existing = await c.env.DB.prepare(
+    'SELECT id, name FROM contacts WHERE workspace_id = ? AND platform = ? AND platform_contact_id = ?'
+  ).bind(workspaceId, 'gsm', normalizedPhone).first<{ id: string; name: string }>();
+  if (existing) return c.json({ contactId: existing.id, created: false });
+  const id = crypto.randomUUID();
+  await c.env.DB.prepare(
+    'INSERT INTO contacts (id, workspace_id, platform, platform_contact_id, name) VALUES (?, ?, ?, ?, ?)'
+  ).bind(id, workspaceId, 'gsm', normalizedPhone, name || normalizedPhone).run();
+  return c.json({ contactId: id, created: true });
+});
+
+// ==========================================
+// CALLER ID CARD - TRUECALLER-STYLE PROFILE
+// ==========================================
+function normalizePhoneForMatch(phone: string): string {
+  return phone.replace(/[^0-9]/g, '');
+}
+
+router.get('/api/crm/caller-card', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  const phone = c.req.query('phone');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+  if (!phone) return c.json({ error: 'phone required' }, 400);
+  const digits = normalizePhoneForMatch(phone);
+
+  // Find contact by normalized phone digits on platform_contact_id or phone column
+  const contact = await c.env.DB.prepare(`
+    SELECT * FROM contacts
+    WHERE workspace_id = ?
+      AND (REPLACE(REPLACE(REPLACE(platform_contact_id, '+', ''), '-', ''), ' ', '') = ?
+        OR REPLACE(REPLACE(REPLACE(phone, '+', ''), '-', ''), ' ', '') = ?)
+    ORDER BY created_at DESC
+    LIMIT 1
+  `).bind(workspaceId, digits, digits).first<any>();
+
+  if (!contact) {
+    return c.json({ found: false, phone, digits });
+  }
+
+  // Last message across all conversations for this contact
+  const lastMessage = await c.env.DB.prepare(`
+    SELECT m.content, m.message_type, m.created_at, c.platform
+    FROM messages m
+    JOIN conversations c ON m.conversation_id = c.id
+    WHERE c.contact_id = ?
+    ORDER BY m.created_at DESC
+    LIMIT 1
+  `).bind(contact.id).first<{ content: string; message_type: string; created_at: string; platform: string }>();
+
+  // Call stats for this contact
+  const callStats = await c.env.DB.prepare(`
+    SELECT COUNT(*) as total_calls, COALESCE(SUM(duration), 0) as total_duration_seconds, MAX(created_at) as last_call_at
+    FROM calls
+    WHERE workspace_id = ? AND contact_id = ?
+  `).bind(workspaceId, contact.id).first<{ total_calls: number; total_duration_seconds: number; last_call_at: string }>();
+
+  return c.json({
+    found: true,
+    contactId: contact.id,
+    name: contact.name,
+    phone: contact.platform_contact_id || contact.phone || phone,
+    email: contact.email || null,
+    leadStatus: contact.lead_status || null,
+    tags: contact.tags || [],
+    notes: contact.notes || null,
+    lastMessage: lastMessage ? {
+      content: lastMessage.content,
+      platform: lastMessage.platform,
+      type: lastMessage.message_type,
+      createdAt: lastMessage.created_at
+    } : null,
+    callStats: {
+      totalCalls: callStats?.total_calls || 0,
+      totalDurationSeconds: callStats?.total_duration_seconds || 0,
+      lastCallAt: callStats?.last_call_at || null
+    }
+  });
+});
 
 export default router;

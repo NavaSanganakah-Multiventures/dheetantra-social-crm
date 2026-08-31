@@ -2,6 +2,7 @@ import { Hono, Context } from 'hono';
 import { cors } from 'hono/cors';
 import { getCookie, setCookie, deleteCookie } from 'hono/cookie';
 import { Env } from './types';
+import { autoMigrate } from './autoMigrate';
 import { handleIncomingMessage } from './services/chatbot';
 import { DurableObject, WorkflowEntrypoint } from 'cloudflare:workers';
 import { EmailMessage } from 'cloudflare:email';
@@ -14,8 +15,12 @@ import emailRoutes from './routes/emailRoutes';
 import whatsappRoutes from './routes/whatsappRoutes';
 import inboxRoutes from './routes/inboxRoutes';
 import callRoutes from './routes/callRoutes';
+import twilioVoice from './routes/twilioVoice';
+import plivoVoice from './routes/plivoVoice';
+import voiceAgentRoutes from './routes/voiceAgentRoutes';
 import miscRoutes from './routes/miscRoutes';
 import billingRoutes from './routes/billingRoutes';
+import catalogRoutes from './routes/catalogRoutes';
 import {
   authMiddleware,
   pagination,
@@ -270,6 +275,30 @@ app.use('/api/whatsapp/flows/*', authMiddleware);
 app.use('/api/whatsapp/send', authMiddleware);
 app.use('/api/whatsapp/calls', authMiddleware);
 app.use('/api/whatsapp/calls/*', authMiddleware);
+// Twilio webhook callbacks are signed by Twilio and do not carry our
+// auth session, so exclude /api/twilio/webhook/* from JWT/session auth.
+// Other /api/twilio/* routes still require authentication.
+app.use('/api/twilio/*', async (c, next) => {
+  const path = c.req.path;
+  if (path.startsWith('/api/twilio/webhook')) {
+    return next();
+  }
+  return authMiddleware(c, next);
+});
+// Plivo webhook callbacks are signed by Plivo and do not carry our auth
+// session, so exclude /api/plivo/webhook/* from JWT/session auth.
+// Other /api/plivo/* routes still require authentication.
+app.use('/api/plivo/*', async (c, next) => {
+  const path = c.req.path;
+  if (path.startsWith('/api/plivo/webhook')) {
+    return next();
+  }
+  return authMiddleware(c, next);
+});
+app.use('/api/voice', authMiddleware);
+app.use('/api/voice/*', authMiddleware);
+app.use('/api/calls', authMiddleware);
+app.use('/api/calls/*', authMiddleware);
 app.use('/api/inbox/*', authMiddleware);
 app.use('/api/media/upload', authMiddleware);
 app.use('/api/broadcast', authMiddleware);
@@ -295,6 +324,8 @@ app.use('/api/webrtc/*', authMiddleware);
 // set by authMiddleware. Without this the route always 403s.
 app.use('/api/campaigns/*', authMiddleware);
 app.use('/api/fcm/*', authMiddleware);
+app.use('/api/catalogs', authMiddleware);
+app.use('/api/catalogs/*', authMiddleware);
 
 // Billing endpoints are authenticated except the Razorpay webhook
 app.use('/api/billing/*', async (c, next) => {
@@ -310,8 +341,12 @@ app.route('/', emailRoutes);
 app.route('/', whatsappRoutes);
 app.route('/', inboxRoutes);
 app.route('/', callRoutes);
+app.route('/', twilioVoice);
+app.route('/', plivoVoice);
+app.route('/', voiceAgentRoutes);
 app.route('/', miscRoutes);
 app.route('/', billingRoutes);
+app.route('/', catalogRoutes);
 
 // Health Check
 app.get('/api/health', (c) => {
@@ -351,7 +386,7 @@ app.post('/api/whatsapp/webhook', async (c) => {
       const signature = c.req.header('x-hub-signature-256') || '';
       const expected = 'sha256=' + await hmacSha256Hex(appSecret, rawBody);
       if (!constantTimeEqual(signature, expected)) {
-        console.warn('[WhatsApp] Webhook signature mismatch — ignoring event', {
+        console.warn('[WhatsApp] Webhook signature mismatch  ignoring event', {
           secretLength: appSecret.length,
           signatureLength: signature.length,
           expectedLength: expected.length,
@@ -407,6 +442,9 @@ app.post('/api/whatsapp/webhook', async (c) => {
 
               console.log(`[Calling] Event: ${event}, Call ID: ${callId}, From: ${callerNumber}, Direction: ${direction}, HasSDP: ${!!sdp}`);
 
+              if (event === 'offer' && !sdp) {
+                console.error('[Calling] OFFER without SDP -- callData keys: ' + Object.keys(callData).join(',') + ' | session: ' + JSON.stringify(callData.session || null));
+              }
               const config = await c.env.DB.prepare('SELECT workspace_id, calling_enabled, call_schedule, access_token FROM whatsapp_configs WHERE phone_number_id = ?')
                 .bind(phoneNumberId).first<{ workspace_id: string; calling_enabled: number; call_schedule: string; access_token: string }>();
 
@@ -477,6 +515,85 @@ app.post('/api/whatsapp/webhook', async (c) => {
               }
 
               if (event === 'connect' || event === 'offer') {
+              // Outgoing call progression (business/user-initiated)
+              if (direction === 'BUSINESS_INITIATED') {
+                let localCall = await c.env.DB.prepare(
+                  'SELECT id, contact_id, status FROM calls WHERE workspace_id = ? AND external_call_id = ?'
+                ).bind(config.workspace_id, callId).first<{ id: string; contact_id: string; status: string }>();
+
+                if (!localCall) {
+                  // Fallback: attach to the most recent dialing/ringing outbound WhatsApp row for this callee
+                  localCall = await c.env.DB.prepare(
+                    "SELECT id, contact_id, status FROM calls WHERE workspace_id = ? AND source = 'whatsapp' AND direction = 'outgoing' AND caller_number = ? AND status IN ('dialing','ringing') ORDER BY created_at DESC LIMIT 1"
+                  ).bind(config.workspace_id, callerNumber).first<{ id: string; contact_id: string; status: string }>();
+                  if (localCall) {
+                    await c.env.DB.prepare('UPDATE calls SET external_call_id = ? WHERE id = ?')
+                      .bind(callId, localCall.id).run();
+                  }
+                }
+
+                if (!localCall) {
+                  // No originating row found; create a minimal log so the event is not lost
+                  let fallbackContactId = '';
+                  if (callerNumber) {
+                    const existing = await c.env.DB.prepare(
+                      "SELECT id FROM contacts WHERE workspace_id = ? AND platform = 'whatsapp' AND platform_contact_id = ?"
+                    ).bind(config.workspace_id, callerNumber).first<{ id: string }>();
+                    if (existing) {
+                      fallbackContactId = existing.id;
+                    } else {
+                      fallbackContactId = crypto.randomUUID();
+                      await c.env.DB.prepare(
+                        "INSERT INTO contacts (id, workspace_id, platform, name, platform_contact_id) VALUES (?, ?, ?, ?, ?)"
+                      ).bind(fallbackContactId, config.workspace_id, 'whatsapp', `+${callerNumber}`, callerNumber).run();
+                    }
+                  }
+                  if (!fallbackContactId) {
+                    console.warn('[Calling] Skipping outgoing fallback row for call ' + callId + ': no caller number to resolve a contact');
+                    continue;
+                  }
+                  const fallbackId = crypto.randomUUID();
+                  await c.env.DB.prepare(`
+                    INSERT INTO calls (id, workspace_id, contact_id, phone_number_id, caller_number, type, direction, status, duration, source, external_call_id)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                  `).bind(fallbackId, config.workspace_id, fallbackContactId, phoneNumberId, callerNumber, 'voice', 'outgoing', 'ringing', 0, 'whatsapp', callId).run();
+                  localCall = { id: fallbackId, contact_id: fallbackContactId, status: 'ringing' };
+                }
+
+                const hasAnswerSdp = !!sdp;
+                const nextStatus = hasAnswerSdp ? 'in_progress' : 'ringing';
+                await c.env.DB.prepare('UPDATE calls SET status = ? WHERE id = ?')
+                  .bind(nextStatus, localCall.id).run();
+
+                try {
+                  const globalDoId = c.env.CHAT_DO.idFromName(`global-${config.workspace_id}`);
+                  const globalDo = c.env.CHAT_DO.get(globalDoId);
+                  await globalDo.fetch(new Request('http://internal/broadcast', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                      type: hasAnswerSdp ? 'whatsapp_outgoing_answer' : 'whatsapp_outgoing_ringing',
+                      callId: localCall.id,
+                      externalCallId: callId,
+                      from: callerNumber,
+                      sdp: sdp || '',
+                      sdpType: sdpType || 'offer',
+                      phoneNumberId: phoneNumberId
+                    })
+                  }));
+                } catch (e) {
+                  console.error('[Calling] Failed to broadcast outgoing call progress:', e);
+                }
+
+                continue;
+              }
+
+                // An incoming call that has already connected must not ring again.
+                if (event === 'connect') {
+                  await c.env.DB.prepare('UPDATE calls SET status = ? WHERE id = ? AND workspace_id = ?')
+                    .bind('in_progress', callId, config.workspace_id).run();
+                  continue;
+                }
+
                 // Incoming call â save to DB + broadcast to frontend
                 let contactId = '';
                 let callerName = callerNumber ? `+${callerNumber}` : 'Unknown';
@@ -498,17 +615,30 @@ app.post('/api/whatsapp/webhook', async (c) => {
                 }
                 console.log(`[Calling] Contact sorted: ${contactId}`);
 
-                await c.env.DB.prepare(`
+                const insertResult = await c.env.DB.prepare(`
                 INSERT OR IGNORE INTO calls (id, workspace_id, contact_id, phone_number_id, caller_number, type, direction, status, duration)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
               `).bind(callId, config.workspace_id, contactId, phoneNumberId, callerNumber, 'voice',
                   direction === 'BUSINESS_INITIATED' ? 'outgoing' : 'incoming', 'ringing', 0).run();
-                console.log(`[Calling] Call saved to DB: ${callId}`);
+                const insertedFresh = insertResult.meta?.changes === 1;
+                console.log('[Calling] Call saved to DB: ' + callId + ' (fresh insert: ' + insertedFresh + ')');
+
+                // Persist Meta's SDP offer so the mobile app can fetch it on accept
+                // (GET /api/whatsapp/calls/:id/sdp) instead of shipping it via FCM.
+                await c.env.DB.prepare('UPDATE calls SET sdp = ?, sdp_type = ? WHERE id = ?')
+                  .bind(sdp || '', sdpType || 'offer', callId).run();
+
+                // Duplicate 'offer' delivery (Meta retry/dedup miss): row already exists,
+                // so skip the busy-check + broadcast + push to avoid a double ring/push.
+                if (!insertedFresh) {
+                  console.log('[Calling] Duplicate offer webhook for ' + callId + ' -- skipping broadcast & push (SDP refreshed)');
+                  continue;
+                }
 
                 // ==========================================
                 // LINE-BUSY CHECK (WhatsApp-style busy)
-                // Agar is workspace mein pehle se koi call active hai (ringing
-                // ya in_progress) toh nayi incoming call ko turant Meta ko
+                // Agar is workspace mein pehle se koi call 'ringing' mein hai toh
+                // nayi incoming call ko turant Meta ko
                 // reject bhej dete hain â caller ko busy tone milega, app par
                 // ring/push nahi aayegi. Ye "oldest wins" hai: do calls ek
                 // saath aayein (race) toh jo pehle insert hui wo ring karegi,
@@ -525,7 +655,7 @@ app.post('/api/whatsapp/webhook', async (c) => {
                   // Agar inhe clear na karein toh wo line ko hamesha busy dikhaayengi.
                   const cleanup = await c.env.DB.prepare(`
                     UPDATE calls SET status = 'missed', hangup_cause = 'stale_timeout'
-                    WHERE workspace_id = ? AND status = 'ringing' AND created_at < datetime('now', '-30 seconds')
+                    WHERE workspace_id = ? AND status = 'ringing' AND strftime('%s', created_at) < strftime('%s', 'now', '-30 seconds')
                   `).bind(config.workspace_id).run();
                   if (cleanup.meta?.changes) {
                     console.log(`[Calling] Cleaned ${cleanup.meta.changes} stale ringing call(s) before busy check`);
@@ -533,8 +663,8 @@ app.post('/api/whatsapp/webhook', async (c) => {
 
                   const activeCall = await c.env.DB.prepare(`
                     SELECT id, status FROM calls
-                    WHERE workspace_id = ? AND status IN ('ringing', 'in_progress') AND id != ?
-                    ORDER BY created_at ASC LIMIT 1
+                    WHERE workspace_id = ? AND status = 'ringing' AND id != ?
+                    ORDER BY strftime('%s', created_at) ASC LIMIT 1
                   `).bind(config.workspace_id, callId).first<{ id: string; status: string }>();
 
                   if (activeCall) {
@@ -574,7 +704,7 @@ app.post('/api/whatsapp/webhook', async (c) => {
                       type: 'whatsapp_incoming_call',
                       callId: callId,
                       from: callerNumber,
-                      sdp: sdp,
+                      sdp: sdp || '',
                       sdpType: sdpType,
                       phoneNumberId: phoneNumberId,
                       direction: direction
@@ -650,11 +780,12 @@ app.post('/api/whatsapp/webhook', async (c) => {
                                   callerNumber: callerNumber || '',
                                   callerName: callerName,
                                   contactEmail: contactEmail,
-                                  lastMessage: lastMessage,
+                                  lastMessage: (lastMessage || '').slice(0, 160),
                                   conversationId: pushConvId,
                                   phoneNumberId: phoneNumberId || '',
-                                  sdp: sdp || '',
-                                  sdpType: sdpType || 'offer',
+                                  // NOTE: SDP is intentionally omitted from the FCM push
+                                  // (a WebRTC offer can exceed FCM's ~4KB data limit);
+                                  // the app fetches it via GET /api/whatsapp/calls/:id/sdp.
                                 },
                                 { ttlSeconds: 0, category: 'call', sound: 'default' }
                               )
@@ -688,8 +819,8 @@ app.post('/api/whatsapp/webhook', async (c) => {
                 const hangupCause = callData.hangup_cause || 'normal';
                 const duration = callData.duration || 0;
 
-                const existingCall = await c.env.DB.prepare('SELECT direction, status FROM calls WHERE id = ?')
-                  .bind(callId).first<{ direction: string, status: string }>();
+                const existingCall = await c.env.DB.prepare('SELECT id, direction, status FROM calls WHERE id = ? OR external_call_id = ?')
+                  .bind(callId, callId).first<{ id: string; direction: string, status: string }>();
 
                 const wasMissed = existingCall && existingCall.direction === 'incoming' &&
                   existingCall.status === 'ringing' && duration === 0;
@@ -702,7 +833,7 @@ app.post('/api/whatsapp/webhook', async (c) => {
                   : (wasMissed ? 'missed' : 'ended');
 
                 await c.env.DB.prepare('UPDATE calls SET status = ?, duration = ?, hangup_cause = ? WHERE id = ?')
-                  .bind(finalStatus, duration, hangupCause, callId).run();
+                  .bind(finalStatus, duration, hangupCause, existingCall?.id || callId).run();
 
                 try {
                   const globalDoId = c.env.CHAT_DO.idFromName(`global-${config.workspace_id}`);
@@ -710,9 +841,11 @@ app.post('/api/whatsapp/webhook', async (c) => {
                   await globalDo.fetch(new Request('http://internal/broadcast', {
                     method: 'POST',
                     body: JSON.stringify({
-                      type: 'whatsapp_call_terminated',
-                      callId: callId,
-                      duration: duration
+                      type: 'call_status_updated',
+                      call_id: existingCall?.id || callId,
+                      status: finalStatus,
+                      duration: duration,
+                      source: 'whatsapp'
                     })
                   }));
                 } catch (e) { }
@@ -782,102 +915,21 @@ app.post('/api/whatsapp/webhook', async (c) => {
 
           if (change.value && change.value.messages) {
             // Meta batches messages: process EVERY message in the delivery,
-            // not just the first â otherwise multi-message bursts are dropped.
-            for (const message of change.value.messages) {
-            const contact = change.value.contacts[0];
+            // not just the first - otherwise multi-message bursts are dropped.
+            const contactsArray = change.value.contacts || [];
             const phoneNumberId = change.value.metadata?.phone_number_id;
-
-            let messageText = '';
-            let messageType = 'text';
-            let mediaUrl: string | null = null;
-
-            if (message.text) {
-              messageText = message.text.body;
-              messageType = 'text';
-            } else if (message.interactive) {
-              if (message.interactive.type === 'button_reply') {
-                messageText = message.interactive.button_reply.title;
-              } else if (message.interactive.type === 'list_reply') {
-                messageText = message.interactive.list_reply.title;
-              } else if (message.interactive.type === 'nfm_reply') {
-                messageText = message.interactive.nfm_reply?.response_json ? JSON.parse(message.interactive.nfm_reply.response_json).name || 'Flow Reply' : 'Flow Reply';
-              } else {
-                messageText = 'Interactive Response';
-              }
-              messageType = 'interactive';
-              mediaUrl = JSON.stringify(message.interactive);
-            } else if (message.order) {
-              messageText = message.order.text || 'Order Received';
-              messageType = 'order';
-              mediaUrl = JSON.stringify(message.order);
-            } else if (message.reaction) {
-              messageText = message.reaction.emoji || '';
-              messageType = 'reaction';
-              mediaUrl = message.reaction.message_id; // the message they reacted to
-            } else if (message.image) {
-              messageText = message.image.caption || 'Image Message';
-              messageType = 'image';
-              mediaUrl = message.image.id;
-            } else if (message.video) {
-              messageText = message.video.caption || 'Video Message';
-              messageType = 'video';
-              mediaUrl = message.video.id;
-            } else if (message.document) {
-              messageText = message.document.caption || message.document.filename || 'Document Message';
-              messageType = 'document';
-              mediaUrl = message.document.id;
-            } else if (message.audio) {
-              messageText = message.audio.voice ? 'ð¤ Voice Note (à¤à¤¡à¤¿à¤¯à¥ à¤¸à¤à¤¦à¥à¤¶)' : 'Audio Message (à¤à¤¡à¤¿à¤¯à¥)';
-              messageType = 'audio';
-              mediaUrl = message.audio.id;
-            } else if (message.sticker) {
-              messageText = 'Sticker (à¤¸à¥à¤à¤¿à¤à¤°)';
-              messageType = 'sticker';
-              mediaUrl = message.sticker.id;
-            } else if (message.button) {
-              // Legacy button reply (distinct from interactive.button_reply)
-              messageText = message.button.text || 'Button Response';
-              messageType = 'button';
-            } else if (message.template) {
-              messageText = `Template Message: ${message.template.name || 'Unknown'}`;
-              messageType = 'template';
-            } else if (message.location) {
-              messageText = message.location.name
-                ? `${message.location.name} (${message.location.address || ''})`
-                : `Location: ${message.location.latitude}, ${message.location.longitude}`;
-              messageType = 'location';
-              mediaUrl = JSON.stringify({
-                latitude: message.location.latitude,
-                longitude: message.location.longitude,
-                name: message.location.name,
-                address: message.location.address
-              });
-            } else if (message.contacts) {
-              const contactName = message.contacts[0]?.name?.formatted_name || 'Contact';
-              const contactPhone = message.contacts[0]?.phones?.[0]?.phone || '';
-              messageText = `Contact: ${contactName} (${contactPhone})`;
-              messageType = 'contacts';
-              mediaUrl = JSON.stringify(message.contacts);
-            } else if (message.type === 'system') {
-              if (message.system && message.system.type === 'user_initiated_call') {
-                messageText = 'à¤à¤¨à¤à¤®à¤¿à¤à¤ à¤à¥à¤² (Incoming Voice Call)';
-                messageType = 'system_call';
-              } else {
-                messageText = message.system?.body || 'System Message';
-                messageType = 'system';
-                mediaUrl = JSON.stringify(message.system);
-              }
-            } else {
-              messageText = `Unsupported message type: ${message.type}`;
-              messageType = message.type || 'unknown';
-              mediaUrl = JSON.stringify(message); // Save raw for unknown
-            }
+            for (const message of change.value.messages) {
+            const contact = contactsArray[0];
+            const parsed = parseIncomingWhatsAppMessage(message);
+            let messageText = parsed.text;
+            const messageType = parsed.type;
+            let mediaUrl = parsed.mediaUrl;
 
             if (message.context && message.context.id) {
-              messageText = `[Reply] ` + messageText;
+              messageText = '[Reply] ' + messageText;
             }
 
-            console.log(`New ${messageType} message from ${contact?.profile?.name ?? 'Unknown'} (${message.from}):`, messageText);
+            console.log('New ' + messageType + ' message from ' + (contact?.profile?.name ?? 'Unknown') + ' (' + message.from + '):', messageText);
 
             // Download media to R2 if needed
             let finalMediaUrl = mediaUrl;
@@ -1159,8 +1211,175 @@ app.get('/api/chat/connect/:roomId', async (c) => {
 });
 
 // 4. Media Upload (R2 Storage)
+
+// ---------------------------------------------------------------------------
+// Normalize every incoming WhatsApp Cloud API message type into the internal
+// {type, text, mediaUrl} shape used by the chat handler and the Flutter app.
+// Structured payloads are saved as JSON in media_url so the UI can render them.
+// ---------------------------------------------------------------------------
+function parseIncomingWhatsAppMessage(message: any): { type: string; text: string; mediaUrl: string | null } {
+  const type = message.type || 'unknown';
+  const payload: any = { incoming_type: type };
+  let text = '';
+  let mediaUrl = null;
+  let messageType = type;
+
+  if (message.text) {
+    text = message.text.body || '';
+    messageType = 'text';
+  } else if (message.interactive) {
+    const interactive = message.interactive;
+    payload.interactive = interactive;
+    if (interactive.type === 'button_reply' && interactive.button_reply) {
+      const id = interactive.button_reply.id;
+      const title = interactive.button_reply.title;
+      payload.button_id = id;
+      payload.button_title = title;
+      text = 'Button reply: ' + (title || '') + (id ? ' (id: ' + id + ')' : '');
+      text = text.trim();
+    } else if (interactive.type === 'list_reply' && interactive.list_reply) {
+      const id = interactive.list_reply.id;
+      const title = interactive.list_reply.title;
+      const description = interactive.list_reply.description;
+      payload.list_row_id = id;
+      payload.list_title = title;
+      payload.list_description = description;
+      text = 'List reply: ' + (title || '') + (description ? '\n' + description : '') + (id ? ' (id: ' + id + ')' : '');
+      text = text.trim();
+    } else if (interactive.type === 'nfm_reply' && interactive.nfm_reply) {
+      let flowName = 'Flow Reply';
+      try {
+        const response = interactive.nfm_reply.response_json ? JSON.parse(interactive.nfm_reply.response_json) : null;
+        if (response && response.name) flowName = response.name;
+        payload.flow_response = response;
+      } catch {}
+      text = 'Flow reply: ' + flowName + (interactive.nfm_reply.body ? ' - ' + interactive.nfm_reply.body : '');
+    } else {
+      text = 'Interactive Response';
+    }
+    messageType = 'interactive';
+    mediaUrl = JSON.stringify(payload);
+  } else if (message.order) {
+    const order = message.order;
+    payload.order = order;
+    let itemsText = '';
+    if (order.product_items && Array.isArray(order.product_items) && order.product_items.length > 0) {
+      itemsText = '\n' + order.product_items.map((item: any, i: number) => {
+        const qty = item.quantity != null ? ' x' + item.quantity : '';
+        const price = item.item_price ? ' @' + item.item_price : '';
+        return (i + 1) + '. ' + (item.product_retailer_id || 'Product') + qty + price;
+      }).join('\n');
+    }
+    text = ('Order: ' + (order.text || 'New order') + itemsText).trim();
+    messageType = 'order';
+    mediaUrl = JSON.stringify(payload);
+  } else if (message.reaction) {
+    text = message.reaction.emoji || '';
+    payload.reacted_to = message.reaction.message_id;
+    messageType = 'reaction';
+    mediaUrl = message.reaction.message_id;
+  } else if (message.image) {
+    text = message.image.caption || '';
+    mediaUrl = message.image.id;
+    messageType = 'image';
+  } else if (message.video) {
+    text = message.video.caption || '';
+    mediaUrl = message.video.id;
+    messageType = 'video';
+  } else if (message.document) {
+    text = message.document.caption || message.document.filename || '';
+    mediaUrl = message.document.id;
+    messageType = 'document';
+  } else if (message.audio) {
+    text = message.audio.voice ? 'Voice Note' : 'Audio Message';
+    mediaUrl = message.audio.id;
+    messageType = 'audio';
+  } else if (message.sticker) {
+    text = 'Sticker';
+    mediaUrl = message.sticker.id;
+    messageType = 'sticker';
+  } else if (message.button) {
+    // Legacy button reply (distinct from interactive.button_reply)
+    payload.button = message.button;
+    text = 'Button reply: ' + (message.button.text || '') + (message.button.payload ? ' (' + message.button.payload + ')' : '');
+    text = text.trim();
+    messageType = 'button';
+    mediaUrl = JSON.stringify(payload);
+  } else if (message.template) {
+    text = 'Template Message: ' + (message.template.name || 'Unknown');
+    payload.template = message.template;
+    messageType = 'template';
+    mediaUrl = JSON.stringify(payload);
+  } else if (message.location) {
+    const loc = message.location;
+    payload.latitude = loc.latitude;
+    payload.longitude = loc.longitude;
+    payload.name = loc.name;
+    payload.address = loc.address;
+    text = loc.name
+      ? loc.name + (loc.address ? ' - ' + loc.address : '')
+      : 'Location: ' + loc.latitude + ', ' + loc.longitude;
+    messageType = 'location';
+    mediaUrl = JSON.stringify(payload);
+  } else if (message.contacts) {
+    const contacts = message.contacts;
+    payload.contacts = contacts;
+    const first = contacts[0] || {};
+    const name = (first.name && (first.name.formatted_name || first.name.first_name)) || 'Contact';
+    const phone = (first.phones && first.phones[0] && first.phones[0].phone) || '';
+    text = 'Contact: ' + name + (phone ? ' - ' + phone : '');
+    messageType = 'contacts';
+    mediaUrl = JSON.stringify(payload);
+  } else if (type === 'system') {
+    if (message.system && message.system.type === 'user_initiated_call') {
+      text = 'Incoming Voice Call';
+      messageType = 'system_call';
+    } else {
+      text = message.system?.body || 'System Message';
+      payload.system = message.system;
+      messageType = 'system';
+      mediaUrl = JSON.stringify(payload);
+    }
+  } else if (message.errors || type === 'unsupported') {
+    const err = (message.errors && message.errors[0]) || {};
+    let details = (err.error_data && err.error_data.details) || err.message || '';
+    text = ('Unsupported message' + (err.title ? ': ' + err.title : '') + (err.code ? ' (code ' + err.code + ')' : '') + (details ? ' - ' + details : '')).trim();
+    payload.errors = message.errors;
+    payload.unsupported = message.unsupported;
+    messageType = 'unsupported';
+    mediaUrl = JSON.stringify(payload);
+  } else {
+    text = 'Unsupported message type: ' + type;
+    payload.raw = message;
+    messageType = type || 'unknown';
+    mediaUrl = JSON.stringify(payload);
+  }
+
+  return { type: messageType, text, mediaUrl };
+}
 const worker = {
-  fetch: app.fetch,
+  async fetch(request: any, env: any, ctx: any) {
+    // Enterprise-style automatic migration: before serving the first request
+    // after a deploy, synchronize the D1 schema with schema.sql (idempotent).
+    // If the migration cannot be applied, fail fast with 503 instead of
+    // routing a request against a schema that is known to be out of sync.
+    if (env.DB) {
+      try {
+        await autoMigrate(env.DB);
+      } catch (err: any) {
+        console.error('[AutoMigrate] Schema migration failed:', err?.message || err);
+        // Do not echo err details to the client (CodeQL: information exposure
+        // through stack traces). Full error is logged server-side above.
+        return new Response(JSON.stringify({
+          error: 'Service temporarily unavailable (database schema update in progress)',
+        }), {
+          status: 503,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+    }
+    return app.fetch(request, env, ctx);
+  },
 
   // Workflow entry point (Background Tasks & FCM)
   async workflow(event: any, env: any, ctx: any) {

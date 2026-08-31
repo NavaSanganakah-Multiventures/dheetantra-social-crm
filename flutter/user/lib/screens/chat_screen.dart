@@ -9,6 +9,9 @@ import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
 import '../services/websocket_service.dart';
+import '../services/webrtc_service.dart';
+import 'call_screen.dart';
+import 'media_viewer_screen.dart';
 
 class ChatScreen extends StatefulWidget {
   final Conversation conversation;
@@ -23,6 +26,7 @@ class _ChatScreenState extends State<ChatScreen> {
   final _inputController = TextEditingController();
   List<Message> _messages = [];
   bool _loading = true;
+  bool _startingCall = false;
   String _contactName = '';
   String _contactPhone = '';
   StreamSubscription? _newMessageSub;
@@ -164,6 +168,7 @@ class _ChatScreenState extends State<ChatScreen> {
       text: text,
       conversationId: widget.conversation.id,
       platform: widget.conversation.platform,
+      phoneNumberId: widget.conversation.phoneNumberId,
     );
 
     if (res['error'] != null && mounted) {
@@ -197,28 +202,38 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _initiateCall() async {
-    final contactId = widget.conversation.contact.id;
-    if (contactId.isEmpty) return;
+    final contact = widget.conversation.contact;
+    final phone = contact.phone.replaceAll(RegExp(r'\D'), '');
+    final phoneNumberId = widget.conversation.phoneNumberId ?? '';
+    if (contact.id.isEmpty && phone.isEmpty) return;
+
+    setState(() => _startingCall = true);
     try {
-      final res = await ApiService().dio.post('/api/whatsapp/calls', data: {
-        'contactId': contactId,
-        'type': 'voice',
+      final localCallId = await WebRTCService().startOutgoingCall({
+        'to': phone,
+        'contactId': contact.id,
+        'phoneNumberId': phoneNumberId,
+        'contact_name': _contactName.isNotEmpty ? _contactName : contact.name,
+        'phone': phone,
         'direction': 'outgoing',
-        'status': 'ringing',
+        'source': 'whatsapp',
       });
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            res.data['success'] == true ? 'कॉल शुरू की गई' : 'कॉल शुरू नहीं हो सकी',
-          ),
-        ),
-      );
+      CallScreen.push(context, {
+        'id': localCallId,
+        'direction': 'outgoing',
+        'source': 'whatsapp',
+        'contact_name': _contactName.isNotEmpty ? _contactName : contact.name,
+        'phone': contact.phone,
+      });
     } catch (e) {
+      debugPrint('Initiate WhatsApp call error: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('कॉल शुरू नहीं हो सकी')),
       );
+    } finally {
+      if (mounted) setState(() => _startingCall = false);
     }
   }
 
@@ -340,7 +355,7 @@ class _ChatScreenState extends State<ChatScreen> {
         actions: [
           if (widget.conversation.platform != 'email')
             IconButton(
-              onPressed: widget.conversation.contact.id.isEmpty ? null : _initiateCall,
+              onPressed: (_startingCall || widget.conversation.contact.id.isEmpty) ? null : _initiateCall,
               icon: const Icon(Icons.call_outlined, color: AppColors.success, size: 21),
             ),
           IconButton(
@@ -450,8 +465,24 @@ class _MessageBubble extends StatelessWidget {
       case 'order': return 'ऑर्डर';
       case 'button': return 'बटन';
       case 'system': return 'सिस्टम';
+      case 'catalog_product': return 'Catalog Product';
+      case 'catalog': return 'Catalog';
+      case 'product': return 'WhatsApp Product';
+      case 'multi_product': return 'WhatsApp Catalog';
       default: return message.messageType;
     }
+  }
+
+  void _openMedia(BuildContext context) {
+    final type = message.messageType;
+    if (type == null) return;
+    const mediaTypes = ['image', 'video', 'audio', 'document', 'sticker'];
+    if (!mediaTypes.contains(type)) return;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => MediaViewerScreen(message: message),
+      ),
+    );
   }
 
   Future<void> _openUrl(String url) async {
@@ -460,6 +491,31 @@ class _MessageBubble extends StatelessWidget {
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
+  }
+
+  String _safeString(dynamic value) {
+    if (value == null) return '';
+    final input = value.toString();
+    final units = input.codeUnits;
+    final buffer = StringBuffer();
+    for (var i = 0; i < units.length; i++) {
+      final c = units[i];
+      if (c >= 0xD800 && c <= 0xDBFF) {
+        if (i + 1 < units.length) {
+          final next = units[i + 1];
+          if (next >= 0xDC00 && next <= 0xDFFF) {
+            buffer.write(String.fromCharCodes(<int>[c, next]));
+            i++;
+            continue;
+          }
+        }
+      } else if (c >= 0xDC00 && c <= 0xDFFF) {
+        // Lone low surrogate  skip.
+      } else {
+        buffer.write(String.fromCharCode(c));
+      }
+    }
+    return buffer.toString();
   }
 
   // media_url के अनुसार media preview (image/sticker inline, बाकी
@@ -496,6 +552,108 @@ class _MessageBubble extends StatelessWidget {
         onTap: (lat != null && lng != null)
             ? () => _openUrl('https://www.google.com/maps?q=$lat,$lng')
             : null,
+      );
+    }
+
+
+    if (type == 'catalog_product' && parsed is Map) {
+      final name = _safeString(parsed['name']);
+      final price = parsed['price']?.toString() ?? '';
+      final currency = _safeString(parsed['currency']);
+      final note = _safeString(parsed['note']);
+      final description = _safeString(parsed['description']);
+      var title = name.isNotEmpty ? name : 'Product';
+      if (price.isNotEmpty) title = title + ' - ' + currency + ' ' + price;
+      var subtitle = note.isNotEmpty ? note : description;
+      return _mediaTile(icon: Icons.shopping_bag, title: title, subtitle: subtitle.isNotEmpty ? subtitle : null, fg: fg);
+    }
+
+    if (type == 'catalog' && parsed is Map) {
+      final name = _safeString(parsed['name']);
+      final count = parsed['products_count']?.toString() ?? '0';
+      final description = _safeString(parsed['description']);
+      var title = name.isNotEmpty ? name : 'Catalog';
+      var subtitle = count + ' products';
+      if (description.isNotEmpty) subtitle = description + '\n' + subtitle;
+      return _mediaTile(icon: Icons.storefront, title: title, subtitle: subtitle.isNotEmpty ? subtitle : null, fg: fg);
+    }
+    if ((type == 'product' || type == 'multi_product') && parsed is Map) {
+      final productName = _safeString(parsed['product_name']);
+      final catalogName = _safeString(parsed['catalog_name']);
+      final body = _safeString(parsed['body']);
+      final title = productName.isNotEmpty
+          ? productName
+          : (catalogName.isNotEmpty ? catalogName : (type == 'product' ? 'Product' : 'Catalog'));
+      return _mediaTile(icon: Icons.shopping_bag, title: title, subtitle: body.isNotEmpty ? body : null, fg: fg);
+    }
+
+
+    if (type == 'interactive' && parsed is Map) {
+      final subtype = parsed['interactive']?['type'] ?? parsed['interactive_type'];
+      String title = '';
+      String subtitle = '';
+      if (parsed['button_title'] != null) {
+        title = _safeString(parsed['button_title']);
+        subtitle = parsed['button_id'] != null ? 'ID: ' + _safeString(parsed['button_id']) : '';
+      } else if (parsed['list_title'] != null) {
+        title = _safeString(parsed['list_title']);
+        subtitle = parsed['list_description'] != null ? _safeString(parsed['list_description']) : '';
+      } else if (parsed['nfm_response'] != null) {
+        final nfm = parsed['nfm_response'] is Map ? parsed['nfm_response'] as Map : null;
+        title = nfm != null && nfm['name'] != null ? _safeString(nfm['name']) : 'Flow Reply';
+        subtitle = nfm != null && nfm['body'] != null ? _safeString(nfm['body']) : '';
+      }
+      return _mediaTile(
+        icon: Icons.touch_app,
+        title: title.isNotEmpty ? title : 'Interactive',
+        subtitle: subtitle.isNotEmpty ? subtitle : null,
+        fg: fg,
+      );
+    }
+
+    if (type == 'button' && parsed is Map) {
+      final button = parsed['button'] is Map ? parsed['button'] as Map : null;
+      final text = button?['text']?.toString() ?? '';
+      final payload = button?['payload']?.toString() ?? '';
+      return _mediaTile(
+        icon: Icons.smart_button,
+        title: text.isNotEmpty ? text : 'Button reply',
+        subtitle: payload.isNotEmpty ? 'Payload: ' + payload : null,
+        fg: fg,
+      );
+    }
+
+    if (type == 'order' && parsed is Map) {
+      final order = parsed['order'] is Map ? parsed['order'] as Map : null;
+      final items = order?['product_items'] as List?;
+      String title = order?['text']?.toString() ?? 'Order';
+      String subtitle = '';
+      if (items != null && items.isNotEmpty) {
+        subtitle = items.asMap().entries.map((e) {
+          final it = e.value is Map ? e.value as Map : null;
+          final name = it?['product_retailer_id']?.toString() ?? 'Product';
+          final qty = it?['quantity']?.toString() ?? '';
+          final price = it?['item_price']?.toString() ?? '';
+          return (e.key + 1).toString() + '. ' + name + (qty.isNotEmpty ? ' x' + qty : '') + (price.isNotEmpty ? ' @' + price : '');
+        }).join('\n');
+      }
+      return _mediaTile(
+        icon: Icons.shopping_bag,
+        title: title,
+        subtitle: subtitle.isNotEmpty ? subtitle : null,
+        fg: fg,
+      );
+    }
+
+    if (type == 'unsupported' && parsed is Map) {
+      final err = (parsed['errors'] as List?)?.firstOrNull as Map?;
+      final title = err?['title']?.toString() ?? 'Unsupported message';
+      final details = err?['error_data']?['details']?.toString() ?? '';
+      return _mediaTile(
+        icon: Icons.error_outline,
+        title: title,
+        subtitle: details.isNotEmpty ? details : null,
+        fg: fg,
       );
     }
 
@@ -646,6 +804,7 @@ class _MessageBubble extends StatelessWidget {
     // Responsive: bubble never wider than 76% of a narrow phone, capped at 480
     // on tablets/desktop so lines stay readable.
     final maxBubbleWidth = MediaQuery.of(context).size.width * 0.76;
+    final mediaWidget = _buildMedia(context);
     return Align(
       alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
@@ -689,7 +848,12 @@ class _MessageBubble extends StatelessWidget {
             ],
             // Media (image/sticker inline, video/audio/document/location/
             // contacts tiles) — text/caption उसके नीचे
-            ...(_buildMedia(context) != null ? [_buildMedia(context)!] : const <Widget>[]),
+            if (mediaWidget != null)
+              GestureDetector(
+                onTap: () => _openMedia(context),
+                behavior: HitTestBehavior.translucent,
+                child: mediaWidget,
+              ),
             SizedBox(
               width: double.infinity,
               child: Text(

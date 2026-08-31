@@ -4,6 +4,8 @@ import '../theme/app_theme.dart';
 import 'send_new_message_screen.dart';
 import 'send_template_screen.dart';
 import 'email_compose_screen.dart';
+import 'twilio_settings_screen.dart';
+import 'plivo_settings_screen.dart';
 
 class IntegrationsScreen extends StatelessWidget {
   const IntegrationsScreen({super.key});
@@ -37,6 +39,30 @@ class IntegrationsScreen extends StatelessWidget {
             onTap: () {
               Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const SendTemplateScreen()),
+              );
+            },
+          ),
+          const SizedBox(height: 12),
+          _ToolCard(
+            icon: Icons.phone_in_talk_outlined,
+            iconColor: const Color(0xFFF472B6),
+            title: 'Twilio Voice',
+            subtitle: 'Workspace Twilio Account और From Numbers manage करें',
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const TwilioSettingsScreen()),
+              );
+            },
+          ),
+          const SizedBox(height: 12),
+          _ToolCard(
+            icon: Icons.phone_callback_outlined,
+            iconColor: const Color(0xFF34D399),
+            title: 'Plivo Voice',
+            subtitle: 'Workspace Plivo Account, From Numbers और Agent Phone manage करें',
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const PlivoSettingsScreen()),
               );
             },
           ),

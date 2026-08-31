@@ -4,6 +4,8 @@ import 'package:cookie_jar/cookie_jar.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path_provider/path_provider.dart';
+import 'dart:io';
+import 'package:path/path.dart' as path;
 
 class ApiService {
   static const String baseUrl = 'https://dheetantra.navasanganakah.com';
@@ -276,6 +278,7 @@ class ApiService {
     String type = 'text',
     String platform = 'whatsapp',
     String? subject,
+    String? phoneNumberId,
   }) async {
     try {
       if (platform == 'email') {
@@ -291,6 +294,7 @@ class ApiService {
           'text': text,
           'conversationId': conversationId,
           'type': type,
+          if (phoneNumberId != null && phoneNumberId.isNotEmpty) 'phoneNumberId': phoneNumberId,
         });
         return res.data;
       }
@@ -310,6 +314,447 @@ class ApiService {
       return [];
     }
   }
+
+  /// WhatsApp WebRTC outbound call initiate karta hai. Client offer SDP banata
+  /// hai aur backend use Meta Graph API (/phone_number_id/calls) ko proxy karta hai.
+  Future<Map<String, dynamic>> initiateWhatsAppCall({
+    required String to,
+    String? contactId,
+    String? phoneNumberId,
+    String? recipient,
+    required String sdp,
+    String sdpType = 'offer',
+  }) async {
+    try {
+      final res = await _dio.post('/api/whatsapp/calls/outbound', data: {
+        'to': to,
+        if (contactId != null) 'contactId': contactId,
+        if (phoneNumberId != null) 'phoneNumberId': phoneNumberId,
+        if (recipient != null) 'recipient': recipient,
+        'sdp': sdp,
+        'sdpType': sdpType,
+      });
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  /// Incoming call ka stored Meta SDP offer fetch karta hai. FCM push payload
+  /// size limit ki wajah se offer push mein nahi bhejte; accept ke waqt yahan
+  /// se lete hain.
+  Future<Map<String, dynamic>> getCallSdp(String callId) async {
+    try {
+      final res = await _dio.get('/api/whatsapp/calls/$callId/sdp');
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+
+  // ========== CALLER ID / AFTER-CALL CRM ==========
+
+  Future<Map<String, dynamic>> getCallerCard(String phone) async {
+    try {
+      final res = await _dio.get('/api/crm/caller-card', queryParameters: {'phone': phone});
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> summarizeCall(String callId) async {
+    try {
+      final res = await _dio.post('/api/calls/$callId/summarize');
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+
+
+
+
+  // ========== TWILIO VOICE TOKEN ==========
+
+  Future<Map<String, dynamic>> getTwilioVoiceToken() async {
+    try {
+      final res = await _dio.get('/api/twilio/token');
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  // ========== TWILIO CALL ==========
+
+  Future<Map<String, dynamic>> initiateTwilioCall({
+    required String to,
+    String? contactId,
+    String? twilioConfigId,
+    String? fromNumber,
+  }) async {
+    try {
+      final res = await _dio.post('/api/twilio/call', data: {
+        'to': to,
+        if (contactId != null) 'contactId': contactId,
+        if (twilioConfigId != null) 'twilioConfigId': twilioConfigId,
+        if (fromNumber != null) 'fromNumber': fromNumber,
+      });
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  // ========== TWILIO WORKSPACE CONFIG ==========
+
+  Future<List<dynamic>> getTwilioConfigs() async {
+    try {
+      final res = await _dio.get('/api/twilio/configs');
+      final data = res.data as Map<String, dynamic>;
+      return data['configs'] as List? ?? [];
+    } on DioException {
+      return [];
+    }
+  }
+
+  Future<Map<String, dynamic>> saveTwilioConfig({
+    String? id,
+    required String name,
+    required String accountSid,
+    String? authToken,
+    bool isActive = true,
+    List<String> fromNumbers = const [],
+    String? voiceApplicationSid,
+    String? apiKeySid,
+    String? apiKeySecret,
+    String? pushCredentialSidAndroid,
+    String? pushCredentialSidIos,
+  }) async {
+    try {
+      final data = <String, dynamic>{
+        'name': name,
+        'accountSid': accountSid,
+        'isActive': isActive,
+        if (authToken != null && authToken.isNotEmpty) 'authToken': authToken,
+        if (fromNumbers.isNotEmpty) 'fromNumbers': fromNumbers,
+        if (voiceApplicationSid != null && voiceApplicationSid.isNotEmpty) 'voiceApplicationSid': voiceApplicationSid,
+        if (apiKeySid != null && apiKeySid.isNotEmpty) 'apiKeySid': apiKeySid,
+        if (apiKeySecret != null && apiKeySecret.isNotEmpty) 'apiKeySecret': apiKeySecret,
+        if (pushCredentialSidAndroid != null && pushCredentialSidAndroid.isNotEmpty) 'pushCredentialSidAndroid': pushCredentialSidAndroid,
+        if (pushCredentialSidIos != null && pushCredentialSidIos.isNotEmpty) 'pushCredentialSidIos': pushCredentialSidIos,
+      };
+      final res = id == null
+          ? await _dio.post('/api/twilio/configs', data: data)
+          : await _dio.put('/api/twilio/configs/$id', data: data);
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> deleteTwilioConfig(String id) async {
+    try {
+      final res = await _dio.delete('/api/twilio/configs/$id');
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> addTwilioFromNumber(String configId, String fromNumber, {bool isDefault = false}) async {
+    try {
+      final res = await _dio.post('/api/twilio/configs/$configId/from-numbers', data: {
+        'fromNumber': fromNumber,
+        'isDefault': isDefault,
+      });
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> deleteTwilioFromNumber(String id) async {
+    try {
+      final res = await _dio.delete('/api/twilio/from-numbers/$id');
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> setDefaultTwilioFromNumber(String id) async {
+    try {
+      final res = await _dio.post('/api/twilio/from-numbers/$id/default');
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  // ========== PLIVO CALL ==========
+
+  Future<Map<String, dynamic>> initiatePlivoCall({
+    required String to,
+    String? contactId,
+    String? plivoConfigId,
+    String? fromNumber,
+  }) async {
+    try {
+      final res = await _dio.post('/api/plivo/call', data: {
+        'to': to,
+        'mode': 'in_app',
+        if (contactId != null) 'contactId': contactId,
+        if (plivoConfigId != null) 'plivoConfigId': plivoConfigId,
+        if (fromNumber != null) 'fromNumber': fromNumber,
+      });
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> hangupCall(String callId) async {
+    try {
+      final res = await _dio.post('/api/calls/$callId/hangup');
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> declineCall(String callId) async {
+    try {
+      final res = await _dio.post('/api/calls/$callId/decline');
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  // ========== PLIVO WORKSPACE CONFIG ==========
+
+  Future<List<dynamic>> getPlivoConfigs() async {
+    try {
+      final res = await _dio.get('/api/plivo/configs');
+      final data = res.data as Map<String, dynamic>;
+      return data['configs'] as List? ?? [];
+    } on DioException {
+      return [];
+    }
+  }
+
+  Future<Map<String, dynamic>> getPlivoSipCredentials() async {
+    try {
+      final res = await _dio.get('/api/plivo/sip-credentials');
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> linkPlivoEndpoint(String configId, {bool force = false}) async {
+    try {
+      final res = await _dio.post('/api/plivo/configs/$configId/link', data: {'force': force});
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+
+  Future<Map<String, dynamic>> savePlivoConfig({
+    String? id,
+    required String name,
+    required String authId,
+    String? authToken,
+    bool isActive = true,
+    List<String> fromNumbers = const [],
+    String? endpointUsername,
+    String? endpointPassword,
+  }) async {
+    try {
+      final data = <String, dynamic>{
+        'name': name,
+        'authId': authId,
+        'isActive': isActive,
+        if (authToken != null && authToken.isNotEmpty) 'authToken': authToken,
+        if (fromNumbers.isNotEmpty) 'fromNumbers': fromNumbers,
+        if (endpointUsername != null) 'endpointUsername': endpointUsername,
+        if (endpointPassword != null && endpointPassword.isNotEmpty) 'endpointPassword': endpointPassword,
+      };
+      final res = id == null
+          ? await _dio.post('/api/plivo/configs', data: data)
+          : await _dio.put('/api/plivo/configs/$id', data: data);
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> deletePlivoConfig(String id) async {
+    try {
+      final res = await _dio.delete('/api/plivo/configs/$id');
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> addPlivoFromNumber(String configId, String fromNumber, {bool isDefault = false}) async {
+    try {
+      final res = await _dio.post('/api/plivo/configs/$configId/from-numbers', data: {
+        'fromNumber': fromNumber,
+        'isDefault': isDefault,
+      });
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> deletePlivoFromNumber(String id) async {
+    try {
+      final res = await _dio.delete('/api/plivo/from-numbers/$id');
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> setDefaultPlivoFromNumber(String id) async {
+    try {
+      final res = await _dio.post('/api/plivo/from-numbers/$id/default');
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> setPlivoAutoDialAgents(String configId, bool enabled) async {
+    try {
+      final res = await _dio.put('/api/plivo/configs/$configId', data: {'autoDialAgents': enabled});
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  // ========== VOICE AGENT AVAILABILITY ==========
+
+  Future<List<dynamic>> getVoiceAgents() async {
+    try {
+      final res = await _dio.get('/api/voice/agents');
+      final data = res.data as Map<String, dynamic>;
+      return data['agents'] as List? ?? [];
+    } on DioException {
+      return [];
+    }
+  }
+
+  Future<Map<String, dynamic>> setAgentVoiceStatus(String status) async {
+    try {
+      final res = await _dio.post('/api/voice/agent-status', data: {'status': status});
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> setAgentVoicePhone(String phone) async {
+    try {
+      final res = await _dio.post('/api/voice/agent-phone', data: {'phone': phone});
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  // ========== UNIFIED CRM CALLS ==========
+
+  Future<List<dynamic>> getUnifiedCalls({String? source, String? search, String? phone, int limit = 100, int offset = 0}) async {
+    try {
+      final query = <String, dynamic>{'limit': limit, 'offset': offset};
+      if (source != null && source != 'all') query['source'] = source;
+      if (phone != null && phone.isNotEmpty) query['phone'] = phone;
+      final res = await _dio.get('/api/calls', queryParameters: query);
+      final data = res.data as Map<String, dynamic>;
+      final calls = data['calls'] as List? ?? [];
+      if (search != null && search.trim().isNotEmpty) {
+        final term = search.trim().toLowerCase();
+        return calls.where((c) {
+          final map = c as Map<String, dynamic>;
+          final name = (map['contact_name'] ?? map['name'] ?? '').toString().toLowerCase();
+          final phone = (map['phone'] ?? map['caller_number'] ?? '').toString().toLowerCase();
+          return name.contains(term) || phone.contains(term);
+        }).toList();
+      }
+      return calls;
+    } on DioException {
+      return [];
+    }
+  }
+
+  Future<Map<String, dynamic>> getCallDetail(String callId) async {
+    try {
+      final res = await _dio.get('/api/calls/$callId');
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> updateCallNotes(String callId, String notes) async {
+    try {
+      final res = await _dio.post('/api/calls/$callId/status', data: {'notes': notes});
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> updateCallStatus(String callId, {String? status, int? duration, String? endedAt, String? notes}) async {
+    try {
+      final body = <String, dynamic>{};
+      if (status != null) body['status'] = status;
+      if (duration != null) body['duration'] = duration;
+      if (endedAt != null) body['endedAt'] = endedAt;
+      if (notes != null) body['notes'] = notes;
+      final res = await _dio.post('/api/calls/$callId/status', data: body);
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+  Future<Map<String, dynamic>> createGsmCall({required String phone, required String direction, int duration = 0}) async {
+    try {
+      final res = await _dio.post('/api/calls', data: {
+        'phone': phone,
+        'direction': direction,
+        'status': 'ended',
+        'duration': duration,
+      });
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+  Future<Map<String, dynamic>> uploadCallRecording(String callId, File file) async {
+    try {
+      final fileName = path.basename(file.path);
+      final form = FormData.fromMap({
+        'recording': await MultipartFile.fromFile(file.path, filename: fileName),
+      });
+      final res = await _dio.post('/api/calls/$callId/recording', data: form);
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
 
   // ========== BROADCAST ==========
 
@@ -347,7 +792,7 @@ class ApiService {
 
   Future<Map<String, dynamic>> getDashboardStats() async {
     try {
-      // Dono calls parallel chalao — sequential hone se dashboard load me
+      // Dono calls parallel chalao ÃÂ¢ÃÂÃÂ sequential hone se dashboard load me
       // 2x delay aa raha tha.
       final results = await Future.wait<dynamic>([
         getContacts(),
@@ -572,12 +1017,177 @@ class ApiService {
     }
   }
 
+  // ========== CATALOGS ==========
+
+  Future<List<dynamic>> getCatalogs({String? status}) async {
+    try {
+      final query = <String, dynamic>{};
+      if (status != null && status != 'all') query['status'] = status;
+      final res = await _dio.get('/api/catalogs', queryParameters: query);
+      final data = res.data as Map<String, dynamic>;
+      return data['catalogs'] ?? [];
+    } on DioException {
+      return [];
+    }
+  }
+
+  Future<Map<String, dynamic>> createCatalog(Map<String, dynamic> data) async {
+    try {
+      final res = await _dio.post('/api/catalogs', data: data);
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getCatalog(String id) async {
+    try {
+      final res = await _dio.get('/api/catalogs/$id');
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> updateCatalog(String id, Map<String, dynamic> data) async {
+    try {
+      final res = await _dio.put('/api/catalogs/$id', data: data);
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> deleteCatalog(String id) async {
+    try {
+      final res = await _dio.delete('/api/catalogs/$id');
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  Future<List<dynamic>> getProducts(String catalogId) async {
+    try {
+      final res = await _dio.get('/api/catalogs/$catalogId/products');
+      final data = res.data as Map<String, dynamic>;
+      return data['products'] ?? [];
+    } on DioException {
+      return [];
+    }
+  }
+
+  Future<Map<String, dynamic>> createProduct(String catalogId, Map<String, dynamic> data) async {
+    try {
+      final res = await _dio.post('/api/catalogs/$catalogId/products', data: data);
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> updateProduct(String productId, Map<String, dynamic> data) async {
+    try {
+      final res = await _dio.put('/api/catalogs/products/$productId', data: data);
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> deleteProduct(String productId) async {
+    try {
+      final res = await _dio.delete('/api/catalogs/products/$productId');
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> shareCatalog({
+    required String conversationId,
+    required String type,
+    String? productId,
+    String? catalogId,
+    String? note,
+  }) async {
+    try {
+      final data = <String, dynamic>{
+        'conversationId': conversationId,
+        'type': type,
+        if (note != null && note.isNotEmpty) 'note': note,
+        if (type == 'product' && productId != null) 'productId': productId,
+        if (type == 'catalog' && catalogId != null) 'catalogId': catalogId,
+      };
+      final res = await _dio.post('/api/catalogs/share', data: data);
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> uploadImage(File file, {String field = 'file'}) async {
+    try {
+      final fileName = path.basename(file.path);
+      final form = FormData.fromMap({
+        field: await MultipartFile.fromFile(file.path, filename: fileName),
+      });
+      final res = await _dio.post('/api/media/upload', data: form);
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  // ========== WHATSAPP NATIVE CATALOG SHARE ==========
+
+  Future<Map<String, dynamic>> sendWhatsAppCatalog({
+    required String conversationId,
+    required String type,
+    String? productId,
+    String? catalogId,
+    String? body,
+    String? footer,
+    String? header,
+    String? sectionTitle,
+    String? phoneNumberId,
+  }) async {
+    try {
+      final data = <String, dynamic>{
+        'conversationId': conversationId,
+        'type': type,
+        if (productId != null && productId.isNotEmpty) 'productId': productId,
+        if (catalogId != null && catalogId.isNotEmpty) 'catalogId': catalogId,
+        if (body != null && body.isNotEmpty) 'body': body,
+        if (footer != null && footer.isNotEmpty) 'footer': footer,
+        if (header != null && header.isNotEmpty) 'header': header,
+        if (sectionTitle != null && sectionTitle.isNotEmpty) 'sectionTitle': sectionTitle,
+        if (phoneNumberId != null && phoneNumberId.isNotEmpty) 'phoneNumberId': phoneNumberId,
+      };
+      final res = await _dio.post('/api/catalogs/whatsapp/send', data: data);
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  // ========== CATALOG PRODUCT URL FETCH ==========
+
+  Future<Map<String, dynamic>> fetchProductFromUrl(String url) async {
+    try {
+      final res = await _dio.post('/api/catalogs/fetch-product', data: {'url': url.trim()});
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
   // ========== HELPERS ==========
 
   Map<String, dynamic> _handleError(DioException e) {
     if (e.response != null && e.response!.data is Map) {
       return e.response!.data;
     }
-    return {'error': e.message ?? 'कुछ गड़बड़ हो गई'};
+    return {'error': e.message ?? 'ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂ¡ÃÂ ÃÂ¤ÃÂ¼ÃÂ ÃÂ¤ÃÂ¬ÃÂ ÃÂ¤ÃÂ¡ÃÂ ÃÂ¤ÃÂ¼ ÃÂ ÃÂ¤ÃÂ¹ÃÂ ÃÂ¥ÃÂ ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂ'};
   }
 }

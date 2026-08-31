@@ -12,6 +12,7 @@ import '../widgets/common.dart';
 import 'calls_screen.dart';
 import 'chat_screen.dart';
 import 'schedule_screen.dart';
+import 'catalog_list_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   final VoidCallback onOpenInbox;
@@ -232,6 +233,15 @@ class _QuickActions extends StatelessWidget {
         icon: Icons.campaign_outlined,
         label: 'ब्रॉडकास्ट',
         onTap: onOpenBroadcast,
+      ),
+      _QuickActionData(
+        icon: Icons.storefront_outlined,
+        label: 'कैटलॉग',
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const CatalogListScreen()),
+          );
+        },
       ),
     ];
 

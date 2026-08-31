@@ -152,14 +152,44 @@ class Message {
     // chat bubble can render the media inline.
     String? mediaUrl = json['media_url'] != null ? _safeString(json['media_url']) : null;
 
-    // Parse email payload if present in media_url
+    // Parse email / structured WhatsApp payload if present in media_url
     if (mediaUrl != null) {
       try {
         final parsed = jsonDecode(mediaUrl);
         if (parsed is Map) {
-          if (parsed['subject'] != null) subject = _safeString(parsed['subject']);
-          if (parsed['text'] != null) textContent = _safeString(parsed['text']);
-          if (parsed['html'] != null) html = _safeString(parsed['html']);
+          if (messageType == 'email') {
+            if (parsed['subject'] != null) subject = _safeString(parsed['subject']);
+            if (parsed['text'] != null) textContent = _safeString(parsed['text']);
+            if (parsed['html'] != null) html = _safeString(parsed['html']);
+          } else if (messageType == 'interactive') {
+            final buttonTitle = parsed['button_title'];
+            final listTitle = parsed['list_title'];
+            final listDesc = parsed['list_description'];
+            if (buttonTitle != null) textContent = _safeString(buttonTitle);
+            if (listTitle != null) {
+              textContent = listTitle.toString();
+              if (listDesc != null) textContent += '\n' + listDesc.toString();
+            }
+            final nfm = parsed['nfm_response'] as Map?;
+            if (nfm != null && nfm['name'] != null) {
+              textContent = 'Flow: ' + _safeString(nfm['name']);
+            }
+          } else if (messageType == 'order') {
+            final order = parsed['order'] as Map?;
+            if (order != null && order['text'] != null) {
+              textContent = _safeString(order['text']);
+            }
+          } else if (messageType == 'location') {
+            final name = parsed['name'];
+            final address = parsed['address'];
+            if (name != null) textContent = _safeString(name);
+            if (address != null) textContent += '\n' + _safeString(address);
+          } else if (messageType == 'unsupported') {
+            final err = (parsed['errors'] as List?)?.firstOrNull as Map?;
+            if (err != null && err['title'] != null) {
+              textContent = _safeString(err['title']);
+            }
+          }
         }
       } catch (_) {
         // Not a JSON string
@@ -170,7 +200,7 @@ class Message {
       id: _safeString(json['id']),
       text: textContent,
       time: _parseUtcDateTime(json['created_at']) ?? DateTime.now(),
-      isMine: senderType == 'agent' || senderType == 'system',
+      isMine: senderType == 'agent' || senderType == 'system' || senderType == 'bot',
       isRead: json['status'] == 'read',
       senderType: senderType,
       status: _safeString(json['status'] ?? 'sent'),
@@ -497,5 +527,113 @@ class EmailMailbox {
       domainName: _safeString(json['domain_name']),
       domainStatus: _safeString(json['domain_status']),
     );
+  }
+}
+
+
+class Catalog {
+  final String id;
+  final String name;
+  final String? description;
+  final String status;
+  final String? coverImageUrl;
+  final int productsCount;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
+
+  const Catalog({
+    required this.id,
+    required this.name,
+    this.description,
+    this.status = 'active',
+    this.coverImageUrl,
+    this.productsCount = 0,
+    this.createdAt,
+    this.updatedAt,
+  });
+
+  factory Catalog.fromJson(Map<String, dynamic> json) {
+    return Catalog(
+      id: _safeString(json['id']),
+      name: _safeString(json['name']),
+      description: _safeString(json['description']),
+      status: _safeString(json['status']) ,
+      coverImageUrl: _safeString(json['cover_image_url']),
+      productsCount: json['products_count'] ?? 0,
+      createdAt: _parseUtcDateTime(json['created_at']),
+      updatedAt: _parseUtcDateTime(json['updated_at']),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'description': description,
+      'status': status,
+      'cover_image_url': coverImageUrl,
+    };
+  }
+}
+
+class CatalogProduct {
+  final String id;
+  final String catalogId;
+  final String name;
+  final String? description;
+  final double price;
+  final String currency;
+  final String? imageUrl;
+  final String? retailerId;
+  final String status;
+  final int sortOrder;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
+
+  const CatalogProduct({
+    required this.id,
+    required this.catalogId,
+    required this.name,
+    this.description,
+    this.price = 0,
+    this.currency = 'INR',
+    this.imageUrl,
+    this.retailerId,
+    this.status = 'active',
+    this.sortOrder = 0,
+    this.createdAt,
+    this.updatedAt,
+  });
+
+  factory CatalogProduct.fromJson(Map<String, dynamic> json) {
+    return CatalogProduct(
+      id: _safeString(json['id']),
+      catalogId: _safeString(json['catalog_id']),
+      name: _safeString(json['name']),
+      description: _safeString(json['description']),
+      price: (json['price'] as num?)?.toDouble() ?? 0,
+      currency: _safeString(json['currency']) ,
+      imageUrl: _safeString(json['image_url']),
+      retailerId: _safeString(json['retailer_id']),
+      status: _safeString(json['status']) ,
+      sortOrder: json['sort_order'] ?? 0,
+      createdAt: _parseUtcDateTime(json['created_at']),
+      updatedAt: _parseUtcDateTime(json['updated_at']),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'catalog_id': catalogId,
+      'name': name,
+      'description': description,
+      'price': price,
+      'currency': currency,
+      'image_url': imageUrl,
+      if (retailerId != null && retailerId!.isNotEmpty) 'retailer_id': retailerId,
+      'status': status,
+      'sort_order': sortOrder,
+    };
   }
 }

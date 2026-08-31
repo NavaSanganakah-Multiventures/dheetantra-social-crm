@@ -1,5 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
 import { Env } from '../types';
+import { sqliteNow } from '../shared';
 
 export async function handleIncomingMessage(
   env: Env,
@@ -104,12 +105,12 @@ export async function handleIncomingMessage(
           try {
             // Dedup: check if a call was already created by the calls field webhook within last 60s
             const existingCall = await env.DB.prepare(
-              "SELECT id FROM calls WHERE caller_number = ? AND workspace_id = ? AND status = 'ringing' AND created_at > datetime('now', '-60 seconds') ORDER BY created_at DESC LIMIT 1"
+              "SELECT id FROM calls WHERE caller_number = ? AND workspace_id = ? AND status = 'ringing' AND strftime('%s', created_at) > strftime('%s', 'now', '-60 seconds') ORDER BY strftime('%s', created_at) DESC LIMIT 1"
             ).bind(from, workspaceId).first<{ id: string }>();
 
             if (!existingCall) {
               const callId = crypto.randomUUID();
-              const callCreatedAt = new Date().toISOString();
+              const callCreatedAt = sqliteNow();
               await env.DB.prepare(`
                 INSERT INTO calls (id, workspace_id, contact_id, phone_number_id, caller_number, type, direction, status, created_at)
                 VALUES (?, ?, ?, ?, ?, 'voice', 'incoming', 'ringing', ?)

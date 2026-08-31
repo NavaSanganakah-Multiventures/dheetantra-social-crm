@@ -30,13 +30,12 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   // Background isolate mein SchedulerBinding nahi hota, isliye debugPrint ke
   // bajaye print use karo.
   // ignore: avoid_print
-  print('[FCM Background] message type: $type');
 
   // App kill/band hone par bhi har message ka notification aana chahiye.
   // Notification-payload wale messages ko Android system tray dikhata hai,
   // lekin data-only messages ya custom handling ke liye local notification
   // khud show karte hain.
-  if (type == 'incoming_call') {
+  if (type == 'incoming_call' || type == 'twilio_incoming_call') {
     await CallKitService().showIncomingCall(message.data);
   } else {
     // missed_call, new_message, ya koi bhi dusra data-only event.
@@ -44,7 +43,7 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   }
 }
 
-/// CallKit background handler — plugin ka apna background FlutterEngine isolate
+/// CallKit background handler â plugin ka apna background FlutterEngine isolate
 /// ise chalata hai jab app terminated ho aur user native call UI se accept/
 /// decline kare. acceptCallHandle (CallKitService.init mein) main isolate ke
 /// MethodChannel par wahi event deta hai jab app wapas khulta hai, isliye yahan
@@ -54,10 +53,8 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 Future<void> _callkitBackgroundEventHandler(CallEvent event) async {
   try {
     // ignore: avoid_print
-    print('[CallKit BG] event: ${event.eventName}');
   } catch (e) {
     // ignore: avoid_print
-    print('[CallKit BG] error: $e');
   }
 }
 
@@ -67,12 +64,12 @@ Future<void> main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-  // acceptCallHandle native callback ko sabse pehle register karo — cold-start
+  // acceptCallHandle native callback ko sabse pehle register karo â cold-start
   // accept (plugin ka 750ms callback window) main isolate ka method channel
   // ready hone se pehle aa jata hai, tab event lost ho jata hai. Early
   // register se us race ka window kafi kam ho jata hai.
   CallKitService().registerAcceptHandleEarly();
-  // CallKit background engine start karo — iske bina app killed hone par native
+  // CallKit background engine start karo â iske bina app killed hone par native
   // accept/decline events kisi ko nahi milte aur call attend nahi ho pati.
   try {
     await FlutterCallkitIncoming.onBackgroundMessage(_callkitBackgroundEventHandler);

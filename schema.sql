@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
   email TEXT UNIQUE NOT NULL,
   name TEXT,
+  phone TEXT,
   timezone TEXT DEFAULT 'Asia/Kolkata',
   is_registered BOOLEAN DEFAULT 0, -- To ensure they actually registered, not just requested an OTP for login
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -41,6 +42,8 @@ CREATE TABLE IF NOT EXISTS workspace_members (
   workspace_id TEXT NOT NULL,
   user_id TEXT NOT NULL,
   role TEXT NOT NULL DEFAULT 'member',  -- 'owner', 'admin', 'member'
+  voice_status TEXT NOT NULL DEFAULT 'not_live',
+  voice_status_updated_at DATETIME,
   joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (workspace_id, user_id),
   FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
@@ -156,6 +159,7 @@ CREATE TABLE IF NOT EXISTS whatsapp_configs (
   username TEXT DEFAULT '',
   profile_picture_url TEXT DEFAULT '',
   call_schedule TEXT DEFAULT '{"enabled":false,"start_time":"09:00","end_time":"17:00","days":[1,2,3,4,5,6,7]}',
+  catalog_id TEXT,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
 );
@@ -193,12 +197,96 @@ CREATE TABLE IF NOT EXISTS calls (
   direction TEXT NOT NULL DEFAULT 'incoming',
   status TEXT NOT NULL DEFAULT 'missed',
   duration INTEGER DEFAULT 0,
+  source TEXT DEFAULT 'whatsapp',
+  notes TEXT,
+  started_at DATETIME,
+  ended_at DATETIME,
+  summary TEXT,
+  ai_summary_generated_at DATETIME,
+  transcript TEXT,
   recording_url TEXT,
   hangup_cause TEXT,
+  twilio_config_id TEXT,
+  plivo_config_id TEXT,
+  whatsapp_config_id TEXT,
+  assigned_user_id TEXT,
+  external_call_id TEXT,
+  sdp TEXT,
+  sdp_type TEXT,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
   FOREIGN KEY (contact_id) REFERENCES contacts(id) ON DELETE CASCADE
 );
+
+CREATE INDEX IF NOT EXISTS idx_calls_source ON calls(source);
+
+CREATE TABLE IF NOT EXISTS twilio_configs (
+  id TEXT PRIMARY KEY,
+  workspace_id TEXT NOT NULL,
+  name TEXT NOT NULL DEFAULT 'My Twilio Account',
+  account_sid TEXT NOT NULL,
+  auth_token TEXT NOT NULL,
+  is_active INTEGER NOT NULL DEFAULT 1,
+  voice_application_sid TEXT,
+  api_key_sid TEXT,
+  api_key_secret TEXT,
+  push_credential_sid_android TEXT,
+  push_credential_sid_ios TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS twilio_from_numbers (
+  id TEXT PRIMARY KEY,
+  twilio_config_id TEXT NOT NULL,
+  from_number TEXT NOT NULL,
+  is_default INTEGER NOT NULL DEFAULT 0,
+  is_active INTEGER NOT NULL DEFAULT 1,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (twilio_config_id) REFERENCES twilio_configs(id) ON DELETE CASCADE,
+  UNIQUE (twilio_config_id, from_number)
+);
+
+CREATE INDEX IF NOT EXISTS idx_twilio_configs_workspace
+  ON twilio_configs(workspace_id);
+
+CREATE INDEX IF NOT EXISTS idx_twilio_from_numbers_config
+  ON twilio_from_numbers(twilio_config_id);
+
+CREATE TABLE IF NOT EXISTS plivo_configs (
+  id TEXT PRIMARY KEY,
+  workspace_id TEXT NOT NULL,
+  name TEXT NOT NULL DEFAULT 'My Plivo Account',
+  auth_id TEXT NOT NULL,
+  auth_token TEXT NOT NULL,
+  is_active INTEGER NOT NULL DEFAULT 1,
+  auto_dial_agents INTEGER NOT NULL DEFAULT 1,
+  endpoint_username TEXT,
+  endpoint_password TEXT,
+  endpoint_id TEXT,
+  endpoint_app_id TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS plivo_from_numbers (
+  id TEXT PRIMARY KEY,
+  plivo_config_id TEXT NOT NULL,
+  from_number TEXT NOT NULL,
+  is_default INTEGER NOT NULL DEFAULT 0,
+  is_active INTEGER NOT NULL DEFAULT 1,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (plivo_config_id) REFERENCES plivo_configs(id) ON DELETE CASCADE,
+  UNIQUE (plivo_config_id, from_number)
+);
+
+CREATE INDEX IF NOT EXISTS idx_plivo_configs_workspace
+  ON plivo_configs(workspace_id);
+
+CREATE INDEX IF NOT EXISTS idx_plivo_from_numbers_config
+  ON plivo_from_numbers(plivo_config_id);
 
 -- ==========================================
 -- STEP 4 & 5 SCHEMA: BROADCASTS & PUBLISHING
@@ -516,3 +604,41 @@ CREATE INDEX IF NOT EXISTS idx_domains_billing ON domains(workspace_id, billing_
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_addon_sub_active_email ON addon_subscriptions(workspace_id) WHERE addon_id LIKE 'email-addon-%' AND status IN ('created','active');
 -- billing-gated domain review support (idx_domains_billing)
+
+
+-- ==========================================
+-- STEP: CATALOGS
+-- ==========================================
+
+CREATE TABLE IF NOT EXISTS catalogs (
+  id TEXT PRIMARY KEY,
+  workspace_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  description TEXT,
+  status TEXT DEFAULT 'active',
+  cover_image_url TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS catalog_products (
+  id TEXT PRIMARY KEY,
+  catalog_id TEXT NOT NULL,
+  workspace_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  description TEXT,
+  price REAL DEFAULT 0,
+  currency TEXT DEFAULT 'INR',
+  image_url TEXT,
+  retailer_id TEXT,
+  status TEXT DEFAULT 'active',
+  sort_order INTEGER DEFAULT 0,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (catalog_id) REFERENCES catalogs(id) ON DELETE CASCADE,
+  FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_catalogs_workspace ON catalogs(workspace_id, status);
+CREATE INDEX IF NOT EXISTS idx_catalog_products_catalog ON catalog_products(catalog_id, status);

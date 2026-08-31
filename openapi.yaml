@@ -88,3 +88,263 @@ paths:
       responses:
         '200':
           description: Campaign scheduled successfully.
+
+  # -------------------------------------------------------------
+  # Twilio Voice
+  # -------------------------------------------------------------
+  /twilio/token:
+    get:
+      summary: Get Twilio Voice SDK Access Token
+      description: |
+        Returns a short-lived Twilio Access Token (JWT) signed with the workspace
+        API key secret. The Flutter app uses this token to register and place
+        SDK calls. Public webhooks are excluded from authentication.
+      security:
+        - ApiKeyAuth: []
+        - WorkspaceHeader: []
+      parameters:
+        - name: platform
+          in: query
+          schema:
+            type: string
+            enum: [android, ios]
+          description: Optional client platform; used to attach the correct push credential SID.
+      responses:
+        '200':
+          description: Access token and identity
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                  identity:
+                    type: string
+                  expiresIn:
+                    type: integer
+        '400':
+          description: Twilio SDK credentials missing for workspace
+  /twilio/call:
+    post:
+      summary: Start an outbound Twilio call to a customer
+      description: |
+        Creates a Twilio call to the target phone number and places the customer
+        into a conference room. The calling agent then joins the same conference
+        from the Flutter app for two-way talk.
+      security:
+        - ApiKeyAuth: []
+        - WorkspaceHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                to:
+                  type: string
+                  example: '+919669509952'
+                contactId:
+                  type: string
+                twilioConfigId:
+                  type: string
+                fromNumber:
+                  type: string
+      responses:
+        '200':
+          description: Call queued successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  callId:
+                    type: string
+                  callSid:
+                    type: string
+                  conferenceName:
+                    type: string
+                  status:
+                    type: string
+                  from:
+                    type: string
+                  to:
+                    type: string
+  /twilio/webhook/voice:
+    post:
+      summary: Twilio incoming call webhook
+      description: |
+        Public webhook invoked when a customer dials one of the Twilio numbers.
+        The caller is placed into a conference room and a push notification is
+        sent to workspace members.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                From:
+                  type: string
+                To:
+                  type: string
+                CallSid:
+                  type: string
+                Direction:
+                  type: string
+      responses:
+        '200':
+          description: TwiML response
+          content:
+            text/xml:
+              schema:
+                type: string
+  /twilio/webhook/app:
+    post:
+      summary: TwiML App Voice Request URL
+      description: |
+        Public webhook invoked when the Flutter Twilio Voice SDK places an
+        outgoing call. Should return TwiML that dials a Conference named by the
+        SDK's 'to' parameter.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                From:
+                  type: string
+                To:
+                  type: string
+      responses:
+        '200':
+          description: TwiML response
+          content:
+            text/xml:
+              schema:
+                type: string
+  /twilio/webhook/outbound:
+    post:
+      summary: Answer URL for outbound REST calls
+      description: |
+        Public answer URL passed to Twilio when the backend creates an outbound
+        call to a customer. Returns TwiML to place the customer into the agent
+        conference.
+      security: []
+      parameters:
+        - name: conferenceName
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: TwiML response
+          content:
+            text/xml:
+              schema:
+                type: string
+  /twilio/webhook/status:
+    post:
+      summary: Twilio call status callback
+      description: |
+        Public status callback for outbound/inbound calls. Updates call status
+        and duration in the database and broadcasts status changes.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                CallSid:
+                  type: string
+                CallStatus:
+                  type: string
+                CallDuration:
+                  type: string
+      responses:
+        '200':
+          description: OK
+  /twilio/webhook/fallback:
+    post:
+      summary: Twilio webhook fallback URL
+      description: |
+        Safe fallback URL for Twilio handlers. Returns an empty TwiML response
+        so Twilio does not keep retrying a failed primary webhook.
+      security: []
+      responses:
+        '200':
+          description: Empty TwiML response
+          content:
+            text/xml:
+              schema:
+                type: string
+  # -------------------------------------------------------------
+  # WhatsApp Outbound Calling
+  # -------------------------------------------------------------
+  /whatsapp/calls/outbound:
+    post:
+      summary: Initiate an outbound WhatsApp voice call
+      description: |
+        Creates an outbound WhatsApp WebRTC call by sending an SDP offer to
+        the Meta Graph API /phone_number_id/calls endpoint. The browser is
+        responsible for generating the SDP offer; this route proxies it and
+        tracks the call in the calls table.
+      security:
+        - ApiKeyAuth: []
+        - WorkspaceHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - sdp
+              properties:
+                phoneNumberId:
+                  type: string
+                contactId:
+                  type: string
+                to:
+                  type: string
+                  example: '919669509952'
+                recipient:
+                  type: string
+                  description: Meta WhatsApp recipient identifier (e.g. US.13491208655302741918)
+                  example: 'US.13491208655302741918'
+                sdp:
+                  type: string
+                sdpType:
+                  type: string
+                  enum: [offer]
+      responses:
+        '200':
+          description: Call initiated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  callId:
+                    type: string
+                  externalCallId:
+                    type: string
+                  status:
+                    type: string
+        '400':
+          description: Missing SDP, contact/phone or disabled calling
+        '409':
+          description: Another WhatsApp call is already active in this workspace
+        '502':
+          description: Meta Graph API returned an error

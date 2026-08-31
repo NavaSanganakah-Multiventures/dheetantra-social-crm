@@ -3,18 +3,24 @@ import { MessageSquare, Settings, Search, Phone, X, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useToast } from '@/components/ui/Toast';
 import { formatUserDateTime } from '../lib/dates';
+import { useTwilioVoice } from './TwilioVoiceProvider';
+import { usePlivoVoice } from './PlivoVoiceProvider';
 import { activeTab } from '../lib/types';
 
 export function CallsView({ 
   setActiveTab, 
   setActiveCall, 
   setPreselectedChat,
+  startWhatsAppCall,
 }: { 
   setActiveTab: (tab: activeTab) => void, 
   setActiveCall: (call: any) => void, 
   setPreselectedChat: (chat: any) => void,
+  startWhatsAppCall?: (contact: any) => Promise<void>,
 }) {
   const { toast } = useToast();
+  const twilioVoice = useTwilioVoice();
+  const plivoVoice = usePlivoVoice();
   const [calls, setCalls] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [callingEnabled, setCallingEnabled] = useState(true);
@@ -22,11 +28,19 @@ export function CallsView({
   const [filter, setFilter] = useState<"all" | "incoming" | "outgoing" | "missed">("all");
   const [contacts, setContacts] = useState<any[]>([]);
   const [showDialer, setShowDialer] = useState(false);
+  const [callSource, setCallSource] = useState<'plivo' | 'whatsapp'>('plivo');
   const [health, setHealth] = useState<{
     phone_numbers: any[];
     webhook_subscribed: boolean;
     turn_configured: boolean;
     all_ready: boolean;
+  } | null>(null);
+  const [plivoConfigs, setPlivoConfigs] = useState<any[]>([]);
+  const [plivoConfigsLoading, setPlivoConfigsLoading] = useState(true);
+  const [plivoConfigsError, setPlivoConfigsError] = useState(false);
+  const [fromNumberPicker, setFromNumberPicker] = useState<{
+    contact: any;
+    options: { configId: string; fromNumber: string; name: string }[];
   } | null>(null);
 
   const fetchCallsAndConfigs = useCallback(() => {
@@ -34,7 +48,7 @@ export function CallsView({
     if (!wId) return;
 
     // Fetch calls
-    fetch('/api/whatsapp/calls', {
+    fetch('/api/calls', {
       headers: { 'x-workspace-id': wId }
     })
     .then(r => r.json())
@@ -81,6 +95,22 @@ export function CallsView({
     })
     .catch(err => console.error(err));
 
+    // Fetch Plivo configs so outbound calls can choose a from-number
+    fetch('/api/plivo/configs', {
+      headers: { 'x-workspace-id': wId }
+    })
+    .then(r => r.json())
+    .then((data: any) => {
+      if (data.configs) setPlivoConfigs(data.configs);
+      setPlivoConfigsLoading(false);
+      setPlivoConfigsError(false);
+    })
+    .catch(err => {
+      console.error(err);
+      setPlivoConfigsError(true);
+      setPlivoConfigsLoading(false);
+    });
+
       }, []);
 
   useEffect(() => {
@@ -110,8 +140,89 @@ export function CallsView({
     }
   };
 
+  const callWithFromNumber = async (
+    contact: any,
+    phone: string,
+    option: { configId: string; fromNumber: string; name: string }
+  ) => {
+    if (!plivoVoice) {
+      toast('error', 'Plivo voice service not available');
+      return;
+    }
+    try {
+      await plivoVoice.startCall(
+        { id: contact?.id, name: contact?.name || phone, phone },
+        { fromNumber: option.fromNumber, plivoConfigId: option.configId || undefined }
+      );
+    } catch (e: any) {
+      toast('error', 'Call failed: ' + (e?.message || 'Unknown error'));
+    }
+  };
+
   const startOutgoingCall = async (contact: any) => {
-    alert('WhatsApp आउटबाउंड कॉल्स अभी सपोर्ट नहीं हैं। सिर्फ इनकमिंग कॉल्स ही प्राप्त हो सकती हैं।');
+    const phone = ((contact?.phone || contact?.platform_contact_id) || '').replace(/[^0-9+]/g, '');
+    if (!phone) {
+      toast('error', 'This contact has no phone number');
+      return;
+    }
+
+    if (callSource === 'whatsapp') {
+      if (!startWhatsAppCall) {
+        toast('error', 'WhatsApp outbound call not initialised');
+        return;
+      }
+      if (!callingEnabled) {
+        toast('error', 'WhatsApp calling is disabled for this workspace');
+        return;
+      }
+      if (contact?.platform !== 'whatsapp') {
+        toast('error', 'This contact is not a WhatsApp contact');
+        return;
+      }
+      try {
+        await startWhatsAppCall(contact);
+      } catch (e: any) {
+        toast('error', 'WhatsApp call failed: ' + (e?.message || 'Unknown error'));
+      }
+      return;
+    }
+
+    if (!plivoVoice) {
+      toast('error', 'Plivo voice service not available. Please configure Plivo in Settings.');
+      return;
+    }
+
+    if (plivoConfigsLoading) {
+      toast('error', 'Plivo configuration is still loading. Please try again.');
+      return;
+    }
+    if (plivoConfigsError) {
+      toast('error', 'Failed to load Plivo configuration. Check your network and retry.');
+      return;
+    }
+
+    const options: { configId: string; fromNumber: string; name: string }[] = [];
+    for (const cfg of plivoConfigs) {
+      const configId = cfg?.id ? String(cfg.id) : '';
+      const configName = cfg?.name ? String(cfg.name) : 'Plivo';
+      const fromNumbers = Array.isArray(cfg?.fromNumbers) ? cfg.fromNumbers : [];
+      for (const fn of fromNumbers) {
+        const fromNumber = fn?.fromNumber ? String(fn.fromNumber) : '';
+        if (!fromNumber) continue;
+        if (fn?.isActive === false) continue;
+        options.push({ configId, fromNumber, name: configName });
+      }
+    }
+
+    if (options.length === 0) {
+      toast('error', 'No active Plivo from-number found. Add one in Settings.');
+      return;
+    }
+    if (options.length === 1) {
+      await callWithFromNumber(contact, phone, options[0]);
+      return;
+    }
+    setFromNumberPicker({ contact, options });
   };
 
   const filteredCalls = calls.filter(c => {
@@ -124,13 +235,40 @@ export function CallsView({
     if (filter === "all") return true;
     if (filter === "incoming") return c.direction === "incoming";
     if (filter === "outgoing") return c.direction === "outgoing";
-    if (filter === "missed") return c.status === "missed";
+    if (filter === "missed") return missedStatuses.includes(c.status);
     return true;
   });
 
+  const completedStatuses = ['completed', 'answered', 'ended'];
+  const missedStatuses = ['missed', 'no_answer', 'busy', 'failed', 'canceled'];
+
+  function callStatusInfo(status: string) {
+    switch (status) {
+      case 'completed': case 'answered': case 'ended':
+        return { label: 'सफल', cls: 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600' };
+      case 'in_progress':
+        return { label: 'चालू', cls: 'bg-sky-50 dark:bg-sky-950/20 text-sky-600' };
+      case 'ringing': case 'queued':
+        return { label: 'बज रहा है', cls: 'bg-amber-50 dark:bg-amber-950/20 text-amber-600' };
+      case 'missed':
+        return { label: 'छूट गया', cls: 'bg-rose-50 dark:bg-rose-950/20 text-rose-600' };
+      case 'no_answer':
+        return { label: 'कोई जवाब नहीं', cls: 'bg-rose-50 dark:bg-rose-950/20 text-rose-600' };
+      case 'busy':
+        return { label: 'व्यस्त', cls: 'bg-rose-50 dark:bg-rose-950/20 text-rose-600' };
+      case 'failed':
+        return { label: 'विफल', cls: 'bg-rose-50 dark:bg-rose-950/20 text-rose-600' };
+      case 'canceled':
+        return { label: 'रद्द', cls: 'bg-rose-50 dark:bg-rose-950/20 text-rose-600' };
+      case 'declined':
+        return { label: 'अस्वीकृत', cls: 'bg-rose-50 dark:bg-rose-950/20 text-rose-600' };
+      default:
+        return { label: 'अस्वीकृत', cls: 'bg-surface-100 dark:bg-surface-800 text-surface-500' };
+    }
+  }
   const totalCalls = calls.length;
-  const missedCalls = calls.filter(c => c.status === 'missed').length;
-  const completedCalls = calls.filter(c => c.status === 'completed' || c.status === 'answered').length;
+  const missedCalls = calls.filter(c => missedStatuses.includes(c.status)).length;
+  const completedCalls = calls.filter(c => completedStatuses.includes(c.status)).length;
   const outgoingCalls = calls.filter(c => c.direction === 'outgoing').length;
 
   return (
@@ -138,8 +276,8 @@ export function CallsView({
       {/* Top Banner & Calling Switch */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-surface-900 p-6 rounded-2xl border border-surface-200 dark:border-surface-800 shadow-sm">
         <div>
-          <h2 className="text-xl font-bold text-surface-900 dark:text-white font-display">कॉल प्रबंधन और इतिहास</h2>
-          <p className="text-xs text-surface-500 mt-1">व्हाट्सएप बिजनेस क्लाउड एपीआई के माध्यम से सभी कॉल्स को सक्षम/अक्षम करें और ट्रैक करें</p>
+          <h2 className="text-xl font-bold text-surface-900 dark:text-white font-display">à¤à¥à¤² à¤ªà¥à¤°à¤¬à¤à¤§à¤¨ à¤à¤° à¤à¤¤à¤¿à¤¹à¤¾à¤¸</h2>
+          <p className="text-xs text-surface-500 mt-1">Plivo और WhatsApp के सभी कॉल्स को ट्रैक करें और Plivo सॉफ्टफोन से नए कॉल डायल करें</p>
         </div>
         <div className="flex items-center gap-4 shrink-0">
           <button
@@ -147,11 +285,11 @@ export function CallsView({
             className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-primary-500/10"
           >
             <Phone className="w-3.5 h-3.5" />
-            नया कॉल डायल करें
+            à¤¨à¤¯à¤¾ à¤à¥à¤² à¤¡à¤¾à¤¯à¤² à¤à¤°à¥à¤
           </button>
           
           <div className="flex items-center gap-3 bg-surface-50 dark:bg-surface-950 p-2 rounded-xl border border-surface-200/50 dark:border-surface-800">
-            <span className="text-xs font-semibold text-surface-600 dark:text-surface-400">कॉलिंग सेवा</span>
+            <span className="text-xs font-semibold text-surface-600 dark:text-surface-400">à¤à¥à¤²à¤¿à¤à¤ à¤¸à¥à¤µà¤¾</span>
             <button
               onClick={toggleCalling}
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-300 outline-none ${
@@ -165,7 +303,7 @@ export function CallsView({
               />
             </button>
             <span className={`text-[10px] font-bold uppercase tracking-wider ${callingEnabled ? 'text-emerald-500' : 'text-surface-400'}`}>
-              {callingEnabled ? 'सक्रिय' : 'बंद'}
+              {callingEnabled ? 'à¤¸à¤à¥à¤°à¤¿à¤¯' : 'à¤¬à¤à¤¦'}
             </span>
           </div>
         </div>
@@ -178,15 +316,15 @@ export function CallsView({
             <span className={`w-2 h-2 rounded-full ${health.all_ready ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
             <span>
               {health.all_ready
-                ? 'WhatsApp Calling तैयार है: इनकमिंग कॉल्स प्राप्त होंगी।'
-                : `WhatsApp Calling सेटअप अधूरा है: webhook ${health.webhook_subscribed ? 'ठीक है' : 'गायब है'}, TURN ${health.turn_configured ? 'ठीक है' : 'गायब है'}। सेटिंग्स में जाकर जांच करें।`}
+                ? 'WhatsApp Calling à¤¤à¥à¤¯à¤¾à¤° à¤¹à¥: à¤à¤¨à¤à¤®à¤¿à¤à¤ à¤à¥à¤²à¥à¤¸ à¤ªà¥à¤°à¤¾à¤ªà¥à¤¤ à¤¹à¥à¤à¤à¥à¥¤'
+                : `WhatsApp Calling à¤¸à¥à¤à¤à¤ª à¤à¤§à¥à¤°à¤¾ à¤¹à¥: webhook ${health.webhook_subscribed ? 'à¤ à¥à¤ à¤¹à¥' : 'à¤à¤¾à¤¯à¤¬ à¤¹à¥'}, TURN ${health.turn_configured ? 'à¤ à¥à¤ à¤¹à¥' : 'à¤à¤¾à¤¯à¤¬ à¤¹à¥'}à¥¤ à¤¸à¥à¤à¤¿à¤à¤à¥à¤¸ à¤®à¥à¤ à¤à¤¾à¤à¤° à¤à¤¾à¤à¤ à¤à¤°à¥à¤à¥¤`}
             </span>
           </div>
           <button
             onClick={() => fetchCallsAndConfigs()}
             className="px-2 py-1 rounded-md bg-white dark:bg-surface-900 border border-current opacity-80 hover:opacity-100"
           >
-            रिफ्रेश
+            à¤°à¤¿à¤«à¥à¤°à¥à¤¶
           </button>
         </div>
       )}
@@ -198,7 +336,7 @@ export function CallsView({
             <Phone className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-[10px] text-surface-500 uppercase font-bold tracking-wider">कुल कॉल्स</p>
+            <p className="text-[10px] text-surface-500 uppercase font-bold tracking-wider">à¤à¥à¤² à¤à¥à¤²à¥à¤¸</p>
             <p className="text-xl font-bold text-surface-900 dark:text-white mt-0.5">{totalCalls}</p>
           </div>
         </div>
@@ -208,7 +346,7 @@ export function CallsView({
             <X className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-[10px] text-surface-500 uppercase font-bold tracking-wider">मिस्ड कॉल्स</p>
+            <p className="text-[10px] text-surface-500 uppercase font-bold tracking-wider">à¤®à¤¿à¤¸à¥à¤¡ à¤à¥à¤²à¥à¤¸</p>
             <p className="text-xl font-bold text-surface-900 dark:text-white mt-0.5">{missedCalls}</p>
           </div>
         </div>
@@ -218,7 +356,7 @@ export function CallsView({
             <Check className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-[10px] text-surface-500 uppercase font-bold tracking-wider">सफल उत्तर</p>
+            <p className="text-[10px] text-surface-500 uppercase font-bold tracking-wider">à¤¸à¤«à¤² à¤à¤¤à¥à¤¤à¤°</p>
             <p className="text-xl font-bold text-surface-900 dark:text-white mt-0.5">{completedCalls}</p>
           </div>
         </div>
@@ -228,7 +366,7 @@ export function CallsView({
             <Phone className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-[10px] text-surface-500 uppercase font-bold tracking-wider">आउटगोइंग</p>
+            <p className="text-[10px] text-surface-500 uppercase font-bold tracking-wider">à¤à¤à¤à¤à¥à¤à¤à¤</p>
             <p className="text-xl font-bold text-surface-900 dark:text-white mt-0.5">{outgoingCalls}</p>
           </div>
         </div>
@@ -250,7 +388,7 @@ export function CallsView({
                     : 'text-surface-500 hover:text-surface-900 dark:hover:text-white'
                 }`}
               >
-                {type === 'all' ? 'सभी' : type === 'incoming' ? 'इनकमिंग' : type === 'outgoing' ? 'आउटगोइंग' : 'मिस्ड'}
+                {type === 'all' ? 'à¤¸à¤­à¥' : type === 'incoming' ? 'à¤à¤¨à¤à¤®à¤¿à¤à¤' : type === 'outgoing' ? 'à¤à¤à¤à¤à¥à¤à¤à¤' : 'à¤®à¤¿à¤¸à¥à¤¡'}
               </button>
             ))}
           </div>
@@ -259,7 +397,7 @@ export function CallsView({
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-surface-400" />
             <input
               type="text"
-              placeholder="नाम या नंबर से खोजें..."
+              placeholder="à¤¨à¤¾à¤® à¤¯à¤¾ à¤¨à¤à¤¬à¤° à¤¸à¥ à¤à¥à¤à¥à¤..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-9 pr-4 py-2 text-xs bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-surface-800 focus:bg-white dark:focus:bg-surface-900 focus:border-primary-500 rounded-xl outline-none transition-all"
@@ -271,25 +409,25 @@ export function CallsView({
         {loading ? (
           <div className="p-12 text-center">
             <div className="w-6 h-6 border-2 border-primary-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-            <p className="text-xs text-surface-500">कॉल लॉग्स लोड हो रहे हैं...</p>
+            <p className="text-xs text-surface-500">à¤à¥à¤² à¤²à¥à¤à¥à¤¸ à¤²à¥à¤¡ à¤¹à¥ à¤°à¤¹à¥ à¤¹à¥à¤...</p>
           </div>
         ) : filteredCalls.length === 0 ? (
           <div className="p-16 text-center">
             <Phone className="w-10 h-10 text-surface-300 dark:text-surface-700 mx-auto mb-3" />
-            <p className="text-sm font-semibold text-surface-700 dark:text-surface-300">कोई कॉल लॉग नहीं मिला</p>
-            <p className="text-xs text-surface-400 mt-1">इस फ़िल्टर के साथ कोई रिकॉर्ड नहीं है।</p>
+            <p className="text-sm font-semibold text-surface-700 dark:text-surface-300">à¤à¥à¤ à¤à¥à¤² à¤²à¥à¤ à¤¨à¤¹à¥à¤ à¤®à¤¿à¤²à¤¾</p>
+            <p className="text-xs text-surface-400 mt-1">à¤à¤¸ à¤«à¤¼à¤¿à¤²à¥à¤à¤° à¤à¥ à¤¸à¤¾à¤¥ à¤à¥à¤ à¤°à¤¿à¤à¥à¤°à¥à¤¡ à¤¨à¤¹à¥à¤ à¤¹à¥à¥¤</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-surface-50 dark:bg-surface-950 text-[10px] font-bold text-surface-500 uppercase tracking-wider border-b border-surface-200 dark:border-surface-800">
-                  <th className="px-6 py-3">सम्पर्क</th>
-                  <th className="px-6 py-3">दिशा/प्रकार</th>
-                  <th className="px-6 py-3">स्थिति</th>
-                  <th className="px-6 py-3">कॉल की तारीख और समय</th>
-                  <th className="px-6 py-3">अवधि</th>
-                  <th className="px-6 py-3 text-right">कार्रवाई</th>
+                  <th className="px-6 py-3">à¤¸à¤®à¥à¤ªà¤°à¥à¤</th>
+                  <th className="px-6 py-3">à¤¦à¤¿à¤¶à¤¾/à¤ªà¥à¤°à¤à¤¾à¤°</th>
+                  <th className="px-6 py-3">à¤¸à¥à¤¥à¤¿à¤¤à¤¿</th>
+                  <th className="px-6 py-3">à¤à¥à¤² à¤à¥ à¤¤à¤¾à¤°à¥à¤ à¤à¤° à¤¸à¤®à¤¯</th>
+                  <th className="px-6 py-3">à¤à¤µà¤§à¤¿</th>
+                  <th className="px-6 py-3 text-right">à¤à¤¾à¤°à¥à¤°à¤µà¤¾à¤</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-surface-200 dark:divide-surface-800 text-xs">
@@ -307,7 +445,7 @@ export function CallsView({
                             {call.contact_name?.[0] || '?'}
                           </div>
                           <div>
-                            <p className="font-semibold text-surface-800 dark:text-surface-200">{call.contact_name || 'अज्ञात संपर्क'}</p>
+                            <p className="font-semibold text-surface-800 dark:text-surface-200">{call.contact_name || 'à¤à¤à¥à¤à¤¾à¤¤ à¤¸à¤à¤ªà¤°à¥à¤'}</p>
                             <p className="text-[10px] text-surface-400">+{call.phone}</p>
                           </div>
                         </div>
@@ -317,33 +455,32 @@ export function CallsView({
                           {call.direction === 'incoming' ? (
                             <span className="flex items-center gap-1.5 px-2 py-1 bg-teal-50 dark:bg-teal-950/20 text-teal-600 dark:text-teal-400 rounded-lg text-[10px] font-bold">
                               <span className="w-1.5 h-1.5 rounded-full bg-teal-500"></span>
-                              इनकमिंग
+                              à¤à¤¨à¤à¤®à¤¿à¤à¤
                             </span>
                           ) : (
                             <span className="flex items-center gap-1.5 px-2 py-1 bg-blue-50 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400 rounded-lg text-[10px] font-bold">
                               <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
-                              आउटगोइंग
+                              à¤à¤à¤à¤à¥à¤à¤à¤
                             </span>
                           )}
                           <span className="text-[10px] text-surface-500 dark:text-surface-400 capitalize">
-                            {call.type === 'voice' ? 'वॉयस कॉल' : 'वीडियो कॉल'}
+                            {call.type === 'voice' ? 'à¤µà¥à¤¯à¤¸ à¤à¥à¤²' : 'à¤µà¥à¤¡à¤¿à¤¯à¥ à¤à¥à¤²'}
                           </span>
+                          {call.source && (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-surface-100 dark:bg-surface-800 text-surface-500 font-bold uppercase">
+                              {call.source}
+                            </span>
+                          )}
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                          call.status === 'completed' || call.status === 'answered'
-                            ? 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600'
-                            : call.status === 'missed'
-                            ? 'bg-rose-50 dark:bg-rose-950/20 text-rose-600'
-                            : 'bg-surface-100 dark:bg-surface-800 text-surface-500'
-                        }`}>
-                          {call.status === 'completed' || call.status === 'answered' ? 'सफल' : call.status === 'missed' ? 'छूट गया' : 'अस्वीकृत'}
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${callStatusInfo(call.status).cls}`}>
+                          {callStatusInfo(call.status).label}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-surface-500 dark:text-surface-400">{dateStr}</td>
                       <td className="px-6 py-4 font-mono text-[11px] text-surface-600 dark:text-surface-400">
-                        {call.status === 'missed' ? '-' : `${Math.floor(call.duration / 60)}m ${call.duration % 60}s`}
+                        {completedStatuses.includes(call.status) ? `${Math.floor((call.duration || 0) / 60)}m ${(call.duration || 0) % 60}s` : '-'}
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
@@ -366,14 +503,14 @@ export function CallsView({
                               });
                             }}
                             className="p-1.5 text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800 rounded-lg transition-colors"
-                            title="इनबॉक्स चैट खोलें"
+                            title="à¤à¤¨à¤¬à¥à¤à¥à¤¸ à¤à¥à¤ à¤à¥à¤²à¥à¤"
                           >
                             <MessageSquare className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => startOutgoingCall({ id: call.contact_id, name: call.contact_name, phone: call.phone })}
                             className="p-1.5 text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-950/40 rounded-lg transition-colors"
-                            title="कॉल बैक करें"
+                            title="à¤à¥à¤² à¤¬à¥à¤ à¤à¤°à¥à¤"
                           >
                             <Phone className="w-4 h-4" />
                           </button>
@@ -409,14 +546,44 @@ export function CallsView({
                 <div className="w-12 h-12 bg-primary-50 dark:bg-primary-950/40 text-primary-600 dark:text-primary-400 rounded-full flex items-center justify-center mx-auto mb-3">
                   <Phone className="w-6 h-6" />
                 </div>
-                <h3 className="font-bold text-surface-950 dark:text-white">नया कॉल शुरू करें</h3>
-                <p className="text-[10px] text-surface-400 mt-1">अपने किसी भी व्हाट्सएप कांटेक्ट को डायल करें</p>
+                <h3 className="font-bold text-surface-950 dark:text-white">à¤¨à¤¯à¤¾ à¤à¥à¤² à¤¶à¥à¤°à¥ à¤à¤°à¥à¤</h3>
+                <p className="text-[10px] text-surface-400 mt-1">किसी भी कॉन्टैक्ट को Plivo सॉफ्टफोन से डायल करें</p>
               </div>
+
+              {/* Source selector */}
+              <div className="flex items-center justify-center gap-2 mb-4 p-1 bg-surface-50 dark:bg-surface-950 rounded-xl border border-surface-100 dark:border-surface-800/50">
+                <button
+                  onClick={() => setCallSource('plivo')}
+                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${
+                    callSource === 'plivo'
+                      ? 'bg-white dark:bg-surface-800 text-primary-600 dark:text-primary-400 shadow-sm border border-surface-200/50 dark:border-surface-700/50'
+                      : 'text-surface-500 hover:text-surface-700 dark:hover:text-surface-300'
+                  }`}
+                >
+                  Plivo / PSTN
+                </button>
+                <button
+                  onClick={() => setCallSource('whatsapp')}
+                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${
+                    callSource === 'whatsapp'
+                      ? 'bg-white dark:bg-surface-800 text-primary-600 dark:text-primary-400 shadow-sm border border-surface-200/50 dark:border-surface-700/50'
+                      : 'text-surface-500 hover:text-surface-700 dark:hover:text-surface-300'
+                  }`}
+                >
+                  WhatsApp
+                </button>
+              </div>
+
+              {callSource === 'whatsapp' && (
+                <div className="mb-4 p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30 text-[10px] text-amber-800 dark:text-amber-300 text-center">
+                  WhatsApp calling requires the contact to be on WhatsApp and the number to have calling enabled in Meta Business Manager.
+                </div>
+              )}
 
               {/* Contact List */}
               <div className="max-h-60 overflow-y-auto space-y-2 pr-1">
                 {contacts.length === 0 ? (
-                  <p className="text-center text-xs text-surface-400 py-6">कोई भी व्हाट्सएप कांटेक्ट उपलब्ध नहीं है।</p>
+                  <p className="text-center text-xs text-surface-400 py-6">à¤à¥à¤ à¤­à¥ à¤µà¥à¤¹à¤¾à¤à¥à¤¸à¤à¤ª à¤à¤¾à¤à¤à¥à¤à¥à¤ à¤à¤ªà¤²à¤¬à¥à¤§ à¤¨à¤¹à¥à¤ à¤¹à¥à¥¤</p>
                 ) : (
                   contacts.map(c => (
                     <button
@@ -435,6 +602,56 @@ export function CallsView({
                     </button>
                   ))
                 )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* From-number chooser modal */}
+      <AnimatePresence>
+        {fromNumberPicker && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white dark:bg-surface-900 rounded-2xl border border-surface-200 dark:border-surface-800 max-w-sm w-full p-6 shadow-2xl relative"
+            >
+              <button
+                onClick={() => setFromNumberPicker(null)}
+                className="absolute top-4 right-4 p-1.5 text-surface-400 hover:text-surface-600 dark:hover:text-white rounded-lg hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+              <div className="text-center mb-6">
+                <div className="w-12 h-12 bg-primary-50 dark:bg-primary-950/40 text-primary-600 dark:text-primary-400 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <Phone className="w-6 h-6" />
+                </div>
+                <h3 className="font-bold text-surface-950 dark:text-white">किस नंबर से कॉल करें?</h3>
+                <p className="text-[10px] text-surface-400 mt-1">अपनी Plivo caller ID चुनें</p>
+              </div>
+              <div className="max-h-60 overflow-y-auto space-y-2 pr-1">
+                {fromNumberPicker.options.map(o => (
+                  <button
+                    key={o.configId + ':' + o.fromNumber}
+                    onClick={() => {
+                      const pick = fromNumberPicker;
+                      setFromNumberPicker(null);
+                      const phone = ((pick.contact?.phone || pick.contact?.platform_contact_id) || '').replace(/[^0-9+]/g, '');
+                      callWithFromNumber(pick.contact, phone, o);
+                    }}
+                    className="w-full flex items-center gap-3 p-2.5 rounded-xl border border-surface-100 dark:border-surface-800/50 hover:bg-surface-50 dark:hover:bg-surface-800/40 transition-colors text-left"
+                  >
+                    <div className="w-8 h-8 rounded-full bg-surface-100 dark:bg-surface-800 flex items-center justify-center shrink-0">
+                      <Phone className="w-3.5 h-3.5 text-primary-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-surface-900 dark:text-white truncate">{o.fromNumber}</p>
+                      <p className="text-[10px] text-surface-400 truncate">{o.name}</p>
+                    </div>
+                  </button>
+                ))}
               </div>
             </motion.div>
           </div>

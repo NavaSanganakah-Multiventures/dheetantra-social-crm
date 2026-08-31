@@ -10,6 +10,7 @@ import 'package:flutter_callkit_incoming/entities/notification_params.dart';
 import '../core/app_navigator.dart';
 import '../screens/call_screen.dart';
 import 'webrtc_service.dart';
+import 'api_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class CallKitService {
@@ -31,9 +32,17 @@ class CallKitService {
   Map<String, dynamic>? _pendingAcceptCall;
 
   // Same call ka accept ek hi baar process ho (onEvent actionCallAccept aur
-  // acceptCallHandle dono ek saath fire ho sakte hain → double CallScreen +
+  // acceptCallHandle dono ek saath fire ho sakte hain Ã¢ÂÂ double CallScreen +
   // double answerCall race na ho isliye dedupe karte hain).
   final Set<String> _handledAcceptIds = {};
+
+  // In-app overlay ne answer kar liya hai Ã¢ÂÂ native CallKit accept event
+  // se duplicate CallScreen + double answerCall na ho isliye track karte hain.
+  final Set<String> _appAnsweredIds = {};
+
+  // HomeShell ready hone tak accept event ko queue karo Ã¢ÂÂ warna Splash/Login
+  // screen ke upar CallScreen push ho sakta hai.
+  bool _homeShellReady = false;
 
   /// Ek accept event ko sirf ek baar process karta hai. Returns false agar
   /// ye call pehle hi accept ho chuki hai.
@@ -44,18 +53,35 @@ class CallKitService {
     }
     _handledAcceptIds.add(id);
     _currentCallId = id;
-    // Agar navigator ready hai toh turant open karo, warna pending mein save
-    // karo taaki HomeShell shuru hone par route kar sake.
-    if (appNavigatorKey.currentState != null) {
-      _openCallScreen(data);
-      Future.delayed(const Duration(milliseconds: 300), () {
-        WebRTCService().answerCall(data);
-      });
+    // HomeShell ready hone par (navigator bhi ready) turant open karo,
+    // warna pending mein save
+    // karo taaki HomeShell shuru hone par route kar sake. CallScreen apne
+    // aap permission check karke answerCall karega.
+    if (appNavigatorKey.currentState != null && _homeShellReady) {
+      debugPrint('CALLKIT: navigator ready, opening CallScreen');
+      CallScreen.push(appNavigatorKey.currentContext!, data);
     } else {
-      debugPrint('CALLKIT: navigator not ready, queuing accepted call');
+      debugPrint('CALLKIT: navigator / HomeShell not ready, queuing accepted call');
       _pendingAcceptCall = data;
     }
     return true;
+  }
+
+  /// Route a decline/auto-reject to the correct backend path for the call's
+  /// source. Plivo must call the decline endpoint so the conference is torn
+  /// down (not just marked 'declined' locally, which left the caller on hold).
+  Future<void> _declineBySource(String uuid, Map<String, dynamic> data) async {
+    final source = data['source']?.toString() ?? '';
+    final callId = data['id']?.toString() ?? uuid;
+    try {
+      if (source == 'whatsapp' || source == 'gsm') {
+        await WebRTCService().rejectCall(Map<String, dynamic>.from(data));
+      } else {
+        await ApiService().declineCall(callId);
+      }
+    } catch (e) {
+      debugPrint('CALLKIT: decline by source error: $e');
+    }
   }
 
   Future<void> init() async {
@@ -63,7 +89,7 @@ class CallKitService {
     _initialized = true;
 
     // acceptCallHandle register main() mein Firebase init se pehle bhi ho
-    // jata hai (cold-start accept race miss na ho) — yahan dobara call karna
+    // jata hai (cold-start accept race miss na ho) Ã¢ÂÂ yahan dobara call karna
     // safe hai, registerAcceptHandleEarly idempotent hai.
     registerAcceptHandleEarly();
 
@@ -72,7 +98,7 @@ class CallKitService {
       if (event == null) return;
 
       if (event is CallEventActionCallAccept) {
-        debugPrint('CALLKIT: actionCallAccept');
+        debugPrint('CALLKIT: onEvent actionCallAccept id=${event.callKitParams.id}');
         final params = event.callKitParams;
         final callData = _activeCalls[params.id] ?? params.extra;
         if (callData != null) {
@@ -80,33 +106,58 @@ class CallKitService {
           _handleAccept(params.id, data);
         }
       } else if (event is CallEventActionCallDecline) {
-        debugPrint('CALLKIT: actionCallDecline');
+        debugPrint('CALLKIT: onEvent actionCallDecline id=${event.callKitParams.id}');
         final params = event.callKitParams;
         _currentCallId = null;
         _handledAcceptIds.remove(params.id);
-        // IMPORTANT: lookup pehle, remove baad — warna in-memory callData
+        // IMPORTANT: lookup pehle, remove baad Ã¢ÂÂ warna in-memory callData
         // kabhi milta hi nahi aur rejectCall silently skip ho jata hai.
         final callData = _activeCalls[params.id] ?? params.extra;
         _activeCalls.remove(params.id);
         if (callData != null) {
-          WebRTCService().rejectCall(Map<String, dynamic>.from(callData));
+          final data = Map<String, dynamic>.from(callData);
+          // WhatsApp calls: reject via WebRTC. Plivo/Twilio route through
+          // their own backend paths (Plivo decline tears down the conference;
+          // a local-only status update would leave the caller on hold).
+          unawaited(_declineBySource(params.id, data));
         }
       } else if (event is CallEventActionCallEnded) {
-        debugPrint('CALLKIT: actionCallEnded');
+        debugPrint('CALLKIT: onEvent actionCallEnded id=${event.callKitParams.id}');
         final params = event.callKitParams;
+        final callData = _activeCalls[params.id] ?? params.extra;
+        final wasAccepted = _handledAcceptIds.contains(params.id);
         _currentCallId = null;
         _handledAcceptIds.remove(params.id);
         _activeCalls.remove(params.id);
+        // If a Plivo call ended without being accepted (swiped away / system
+        // dismissed), tear the conference down so the caller does not wait.
+        if (!wasAccepted && callData != null) {
+          final data = Map<String, dynamic>.from(callData);
+          if (data['source']?.toString() == 'plivo') {
+            final id = data['id']?.toString() ?? params.id;
+            unawaited(ApiService().declineCall(id));
+          }
+        }
       } else if (event is CallEventActionCallTimeout) {
-        debugPrint('CALLKIT: actionCallTimeout');
+        debugPrint('CALLKIT: onEvent actionCallTimeout id=${event.id}');
+        final callData = _activeCalls[event.id];
         _currentCallId = null;
         _handledAcceptIds.remove(event.id);
         _activeCalls.remove(event.id);
+        // Timeout means the agent never answered; tear down a waiting Plivo
+        // conference so the caller is not left ringing/on hold forever.
+        if (callData != null) {
+          final data = Map<String, dynamic>.from(callData);
+          if (data['source']?.toString() == 'plivo') {
+            final id = data['id']?.toString() ?? event.id;
+            unawaited(ApiService().declineCall(id));
+          }
+        }
       }
     });
 
     // When WebRTC connected, inform CallKit so the native UI timer starts.
-    // 'ended' par poori registry clear karte hain — warna accepted call ki
+    // 'ended' par poori registry clear karte hain Ã¢ÂÂ warna accepted call ki
     // entry hamesha bani rahegi aur same-id agli call duplicate-guard se
     // permanently block ho jayegi (hangup sirf terminate API bhejta hai,
     // plugin ko koi event nahi milta).
@@ -114,7 +165,7 @@ class CallKitService {
       if (state == 'connected' && _currentCallId != null) {
         FlutterCallkitIncoming.setCallConnected(_currentCallId!);
       } else if (state == 'ended') {
-        // Id-targeted cleanup — blanket clear/endAllCalls दूसरी ringing call
+        // Id-targeted cleanup Ã¢ÂÂ blanket clear/endAllCalls Ã Â¤Â¦Ã Â¥ÂÃ Â¤Â¸Ã Â¤Â°Ã Â¥Â ringing call
         // ki entry aur native ring bhi maar deta tha.
         final endedId = _currentCallId;
         _currentCallId = null;
@@ -134,7 +185,7 @@ class CallKitService {
 
   /// acceptCallHandle native callback register karta hai. main() mein
   /// [CallKitService.init] se pehle bula kar cold-start accept (plugin ka
-  /// 750ms callback window) ko jaldi capture karte hain — tab tak main isolate
+  /// 750ms callback window) ko jaldi capture karte hain Ã¢ÂÂ tab tak main isolate
   /// ka method channel ready na ho toh event lost ho jata hai.
   void registerAcceptHandleEarly() {
     if (_acceptHandleRegistered) return;
@@ -156,7 +207,7 @@ class CallKitService {
             _handleAccept(id, Map<String, dynamic>.from(existing));
             return;
           }
-          // Cold-start accept (registry khali hoti hai) — yahan payload par
+          // Cold-start accept (registry khali hoti hai) Ã¢ÂÂ yahan payload par
           // bharosa karna padta hai. Extra data (caller info, sdp...) ko
           // sanitize karke non-overriding merge karo taaki top-level
           // id/sdp/phoneNumberId override na ho sake.
@@ -175,7 +226,7 @@ class CallKitService {
     }
   }
 
-  /// Broadcast receiver se aaya payload whitelisted keys tak limit hota hai —
+  /// Broadcast receiver se aaya payload whitelisted keys tak limit hota hai Ã¢ÂÂ
   /// attacker-influenced nested/junk data (jisme harmful keys ho sakti hain)
   /// accept flow mein merge na ho. Sirf flat string/number/bool fields rakh
   /// dete hain, jo CallScreen/WebRTC answer ke liye chahiye.
@@ -184,7 +235,7 @@ class CallKitService {
       'id', 'callId', 'sdp', 'sdpType', 'callerName', 'callerNumber',
       'contact_name', 'phone', 'email', 'lastMessage', 'phoneNumberId',
       'from', 'contactEmail', 'direction', 'type', 'status', 'nameCaller',
-      'handle', 'avatar',
+      'handle', 'avatar', 'source', 'conferenceName',
     };
     final out = <String, dynamic>{};
     raw.forEach((key, value) {
@@ -198,6 +249,12 @@ class CallKitService {
 
   /// Request Android 13+ notification permission and Android 14+ full-screen
   /// intent permission. Call after the user is logged in.
+  /// HomeShell ke ready hone par true karo. Accept event tab tak queue mein
+  /// rahega jab tak HomeShell ready nahi ho jata.
+  void markHomeShellReady() {
+    _homeShellReady = true;
+  }
+
   /// Returns any call accepted while the app was not yet initialized/navigated
   /// to HomeShell. The caller must then route to [CallScreen] and answer the
   /// WebRTC call. Returns null after the first read.
@@ -205,6 +262,20 @@ class CallKitService {
     final data = _pendingAcceptCall;
     _pendingAcceptCall = null;
     return data;
+  }
+
+  /// In-app overlay jab call answer karti hai, tab plugin ko bata do
+  /// aur CallKit accept event ka duplicate gracefully ignore karo.
+  void markAnsweredByApp(String id) {
+    if (id.isEmpty) return;
+    _handledAcceptIds.add(id);
+    _appAnsweredIds.add(id);
+    _currentCallId = id;
+    try {
+      FlutterCallkitIncoming.setCallConnected(id);
+    } catch (e) {
+      debugPrint('CALLKIT markAnsweredByApp setCallConnected error: $e');
+    }
   }
 
   Future<void> requestPermissions() async {
@@ -272,7 +343,7 @@ class CallKitService {
     });
   }
 
-  /// Reflects the user-facing "कॉलिंग सक्षम" toggle (settings_screen). When off,
+  /// Reflects the user-facing "Ã Â¤ÂÃ Â¥ÂÃ Â¤Â²Ã Â¤Â¿Ã Â¤ÂÃ Â¤Â Ã Â¤Â¸Ã Â¤ÂÃ Â¥ÂÃ Â¤Â·Ã Â¤Â®" toggle (settings_screen). When off,
   /// incoming calls are auto-rejected so the caller gets a busy tone and this
   /// device stays quiet. Server-side gating (per WhatsAppConfig.calling_enabled)
   /// is independent and still applies.
@@ -288,16 +359,14 @@ class CallKitService {
   }
 
   Future<void> showIncomingCall(Map<String, dynamic> data) async {
+    final String uuid = data['id']?.toString() ?? 'unknown-call-id';
     if (!await isCallingEnabled()) {
-      try {
-        await WebRTCService().rejectCall(Map<String, dynamic>.from(data));
-      } catch (_) {}
+      await _declineBySource(uuid, Map<String, dynamic>.from(data));
       return;
     }
-    final String uuid = data['id']?.toString() ?? 'unknown-call-id';
 
     // Duplicate guard: agar ye call pehle se dikh rahi hai (WebSocket overlay
-    // ya plugin ke through) toh dubara se show mat karo — warna double ring +
+    // ya plugin ke through) toh dubara se show mat karo Ã¢ÂÂ warna double ring +
     // double UI hota hai aur user call attend nahi kar paata.
     if (uuid != 'unknown-call-id' && _activeCalls.containsKey(uuid)) {
       debugPrint('CALLKIT: call $uuid already showing, skipping duplicate');
@@ -305,18 +374,14 @@ class CallKitService {
     }
 
     // Line-busy guard (WhatsApp-style): agar koi aur call pehle se active ya
-    // ringing hai toh nayi call ko turant auto-reject — user ko double ring
+    // ringing hai toh nayi call ko turant auto-reject Ã¢ÂÂ user ko double ring
     // nahi dikhegi aur caller ko busy tone milega. Server pehle hi busy calls
     // ko push nahi karta; ye sirf defense-in-depth hai (race/server-offline
     // case). NOTE: app default dialer banne par PSTN incoming calls ke liye
-    // bhi yahi guard chalta rahega — sirf reject path TelecomManager se hoga.
+    // bhi yahi guard chalta rahega Ã¢ÂÂ sirf reject path TelecomManager se hoga.
     if (_currentCallId != null && _currentCallId != uuid) {
-      debugPrint('CALLKIT: line busy ($_currentCallId) — auto-rejecting $uuid');
-      try {
-        await WebRTCService().rejectCall(Map<String, dynamic>.from(data));
-      } catch (e) {
-        debugPrint('CALLKIT: busy auto-reject error: $e');
-      }
+      debugPrint('CALLKIT: line busy ($_currentCallId) - auto-rejecting $uuid');
+      await _declineBySource(uuid, Map<String, dynamic>.from(data));
       return;
     }
 
@@ -374,14 +439,10 @@ class CallKitService {
         isShowLogo: false,
         isShowCallID: true,
         isShowFullLockedScreen: true,
-        // IMPORTANT: isFullScreen=true hone par plugin sirf activity dikhata
-        // hai — notification nahi banati aur ringtone/vibration kabhi nahi
-        // bajta (sound sirf notification path mein play hota hai). Android 14+
-        // par full-screen intent permission ke bina activity turant FSI
-        // settings screen khol deti hai. isFullScreen=false (notification
-        // path) hi एकमात्र reliable ring hai — permission request login ke
-        // baad requestPermissions() se ho jati hai.
-        isFullScreen: false,
+        // WhatsApp-style full-screen incoming call UI dikhane ke liye.
+        // Android 14+ par full-screen intent permission zaroori hai;
+        // CallKitService.requestPermissions() use runtime mein maangta hai.
+        isFullScreen: true,
         isImportant: true,
         ringtonePath: 'system_ringtone_default',
         backgroundColor: '#0955fa',
@@ -390,8 +451,8 @@ class CallKitService {
         textColor: '#ffffff',
         incomingCallNotificationChannelName: "Incoming Call",
         missedCallNotificationChannelName: "Missed Call",
-        textAccept: 'उठाएं',
-        textDecline: 'काटें',
+        textAccept: 'Ã Â¤ÂÃ Â¤Â Ã Â¤Â¾Ã Â¤ÂÃ Â¤Â',
+        textDecline: 'Ã Â¤ÂÃ Â¤Â¾Ã Â¤ÂÃ Â¥ÂÃ Â¤Â',
       ),
       ios: const IOSParams(
         iconName: 'AppIcon',

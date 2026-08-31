@@ -40,6 +40,8 @@ dependencies:
   url_launcher: ^6.3.1
   shared_preferences: ^2.5.3
   flutter_webrtc: ^1.6.0
+  twilio_voice: ^0.5.0
+  sip_ua: ^1.1.0
   web_socket_channel: ^3.0.3
   permission_handler: ^11.3.1
   # Firebase Cloud Messaging (push notifications) + local notifications
@@ -47,9 +49,23 @@ dependencies:
   firebase_messaging: ^15.2.4
   flutter_local_notifications: ^19.2.0
   path_provider: ^2.1.5
-  flutter_callkit_incoming: ^3.1.3
+  flutter_callkit_incoming: ^3.1.5
   flutter_ringtone_player: ^4.0.0+4
   flutter_foreground_task: ^8.12.0
+  # Caller ID / after-call CRM native bridge
+  flutter_secure_storage: ^9.2.4
+  # Media viewer / download / share
+  photo_view: ^0.15.0
+  flutter_pdfview: ^1.4.0
+  share_plus: ^10.0.0
+  # Catalog product photo picker
+  image_picker: ^1.1.2
+  # Device info for recording path analytics
+  device_info_plus: ^11.3.0
+  # Manual recording file selection
+  file_picker: ^10.1.7
+  path: ^1.9.0
+  audioplayers: ^6.4.0
 
 dev_dependencies:
   flutter_test:

@@ -1,9 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
-import '../models/models.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
+import 'call_detail_screen.dart';
 
 class CallsScreen extends StatefulWidget {
   const CallsScreen({super.key});
@@ -13,11 +15,14 @@ class CallsScreen extends StatefulWidget {
 }
 
 class _CallsScreenState extends State<CallsScreen> {
-  String _filter = 'सभी';
+  String _sourceFilter = 'all';
+  String _statusFilter = 'all';
+  String _search = '';
   bool _loading = true;
-  List<CallLog> _allCalls = [];
+  List<Map<String, dynamic>> _allCalls = [];
 
-  static const _filters = ['सभी', 'आने वाली', 'जाने वाली', 'मिस्ड', 'व्यस्त'];
+  static const _sourceOptions = ['all', 'whatsapp', 'gsm', 'twilio', 'plivo'];
+  static const _statusOptions = ['all', 'incoming', 'outgoing', 'missed', 'busy', 'ended'];
 
   @override
   void initState() {
@@ -27,39 +32,40 @@ class _CallsScreenState extends State<CallsScreen> {
 
   Future<void> _loadCalls() async {
     setState(() => _loading = true);
-    final data = await ApiService().getCallLogs();
+    final data = await ApiService().getUnifiedCalls(
+      source: _sourceFilter == 'all' ? null : _sourceFilter,
+      search: _search.isEmpty ? null : _search,
+      limit: 200,
+    );
     if (!mounted) return;
     setState(() {
-      _allCalls = data.map((j) => CallLog.fromJson(j)).toList();
+      _allCalls = data.cast<Map<String, dynamic>>();
       _loading = false;
     });
   }
 
-  List<CallLog> get _calls {
+  List<Map<String, dynamic>> get _calls {
     var list = _allCalls;
-    switch (_filter) {
-      case 'आने वाली':
-        list = list.where((c) => c.direction == 'incoming').toList();
-        break;
-      case 'जाने वाली':
-        list = list.where((c) => c.direction == 'outgoing').toList();
-        break;
-      case 'मिस्ड':
-        list = list.where((c) => c.status == 'missed').toList();
-        break;
-      case 'व्यस्त':
-        list = list.where((c) => c.status == 'busy').toList();
-        break;
+    if (_statusFilter != 'all') {
+      if (_statusFilter == 'incoming') {
+        list = list.where((c) => _str(c['direction']) == 'incoming').toList();
+      } else if (_statusFilter == 'outgoing') {
+        list = list.where((c) => _str(c['direction']) == 'outgoing').toList();
+      } else {
+        list = list.where((c) => _str(c['status']) == _statusFilter).toList();
+      }
     }
     return list;
   }
+
+  String _str(dynamic v) => (v ?? '').toString().toLowerCase();
 
   @override
   Widget build(BuildContext context) {
     final calls = _calls;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('कॉल लॉग्स'),
+        title: const Text('CRM कॉल लॉग्स'),
         actions: [
           IconButton(
             onPressed: _loadCalls,
@@ -70,24 +76,77 @@ class _CallsScreenState extends State<CallsScreen> {
       ),
       body: Column(
         children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+            child: TextField(
+              onChanged: (v) => setState(() => _search = v),
+              onSubmitted: (_) => _loadCalls(),
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: AppColors.surface,
+                hintText: 'नाम या नंबर से खोजें...',
+                prefixIcon: const Icon(Icons.search, color: AppColors.textMuted),
+                suffixIcon: _search.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, color: AppColors.textMuted),
+                        onPressed: () {
+                          setState(() => _search = '');
+                          _loadCalls();
+                        },
+                      )
+                    : null,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: AppColors.border),
+                ),
+              ),
+              style: const TextStyle(color: AppColors.textPrimary),
+            ),
+          ),
+          const SizedBox(height: 12),
           SizedBox(
-            height: 48,
+            height: 36,
             child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 20),
               scrollDirection: Axis.horizontal,
-              itemCount: _filters.length,
+              itemCount: _sourceOptions.length,
               separatorBuilder: (__, ___) => const SizedBox(width: 8),
               itemBuilder: (context, i) {
-                final f = _filters[i];
-                return ChoiceChip(
-                  label: Text(f),
-                  selected: _filter == f,
-                  onSelected: (_) => setState(() => _filter = f),
+                final f = _sourceOptions[i];
+                return FilterChip(
+                  label: Text(_sourceLabel(f)),
+                  selected: _sourceFilter == f,
+                  onSelected: (_) {
+                    setState(() => _sourceFilter = f);
+                    _loadCalls();
+                  },
                   showCheckmark: false,
                 );
               },
             ),
           ),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 36,
+            child: ListView.separated(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              scrollDirection: Axis.horizontal,
+              itemCount: _statusOptions.length,
+              separatorBuilder: (__, ___) => const SizedBox(width: 8),
+              itemBuilder: (context, i) {
+                final f = _statusOptions[i];
+                return FilterChip(
+                  label: Text(_statusLabel(f)),
+                  selected: _statusFilter == f,
+                  onSelected: (_) {
+                    setState(() => _statusFilter = f);
+                  },
+                  showCheckmark: false,
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 6),
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
@@ -96,7 +155,7 @@ class _CallsScreenState extends State<CallsScreen> {
                         child: EmptyState(
                           icon: Icons.call_outlined,
                           title: 'कोई कॉल नहीं मिली',
-                          subtitle: 'कॉल लॉग्स यहाँ दिखाई देंगे।',
+                          subtitle: 'CRM कॉल लॉग्स यहाँ दिखाई देंगे।',
                         ),
                       )
                     : RefreshIndicator(
@@ -113,19 +172,48 @@ class _CallsScreenState extends State<CallsScreen> {
       ),
     );
   }
+
+  String _sourceLabel(String s) {
+    switch (s) {
+      case 'whatsapp': return 'WhatsApp';
+      case 'gsm': return 'GSM';
+      case 'twilio': return 'Twilio';
+      case 'plivo': return 'Plivo';
+      default: return 'सभी';
+    }
+  }
+
+  String _statusLabel(String s) {
+    switch (s) {
+      case 'incoming': return 'आने वाली';
+      case 'outgoing': return 'जाने वाली';
+      case 'missed': return 'मिस्ड';
+      case 'busy': return 'व्यस्त';
+      case 'ended': return 'End हुई';
+      default: return 'सभी';
+    }
+  }
 }
 
 class _CallTile extends StatelessWidget {
-  final CallLog call;
+  final Map<String, dynamic> call;
 
   const _CallTile({required this.call});
 
   @override
   Widget build(BuildContext context) {
-    final missed = call.status == 'missed';
-    final busy = call.status == 'busy';
-    final incoming = call.direction == 'incoming';
-    final connected = call.status == 'connected';
+    final name = (call['contact_name'] ?? call['name'] ?? 'Unknown').toString();
+    final phone = (call['phone'] ?? call['caller_number'] ?? '').toString();
+    final direction = (call['direction'] ?? 'incoming').toString().toLowerCase();
+    final status = (call['status'] ?? '').toString().toLowerCase();
+    final source = (call['source'] ?? 'whatsapp').toString().toLowerCase();
+    final duration = call['duration'] ?? call['duration_seconds'] ?? 0;
+    final hasRecording = call['recording_url'] != null && call['recording_url'].toString().isNotEmpty;
+    final hasSummary = call['summary'] != null && call['summary'].toString().isNotEmpty;
+    final createdAt = _parseDate(call['created_at'] ?? call['started_at']);
+    final missed = status == 'missed';
+    final busy = status == 'busy';
+    final incoming = direction == 'incoming';
 
     IconData icon;
     Color iconColor;
@@ -133,7 +221,6 @@ class _CallTile extends StatelessWidget {
       icon = Icons.call_missed_rounded;
       iconColor = AppColors.danger;
     } else if (busy) {
-      // Line busy (WhatsApp-style) — caller ko busy tone mila tha.
       icon = Icons.block_rounded;
       iconColor = AppColors.warning;
     } else if (incoming) {
@@ -144,89 +231,183 @@ class _CallTile extends StatelessWidget {
       iconColor = AppColors.accent;
     }
 
-    return Container(
-      padding: const EdgeInsets.all(13),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: missed
-              ? AppColors.danger.withValues(alpha: 0.35)
-              : busy
-                  ? AppColors.warning.withValues(alpha: 0.35)
-                  : AppColors.border,
+    return InkWell(
+      onTap: () {
+        final callId = call['id']?.toString();
+        if (callId == null) return;
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => CallDetailScreen(callId: callId, source: source)),
+        );
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(13),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: missed
+                ? AppColors.danger.withValues(alpha: 0.35)
+                : busy
+                    ? AppColors.warning.withValues(alpha: 0.35)
+                    : AppColors.border,
+          ),
         ),
-      ),
-      child: Row(
-        children: [
-          Avatar(name: call.name, size: 46),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
+          children: [
+            Avatar(name: name, size: 46),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          name,
+                          style: TextStyle(
+                            color: AppColors.textPrimary,
+                            fontSize: 14.5,
+                            fontWeight: missed || busy ? FontWeight.w700 : FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      _SourceBadge(source),
+                    ],
+                  ),
+                  const SizedBox(height: 3),
+                  Row(
+                    children: [
+                      Icon(icon, color: iconColor, size: 14),
+                      const SizedBox(width: 4),
+                      Text(
+                        phone,
+                        style: const TextStyle(
+                          color: AppColors.textMuted,
+                          fontSize: 12.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      if (hasRecording) ...[
+                        Icon(Icons.mic, color: AppColors.accent, size: 14),
+                        const SizedBox(width: 4),
+                      ],
+                      if (hasSummary) ...[
+                        Icon(Icons.auto_awesome, color: AppColors.success, size: 14),
+                        const SizedBox(width: 4),
+                      ],
+                      Text(
+                        _statusText(status),
+                        style: TextStyle(
+                          color: missed
+                              ? AppColors.danger
+                              : busy
+                                  ? AppColors.warning
+                                  : AppColors.textSecondary,
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  call.name,
-                  style: TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 14.5,
-                    fontWeight: missed || busy ? FontWeight.w700 : FontWeight.w600,
-                  ),
+                  createdAt == null ? '' : timeLabel(createdAt),
+                  style: const TextStyle(color: AppColors.textMuted, fontSize: 11.5),
                 ),
-                const SizedBox(height: 3),
-                Row(
-                  children: [
-                    Icon(icon, color: iconColor, size: 14),
-                    const SizedBox(width: 4),
-                    Text(
-                      call.phone,
-                      style: const TextStyle(
-                        color: AppColors.textMuted,
-                        fontSize: 12.5,
-                      ),
-                    ),
-                  ],
+                const SizedBox(height: 4),
+                Text(
+                  durationLabel(_toInt(duration)),
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ],
             ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                timeLabel(call.time),
-                style: const TextStyle(color: AppColors.textMuted, fontSize: 11.5),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                connected ? durationLabel(call.durationSeconds) : _statusLabel(call.status),
-                style: TextStyle(
-                  color: missed
-                      ? AppColors.danger
-                      : busy
-                          ? AppColors.warning
-                          : AppColors.textSecondary,
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  String _statusLabel(String status) {
-    switch (status) {
-      case 'missed':
-        return 'मिस्ड';
-      case 'busy':
-        return 'व्यस्त';
-      case 'declined':
-        return 'अस्वीकृत';
-      default:
-        return status;
+  int _toInt(dynamic v) {
+    if (v is int) return v;
+    if (v is double) return v.toInt();
+    return int.tryParse(v.toString()) ?? 0;
+  }
+
+  DateTime? _parseDate(dynamic v) {
+    if (v == null) return null;
+    if (v is DateTime) return v;
+    final s = v.toString();
+    final dt = DateTime.tryParse(s);
+    if (dt != null) return dt.toLocal();
+    return null;
+  }
+
+  String _statusText(String s) {
+    switch (s) {
+      case 'missed': return 'मिस्ड';
+      case 'busy': return 'व्यस्त';
+      case 'declined': return 'अस्वीकृत';
+      case 'ended': return 'End हुई';
+      case 'in_progress': return 'चल रही';
+      default: return s;
     }
+  }
+}
+
+class _SourceBadge extends StatelessWidget {
+  final String source;
+  const _SourceBadge(this.source);
+
+  String get _label {
+    switch (source) {
+      case 'gsm': return 'GSM';
+      case 'twilio': return 'Twilio';
+      case 'plivo': return 'Plivo';
+      default: return 'WhatsApp';
+    }
+  }
+
+  Color get _color {
+    switch (source) {
+      case 'gsm': return AppColors.accent;
+      case 'twilio': return const Color(0xFFF472B6);
+      case 'plivo': return const Color(0xFF34D399);
+      default: return AppColors.success;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _color;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        _label,
+        style: TextStyle(
+          color: color,
+          fontSize: 9,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
   }
 }
