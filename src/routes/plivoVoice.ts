@@ -562,14 +562,53 @@ router.post('/api/plivo/configs', requireRole('owner', 'admin'), async (c) => {
   ).bind(id, workspaceId, name || 'My Plivo Account', authId, authToken, autoDialAgents === false ? 0 : 1, endpointUsername || null, endpointPassword || null, sqliteNow(), sqliteNow()).run();
 
   const nums = Array.isArray(fromNumbers) ? fromNumbers.filter((n: any) => typeof n === 'string' && n.trim()) : [];
-  for (let i = 0; i < nums.length; i++) {
-    const from = normalizeE164(String(nums[i]).trim());
-    await c.env.DB.prepare(
-      'INSERT INTO plivo_from_numbers (id, plivo_config_id, from_number, is_default, is_active, created_at) VALUES (?, ?, ?, ?, 1, ?)'
-    ).bind(crypto.randomUUID(), id, from, i === 0 ? 1 : 0, sqliteNow()).run();
+
+  // Incoming PSTN numbers must be linked to a Plivo voice application, otherwise
+  // incoming calls on those numbers never reach /api/plivo/webhook/voice. Link them
+  // here (same flow as POST /api/plivo/configs/:id/from-numbers) so numbers added
+  // while creating a config are immediately usable.
+  const linkedNumbers: string[] = [];
+  const failedNumbers: { from: string; error: string }[] = [];
+  if (nums.length > 0) {
+    const baseUrl = ((c.env as any).APP_URL as string | undefined) || ('https://' + (c.req.header('host') || 'dheetantra.navasanganakah.com'));
+    const incomingAppName = 'DheeTantra-Incoming-Voice-' + workspaceId.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 12);
+    const incomingApp = await findOrCreateIncomingApp({ auth_id: authId, auth_token: authToken }, incomingAppName, baseUrl);
+
+    if (incomingApp.ok && incomingApp.appId) {
+      for (let i = 0; i < nums.length; i++) {
+        const from = normalizeE164(String(nums[i]).trim());
+        if (!/^\+\d{7,15}$/.test(from)) {
+          failedNumbers.push({ from, error: 'Invalid from number. Use a valid E.164 number like +919669509952' });
+          continue;
+        }
+        const numberUpdateUrl = plivoApiBase(authId) + 'Number/' + encodeURIComponent(from.replace(/^\+/, '')) + '/';
+        const numUpdateRes = await fetch(numberUpdateUrl, {
+          method: 'POST',
+          headers: {
+            Authorization: plivoAuthHeader(authId, authToken),
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ app_id: incomingApp.appId }),
+        });
+        if (!numUpdateRes.ok) {
+          const numErr: any = await numUpdateRes.json().catch(() => ({}));
+          console.error('[Plivo] config-create number app link failed', numUpdateRes.status, JSON.stringify(numErr));
+          failedNumbers.push({ from, error: numErr.error || ('Plivo HTTP ' + numUpdateRes.status) });
+          continue;
+        }
+        await c.env.DB.prepare(
+          'INSERT INTO plivo_from_numbers (id, plivo_config_id, from_number, is_default, is_active, created_at) VALUES (?, ?, ?, ?, 1, ?)'
+        ).bind(crypto.randomUUID(), id, from, linkedNumbers.length === 0 ? 1 : 0, sqliteNow()).run();
+        linkedNumbers.push(from);
+      }
+    } else {
+      for (let i = 0; i < nums.length; i++) {
+        failedNumbers.push({ from: normalizeE164(String(nums[i]).trim()), error: incomingApp.error || 'Failed to create incoming voice application' });
+      }
+    }
   }
 
-  return c.json({ success: true, configId: id });
+  return c.json({ success: true, configId: id, linkedNumbers, failedNumbers });
 });
 
 router.put('/api/plivo/configs/:id', requireRole('owner', 'admin'), async (c) => {
@@ -1345,10 +1384,11 @@ router.post('/api/plivo/webhook/app', async (c) => {
   );
 });
 
-// Fallback URL for all Plivo webhooks. Returns a benign empty response so
-// Plivo does not retry a failing primary handler indefinitely.
+// Fallback URL for all Plivo webhooks. When a primary handler fails, explicitly
+// end the call instead of leaving the caller in silence; this also stops Plivo
+// from retrying the failing handler indefinitely.
 router.post('/api/plivo/webhook/fallback', async (c) => {
-  return plivoXmlResponse(XML_DECL + '<Response></Response>', 200);
+  return plivoXmlResponse(XML_DECL + '<Response><Hangup/></Response>', 200);
 });
 
 // Hold music for the conference waiting room (waitSound must return XML).
