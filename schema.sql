@@ -208,6 +208,7 @@ CREATE TABLE IF NOT EXISTS calls (
   hangup_cause TEXT,
   twilio_config_id TEXT,
   plivo_config_id TEXT,
+  whatsapp_config_id TEXT,
   assigned_user_id TEXT,
   external_call_id TEXT,
   sdp TEXT,
@@ -216,6 +217,8 @@ CREATE TABLE IF NOT EXISTS calls (
   FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
   FOREIGN KEY (contact_id) REFERENCES contacts(id) ON DELETE CASCADE
 );
+
+CREATE INDEX IF NOT EXISTS idx_calls_source ON calls(source);
 
 CREATE TABLE IF NOT EXISTS twilio_configs (
   id TEXT PRIMARY KEY,

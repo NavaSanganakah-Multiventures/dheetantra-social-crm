@@ -1,6 +1,8 @@
 import { Hono } from 'hono';
 import { Env } from '../types';
 import { requireRole, pagination, sqliteNow } from '../shared';
+import { teardownPlivoCall } from './plivoVoice';
+import { teardownTwilioCall } from './twilioVoice';
 
 const router = new Hono<{ Bindings: Env }>();
 
@@ -973,6 +975,110 @@ router.post('/api/calls/:id/summarize', async (c) => {
   ).bind(summary, sqliteNow(), transcript || null, callId, workspaceId).run();
 
   return c.json({ success: true, summary, provider });
+});
+
+// ==========================================
+// UNIFIED DECLINE / HANGUP FOR ALL PLATFORMS
+// ==========================================
+router.post('/api/calls/:id/decline', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  const callId = c.req.param('id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  const call = await c.env.DB.prepare('SELECT * FROM calls WHERE id = ? AND workspace_id = ?')
+    .bind(callId, workspaceId).first<{ source: string; id: string; workspace_id: string; plivo_config_id?: string; external_call_id?: string; assigned_user_id?: string }>();
+  if (!call) return c.json({ error: 'Call not found' }, 404);
+
+  try {
+    if (call.source === 'plivo') {
+      await teardownPlivoCall(c.env, call, 'declined');
+      return c.json({ success: true, message: 'Plivo call declined' });
+    } else if (call.source === 'twilio') {
+      await teardownTwilioCall(c.env, call, 'declined');
+      return c.json({ success: true, message: 'Twilio call declined' });
+    } else if (call.source === 'whatsapp') {
+      // For WhatsApp, we ideally use the existing logic from /api/whatsapp/calls/:id/reject.
+      // But since we may not have phoneNumberId in the body here (frontend unified api), 
+      // we can fetch it from the DB.
+      const wCall = await c.env.DB.prepare('SELECT phone_number_id FROM calls WHERE id = ?').bind(callId).first<{phone_number_id: string}>();
+      if (wCall && wCall.phone_number_id) {
+        let config = await c.env.DB.prepare('SELECT access_token FROM whatsapp_configs WHERE workspace_id = ? AND phone_number_id = ?')
+          .bind(workspaceId, wCall.phone_number_id).first<{ access_token: string }>();
+        if (!config) {
+          config = await c.env.DB.prepare('SELECT access_token FROM whatsapp_configs WHERE workspace_id = ?')
+            .bind(workspaceId).first<{ access_token: string }>();
+        }
+        if (config) {
+          await fetch(`https://graph.facebook.com/v20.0/${wCall.phone_number_id}/calls`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${config.access_token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              messaging_product: 'whatsapp',
+              call_id: callId,
+              action: 'reject'
+            })
+          });
+        }
+      }
+      await c.env.DB.prepare("UPDATE calls SET status = 'declined' WHERE id = ? AND workspace_id = ? AND status != 'busy'").bind(callId, workspaceId).run();
+      return c.json({ success: true, message: 'WhatsApp call declined' });
+    }
+  } catch (e: any) {
+    console.error('[Unified Decline] Error:', e);
+  }
+
+  // Fallback
+  await c.env.DB.prepare("UPDATE calls SET status = 'declined' WHERE id = ? AND workspace_id = ?").bind(callId, workspaceId).run();
+  return c.json({ success: true, message: 'Call marked as declined' });
+});
+
+router.post('/api/calls/:id/hangup', async (c) => {
+  const workspaceId = c.req.header('x-workspace-id');
+  const callId = c.req.param('id');
+  if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+
+  const call = await c.env.DB.prepare('SELECT * FROM calls WHERE id = ? AND workspace_id = ?')
+    .bind(callId, workspaceId).first<{ source: string; id: string; workspace_id: string; plivo_config_id?: string; external_call_id?: string; assigned_user_id?: string }>();
+  if (!call) return c.json({ error: 'Call not found' }, 404);
+
+  try {
+    if (call.source === 'plivo') {
+      await teardownPlivoCall(c.env, call, 'ended');
+      return c.json({ success: true, message: 'Plivo call hung up' });
+    } else if (call.source === 'twilio') {
+      await teardownTwilioCall(c.env, call, 'ended');
+      return c.json({ success: true, message: 'Twilio call hung up' });
+    } else if (call.source === 'whatsapp') {
+      const wCall = await c.env.DB.prepare('SELECT phone_number_id, external_call_id FROM calls WHERE id = ?').bind(callId).first<{phone_number_id: string, external_call_id: string}>();
+      if (wCall && wCall.phone_number_id) {
+        let config = await c.env.DB.prepare('SELECT access_token FROM whatsapp_configs WHERE workspace_id = ? AND phone_number_id = ?')
+          .bind(workspaceId, wCall.phone_number_id).first<{ access_token: string }>();
+        if (!config) {
+          config = await c.env.DB.prepare('SELECT access_token FROM whatsapp_configs WHERE workspace_id = ?')
+            .bind(workspaceId).first<{ access_token: string }>();
+        }
+        if (config) {
+          await fetch(`https://graph.facebook.com/v20.0/${wCall.phone_number_id}/calls`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${config.access_token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              messaging_product: 'whatsapp',
+              call_id: wCall.external_call_id || callId,
+              action: 'terminate'
+            })
+          });
+        }
+      }
+      await c.env.DB.prepare("UPDATE calls SET status = 'ended' WHERE id = ? AND workspace_id = ?").bind(callId, workspaceId).run();
+      return c.json({ success: true, message: 'WhatsApp call hung up' });
+    }
+  } catch (e: any) {
+    console.error('[Unified Hangup] Error:', e);
+  }
+
+  // Fallback
+  await c.env.DB.prepare("UPDATE calls SET status = 'ended' WHERE id = ? AND workspace_id = ?").bind(callId, workspaceId).run();
+  return c.json({ success: true, message: 'Call marked as ended' });
 });
 
 export default router;

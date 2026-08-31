@@ -43,7 +43,8 @@ class _GlobalCallOverlayState extends State<GlobalCallOverlay> {
       // in-app overlay so the caller isn't left hanging because the overlay
       // only knows how to reject WhatsApp WebRTC calls.
       if (callData['source']?.toString() == 'twilio' ||
-          callData['source']?.toString() == 'plivo') {
+          callData['source']?.toString() == 'plivo' ||
+          callData['source']?.toString() == 'whatsapp') {
         return;
       }
       // Outgoing calls we start ourselves also come back over the same channel

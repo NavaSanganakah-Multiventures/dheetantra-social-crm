@@ -74,14 +74,10 @@ class CallKitService {
     final source = data['source']?.toString() ?? '';
     final callId = data['id']?.toString() ?? uuid;
     try {
-      if (source == 'plivo') {
-        await ApiService().declinePlivoCall(callId);
-      } else if (source == 'twilio') {
-        if (callId.isNotEmpty) {
-          await ApiService().updateCallStatus(callId, status: 'declined');
-        }
-      } else {
+      if (source == 'whatsapp' || source == 'gsm') {
         await WebRTCService().rejectCall(Map<String, dynamic>.from(data));
+      } else {
+        await ApiService().declineCall(callId);
       }
     } catch (e) {
       debugPrint('CALLKIT: decline by source error: $e');
@@ -139,7 +135,7 @@ class CallKitService {
           final data = Map<String, dynamic>.from(callData);
           if (data['source']?.toString() == 'plivo') {
             final id = data['id']?.toString() ?? params.id;
-            unawaited(ApiService().declinePlivoCall(id));
+            unawaited(ApiService().declineCall(id));
           }
         }
       } else if (event is CallEventActionCallTimeout) {
@@ -154,7 +150,7 @@ class CallKitService {
           final data = Map<String, dynamic>.from(callData);
           if (data['source']?.toString() == 'plivo') {
             final id = data['id']?.toString() ?? event.id;
-            unawaited(ApiService().declinePlivoCall(id));
+            unawaited(ApiService().declineCall(id));
           }
         }
       }

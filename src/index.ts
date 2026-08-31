@@ -841,9 +841,11 @@ app.post('/api/whatsapp/webhook', async (c) => {
                   await globalDo.fetch(new Request('http://internal/broadcast', {
                     method: 'POST',
                     body: JSON.stringify({
-                      type: 'whatsapp_call_terminated',
-                      callId: existingCall?.id || callId,
-                      duration: duration
+                      type: 'call_status_updated',
+                      call_id: existingCall?.id || callId,
+                      status: finalStatus,
+                      duration: duration,
+                      source: 'whatsapp'
                     })
                   }));
                 } catch (e) { }

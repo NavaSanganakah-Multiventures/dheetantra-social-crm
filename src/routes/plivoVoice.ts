@@ -463,6 +463,19 @@ async function pushIncomingCallToAgents(env: Env, c: any, workspaceId: string, c
         const members = await env.DB.prepare('SELECT user_id FROM workspace_members WHERE workspace_id = ?' + liveOnly)
           .bind(workspaceId).all<{ user_id: string }>();
         if (!members.results || members.results.length === 0) return;
+
+        // Notify the Web Dashboard via WebSocket so the agent can answer
+        if (answerInApp) {
+          await broadcastToWorkspace(env, workspaceId, {
+            type: 'plivo_incoming_call',
+            callId,
+            from,
+            callerName,
+            conferenceName,
+            workspaceId,
+          });
+        }
+
         const userIds = members.results.map((m) => m.user_id);
         const placeholders = userIds.map(() => '?').join(',');
         const tokens = await env.DB.prepare('SELECT token FROM fcm_tokens WHERE user_id IN (' + placeholders + ')')
@@ -1044,7 +1057,7 @@ router.post('/api/plivo/call', async (c) => {
 // App-side hangup/decline for Plivo calls.
 // ---------------------------------------------------------------
 
-async function teardownPlivoCall(
+export async function teardownPlivoCall(
   env: Env,
   call: { id: string; workspace_id: string; plivo_config_id?: string | null; external_call_id?: string | null; assigned_user_id?: string | null },
   finalStatus: 'ended' | 'declined'
@@ -1216,14 +1229,13 @@ router.post('/api/plivo/webhook/voice', async (c) => {
 
     const baseUrl = getBaseUrl(c as Context);
     const statusCallbackUrl = baseUrl + '/api/plivo/webhook/status?callId=' + callId + '&leg=inbound';
-    const holdUrl = baseUrl + '/api/plivo/webhook/hold';
 
     // Caller waits in the conference waiting room. If an agent was dialed, the
     // agent leg (startConferenceOnEnter="true") starts the conference when they
     // answer. If no agent, the caller simply hears hold music until they hang up.
     const xml = XML_DECL +
       '<Response>' +
-      '<Conference startConferenceOnEnter="false" endConferenceOnExit="true" waitSound="' + escXml(holdUrl) + '" callbackUrl="' + escXml(statusCallbackUrl) + '" callbackMethod="POST">' + escXml(conferenceName) + '</Conference>' +
+      '<Conference startConferenceOnEnter="false" endConferenceOnExit="true" waitSound="' + escXml(HOLD_MUSIC_URL) + '" callbackUrl="' + escXml(statusCallbackUrl) + '" callbackMethod="POST">' + escXml(conferenceName) + '</Conference>' +
       '</Response>';
     return plivoXmlResponse(xml, 200);
   } catch (e: any) {
@@ -1354,10 +1366,9 @@ router.post('/api/plivo/webhook/outbound', async (c) => {
     if (waiting) {
       const baseUrl = getBaseUrl(c as Context);
       const statusCallbackUrl = baseUrl + '/api/plivo/webhook/status?callId=' + callId + '&leg=customer';
-      const holdUrl = baseUrl + '/api/plivo/webhook/hold';
       const xml = XML_DECL +
         '<Response>' +
-        '<Conference startConferenceOnEnter="false" endConferenceOnExit="true" waitSound="' + escXml(holdUrl) + '" callbackUrl="' + escXml(statusCallbackUrl) + '" callbackMethod="POST">' + escXml(conferenceName) + '</Conference>' +
+        '<Conference startConferenceOnEnter="false" endConferenceOnExit="true" waitSound="' + escXml(HOLD_MUSIC_URL) + '" callbackUrl="' + escXml(statusCallbackUrl) + '" callbackMethod="POST">' + escXml(conferenceName) + '</Conference>' +
         '</Response>';
       return plivoXmlResponse(xml, 200);
     }
@@ -1396,9 +1407,6 @@ router.post('/api/plivo/webhook/fallback', async (c) => {
   return plivoXmlResponse(XML_DECL + '<Response><Hangup/></Response>', 200);
 });
 
-// Hold music for the conference waiting room (waitSound must return XML).
-router.post('/api/plivo/webhook/hold', async (c) => {
-  return plivoXmlResponse(XML_DECL + '<Response><Play>' + escXml(HOLD_MUSIC_URL) + '</Play></Response>', 200);
-});
+// Hold music route is no longer needed since Plivo expects direct MP3 URLs.
 
 export default router;

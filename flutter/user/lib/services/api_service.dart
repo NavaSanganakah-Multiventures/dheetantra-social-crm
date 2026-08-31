@@ -517,18 +517,18 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> hangupPlivoCall(String callId) async {
+  Future<Map<String, dynamic>> hangupCall(String callId) async {
     try {
-      final res = await _dio.post('/api/plivo/call/$callId/hangup');
+      final res = await _dio.post('/api/calls/$callId/hangup');
       return res.data as Map<String, dynamic>;
     } on DioException catch (e) {
       return _handleError(e);
     }
   }
 
-  Future<Map<String, dynamic>> declinePlivoCall(String callId) async {
+  Future<Map<String, dynamic>> declineCall(String callId) async {
     try {
-      final res = await _dio.post('/api/plivo/call/$callId/decline');
+      final res = await _dio.post('/api/calls/$callId/decline');
       return res.data as Map<String, dynamic>;
     } on DioException catch (e) {
       return _handleError(e);

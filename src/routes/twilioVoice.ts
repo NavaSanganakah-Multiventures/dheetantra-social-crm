@@ -720,3 +720,7 @@ router.post('/api/twilio/webhook/fallback', async (c) => {
 });
 
 export default router;
+
+export async function teardownTwilioCall(env: any, call: any, status: string) {
+  await env.DB.prepare('UPDATE calls SET status = ? WHERE id = ?').bind(status, call.id).run();
+}

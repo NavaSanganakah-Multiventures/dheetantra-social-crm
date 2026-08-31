@@ -306,12 +306,7 @@ class WebRTCService {
 
   Future<void> rejectCall(Map<String, dynamic> callData) async {
     try {
-      await ApiService().dio.post(
-        '/api/whatsapp/calls/${callData['id']}/reject',
-        data: {
-          'phoneNumberId': callData['phoneNumberId'],
-        },
-      );
+      await ApiService().declineCall(callData['id']);
     } catch (e) {
       debugPrint('Reject Error: $e');
     }
@@ -320,12 +315,7 @@ class WebRTCService {
 
   Future<void> hangup(Map<String, dynamic> callData) async {
     try {
-      await ApiService().dio.post(
-        '/api/whatsapp/calls/${callData['id']}/terminate',
-        data: {
-          'phoneNumberId': callData['phoneNumberId'],
-        },
-      );
+      await ApiService().hangupCall(callData['id']);
     } catch (e) {
       debugPrint('Hangup Error: $e');
     }
