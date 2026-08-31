@@ -16,11 +16,11 @@ class ContactsScreen extends StatefulWidget {
 
 class _ContactsScreenState extends State<ContactsScreen> {
   String _query = '';
-  String _filter = 'à¤¸à¤­à¥';
+  String _filter = 'All';
   bool _loading = true;
   List<Contact> _allContacts = [];
 
-  static const _filters = ['à¤¸à¤­à¥', 'à¤²à¥à¤¡à¥à¤¸', 'à¤à¥à¤°à¤¾à¤¹à¤'];
+  static const _filters = ['All', 'Leads', 'Customers'];
 
   @override
   void initState() {
@@ -40,9 +40,9 @@ class _ContactsScreenState extends State<ContactsScreen> {
 
   List<Contact> get _contacts {
     var list = _allContacts;
-    if (_filter == 'à¤²à¥à¤¡à¥à¤¸') {
+    if (_filter == 'Leads') {
       list = list.where((c) => c.isLead).toList();
-    } else if (_filter == 'à¤à¥à¤°à¤¾à¤¹à¤') {
+    } else if (_filter == 'Customers') {
       list = list.where((c) => !c.isLead).toList();
     }
     if (_query.trim().isNotEmpty) {
@@ -67,7 +67,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
               child: TextField(
                 onChanged: (v) => setState(() => _query = v),
                 decoration: const InputDecoration(
-                  hintText: 'à¤¸à¤à¤ªà¤°à¥à¤ à¤à¥à¤à¥à¤...',
+                  hintText: 'Search contacts or phone numbers...',
                   prefixIcon: Icon(Icons.search_rounded, color: AppColors.textMuted),
                   contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 ),
@@ -98,8 +98,8 @@ class _ContactsScreenState extends State<ContactsScreen> {
                       ? const Center(
                           child: EmptyState(
                             icon: Icons.people_outline_rounded,
-                            title: 'à¤à¥à¤ à¤¸à¤à¤ªà¤°à¥à¤ à¤¨à¤¹à¥à¤ à¤®à¤¿à¤²à¤¾',
-                            subtitle: 'à¤¨à¤¯à¤¾ à¤¸à¤à¤ªà¤°à¥à¤ à¤à¥à¤¡à¤¼à¥à¤ à¤¯à¤¾ à¤à¥à¤ à¤¬à¤¦à¤²à¥à¤à¥¤',
+                            title: 'No contacts found',
+                            subtitle: 'Add a new contact or change the search query.',
                           ),
                         )
                       : RefreshIndicator(
@@ -126,7 +126,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
             backgroundColor: AppColors.accent,
             foregroundColor: Colors.white,
             icon: const Icon(Icons.person_add_alt_1_rounded, size: 20),
-            label: const Text('à¤¨à¤¯à¤¾ à¤¸à¤à¤ªà¤°à¥à¤', style: TextStyle(fontWeight: FontWeight.w700)),
+            label: const Text('New Contact', style: TextStyle(fontWeight: FontWeight.w700)),
           ),
         ),
       ],
@@ -142,7 +142,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
     final result = await showDialog<Map<String, String>>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(existing == null ? 'à¤¨à¤¯à¤¾ à¤¸à¤à¤ªà¤°à¥à¤' : 'à¤¸à¤à¤ªà¤°à¥à¤ à¤¸à¤à¤ªà¤¾à¤¦à¤¿à¤¤ à¤à¤°à¥à¤'),
+        title: Text(existing == null ? 'New Contact' : 'Edit Contact'),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -150,25 +150,25 @@ class _ContactsScreenState extends State<ContactsScreen> {
               TextField(
                 controller: nameController,
                 textCapitalization: TextCapitalization.words,
-                decoration: const InputDecoration(labelText: 'à¤¨à¤¾à¤®'),
+                decoration: const InputDecoration(labelText: 'Name'),
               ),
               const SizedBox(height: 10),
               TextField(
                 controller: phoneController,
                 keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(labelText: 'à¤«à¤¼à¥à¤¨'),
+                decoration: const InputDecoration(labelText: 'Phone'),
               ),
               const SizedBox(height: 10),
               TextField(
                 controller: emailController,
                 keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(labelText: 'à¤à¤®à¥à¤² (à¤µà¥à¤à¤²à¥à¤ªà¤¿à¤)'),
+                decoration: const InputDecoration(labelText: 'Email (Optional)'),
               ),
               const SizedBox(height: 10),
               TextField(
                 controller: notesController,
                 maxLines: 2,
-                decoration: const InputDecoration(labelText: 'à¤¨à¥à¤à¥à¤¸ (à¤µà¥à¤à¤²à¥à¤ªà¤¿à¤)'),
+                decoration: const InputDecoration(labelText: 'Notes (Optional)'),
               ),
             ],
           ),
@@ -176,7 +176,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('à¤°à¤¦à¥à¤¦ à¤à¤°à¥à¤'),
+            child: const Text('Cancel'),
           ),
           FilledButton(
             onPressed: () {
@@ -187,7 +187,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
                 'notes': notesController.text.trim(),
               });
             },
-            child: Text(existing == null ? 'à¤à¥à¤¡à¤¼à¥à¤' : 'à¤¸à¥à¤µ à¤à¤°à¥à¤'),
+            child: Text(existing == null ? 'Add' : 'Save'),
           ),
         ],
       ),
@@ -202,7 +202,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
     };
     if (data['name'] == null || data['name'].toString().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('à¤¨à¤¾à¤® à¤à¤¨à¤¿à¤µà¤¾à¤°à¥à¤¯ à¤¹à¥')),
+        const SnackBar(content: Text('Name is required')),
       );
       return;
     }
@@ -214,7 +214,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
     }
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(existing == null ? 'à¤¸à¤à¤ªà¤°à¥à¤ à¤à¥à¤¡à¤¼à¤¾ à¤à¤¯à¤¾' : 'à¤¸à¤à¤ªà¤°à¥à¤ à¤à¤ªà¤¡à¥à¤ à¤¹à¥à¤')),
+      SnackBar(content: Text(existing == null ? 'Contact added' : 'Contact updated')),
     );
     _loadContacts();
   }
@@ -330,7 +330,7 @@ class _ContactDetailScreenState extends State<_ContactDetailScreen> {
     final result = await showDialog<Map<String, String>>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('à¤¸à¤à¤ªà¤°à¥à¤ à¤¸à¤à¤ªà¤¾à¤¦à¤¿à¤¤ à¤à¤°à¥à¤'),
+        title: const Text('Edit Contact'),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -338,25 +338,25 @@ class _ContactDetailScreenState extends State<_ContactDetailScreen> {
               TextField(
                 controller: nameController,
                 textCapitalization: TextCapitalization.words,
-                decoration: const InputDecoration(labelText: 'à¤¨à¤¾à¤®'),
+                decoration: const InputDecoration(labelText: 'Name'),
               ),
               const SizedBox(height: 10),
               TextField(
                 controller: phoneController,
                 keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(labelText: 'à¤«à¤¼à¥à¤¨'),
+                decoration: const InputDecoration(labelText: 'Phone'),
               ),
               const SizedBox(height: 10),
               TextField(
                 controller: emailController,
                 keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(labelText: 'à¤à¤®à¥à¤² (à¤µà¥à¤à¤²à¥à¤ªà¤¿à¤)'),
+                decoration: const InputDecoration(labelText: 'Email (Optional)'),
               ),
               const SizedBox(height: 10),
               TextField(
                 controller: notesController,
                 maxLines: 2,
-                decoration: const InputDecoration(labelText: 'à¤¨à¥à¤à¥à¤¸ (à¤µà¥à¤à¤²à¥à¤ªà¤¿à¤)'),
+                decoration: const InputDecoration(labelText: 'Notes (Optional)'),
               ),
             ],
           ),
@@ -364,7 +364,7 @@ class _ContactDetailScreenState extends State<_ContactDetailScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('à¤°à¤¦à¥à¤¦ à¤à¤°à¥à¤'),
+            child: const Text('Cancel'),
           ),
           FilledButton(
             onPressed: () {
@@ -375,7 +375,7 @@ class _ContactDetailScreenState extends State<_ContactDetailScreen> {
                 'notes': notesController.text.trim(),
               });
             },
-            child: const Text('à¤¸à¥à¤µ à¤à¤°à¥à¤'),
+            child: const Text('Save'),
           ),
         ],
       ),
@@ -392,7 +392,7 @@ class _ContactDetailScreenState extends State<_ContactDetailScreen> {
     if (!mounted) return;
     if (res['error'] != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('à¤¤à¥à¤°à¥à¤à¤¿: ${res['error']}')),
+        SnackBar(content: Text('Error: ${res['error']}')),
       );
       return;
     }
@@ -438,7 +438,7 @@ class _ContactDetailScreenState extends State<_ContactDetailScreen> {
     if (options.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Twilio के लिए कोई सक्रिय नंबर नहीं है')),
+          const SnackBar(content: Text('No active Twilio number configured')),
         );
       }
       return;
@@ -477,7 +477,7 @@ class _ContactDetailScreenState extends State<_ContactDetailScreen> {
     if (options.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Plivo के लिए कोई सक्रिय नंबर नहीं है')),
+          const SnackBar(content: Text('No active Plivo number configured')),
         );
       }
       return;
@@ -525,7 +525,7 @@ class _ContactDetailScreenState extends State<_ContactDetailScreen> {
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: Text(
-                  '$provider से कॉल करने के लिए नंबर चुनें',
+                  'Select $provider Outbound Number',
                   style: Theme.of(ctx).textTheme.titleMedium,
                 ),
               ),
@@ -553,17 +553,17 @@ class _ContactDetailScreenState extends State<_ContactDetailScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('à¤¸à¤à¤ªà¤°à¥à¤ à¤¹à¤à¤¾à¤à¤'),
-        content: Text('à¤à¥à¤¯à¤¾ à¤à¤ª "${_contact.name}" à¤à¥ à¤¹à¤à¤¾à¤¨à¤¾ à¤à¤¾à¤¹à¤¤à¥ à¤¹à¥à¤?'),
+        title: const Text('Delete Contact'),
+        content: Text('Are you sure you want to delete "${_contact.name}"?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('à¤°à¤¦à¥à¤¦ à¤à¤°à¥à¤'),
+            child: const Text('Cancel'),
           ),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(true),
             style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
-            child: const Text('à¤¹à¤à¤¾à¤à¤'),
+            child: const Text('Delete'),
           ),
         ],
       ),
@@ -574,7 +574,7 @@ class _ContactDetailScreenState extends State<_ContactDetailScreen> {
     if (!mounted) return;
     if (res['error'] != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('à¤¤à¥à¤°à¥à¤à¤¿: ${res['error']}')),
+        SnackBar(content: Text('Error: ${res['error']}')),
       );
       return;
     }
@@ -587,7 +587,7 @@ class _ContactDetailScreenState extends State<_ContactDetailScreen> {
     final contact = _contact;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('à¤¸à¤à¤ªà¤°à¥à¤ à¤µà¤¿à¤µà¤°à¤£'),
+        title: const Text('Contact Details'),
         actions: [
           IconButton(
             onPressed: _edit,
@@ -648,17 +648,17 @@ class _ContactDetailScreenState extends State<_ContactDetailScreen> {
                       });
                       if (!context.mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('à¤à¥à¤² à¤¶à¥à¤°à¥ à¤à¥ à¤à¤')),
+                        const SnackBar(content: Text('WhatsApp Call initiated')),
                       );
                     } catch (_) {
                       if (!context.mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('à¤à¥à¤² à¤¶à¥à¤°à¥ à¤¨à¤¹à¥à¤ à¤¹à¥ à¤¸à¤à¥')),
+                        const SnackBar(content: Text('Could not start call')),
                       );
                     }
                   },
                   icon: const Icon(Icons.call_outlined, size: 18),
-                  label: const Text('à¤à¥à¤²'),
+                  label: const Text('Call'),
                 ),
               ),
               const SizedBox(width: 12),
@@ -674,7 +674,7 @@ class _ContactDetailScreenState extends State<_ContactDetailScreen> {
                     }
                   },
                   icon: const Icon(Icons.chat_outlined, size: 18),
-                  label: const Text('à¤à¥à¤'),
+                  label: const Text('Chat'),
                 ),
               ),
             ],
@@ -685,7 +685,7 @@ class _ContactDetailScreenState extends State<_ContactDetailScreen> {
             child: OutlinedButton.icon(
               onPressed: () => _initiateTwilioCall(contact),
               icon: const Icon(Icons.phone_forwarded, size: 18),
-              label: const Text('Twilio à¤à¥à¤²'),
+              label: const Text('Twilio Call'),
             ),
           ),
           const SizedBox(height: 12),
@@ -694,12 +694,12 @@ class _ContactDetailScreenState extends State<_ContactDetailScreen> {
             child: OutlinedButton.icon(
               onPressed: () => _initiatePlivoCall(contact),
               icon: const Icon(Icons.call_outlined, size: 18),
-              label: const Text('Plivo कॉल'),
+              label: const Text('Plivo Call'),
             ),
           ),
           const SizedBox(height: 24),
           const Text(
-            'à¤à¤¾à¤¨à¤à¤¾à¤°à¥',
+            'Information',
             style: TextStyle(
               color: AppColors.textPrimary,
               fontSize: 15,
@@ -717,37 +717,37 @@ class _ContactDetailScreenState extends State<_ContactDetailScreen> {
               children: [
                 _InfoRow(
                   icon: Icons.phone_outlined,
-                  label: 'à¤«à¤¼à¥à¤¨',
+                  label: 'Phone',
                   value: contact.phone,
                 ),
                 const Divider(height: 1, indent: 50),
                 if (contact.email != null) ...[
                   _InfoRow(
                     icon: Icons.mail_outline_rounded,
-                    label: 'à¤à¤®à¥à¤²',
+                    label: 'Email',
                     value: contact.email!,
                   ),
                   const Divider(height: 1, indent: 50),
                 ],
                 _InfoRow(
                   icon: Icons.person_outline_rounded,
-                  label: 'à¤ªà¥à¤°à¤à¤¾à¤°',
-                  value: contact.isLead ? 'à¤²à¥à¤¡' : 'à¤à¥à¤°à¤¾à¤¹à¤',
+                  label: 'Type',
+                  value: contact.isLead ? 'Lead' : 'Customer',
                 ),
                 if (contact.leadStatus != null) ...[
                   const Divider(height: 1, indent: 50),
                   _InfoRow(
                     icon: Icons.flag_outlined,
-                    label: 'à¤¸à¥à¤¥à¤¿à¤¤à¤¿',
+                    label: 'Status',
                     value: contact.leadStatus!,
                   ),
                 ],
                 const Divider(height: 1, indent: 50),
                 _InfoRow(
                   icon: Icons.schedule_rounded,
-                  label: 'à¤à¤à¤¿à¤°à¥ à¤à¤¤à¤¿à¤µà¤¿à¤§à¤¿',
+                  label: 'Last Active',
                   value: contact.lastActive == null
-                      ? 'à¤à¤­à¥ à¤¨à¤¹à¥à¤'
+                      ? 'Never'
                       : timeLabel(contact.lastActive!),
                 ),
               ],
@@ -756,7 +756,7 @@ class _ContactDetailScreenState extends State<_ContactDetailScreen> {
           if (contact.notes != null && contact.notes!.isNotEmpty) ...[
             const SizedBox(height: 20),
             const Text(
-              'à¤¨à¥à¤à¥à¤¸',
+              'Notes',
               style: TextStyle(
                 color: AppColors.textPrimary,
                 fontSize: 15,

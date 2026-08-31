@@ -283,8 +283,8 @@ class _CallScreenState extends State<CallScreen> {
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        title: const Text('à¤®à¤¾à¤à¤à¥à¤°à¥à¤«à¤¼à¥à¤¨ Permission à¤à¤¾à¤¹à¤¿à¤'),
-        content: const Text('à¤à¥à¤² à¤à¤ à¤¾à¤¨à¥ à¤à¥ à¤²à¤¿à¤ à¤®à¤¾à¤à¤à¥à¤°à¥à¤«à¤¼à¥à¤¨ à¤à¥ à¤à¤¨à¥à¤®à¤¤à¤¿ à¤à¤¼à¤°à¥à¤°à¥ à¤¹à¥à¥¤'),
+        title: const Text('Microphone Permission Required'),
+        content: const Text('Microphone permission is required to answer the call.'),
         actions: [
           TextButton(
             onPressed: () {
@@ -296,14 +296,14 @@ class _CallScreenState extends State<CallScreen> {
                 setState(() => _status = 'error: Microphone permission denied');
               }
             },
-            child: const Text('à¤¬à¤à¤¦ à¤à¤°à¥à¤'),
+            child: const Text('Close'),
           ),
           TextButton(
             onPressed: () {
               Navigator.of(ctx).pop();
               openAppSettings();
             },
-            child: const Text('Settings à¤à¥à¤²à¥à¤'),
+            child: const Text('Open Settings'),
           ),
         ],
       ),
@@ -357,7 +357,7 @@ class _CallScreenState extends State<CallScreen> {
   String get _callerName {
     return widget.callData['contact_name'] ??
         widget.callData['callerName'] ??
-        'à¤à¤à¥à¤à¤¾à¤¤';
+        'Unknown';
   }
 
   String get _callerPhone {
@@ -391,11 +391,11 @@ class _CallScreenState extends State<CallScreen> {
   @override
   Widget build(BuildContext context) {
     final statusText = _status == 'connecting'
-        ? 'à¤¸à¤à¤ªà¤°à¥à¤ à¤¹à¥ à¤°à¤¹à¤¾ à¤¹à¥...'
+        ? 'Connecting...'
         : _status.startsWith('error')
             ? _status.replaceFirst('error: Exception: ', 'Error: ')
             : _status == 'ended' 
-                ? 'à¤à¥à¤² à¤¸à¤®à¤¾à¤ªà¥à¤¤'
+                ? 'Call Ended'
                 : _formatDuration(_duration);
 
     return PopScope(
@@ -503,7 +503,7 @@ class _CallScreenState extends State<CallScreen> {
                         icon: _muted
                             ? Icons.mic_off_rounded
                             : Icons.mic_rounded,
-                        label: _muted ? 'म्यूट' : 'अनम्यूट',
+                        label: _muted ? 'Mute' : 'Unmute',
                         color: _muted
                             ? AppColors.danger
                             : AppColors.surfaceAlt,
@@ -515,7 +515,7 @@ class _CallScreenState extends State<CallScreen> {
                       const SizedBox(width: 24),
                       _CallButton(
                         icon: Icons.call_end_rounded,
-                        label: 'कट करें',
+                        label: 'End',
                         color: AppColors.danger,
                         iconColor: Colors.white,
                         size: 74,
@@ -527,7 +527,7 @@ class _CallScreenState extends State<CallScreen> {
                         icon: _speakerOn
                             ? Icons.volume_up_rounded
                             : Icons.hearing_rounded,
-                        label: _speakerOn ? 'स्पीकर' : 'ईयरफोन',
+                        label: _speakerOn ? 'Speaker' : 'Earpiece',
                         color: _speakerOn
                             ? AppColors.accent
                             : AppColors.surfaceAlt,

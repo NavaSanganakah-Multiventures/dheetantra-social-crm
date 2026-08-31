@@ -45,23 +45,23 @@ const fmtDay = (dateStr: string | Date | number) => {
 type Platform = 'all' | 'whatsapp' | 'instagram' | 'facebook' | 'email';
 
 const PLATFORMS: { key: Platform; label: string; icon: React.ReactNode; color: string }[] = [
-  { key: 'all', label: 'सभी', icon: <Inbox className="w-3.5 h-3.5" />, color: 'text-surface-400' },
+  { key: 'all', label: 'All', icon: <Inbox className="w-3.5 h-3.5" />, color: 'text-surface-400' },
   { key: 'whatsapp', label: 'WhatsApp', icon: <MessageCircle className="w-3.5 h-3.5" />, color: 'text-emerald-500' },
   { key: 'instagram', label: 'Instagram', icon: <Instagram className="w-3.5 h-3.5" />, color: 'text-pink-500' },
   { key: 'facebook', label: 'Facebook', icon: <Facebook className="w-3.5 h-3.5" />, color: 'text-blue-500' },
-  { key: 'email', label: 'ईमेल', icon: <Mail className="w-3.5 h-3.5" />, color: 'text-primary-500' },
+  { key: 'email', label: 'Email', icon: <Mail className="w-3.5 h-3.5" />, color: 'text-primary-500' },
 ];
 
 // AI filter categories (match src/services/inboxAI.ts)
 const AI_FILTERS = [
-  { key: 'all', label: 'AI फ़िल्टर: सभी' },
-  { key: 'lead', label: '🎯 लीड्स' },
-  { key: 'urgent', label: '🚨 अर्जेंट' },
-  { key: 'complaint', label: '😠 शिकायतें' },
-  { key: 'inquiry', label: '❓ पूछताछ' },
-  { key: 'support', label: '🛟 सपोर्ट' },
-  { key: 'follow_up', label: '⏰ फॉलो-अप' },
-  { key: 'spam', label: '🗑 स्पैम' },
+  { key: 'all', label: 'AI Filter: All' },
+  { key: 'lead', label: '🎯 Leads' },
+  { key: 'urgent', label: '🚨 Urgent' },
+  { key: 'complaint', label: '😠 Complaints' },
+  { key: 'inquiry', label: '❓ Inquiries' },
+  { key: 'support', label: '🛟 Support' },
+  { key: 'follow_up', label: '⏰ Follow-ups' },
+  { key: 'spam', label: '🗑 Spam' },
 ];
 
 const AI_LABEL_STYLE: Record<string, string> = {
@@ -75,8 +75,8 @@ const AI_LABEL_STYLE: Record<string, string> = {
 };
 
 const AI_LABEL_TEXT: Record<string, string> = {
-  lead: 'लीड', urgent: 'अर्जेंट', complaint: 'शिकायत', inquiry: 'पूछताछ',
-  support: 'सपोर्ट', follow_up: 'फॉलो-अप', spam: 'स्पैम', other: 'अन्य',
+  lead: 'Lead', urgent: 'Urgent', complaint: 'Complaint', inquiry: 'Inquiry',
+  support: 'Support', follow_up: 'Follow-up', spam: 'Spam', other: 'Other',
 };
 
 function parseEmailMedia(value: string | null): { subject?: string; to?: string } {
@@ -90,14 +90,14 @@ function parseEmailMedia(value: string | null): { subject?: string; to?: string 
 
 // ---------------------------------------------------------------
 // Message media rendering helpers (WhatsApp: image/video/audio/
-// document/sticker/location/contacts — media_url में R2 path, Graph
-// URL या JSON payload हो सकता है)
+// document/sticker/location/contacts — media_url can be an R2 path, a Graph
+// URL, or a JSON payload)
 // ---------------------------------------------------------------
 const MEDIA_LABELS: Record<string, string> = {
-  image: 'फ़ोटो', video: 'वीडियो', audio: 'ऑडियो', document: 'दस्तावेज़',
-  sticker: 'स्टिकर', location: 'लोकेशन', contacts: 'कॉन्टैक्ट',
-  template: 'टेम्पलेट', interactive: 'इंटरैक्टिव', order: 'ऑर्डर',
-  reaction: 'रिएक्शन', system: 'सिस्टम', system_call: 'कॉल', button: 'बटन',
+  image: 'Photo', video: 'Video', audio: 'Audio', document: 'Document',
+  sticker: 'Sticker', location: 'Location', contacts: 'Contact',
+  template: 'Template', interactive: 'Interactive', order: 'Order',
+  reaction: 'Reaction', system: 'System', system_call: 'Call', button: 'Button',
 };
 
 const getSafeUrl = (url: string | null | undefined): string | undefined => {
@@ -129,13 +129,13 @@ function renderMessageMedia(m: any): React.ReactNode {
 
   if (t === 'image' && safeUrl) {
     return (
-      <img src={safeUrl} alt="फ़ोटो" loading="lazy"
+      <img src={safeUrl} alt="Photo" loading="lazy"
         className="max-h-64 w-auto max-w-full rounded-xl my-1 object-cover border border-surface-200 dark:border-surface-800" />
     );
   }
   if (t === 'sticker' && safeUrl) {
     return (
-      <img src={safeUrl} alt="स्टिकर" loading="lazy"
+      <img src={safeUrl} alt="Sticker" loading="lazy"
         className="max-h-24 max-w-[140px] my-1 object-contain" />
     );
   }
@@ -152,7 +152,7 @@ function renderMessageMedia(m: any): React.ReactNode {
     );
   }
   if (t === 'document' && safeUrl) {
-    const docName = m.content && m.content !== 'Document Message' ? m.content : 'दस्तावेज़';
+    const docName = m.content && m.content !== 'Document Message' ? m.content : 'Document';
     return (
       <a href={safeUrl} target="_blank" rel="noopener noreferrer"
         className="flex items-center gap-2 my-1 text-xs font-semibold text-primary-600 dark:text-primary-400 underline break-all">
@@ -168,7 +168,7 @@ function renderMessageMedia(m: any): React.ReactNode {
         : undefined;
       const inner = (
         <div className="my-1 rounded-xl border border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-900 p-2.5">
-          <p className="text-xs font-bold">📍 {loc.name || 'लोकेशन'}</p>
+          <p className="text-xs font-bold">📍 {loc.name || 'Location'}</p>
           {loc.address && <p className="text-[11px] opacity-70">{loc.address}</p>}
           {loc.latitude != null && <p className="text-[10px] opacity-60">{loc.latitude}, {loc.longitude}</p>}
         </div>
@@ -185,7 +185,7 @@ function renderMessageMedia(m: any): React.ReactNode {
         <div className="my-1 space-y-1">
           {contacts.map((ct: any, i: number) => (
             <p key={i} className="text-xs rounded-lg bg-surface-50 dark:bg-surface-900 border border-surface-200 dark:border-surface-800 px-2.5 py-1.5">
-              👤 {ct?.name?.formatted_name || 'कॉन्टैक्ट'}
+              👤 {ct?.name?.formatted_name || 'Contact'}
               {ct?.phones?.[0]?.phone ? ` — ${ct.phones[0].phone}` : ''}
             </p>
           ))}
@@ -426,13 +426,13 @@ export default function UnifiedInbox({
       });
       const data: any = await res.json();
       if (data.success) {
-        showToast('success', `AI ने ${data.classified} बातचीत को लेबल किया ✨`);
+        showToast('success', `AI labeled the ${data.classified} conversation ✨`);
         loadConversations();
       } else {
-        showToast('error', data.error || 'AI classify विफल');
+        showToast('error', data.error || 'AI classify failed');
       }
     } catch (e) {
-      showToast('error', 'AI classify विफल');
+      showToast('error', 'AI classify failed');
     } finally {
       setAiClassifying(false);
     }
@@ -451,10 +451,10 @@ export default function UnifiedInbox({
       if (data.success && data.suggestion) {
         setComposer(data.suggestion);
       } else {
-        showToast('error', data.error || 'AI सुझाव विफल');
+        showToast('error', data.error || 'AI suggestion failed');
       }
     } catch (e) {
-      showToast('error', 'AI सुझाव विफल');
+      showToast('error', 'AI suggestion failed');
     } finally {
       setAiSuggesting(false);
     }
@@ -468,7 +468,7 @@ export default function UnifiedInbox({
     if (activeConv.platform === 'whatsapp' && activeConv.customer_last_message_at) {
       const last = ensureUTC(activeConv.customer_last_message_at).getTime();
       if (Date.now() - last > 24 * 60 * 60 * 1000) {
-        showToast('error', '24 घंटे पूरे हो चुके — WhatsApp टेम्पलेट भेजना ज़रूरी है (यह संस्करण अभी टेम्पलेट भेजने का समर्थन नहीं करता)');
+        showToast('error', '24-hour window has passed — a WhatsApp template is required (this version does not support sending templates yet)');
         return;
       }
     }
@@ -494,7 +494,7 @@ export default function UnifiedInbox({
           }),
         });
       } else {
-        showToast('error', 'इस प्लेटफ़ॉर्म से भेजना अभी समर्थित नहीं है');
+        showToast('error', 'Sending from this platform is not supported yet');
         setSending(false);
         return;
       }
@@ -502,14 +502,14 @@ export default function UnifiedInbox({
       const data: any = await res.json();
       if (data.success || res.ok) {
         setComposer('');
-        showToast('success', 'संदेश भेज दिया गया');
+        showToast('success', 'Message sent');
         openConversation(activeConv);
         loadConversations();
       } else {
-        showToast('error', data.error || 'संदेश भेजने में समस्या');
+        showToast('error', data.error || 'Failed to send message');
       }
     } catch (e: any) {
-      showToast('error', e.message || 'संदेश भेजने में समस्या');
+      showToast('error', e.message || 'Failed to send message');
     } finally {
       setSending(false);
     }
@@ -541,7 +541,7 @@ export default function UnifiedInbox({
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="नाम, नंबर या ईमेल से खोजें..."
+              placeholder="Search by name, number or email..."
               className="w-full pl-9 pr-3 py-2 text-sm rounded-xl border border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-900 focus:border-primary-500 outline-none transition-colors"
             />
           </div>
@@ -582,7 +582,7 @@ export default function UnifiedInbox({
                       : 'bg-surface-50 dark:bg-surface-900 text-surface-500 hover:text-surface-800 dark:hover:text-surface-200'
                   }`}
                 >
-                  {s === 'open' ? 'सक्रिय' : s === 'closed' ? 'बंद' : 'सभी'}
+                  {s === 'open' ? 'Active' : s === 'closed' ? 'Closed' : 'All'}
                 </button>
               ))}
             </div>
@@ -598,11 +598,11 @@ export default function UnifiedInbox({
             <button
               onClick={runAIClassify}
               disabled={aiClassifying}
-              title="Gemini से सभी बातचीत को ऑटो-लेबल करें"
+              title="Auto-label all conversations with Gemini"
               className="shrink-0 flex items-center gap-1 px-2.5 py-2 rounded-lg text-[11px] font-semibold bg-gradient-to-r from-primary-600 to-violet-600 text-white hover:opacity-90 disabled:opacity-50 transition-all"
             >
               {aiClassifying ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-              <span className="hidden sm:inline">AI लेबल</span>
+              <span className="hidden sm:inline">AI Label</span>
             </button>
           </div>
         </div>
@@ -616,14 +616,14 @@ export default function UnifiedInbox({
           ) : filtered.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-48 text-surface-400 px-6 text-center">
               <Inbox className="w-10 h-10 mb-2 opacity-40" />
-              <p className="text-sm font-medium text-surface-500 dark:text-surface-400">कोई बातचीत नहीं मिली</p>
-              <p className="text-xs mt-1">फ़िल्टर बदलकर देखें या नया संदेश आने का इंतज़ार करें</p>
+              <p className="text-sm font-medium text-surface-500 dark:text-surface-400">No conversations found</p>
+              <p className="text-xs mt-1">Try changing the filters or wait for a new message</p>
               {platform === 'instagram' || platform === 'facebook' ? (
                 <button
                   onClick={onGoIntegrations}
                   className="mt-3 px-4 py-2 rounded-xl bg-primary-600 text-white text-xs font-semibold hover:bg-primary-500 transition-all"
                 >
-                  🔗 Integrations से जोड़ें
+                  🔗 Connect via Integrations
                 </button>
               ) : null}
             </div>
@@ -655,14 +655,14 @@ export default function UnifiedInbox({
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
                         <h4 className="font-semibold text-sm text-surface-900 dark:text-white truncate">
-                          {conv.contact_name || conv.phone || 'अज्ञात'}
+                          {conv.contact_name || conv.phone || 'Unknown'}
                         </h4>
                         <span className="text-[10px] text-surface-400 whitespace-nowrap shrink-0">
                           {conv.customer_last_message_at ? fmtDay(conv.customer_last_message_at) : fmtDay(conv.updated_at)}
                         </span>
                       </div>
                       <p className="text-xs text-surface-500 dark:text-surface-400 truncate mt-0.5">
-                        {conv.platform === 'email' ? (subject || conv.phone) : (conv.last_message || conv.phone || 'कोई संदेश नहीं')}
+                        {conv.platform === 'email' ? (subject || conv.phone) : (conv.last_message || conv.phone || 'No message')}
                       </p>
                       <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
                         <span className={`text-[9px] px-1.5 py-0.5 rounded border font-bold uppercase tracking-wide ${pMeta.color}`}>
@@ -670,11 +670,11 @@ export default function UnifiedInbox({
                         </span>
                         {(conv.status || 'open') === 'open' ? (
                           <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold">
-                            सक्रिय
+                            Active
                           </span>
                         ) : (
                           <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-surface-500/10 text-surface-500 font-semibold">
-                            बंद
+                            Closed
                           </span>
                         )}
                         {conv.ai_label && conv.ai_label !== 'other' && (
@@ -699,9 +699,9 @@ export default function UnifiedInbox({
             <div className="w-16 h-16 rounded-2xl bg-primary-500/10 flex items-center justify-center mb-4">
               <Inbox className="w-8 h-8 text-primary-500" />
             </div>
-            <p className="text-lg font-semibold text-surface-600 dark:text-surface-300">यूनिफाइड इनबॉक्स</p>
+            <p className="text-lg font-semibold text-surface-600 dark:text-surface-300">Unified Inbox</p>
             <p className="text-sm mt-1 max-w-xs text-center">
-              WhatsApp, Email और आने वाले Instagram/Facebook संदेश — सब एक ही जगह
+              WhatsApp, Email and upcoming Instagram/Facebook messages — all in one place
             </p>
           </div>
         ) : (
@@ -714,11 +714,11 @@ export default function UnifiedInbox({
                 </div>
                 <div className="min-w-0">
                   <h3 className="font-bold text-surface-900 dark:text-white truncate">
-                    {activeConv.contact_name || 'अज्ञात'}
+                    {activeConv.contact_name || 'Unknown'}
                   </h3>
                   <p className="text-xs text-surface-500 truncate flex items-center gap-1">
                     {activeConv.phone}
-                    {activeConv.platform === 'email' && <span className="text-surface-400">• ईमेल</span>}
+                    {activeConv.platform === 'email' && <span className="text-surface-400">• Email</span>}
                     {activeConv.platform === 'whatsapp' && activeConv.phone_number_id && (
                       <span className="text-surface-400">• {activeConv.phone_number_id.slice(0, 8)}...</span>
                     )}
@@ -747,14 +747,14 @@ export default function UnifiedInbox({
                   {activeConv.platform === 'instagram' ? <Instagram className="w-7 h-7 text-pink-500" /> : <Facebook className="w-7 h-7 text-blue-500" />}
                 </div>
                 <h4 className="font-bold text-surface-800 dark:text-surface-200">
-                  {activeConv.platform === 'instagram' ? 'Instagram DM' : 'Facebook Messenger'} इंटीग्रेशन जल्द आ रहा है
+                  {activeConv.platform === 'instagram' ? 'Instagram DM' : 'Facebook Messenger'} integration coming soon
                 </h4>
                 <p className="text-sm text-surface-500 mt-1 max-w-sm">
-                  Meta की messaging permissions + webhook सेटअप के बाद यहाँ DMs आएंगे। तब तक आप WhatsApp और Email का इस्तेमाल कर सकते हैं।
+                  DMs will appear here once Meta messaging permissions + webhook are set up. Until then, you can use WhatsApp and Email.
                 </p>
                 {onGoIntegrations && (
                   <button onClick={onGoIntegrations} className="mt-4 px-4 py-2 rounded-xl bg-primary-600 text-white text-xs font-semibold hover:bg-primary-500 transition-all">
-                    Integrations देखें
+                    View Integrations
                   </button>
                 )}
               </div>
@@ -770,7 +770,7 @@ export default function UnifiedInbox({
                 ) : messages.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full text-surface-400">
                     <MessageCircle className="w-10 h-10 mb-2 opacity-40" />
-                    <p className="text-sm">अभी कोई संदेश नहीं</p>
+                    <p className="text-sm">No messages yet</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -815,7 +815,7 @@ export default function UnifiedInbox({
                     return (
                       <div className="mb-2 flex items-center gap-2 text-[11px] text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
                         <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                        24 घंटे की विंडो पूरी — WhatsApp टेम्पलेट भेजना ज़रूरी है। यह संस्करण टेम्पलेट भेजने का समर्थन नहीं करता।
+                        24-hour window has passed — a WhatsApp template is required. This version does not support sending templates.
                       </div>
                     );
                   })()
@@ -826,7 +826,7 @@ export default function UnifiedInbox({
                     value={composer}
                     onChange={(e) => setComposer(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendReply(); } }}
-                    placeholder={activeConv.platform === 'email' ? 'ईमेल का जवाब लिखें...' : 'संदेश लिखें...'}
+                    placeholder={activeConv.platform === 'email' ? 'Write an email reply...' : 'Type a message...'}
                     rows={2}
                     className="flex-1 resize-none px-4 py-2.5 text-sm rounded-2xl border border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-900 focus:border-primary-500 outline-none transition-colors min-h-[46px]"
                   />
@@ -834,11 +834,11 @@ export default function UnifiedInbox({
                     <button
                       onClick={runAISuggest}
                       disabled={aiSuggesting}
-                      title="Gemini से AI जवाब सुझाएं"
+                      title="Suggest an AI reply with Gemini"
                       className="shrink-0 flex items-center gap-1.5 px-3.5 py-2.5 rounded-2xl text-xs font-semibold bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white hover:opacity-90 disabled:opacity-50 transition-all"
                     >
                       {aiSuggesting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                      AI सुझाव
+                      AI suggestion
                     </button>
                   )}
                   <button
@@ -847,7 +847,7 @@ export default function UnifiedInbox({
                     className="shrink-0 flex items-center gap-1.5 px-4 py-2.5 rounded-2xl text-xs font-semibold bg-primary-600 text-white hover:bg-primary-500 disabled:opacity-40 transition-all"
                   >
                     {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                    भेजें
+                    Send
                   </button>
                 </div>
               </div>
@@ -865,7 +865,7 @@ export default function UnifiedInbox({
                 {(activeConv.contact_name || '?')[0]?.toUpperCase()}
               </div>
               <div className="min-w-0">
-                <h4 className="font-bold text-sm text-surface-900 dark:text-white truncate">{activeConv.contact_name || 'अज्ञात'}</h4>
+                <h4 className="font-bold text-sm text-surface-900 dark:text-white truncate">{activeConv.contact_name || 'Unknown'}</h4>
                 <p className="text-[10px] text-surface-500 truncate">{activeConv.phone}</p>
               </div>
             </div>
@@ -895,7 +895,7 @@ export default function UnifiedInbox({
               value={composer}
               onChange={(e) => setComposer(e.target.value)}
               rows={1}
-              placeholder="संदेश लिखें..."
+              placeholder="Type a message..."
               className="flex-1 resize-none px-3.5 py-2.5 text-sm rounded-2xl border border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-900 outline-none"
             />
             <button

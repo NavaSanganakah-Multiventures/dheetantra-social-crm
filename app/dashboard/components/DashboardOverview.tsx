@@ -16,47 +16,47 @@ export function DashboardOverview() {
   }, []);
 
   if (loading) {
-    return <div className="p-8 text-sm text-surface-500">डैशबोर्ड लोड हो रहा है...</div>;
+    return <div className="p-8 text-sm text-surface-500">Loading dashboard...</div>;
   }
 
   return (
     <div className="p-6 md:p-10 w-full max-w-7xl mx-auto space-y-8">
       <div className="mb-8">
-        <h2 className="text-2xl font-bold tracking-tight text-surface-900 dark:text-white font-display">आपका स्वागत है!</h2>
-        <p className="text-surface-500 dark:text-surface-400">यहाँ आपके वर्कस्पेस का अवलोकन है।</p>
+        <h2 className="text-2xl font-bold tracking-tight text-surface-900 dark:text-white font-display">Welcome back!</h2>
+        <p className="text-surface-500 dark:text-surface-400">Here is an overview of your workspace.</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <StatCard title="कुल संपर्क" value={stats?.totalContacts?.toString() || "0"} trend="+12% पिछले सप्ताह से" icon={<Users />} />
-        <StatCard title="खुली बातचीत" value={stats?.openConversations?.toString() || "0"} trend="सक्रिय कनेक्शन" icon={<Activity />} />
-        <StatCard title="ब्रॉडकास्ट भेजे गए" value={stats?.broadcastsSent?.toString() || "0"} trend="+5% पिछले महीने से" icon={<Zap />} />
+        <StatCard title="Total Contacts" value={stats?.totalContacts?.toString() || "0"} trend="+12% from last week" icon={<Users />} />
+        <StatCard title="Open Conversations" value={stats?.openConversations?.toString() || "0"} trend="Active connections" icon={<Activity />} />
+        <StatCard title="Broadcasts Sent" value={stats?.broadcastsSent?.toString() || "0"} trend="+5% from last month" icon={<Zap />} />
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 rounded-3xl p-8 shadow-sm">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="font-bold text-lg text-surface-900 dark:text-white font-display">हाल की बातचीत</h3>
-            <button className="text-sm text-primary-600 dark:text-primary-400 font-medium hover:underline">सभी देखें</button>
+            <h3 className="font-bold text-lg text-surface-900 dark:text-white font-display">Recent Conversations</h3>
+            <button className="text-sm text-primary-600 dark:text-primary-400 font-medium hover:underline">View all</button>
           </div>
           <div className="space-y-4">
             <div className="flex flex-col items-center justify-center py-10 text-center border-2 border-dashed border-surface-200 dark:border-surface-800 rounded-2xl bg-surface-50 dark:bg-surface-950/50">
               <MessageSquare className="w-10 h-10 text-surface-300 dark:text-surface-700 mb-3" />
-              <p className="text-sm text-surface-600 dark:text-surface-400">कोई सक्रिय बातचीत नहीं मिली।</p>
-              <p className="text-xs text-surface-500 mt-1">अपना API सिंक करें या संदेश प्राप्त करें।</p>
+              <p className="text-sm text-surface-600 dark:text-surface-400">No active conversations found.</p>
+              <p className="text-xs text-surface-500 mt-1">Sync your API or receive messages.</p>
             </div>
           </div>
         </div>
 
         <div className="bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 rounded-3xl p-8 shadow-sm">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="font-bold text-lg text-surface-900 dark:text-white font-display">आगामी पोस्ट्स</h3>
-            <button className="text-sm text-primary-600 dark:text-primary-400 font-medium hover:underline">शेड्यूल करें</button>
+            <h3 className="font-bold text-lg text-surface-900 dark:text-white font-display">Upcoming Posts</h3>
+            <button className="text-sm text-primary-600 dark:text-primary-400 font-medium hover:underline">Schedule</button>
           </div>
           <div className="space-y-4">
             <div className="flex flex-col items-center justify-center py-10 text-center border-2 border-dashed border-surface-200 dark:border-surface-800 rounded-2xl bg-surface-50 dark:bg-surface-950/50">
               <CalendarClock className="w-10 h-10 text-surface-300 dark:text-surface-700 mb-3" />
-              <p className="text-sm text-surface-600 dark:text-surface-400">कोई पोस्ट शेड्यूल नहीं है।</p>
-              <p className="text-xs text-surface-500 mt-1">शेड्यूलिंग टैब पर जाकर नई पोस्ट बनाएँ।</p>
+              <p className="text-sm text-surface-600 dark:text-surface-400">No scheduled posts.</p>
+              <p className="text-xs text-surface-500 mt-1">Create a new post in the Scheduling tab.</p>
             </div>
           </div>
         </div>
