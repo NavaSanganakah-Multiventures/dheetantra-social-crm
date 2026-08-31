@@ -58,10 +58,16 @@ class PlivoVoiceService implements SipUaHelperListener {
     }
   }
 
-  Future<void> _ensureMicrophonePermission() async {
+  Future<bool> _ensureMicrophonePermissionGranted() async {
     final status = await Permission.microphone.status;
-    if (status.isGranted) return;
-    await Permission.microphone.request();
+    if (status.isGranted) return true;
+    final result = await Permission.microphone.request();
+    return result.isGranted;
+  }
+
+  /// Deprecated compatibility method: returns silently after requesting mic.
+  Future<void> _ensureMicrophonePermission() async {
+    await _ensureMicrophonePermissionGranted();
   }
 
   /// Backend se endpoint credentials lekar SIP UA ko start/register karta hai.
@@ -106,6 +112,8 @@ class PlivoVoiceService implements SipUaHelperListener {
     final completer = Completer<bool>();
     _registrationCompleter = completer;
 
+
+
     try {
       await _helper.start(settings);
     } catch (e) {
@@ -135,6 +143,8 @@ class PlivoVoiceService implements SipUaHelperListener {
       if (identical(_registrationCompleter, completer)) {
         _registrationCompleter = null;
       }
+      // Allow future retries (e.g. network came back, credentials linked later).
+      _initStarted = false;
     }
   }
 
@@ -158,6 +168,13 @@ class PlivoVoiceService implements SipUaHelperListener {
       }
 
       _callStateController.add('connecting');
+
+      // Mic permission is required before WebRTC can capture audio. Query it
+      // again here because the user may have denied it earlier.
+      if (!await _ensureMicrophonePermissionGranted()) {
+        _callStateController.add('error: Microphone permission required');
+        return false;
+      }
 
       final mediaStream = await navigator.mediaDevices.getUserMedia({
         'audio': true,
@@ -234,6 +251,12 @@ class PlivoVoiceService implements SipUaHelperListener {
   @override
   void transportStateChanged(TransportState state) {
     debugPrint('[PlivoVoice] transport state: ${state.state}');
+    final completer = _registrationCompleter;
+    if (completer == null || completer.isCompleted) return;
+    if (state.state == TransportStateEnum.DISCONNECTED) {
+      debugPrint('[PlivoVoice] transport disconnected before register response');
+      completer.complete(false);
+    }
   }
 
   @override
