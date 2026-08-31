@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { Env } from '../types';
+import { formatForWhatsApp } from '../utils/phoneUtils';
 import { requireRole, pagination } from '../shared';
 
 const router = new Hono<{ Bindings: Env }>();
@@ -166,7 +167,7 @@ router.get('/api/whatsapp/config', async (c) => {
     // member exfiltrate the owner's credentials and use them directly against
     // the Meta API. The client only ever sends a NEW token on save and never
     // needs to read the stored one, so masking is safe.
-    const maskToken = (t: any) => (t ? `â¢â¢â¢â¢â¢â¢â¢â¢${String(t).slice(-4)}` : '');
+    const maskToken = (t: any) => (t ? `********${String(t).slice(-4)}` : '');
     const maskRow = (r: any) => {
       if (!r) return r;
       const { access_token, ...rest } = r;
@@ -507,7 +508,7 @@ router.get('/api/whatsapp/templates', async (c) => {
     let metaTemplates: any[] = [];
     let fetchError = null;
 
-    if (config && config.waba_id && config.access_token && config.access_token !== 'â¢â¢â¢â¢â¢â¢â¢â¢â¢â¢â¢â¢â¢â¢â¢â¢') {
+    if (config && config.waba_id && config.access_token && !String(config.access_token).startsWith('********')) {
       try {
         const res = await fetch(`https://graph.facebook.com/v19.0/${config.waba_id}/message_templates`, {
           headers: { 'Authorization': `Bearer ${config.access_token}` }
@@ -568,7 +569,7 @@ router.post('/api/whatsapp/templates', requireRole('owner', 'admin'), async (c) 
     let metaSuccess = false;
     let metaError = null;
 
-    if (config && config.waba_id && config.access_token && config.access_token !== 'â¢â¢â¢â¢â¢â¢â¢â¢â¢â¢â¢â¢â¢â¢â¢â¢') {
+    if (config && config.waba_id && config.access_token && !String(config.access_token).startsWith('********')) {
       try {
         const payload = {
           name: cleanName,
@@ -649,7 +650,7 @@ router.post('/api/whatsapp/templates/send', requireRole('owner', 'admin'), async
   if (!to || !templateName) return c.json({ error: 'Missing to or templateName' }, 400);
 
   // Same normalization as /api/whatsapp/send: Meta rejects '+'-prefixed numbers.
-  const normalizedTo = String(to).replace(/\D/g, '');
+  const normalizedTo = formatForWhatsApp(String(to));
   if (!normalizedTo) return c.json({ error: 'Invalid recipient phone number' }, 400);
 
   try {
@@ -877,7 +878,7 @@ router.post('/api/whatsapp/send', async (c) => {
   // spaces or dashes). The Flutter Send New Message / template screens pass
   // numbers like "+919876543210" unchanged; sending that to Meta made every
   // outbound message fail. Normalize here so every client sends successfully.
-  const normalizedTo = String(to).replace(/\D/g, '');
+  const normalizedTo = formatForWhatsApp(String(to));
   if (!normalizedTo) return c.json({ error: 'Invalid recipient phone number' }, 400);
 
   try {

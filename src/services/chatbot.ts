@@ -89,7 +89,7 @@ export async function handleIncomingMessage(
           `).bind(incomingMessageId, conversationId, messageType, messageText, mediaUrl || null, messageId).run();
           console.log(`[handleIncomingMessage] Incoming message saved. id=${incomingMessageId}`);
         } catch (saveErr) {
-          console.error('[handleIncomingMessage] Failed to save message — broadcasting anyway:', saveErr);
+          console.error('[handleIncomingMessage] Failed to save message â broadcasting anyway:', saveErr);
         }
 
         // Check if calling is enabled for this phone number/config
@@ -257,35 +257,34 @@ export async function handleIncomingMessage(
       }
     }
   } else {
-    // Rule based logic
+    // Rule-based logic
     if (messageType === 'text') {
-      replyText = `नमस्ते ${contactName}! Dhitantra प्लेटफॉर्म में आपका स्वागत है।\n\n`;
+      replyText = `Hello ${contactName}! Welcome to the Dhitantra platform.\n\n`;
       const text = messageText.toLowerCase().trim();
-      if (text === 'hi' || text === 'hello' || text === 'नमस्ते') {
-        replyText += 'हम आपकी कैसे मदद कर सकते हैं?\n\nनीचे दिए गए विकल्पों में से टाइप करें:\n1. Services (सेवाएं)\n2. Support (सहायता)\n3. Pricing (कीमत)';
+      if (text === 'hi' || text === 'hello') {
+        replyText += 'How can we help you?\n\nPlease choose an option below:\n1. Services\n2. Support\n3. Pricing';
       } else if (text.includes('1') || text.includes('services')) {
-        replyText = 'हम एक संपूर्ण Social Media Management और CRM टूल प्रदान करते हैं। आप यहाँ से अपने सभी मैसेज और शेड्यूलिंग मैनेज कर सकते हैं।';
+        replyText = 'We provide a complete Social Media Management and CRM tool where you can manage all your messages and scheduling.';
       } else if (text.includes('2') || text.includes('support')) {
-        replyText = 'कृपया अपना सवाल पूछें, हमारी टीम जल्द ही आपसे संपर्क करेगी।';
+        replyText = 'Please share your question and our team will get back to you shortly.';
       } else if (text.includes('3') || text.includes('pricing')) {
-        replyText = 'हमारी कीमत से जुड़ी जानकारी के लिए कृपया हमारी वेबसाइट www.dhitantra.com पर जाएँ।';
+        replyText = 'For pricing details, please visit our website www.dhitantra.com.';
       } else {
-        replyText = 'मुझे आपका संदेश समझ में नहीं आया। कृपया "Hi" या "Hello" लिखकर दोबारा शुरुआत करें।';
+        replyText = 'I did not understand your message. Please type "Hi" or "Hello" to start again.';
       }
     } else {
-      let typeInHindi = 'संदेश';
-      if (messageType === 'image') typeInHindi = 'फ़ोटो (Image)';
-      else if (messageType === 'video') typeInHindi = 'वीडियो (Video)';
-      else if (messageType === 'document') typeInHindi = 'दस्तावेज़ (Document)';
-      else if (messageType === 'audio') typeInHindi = 'ऑडियो (Audio)';
-      else if (messageType === 'sticker') typeInHindi = 'स्टिकर (Sticker)';
-      else if (messageType === 'location') typeInHindi = 'लोकेशन (Location)';
-      else if (messageType === 'contacts') typeInHindi = 'कॉन्टैक्ट (Contact)';
-      
-      replyText = `नमस्ते ${contactName}! हमें आपका ${typeInHindi} प्राप्त हुआ है। हमारी सहायता टीम जल्द ही आपसे संपर्क करेगी।`;
+      let typeLabel = 'message';
+      if (messageType === 'image') typeLabel = 'photo (Image)';
+      else if (messageType === 'video') typeLabel = 'video (Video)';
+      else if (messageType === 'document') typeLabel = 'document (Document)';
+      else if (messageType === 'audio') typeLabel = 'audio (Audio)';
+      else if (messageType === 'sticker') typeLabel = 'sticker (Sticker)';
+      else if (messageType === 'location') typeLabel = 'location (Location)';
+      else if (messageType === 'contacts') typeLabel = 'contact (Contact)';
+
+      replyText = `Hello ${contactName}! We received your ${typeLabel}. Our support team will get back to you shortly.`;
     }
   }
-
   // Send the reply back to the user
   if (conversationId) {
     await sendWhatsAppMessage(env, phoneNumberId, from, replyText, conversationId, workspaceId);
