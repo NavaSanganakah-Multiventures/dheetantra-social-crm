@@ -146,6 +146,7 @@ class PlivoVoiceService implements SipUaHelperListener {
       // Allow future retries (e.g. network came back, credentials linked later).
       _initStarted = false;
     }
+  }
 
   /// TCP/WebSocket transport register hone ke baad connected hone tak wait
   /// karta hai, kyunki sip_ua ka call() sirf connected state mein jaata hai.
@@ -157,7 +158,6 @@ class PlivoVoiceService implements SipUaHelperListener {
     }
     debugPrint('[PlivoVoice] timeout waiting for SIP connection (registered=${_helper.registered}, connected=${_helper.connected})');
     return _helper.registered && _helper.connected;
-  }
   }
 
   /// Conference join karne ke liye SIP outbound call. Dest = conference name
