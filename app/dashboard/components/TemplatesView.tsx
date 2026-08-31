@@ -47,7 +47,7 @@ export function TemplatesView({ selectedWaba }: { selectedWaba?: any }) {
         setMetaTemplates(data.meta || []);
         setMetaError(data.metaError || null);
       } else {
-        setMetaError(data.error || "टेंपलेट्स लोड करने में विफल");
+        setMetaError(data.error || "Failed to load templates");
       }
     } catch (e) {
       setMetaError("Unable to reach the server.");
@@ -86,7 +86,7 @@ export function TemplatesView({ selectedWaba }: { selectedWaba?: any }) {
             setMetaTemplates(data.meta || []);
             setMetaError(data.metaError || null);
           } else {
-            setMetaError(data.error || "टेंपलेट्स लोड करने में विफल");
+            setMetaError(data.error || "Failed to load templates");
           }
         }
       } catch (e) {
@@ -434,7 +434,7 @@ export function TemplatesView({ selectedWaba }: { selectedWaba?: any }) {
                         const copy = [...paramValues];
                         copy[idx] = e.target.value;
                         setParamValues(copy);
-                      }} placeholder={`{{${idx+1}}} के लिए वैल्यू दर्ज करें`} className="flex-1 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-surface-800 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-primary-500" required />
+                      }} placeholder={`Enter value for {{${idx+1}}}`} className="flex-1 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-surface-800 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-primary-500" required />
                     </div>
                   ))}
                 </div>
