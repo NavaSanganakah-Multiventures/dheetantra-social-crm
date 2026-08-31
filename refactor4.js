@@ -1,1 +1,0 @@
-const fs = require('fs'); let c = fs.readFileSync('src/routes/plivoVoice.ts', 'utf8'); c = c.replace(/catch\(\(\) => \(\{\}\)\)/g, 'catch((err) => { console.error(\'[Plivo] fetch error:\', err); return {}; })'); fs.writeFileSync('src/routes/plivoVoice.ts', c);
