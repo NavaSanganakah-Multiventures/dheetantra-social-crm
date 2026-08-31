@@ -508,7 +508,7 @@ router.get('/api/whatsapp/templates', async (c) => {
     let metaTemplates: any[] = [];
     let fetchError = null;
 
-    if (config && config.waba_id && config.access_token && !config.access_token.startsWith('********')) {
+    if (config && config.waba_id && config.access_token && !String(config.access_token).startsWith('********')) {
       try {
         const res = await fetch(`https://graph.facebook.com/v19.0/${config.waba_id}/message_templates`, {
           headers: { 'Authorization': `Bearer ${config.access_token}` }
@@ -569,7 +569,7 @@ router.post('/api/whatsapp/templates', requireRole('owner', 'admin'), async (c) 
     let metaSuccess = false;
     let metaError = null;
 
-    if (config && config.waba_id && config.access_token && !config.access_token.startsWith('********')) {
+    if (config && config.waba_id && config.access_token && !String(config.access_token).startsWith('********')) {
       try {
         const payload = {
           name: cleanName,
