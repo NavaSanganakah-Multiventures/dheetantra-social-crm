@@ -506,6 +506,7 @@ class ApiService {
     try {
       final res = await _dio.post('/api/plivo/call', data: {
         'to': to,
+        'mode': 'in_app',
         if (contactId != null) 'contactId': contactId,
         if (plivoConfigId != null) 'plivoConfigId': plivoConfigId,
         if (fromNumber != null) 'fromNumber': fromNumber,
