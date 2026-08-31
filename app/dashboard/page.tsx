@@ -154,13 +154,13 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
         const wId = localStorage.getItem('workspaceId');
         if (wId && incomingCall.phoneNumberId) {
           try {
-            await fetch(`/api/whatsapp/calls/${incomingCall.id}/reject`, {
+            await fetch(`/api/whatsapp/calls/${encodeURIComponent(incomingCall.id)}/reject`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', 'x-workspace-id': wId },
               body: JSON.stringify({ phoneNumberId: incomingCall.phoneNumberId })
             });
           } catch(e) {}
-          await fetch(`/api/whatsapp/calls/${incomingCall.id}/status`, {
+          await fetch(`/api/whatsapp/calls/${encodeURIComponent(incomingCall.id)}/status`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'x-workspace-id': wId },
             body: JSON.stringify({ status: 'missed', duration: 0 })
@@ -629,7 +629,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                     try {
                       // Meta API reject (stops ringing on caller's side)
                       if (incomingCall.phoneNumberId) {
-                        await fetch(`/api/whatsapp/calls/${incomingCall.id}/reject`, {
+                        await fetch(`/api/whatsapp/calls/${encodeURIComponent(incomingCall.id)}/reject`, {
                           method: 'POST',
                           headers: {
                             'Content-Type': 'application/json',
@@ -639,7 +639,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                         });
                       }
                       // Local DB status update
-                      await fetch(`/api/whatsapp/calls/${incomingCall.id}/status`, {
+                      await fetch(`/api/whatsapp/calls/${encodeURIComponent(incomingCall.id)}/status`, {
                         method: 'POST',
                         headers: {
                           'Content-Type': 'application/json',
@@ -663,7 +663,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                       let callSdp = incomingCall.sdp;
                       if (!callSdp) {
                         try {
-                          const sdpRes = await fetch(`/api/whatsapp/calls/${incomingCall.id}/sdp`, {
+                          const sdpRes = await fetch(`/api/whatsapp/calls/${encodeURIComponent(incomingCall.id)}/sdp`, {
                             headers: { 'x-workspace-id': incomingCall.workspace_id }
                           });
                           const sdpData: any = await sdpRes.json();
@@ -688,7 +688,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                         workspace_id: incomingCall.workspace_id
                       });
                       try {
-                        await fetch(`/api/whatsapp/calls/${incomingCall.id}/status`, {
+                        await fetch(`/api/whatsapp/calls/${encodeURIComponent(incomingCall.id)}/status`, {
                           method: 'POST',
                           headers: {
                             'Content-Type': 'application/json',
