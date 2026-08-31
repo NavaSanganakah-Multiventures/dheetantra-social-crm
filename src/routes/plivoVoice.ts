@@ -264,7 +264,7 @@ function softphoneAppPayload(baseUrl: string) {
   return {
     answer_url: baseUrl + '/api/plivo/webhook/app',
     answer_method: 'POST',
-    fallback_url: baseUrl + '/api/plivo/webhook/app?fallback=1',
+    fallback_answer_url: baseUrl + '/api/plivo/webhook/app?fallback=1',
     fallback_method: 'POST',
     hangup_url: baseUrl + '/api/plivo/webhook/status?leg=softphone',
     hangup_method: 'POST',
@@ -275,7 +275,7 @@ function incomingAppPayload(baseUrl: string) {
   return {
     answer_url: baseUrl + '/api/plivo/webhook/voice',
     answer_method: 'POST',
-    fallback_url: baseUrl + '/api/plivo/webhook/fallback',
+    fallback_answer_url: baseUrl + '/api/plivo/webhook/fallback',
     fallback_method: 'POST',
     hangup_url: baseUrl + '/api/plivo/webhook/status?leg=inbound',
     hangup_method: 'POST',
@@ -285,7 +285,7 @@ function incomingAppPayload(baseUrl: string) {
 function shouldUpdateApp(app: any, payload: any) {
   return !app.answer_url ||
     app.answer_url !== payload.answer_url ||
-    app.fallback_url !== payload.fallback_url ||
+    app.fallback_answer_url !== payload.fallback_answer_url ||
     app.hangup_url !== payload.hangup_url ||
     app.answer_method !== payload.answer_method;
 }
