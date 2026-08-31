@@ -100,11 +100,18 @@ const MEDIA_LABELS: Record<string, string> = {
   reaction: 'रिएक्शन', system: 'सिस्टम', system_call: 'कॉल', button: 'बटन',
 };
 
-const isMediaUrl = (url: string | null | undefined): url is string => {
-  if (!url) return false;
-  // Only same-origin proxy paths and absolute http(s) URLs are safe. This
-  // blocks javascript:, data:, and protocol-relative URLs (XSS/open redirect).
-  return url.startsWith('/api/') || url.startsWith('http://') || url.startsWith('https://');
+const getSafeUrl = (url: string | null | undefined): string | undefined => {
+  if (!url) return undefined;
+  if (url.startsWith('/api/')) return url;
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+      return parsed.href;
+    }
+  } catch {
+    // ignore
+  }
+  return undefined;
 };
 
 function parseJsonMedia(value: string | null): any {
@@ -117,35 +124,37 @@ function parseJsonMedia(value: string | null): any {
 
 function renderMessageMedia(m: any): React.ReactNode {
   const t = m.message_type;
-  const url: string | null = m.media_url || null;
-  if (t === 'image' && isMediaUrl(url)) {
+  const rawUrl: string | null = m.media_url || null;
+  const safeUrl = getSafeUrl(rawUrl);
+
+  if (t === 'image' && safeUrl) {
     return (
-      <img src={url} alt="फ़ोटो" loading="lazy"
+      <img src={safeUrl} alt="फ़ोटो" loading="lazy"
         className="max-h-64 w-auto max-w-full rounded-xl my-1 object-cover border border-surface-200 dark:border-surface-800" />
     );
   }
-  if (t === 'sticker' && isMediaUrl(url)) {
+  if (t === 'sticker' && safeUrl) {
     return (
-      <img src={url} alt="स्टिकर" loading="lazy"
+      <img src={safeUrl} alt="स्टिकर" loading="lazy"
         className="max-h-24 max-w-[140px] my-1 object-contain" />
     );
   }
-  if (t === 'video' && isMediaUrl(url)) {
+  if (t === 'video' && safeUrl) {
     return (
-      <video src={url} controls preload="metadata"
+      <video src={safeUrl} controls preload="metadata"
         className="max-h-64 w-auto max-w-full rounded-xl my-1 border border-surface-200 dark:border-surface-800" />
     );
   }
-  if (t === 'audio' && isMediaUrl(url)) {
+  if (t === 'audio' && safeUrl) {
     return (
-      <audio src={url} controls preload="metadata"
+      <audio src={safeUrl} controls preload="metadata"
         className="w-full max-w-[300px] my-1" />
     );
   }
-  if (t === 'document' && isMediaUrl(url)) {
+  if (t === 'document' && safeUrl) {
     const docName = m.content && m.content !== 'Document Message' ? m.content : 'दस्तावेज़';
     return (
-      <a href={url} target="_blank" rel="noopener noreferrer"
+      <a href={safeUrl} target="_blank" rel="noopener noreferrer"
         className="flex items-center gap-2 my-1 text-xs font-semibold text-primary-600 dark:text-primary-400 underline break-all">
         📄 {docName}
       </a>
