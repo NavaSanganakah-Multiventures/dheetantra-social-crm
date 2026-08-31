@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { Env } from '../types';
 import { sqliteNow, requireRole } from '../shared';
-import { normalizeE164, formatForTwilio } from '../utils/phoneUtils';
+import { normalizeE164 } from '../utils/phoneUtils';
 
 
 
