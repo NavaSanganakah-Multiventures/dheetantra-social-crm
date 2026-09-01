@@ -207,7 +207,7 @@ class PlivoVoiceService implements SipUaHelperListener {
   /// as a SIP URI on phone.plivo.com; backend ka /api/plivo/webhook/app usi
   /// naam ke Plivo conference me dial karke bridge kar deta hai.
   Future<bool> joinConference(String conferenceName, {String? plivoConfigId}) async {
-    final name = (conferenceName ?? '').trim();
+    final name = conferenceName.trim();
     if (name.isEmpty) {
       debugPrint('[PlivoVoice] joinConference: empty conference name');
       return false;
