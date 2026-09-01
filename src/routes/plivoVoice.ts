@@ -2,6 +2,7 @@ import { Hono, Context } from 'hono';
 import { Env } from '../types';
 import { sqliteNow, requireRole } from '../shared';
 import { normalizeE164 } from '../utils/phoneUtils';
+import { buildPlivoAiStreamResponse } from './plivoStream';
 
 // ---------------------------------------------------------------------------
 // Plivo voice provider (PSTN bridge). Mirrors twilioVoice.ts but talks to the
@@ -527,8 +528,8 @@ router.get('/api/plivo/configs', async (c) => {
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
   const { results } = await c.env.DB.prepare(
-    'SELECT id, name, auth_id, auth_token, is_active, auto_dial_agents, endpoint_username, endpoint_password, voice_bot_enabled, office_hours_start, office_hours_end, office_hours_audio_url, busy_audio_url, created_at, updated_at FROM plivo_configs WHERE workspace_id = ? ORDER BY created_at ASC'
-  ).bind(workspaceId).all<{ id: string; name: string; auth_id: string; auth_token: string; is_active: number; auto_dial_agents: number; endpoint_username: string | null; endpoint_password: string | null; voice_bot_enabled: number; office_hours_start: string; office_hours_end: string; office_hours_audio_url: string | null; busy_audio_url: string | null; created_at: string; updated_at: string }>();
+    'SELECT id, name, auth_id, auth_token, is_active, auto_dial_agents, endpoint_username, endpoint_password, voice_bot_enabled, office_hours_start, office_hours_end, office_hours_audio_url, busy_audio_url, ai_fallback_enabled, ai_instructions, ai_voice_model, created_at, updated_at FROM plivo_configs WHERE workspace_id = ? ORDER BY created_at ASC'
+  ).bind(workspaceId).all<{ id: string; name: string; auth_id: string; auth_token: string; is_active: number; auto_dial_agents: number; endpoint_username: string | null; endpoint_password: string | null; voice_bot_enabled: number; office_hours_start: string; office_hours_end: string; office_hours_audio_url: string | null; busy_audio_url: string | null; ai_fallback_enabled: number; ai_instructions: string | null; ai_voice_model: string; created_at: string; updated_at: string }>();
 
   const configs: any[] = [];
   for (const cfg of results || []) {
@@ -551,6 +552,9 @@ router.get('/api/plivo/configs', async (c) => {
       officeHoursEnd: cfg.office_hours_end || '16:00',
       officeHoursAudioUrl: cfg.office_hours_audio_url,
       busyAudioUrl: cfg.busy_audio_url,
+      aiFallbackEnabled: cfg.ai_fallback_enabled === 1,
+      aiInstructions: cfg.ai_instructions || '',
+      aiVoiceModel: cfg.ai_voice_model || 'models/gemini-2.0-flash-exp',
       fromNumbers: (nums.results || []).map((n) => ({
         id: n.id,
         fromNumber: n.from_number,
@@ -567,7 +571,7 @@ router.post('/api/plivo/configs', requireRole('owner', 'admin'), async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
-  const { name, authId, authToken, fromNumbers, autoDialAgents, endpointUsername, endpointPassword, voiceBotEnabled, officeHoursStart, officeHoursEnd, officeHoursAudioUrl, busyAudioUrl } = await c.req.json() as any;
+  const { name, authId, authToken, fromNumbers, autoDialAgents, endpointUsername, endpointPassword, voiceBotEnabled, officeHoursStart, officeHoursEnd, officeHoursAudioUrl, busyAudioUrl, aiFallbackEnabled, aiInstructions, aiVoiceModel } = await c.req.json() as any;
   if (!authId || !authToken) {
     return c.json({ error: 'authId and authToken are required' }, 400);
   }
@@ -630,6 +634,9 @@ router.post('/api/plivo/configs', requireRole('owner', 'admin'), async (c) => {
     }
   }
 
+  await c.env.DB.prepare('UPDATE plivo_configs SET ai_fallback_enabled = ?, ai_instructions = ?, ai_voice_model = ? WHERE id = ? AND workspace_id = ?')
+    .bind(aiFallbackEnabled === true ? 1 : 0, aiInstructions || null, aiVoiceModel || 'models/gemini-2.0-flash-exp', id, workspaceId).run();
+
   return c.json({ success: true, configId: id, linkedNumbers, failedNumbers });
 });
 
@@ -657,6 +664,9 @@ router.put('/api/plivo/configs/:id', requireRole('owner', 'admin'), async (c) =>
   if (body.officeHoursEnd !== undefined) { updates.push('office_hours_end = ?'); params.push(body.officeHoursEnd); }
   if (body.officeHoursAudioUrl !== undefined) { updates.push('office_hours_audio_url = ?'); params.push(body.officeHoursAudioUrl || null); }
   if (body.busyAudioUrl !== undefined) { updates.push('busy_audio_url = ?'); params.push(body.busyAudioUrl || null); }
+  if (body.aiFallbackEnabled !== undefined) { updates.push('ai_fallback_enabled = ?'); params.push(body.aiFallbackEnabled ? 1 : 0); }
+  if (body.aiInstructions !== undefined) { updates.push('ai_instructions = ?'); params.push(body.aiInstructions || null); }
+  if (body.aiVoiceModel !== undefined) { updates.push('ai_voice_model = ?'); params.push(body.aiVoiceModel || null); }
 
   if (updates.length === 0) return c.json({ error: 'No fields to update' }, 400);
 
@@ -886,7 +896,7 @@ router.post('/api/plivo/call', async (c) => {
   const user = c.get('user') as any;
   if (!user || !user.id) return c.json({ error: 'Authentication required' }, 401);
 
-  // mode/inApp/auto-dial branches hata diye — app ab khud SIP dial karti hai.
+  // mode/inApp/auto-dial branches hata diye â app ab khud SIP dial karti hai.
   const { to, contactId, plivoConfigId, fromNumber } = await c.req.json() as any;
   if (!to || typeof to !== 'string') {
     return c.json({ error: 'To number is required' }, 400);
@@ -940,7 +950,7 @@ router.post('/api/plivo/call', async (c) => {
   const createdAt = sqliteNow();
 
   // Ye row sirf call ka record hai. Asli SIP dial app khud karti hai.
-  // status 'dialing' isliye — /api/plivo/webhook/app baad mein ise match karega.
+  // status 'dialing' isliye â /api/plivo/webhook/app baad mein ise match karega.
   await c.env.DB.prepare(
     "INSERT INTO calls (id, workspace_id, contact_id, phone_number_id, caller_number, source, type, direction, status, duration, plivo_config_id, assigned_user_id, external_call_id, created_at) VALUES (?, ?, ?, ?, ?, 'plivo', 'voice', 'outgoing', 'dialing', 0, ?, ?, ?, ?)"
   ).bind(callId, workspaceId, resolvedContactId, fromRow.id, normalizedTo, config.id, user.id, null, createdAt).run();
@@ -1040,8 +1050,8 @@ router.post('/api/plivo/webhook/voice', async (c) => {
 
     const candidates = dialedNumberCandidates(to);
     const config = await c.env.DB.prepare(
-      'SELECT tc.id AS plivo_config_id, tc.workspace_id, tc.auth_id, tc.auth_token, tc.endpoint_username, tc.auto_dial_agents, tc.voice_bot_enabled, tc.office_hours_start, tc.office_hours_end, tc.office_hours_audio_url, tc.busy_audio_url, tfn.id AS from_number_id, tfn.from_number FROM plivo_configs tc JOIN plivo_from_numbers tfn ON tc.id = tfn.plivo_config_id WHERE tfn.from_number IN (?, ?, ?) AND tfn.is_active = 1 AND tc.is_active = 1 LIMIT 1'
-    ).bind(candidates[0], candidates[1], candidates[2]).first<{ plivo_config_id: string; workspace_id: string; auth_id: string; auth_token: string; endpoint_username: string | null; auto_dial_agents: number; voice_bot_enabled: number; office_hours_start: string; office_hours_end: string; office_hours_audio_url: string | null; busy_audio_url: string | null; from_number_id: string; from_number: string }>();
+      'SELECT tc.id AS plivo_config_id, tc.workspace_id, tc.auth_id, tc.auth_token, tc.endpoint_username, tc.auto_dial_agents, tc.voice_bot_enabled, tc.office_hours_start, tc.office_hours_end, tc.office_hours_audio_url, tc.busy_audio_url, tc.ai_fallback_enabled, tfn.id AS from_number_id, tfn.from_number FROM plivo_configs tc JOIN plivo_from_numbers tfn ON tc.id = tfn.plivo_config_id WHERE tfn.from_number IN (?, ?, ?) AND tfn.is_active = 1 AND tc.is_active = 1 LIMIT 1'
+    ).bind(candidates[0], candidates[1], candidates[2]).first<{ plivo_config_id: string; workspace_id: string; auth_id: string; auth_token: string; endpoint_username: string | null; auto_dial_agents: number; voice_bot_enabled: number; office_hours_start: string; office_hours_end: string; office_hours_audio_url: string | null; busy_audio_url: string | null; ai_fallback_enabled: number; from_number_id: string; from_number: string }>();
 
     if (!config) {
       console.warn('[Plivo Webhook] no workspace config for dialed number', to);
@@ -1097,6 +1107,11 @@ router.post('/api/plivo/webhook/voice', async (c) => {
       // Agent availability check
       const liveCountRes = await c.env.DB.prepare("SELECT count(*) as cnt FROM workspace_members WHERE workspace_id = ? AND voice_status = 'live'").bind(config.workspace_id).first<{ cnt: number }>();
       if (!liveCountRes || liveCountRes.cnt === 0) {
+        // No live human agent available — fall back to the AI voice agent
+        // (Audio Stream / WebSocket -> Gemini Live) when enabled for this account.
+        if (config.ai_fallback_enabled === 1) {
+          return buildPlivoAiStreamResponse(c as Context, config, callId, from, callerName);
+        }
         const xml = config.busy_audio_url
           ? XML_DECL + `<Response><PreAnswer><Play>${escXml(config.busy_audio_url)}</Play></PreAnswer><Hangup/></Response>`
           : XML_DECL + '<Response><PreAnswer><Speak language="hi-IN" voice="Polly.Aditi">Namaste, main Arya hoon. Abhi hamari team vyast hai. Kripya thodi der baad call karein.</Speak></PreAnswer><Hangup/></Response>';
@@ -1198,7 +1213,7 @@ router.post('/api/plivo/webhook/status', async (c) => {
       return plivoXmlResponse(XML_DECL + '<Response/>', 200);
     }
 
-    // (नया) Direct <Dial> events. callbackUrl => DialAction (answer/connected/hangup);
+    // (à¤¨à¤¯à¤¾) Direct <Dial> events. callbackUrl => DialAction (answer/connected/hangup);
     // action URL => DialStatus (completed/busy/failed/cancel/timeout/no-answer).
     const dialDuration = parseInt(body.DialBLegBillDuration || body.DialBLegDuration || body.BillDuration || '0', 10) || 0;
 
@@ -1341,7 +1356,7 @@ router.post('/api/plivo/webhook/app', async (c) => {
 
   const dest = e164FromTo(to);
 
-  // Case 1: customer PSTN dial (E.164) — dialing row match karke CallUUID update karo.
+  // Case 1: customer PSTN dial (E.164) â dialing row match karke CallUUID update karo.
   if (/^\+\d{7,15}$/.test(dest)) {
     if (!cfg) {
       console.warn('[Plivo Webhook] no config matched for endpoint From user, hanging up');
