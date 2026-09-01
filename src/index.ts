@@ -36,6 +36,7 @@ import {
   checkDomainAbuse,
   parseEmailMediaJson,
   stripHtmlTags,
+  plivoStreamToken,
 } from './shared';
 
 // HMAC-SHA256 hex digest (Meta webhook signature verification).
@@ -180,6 +181,170 @@ export class ChatDurableObject extends DurableObject {
     } catch (e) {
       // Socket may already be closed; ignore.
     }
+  }
+}
+
+export class PlivoAudioBridge extends DurableObject {
+  private mediaFormat = { contentType: 'audio/x-l16', sampleRate: 16000 };
+
+  constructor(state: any, env: Env) {
+    super(state, env);
+  }
+
+  async fetch(request: Request) {
+    const upgradeHeader = request.headers.get('Upgrade');
+    if (upgradeHeader === 'websocket') {
+      const pair = new WebSocketPair();
+      const [client, server] = Object.values(pair);
+
+      const role = request.headers.get('x-plivo-role') || '';
+      const callId = request.headers.get('x-plivo-call-id') || '';
+      const userId = request.headers.get('x-auth-user-id') || '';
+      const tags: string[] = [];
+      if (role) tags.push(`role:${role}`);
+      if (callId) tags.push(`call:${callId}`);
+      if (userId) tags.push(`user:${userId}`);
+
+      this.ctx.acceptWebSocket(server, tags);
+      console.log(`[PlivoAudio] ${role} socket connected call=${callId}`);
+      return new Response(null, { status: 101, webSocket: client });
+    }
+
+    return new Response('Plivo Audio Bridge', { status: 200 });
+  }
+
+  async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer) {
+    const text = typeof message === 'string' ? message : new TextDecoder().decode(message);
+    try {
+      const data = JSON.parse(text);
+      const tags = this.ctx.getTags(ws) || [];
+      const role = tags.find((t) => t.startsWith('role:'))?.slice(5) || '';
+
+      if (data.type === 'ping' || data.event === 'ping') {
+        try { ws.send(JSON.stringify({ type: 'pong' })); } catch {}
+        return;
+      }
+
+      if (role === 'plivo') {
+        await this.handlePlivoMessage(ws, data);
+      } else if (role === 'agent') {
+        await this.handleAgentMessage(ws, data);
+      }
+    } catch (e) {
+      console.error('[PlivoAudio] message error:', e);
+    }
+  }
+
+  async handlePlivoMessage(ws: WebSocket, data: any) {
+    if (data.event === 'start') {
+      const start = data.start || {};
+      const enc = String(start.mediaFormat?.encoding || 'L16').toUpperCase();
+      const sampleRate = Number(start.mediaFormat?.sampleRate || 16000);
+      this.mediaFormat = {
+        contentType: enc === 'L16' ? 'audio/x-l16' : 'audio/' + enc.toLowerCase(),
+        sampleRate,
+      };
+      this.broadcastToRole('agent', {
+        type: 'stream_started',
+        callId: start.callId,
+        streamId: start.streamId,
+        contentType: this.mediaFormat.contentType,
+        sampleRate: this.mediaFormat.sampleRate,
+      });
+      return;
+    }
+
+    if (data.event === 'media' && data.media) {
+      this.broadcastToRole('agent', {
+        type: 'media',
+        payload: data.media.payload,
+        track: data.media.track,
+        chunk: data.media.chunk,
+        timestamp: data.media.timestamp,
+        contentType: this.mediaFormat.contentType,
+        sampleRate: this.mediaFormat.sampleRate,
+      });
+      return;
+    }
+
+    if (data.event === 'dtmf' && data.dtmf) {
+      this.broadcastToRole('agent', { type: 'dtmf', digits: data.dtmf.digit || data.dtmf.digits || '' });
+    }
+  }
+
+  async handleAgentMessage(ws: WebSocket, data: any) {
+    if (data.type === 'media' && data.payload) {
+      this.sendToRole('plivo', {
+        event: 'playAudio',
+        media: {
+          contentType: this.mediaFormat.contentType,
+          sampleRate: this.mediaFormat.sampleRate,
+          payload: data.payload,
+        },
+      });
+      return;
+    }
+
+    if (data.type === 'dtmf' && data.digits != null) {
+      this.sendToRole('plivo', { event: 'sendDTMF', dtmf: { digit: String(data.digits) } });
+      return;
+    }
+
+    if (data.type === 'end') {
+      // Agent ne call khatam ki: sab sockets band karo taaki
+      // Plivo <Hangup/> execute ho aur call single leg par end ho.
+      this.closeAll(1000, 'agent ended call');
+    }
+  }
+
+  broadcastToRole(role: string, payload: any) {
+    const sockets = this.ctx.getWebSockets();
+    for (const socket of sockets) {
+      try {
+        const tags = this.ctx.getTags(socket) || [];
+        if (tags.includes(`role:${role}`)) socket.send(JSON.stringify(payload));
+      } catch {}
+    }
+  }
+
+  sendToRole(role: string, payload: any) {
+    const sockets = this.ctx.getWebSockets();
+    for (const socket of sockets) {
+      try {
+        const tags = this.ctx.getTags(socket) || [];
+        if (tags.includes(`role:${role}`)) socket.send(JSON.stringify(payload));
+      } catch {}
+    }
+  }
+
+  closeAll(code: number, reason: string) {
+    const sockets = this.ctx.getWebSockets();
+    for (const socket of sockets) {
+      try { socket.close(code, reason); } catch {}
+    }
+  }
+
+  async webSocketClose(ws: WebSocket, code: number, reason: string, wasClean: boolean) {
+    try {
+      const tags = this.ctx.getTags(ws) || [];
+      const role = tags.find((t) => t.startsWith('role:'))?.slice(5) || '';
+      console.log(`[PlivoAudio] socket closed role=${role} code=${code}`);
+      if (role === 'plivo') {
+        // Plivo stream band -> agent ko batao aur sabhi sockets close karo.
+        this.broadcastToRole('agent', { type: 'stream_ended' });
+        this.closeAll(1000, 'plivo stream ended');
+      }
+    } catch (e) {
+      console.error('[PlivoAudio] close error:', e);
+    }
+  }
+
+  async webSocketError(ws: WebSocket, error: any) {
+    try {
+      const tags = this.ctx.getTags(ws) || [];
+      console.error(`[PlivoAudio] socket error tags=${tags.join(',') || 'none'}:`, error);
+      ws.close(1011, 'WebSocket error');
+    } catch {}
   }
 }
 
@@ -1206,6 +1371,73 @@ async function getAuthenticatedUserForWs(c: Context<{ Bindings: Env }>): Promise
   return { user, workspaceId };
 }
 
+// ---------------------------------------------------------------------------
+// Plivo Audio Bridge auth helpers - agent ke liye session + workspace verify,
+// Plivo side ke liye HMAC token verify.
+// ---------------------------------------------------------------------------
+async function getPlivoAgentAuth(c: Context<{ Bindings: Env }>, callId: string): Promise<{ user: any; workspaceId: string } | null> {
+  if (!callId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(callId)) {
+    return null;
+  }
+
+  const sessionId = c.req.query('sid') || getCookie(c, 'auth_session');
+  if (!sessionId || !c.env.SECRETS_KV) {
+    return null;
+  }
+
+  const userDataStr = await c.env.SECRETS_KV.get(`SESSION:${sessionId}`);
+  if (!userDataStr) {
+    return null;
+  }
+
+  let user: any = null;
+  try {
+    user = JSON.parse(userDataStr);
+  } catch (e) {
+    return null;
+  }
+  if (!user || !user.id) {
+    return null;
+  }
+
+  if (!c.env.DB) {
+    // Local development fallback (DB nahi hota tab bhi session valid ho to allow).
+    return { user, workspaceId: '' };
+  }
+
+  const call = await c.env.DB.prepare(
+    "SELECT workspace_id FROM calls WHERE id = ? AND source = 'plivo'"
+  ).bind(callId).first<{ workspace_id: string }>();
+  if (!call) {
+    return null;
+  }
+
+  const member = await c.env.DB.prepare(
+    'SELECT role FROM workspace_members WHERE workspace_id = ? AND user_id = ?'
+  ).bind(call.workspace_id, user.id).first<{ role: string }>();
+  if (!member) {
+    return null;
+  }
+
+  return { user, workspaceId: call.workspace_id };
+}
+
+async function verifyPlivoAudioToken(c: Context<{ Bindings: Env }>, callId: string, token: string): Promise<boolean> {
+  if (!callId || !token || !c.env.DB) {
+    return false;
+  }
+
+  const call = await c.env.DB.prepare(
+    'SELECT c.plivo_config_id, p.auth_token FROM calls c JOIN plivo_configs p ON p.id = c.plivo_config_id WHERE c.id = ? AND c.source = ?'
+  ).bind(callId, 'plivo').first<{ plivo_config_id: string; auth_token: string }>();
+  if (!call || !call.auth_token) {
+    return false;
+  }
+
+  const expected = await plivoStreamToken(call.auth_token, callId);
+  return constantTimeEqual(expected, token);
+}
+
 app.get('/api/chat/connect/:roomId', async (c) => {
   const roomId = c.req.param('roomId');
   const auth = await getAuthenticatedUserForWs(c);
@@ -1223,6 +1455,39 @@ app.get('/api/chat/connect/:roomId', async (c) => {
   headers.set('x-auth-workspace-id', auth.workspaceId);
   const req = new Request(c.req.raw, { headers });
 
+  const resp = await stub.fetch(req);
+  return resp;
+});
+
+app.get('/plivo/audio/:callId', async (c) => {
+  const callId = c.req.param('callId');
+  const token = c.req.query('token') || '';
+  if (!(await verifyPlivoAudioToken(c, callId, token))) {
+    return c.text('Forbidden', 403);
+  }
+  const id = c.env.PLIVO_AUDIO_DO.idFromName('call-' + callId);
+  const stub = c.env.PLIVO_AUDIO_DO.get(id);
+  const headers = new Headers(c.req.raw.headers);
+  headers.set('x-plivo-role', 'plivo');
+  headers.set('x-plivo-call-id', callId);
+  const req = new Request(c.req.raw, { headers });
+  const resp = await stub.fetch(req);
+  return resp;
+});
+
+app.get('/api/plivo/audio/:callId', async (c) => {
+  const callId = c.req.param('callId');
+  const auth = await getPlivoAgentAuth(c, callId);
+  if (!auth) {
+    return c.text('Unauthorized', 401);
+  }
+  const id = c.env.PLIVO_AUDIO_DO.idFromName('call-' + callId);
+  const stub = c.env.PLIVO_AUDIO_DO.get(id);
+  const headers = new Headers(c.req.raw.headers);
+  headers.set('x-plivo-role', 'agent');
+  headers.set('x-plivo-call-id', callId);
+  headers.set('x-auth-user-id', auth.user.id);
+  const req = new Request(c.req.raw, { headers });
   const resp = await stub.fetch(req);
   return resp;
 });
