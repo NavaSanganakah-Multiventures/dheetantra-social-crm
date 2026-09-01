@@ -1350,10 +1350,21 @@ router.post('/api/plivo/webhook/status', async (c) => {
     const terminalStatuses = new Set(['completed', 'busy', 'failed', 'no-answer', 'canceled', 'timeout']);
 
     if (terminalStatuses.has(rawStatus)) {
-      await c.env.DB.prepare("UPDATE calls SET status = ?, duration = ?, ended_at = ? WHERE id = ?")
-        .bind(status, duration, sqliteNow(), call.id).run();
-      await cleanupPlivoCall(c.env, call);
-      await broadcastToWorkspace(c.env, call.workspace_id, { type: 'call_status_updated', call_id: call.id, status, duration, source: 'plivo' });
+      // If the customer leg ends, tear down the call.
+      // If an agent leg ends, ONLY tear down the call if it was 'completed' (answered and then hung up).
+      // If an agent leg fails/busy/no-answer, do NOT tear down the call; leave the caller in the waiting room!
+      if (leg === 'customer' || (leg === 'agent' && rawStatus === 'completed') || leg === 'inbound') {
+        await c.env.DB.prepare("UPDATE calls SET status = ?, duration = ?, ended_at = ? WHERE id = ?")
+          .bind(status, duration, sqliteNow(), call.id).run();
+        await cleanupPlivoCall(c.env, call);
+        await broadcastToWorkspace(c.env, call.workspace_id, { type: 'call_status_updated', call_id: call.id, status, duration, source: 'plivo' });
+      } else if (leg === 'agent') {
+        // Agent leg failed/busy/no-answer. Restore agent to live, but don't drop the caller.
+        if (call.assigned_user_id) {
+          await c.env.DB.prepare("UPDATE workspace_members SET voice_status = 'live' WHERE workspace_id = ? AND user_id = ?")
+            .bind(call.workspace_id, call.assigned_user_id).run();
+        }
+      }
     } else {
       // Guarded update: never downgrade an in_progress/ended call to ringing
       // (Plivo can deliver ring callbacks after answer in rare cases). Also
