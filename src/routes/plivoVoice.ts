@@ -1242,22 +1242,6 @@ router.post('/api/plivo/webhook/status', async (c) => {
     const duration = parseInt(body.BillDuration || '0', 10) || 0;
     const streamEvent = body.Event || '';
 
-    // Audio Stream status callbacks (started / stopped / failed).
-    if (kind === 'stream') {
-      if (streamEvent === 'started') {
-        if (call.status !== 'in_progress' && call.status !== 'ended') {
-          await c.env.DB.prepare("UPDATE calls SET status = 'in_progress' WHERE id = ?").bind(call.id).run();
-          await broadcastToWorkspace(c.env, call.workspace_id, { type: 'call_status_updated', call_id: call.id, status: 'in_progress', duration: 0, source: 'plivo' });
-        }
-      } else if (streamEvent === 'stopped' || streamEvent === 'failed') {
-        await c.env.DB.prepare("UPDATE calls SET status = 'ended', duration = ?, ended_at = ? WHERE id = ?")
-          .bind(duration, sqliteNow(), call.id).run();
-        await cleanupPlivoCall(c.env, call);
-        await broadcastToWorkspace(c.env, call.workspace_id, { type: 'call_status_updated', call_id: call.id, status: 'ended', duration, source: 'plivo' });
-      }
-      return plivoXmlResponse(XML_DECL + '<Response/>', 200);
-    }
-
     let call: any = null;
     if (callId) {
       call = await c.env.DB.prepare('SELECT id, workspace_id, plivo_config_id, external_call_id, assigned_user_id, status FROM calls WHERE id = ?').bind(callId).first();
@@ -1273,6 +1257,22 @@ router.post('/api/plivo/webhook/status', async (c) => {
     if (!(await verifyPlivoSignature(c, plivoConfig?.auth_token, body))) {
       console.warn('[Plivo Webhook] invalid signature on status webhook', callId || callUuid);
       return c.text('Forbidden', 403);
+    }
+
+    // Audio Stream status callbacks (started / stopped / failed).
+    if (kind === 'stream') {
+      if (streamEvent === 'started') {
+        if (call.status !== 'in_progress' && call.status !== 'ended') {
+          await c.env.DB.prepare("UPDATE calls SET status = 'in_progress' WHERE id = ?").bind(call.id).run();
+          await broadcastToWorkspace(c.env, call.workspace_id, { type: 'call_status_updated', call_id: call.id, status: 'in_progress', duration: 0, source: 'plivo' });
+        }
+      } else if (streamEvent === 'stopped' || streamEvent === 'failed') {
+        await c.env.DB.prepare("UPDATE calls SET status = 'ended', duration = ?, ended_at = ? WHERE id = ?")
+          .bind(duration, sqliteNow(), call.id).run();
+        await cleanupPlivoCall(c.env, call);
+        await broadcastToWorkspace(c.env, call.workspace_id, { type: 'call_status_updated', call_id: call.id, status: 'ended', duration, source: 'plivo' });
+      }
+      return plivoXmlResponse(XML_DECL + '<Response/>', 200);
     }
 
     // Conference callbackUrl events (inbound caller leg).
