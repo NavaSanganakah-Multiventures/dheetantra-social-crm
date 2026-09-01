@@ -743,7 +743,7 @@ export function SettingsView() {
                      <div className="space-y-4 max-w-xl">
                          <div className="mb-6 p-5 bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-2xl flex flex-col items-start gap-3">
                              <h4 className="font-semibold text-blue-900 dark:text-blue-300 text-sm">Easy setup</h4>
-                            <p className="text-xs text-blue-800 dark:text-blue-400">Connect your WhatsApp Business Account in one click using Meta's official Embedded Signup.</p>
+                            <p className="text-xs text-blue-800 dark:text-blue-400">Connect your WhatsApp Business Account in one click using Meta&apos;s official Embedded Signup.</p>
                             <button onClick={launchWhatsAppSignup} className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-xl text-sm font-medium transition-colors shadow-sm flex items-center gap-2">
                               <MessageSquare className="w-4 h-4" /> Login with Facebook
                             </button>
