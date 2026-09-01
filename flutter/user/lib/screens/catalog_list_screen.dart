@@ -45,11 +45,11 @@ class _CatalogListScreenState extends State<CatalogListScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('कैटलॉग हटाएं?'),
-        content: Text('${catalog.name} हमेशा के लिए हटा दिया जाएगा।'),
+        title: const Text('Delete catalog?'),
+        content: Text('${catalog.name} will be deleted permanently.'),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('रद्द करें')),
-          TextButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('हटाएं')),
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Delete')),
         ],
       ),
     );
@@ -57,9 +57,9 @@ class _CatalogListScreenState extends State<CatalogListScreen> {
     final res = await ApiService().deleteCatalog(catalog.id);
     if (mounted) {
       if (res['error'] != null) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('त्रुटि: ${res['error']}')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${res['error']}')));
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('कैटलॉग हटाया गया')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Catalog deleted')));
         await _load();
       }
     }
@@ -68,11 +68,11 @@ class _CatalogListScreenState extends State<CatalogListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('कैटलॉग')),
+      appBar: AppBar(title: const Text('Catalog')),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _catalogs.isEmpty
-              ? const Center(child: EmptyState(icon: Icons.folder_outlined, title: 'कोई कैटलॉग नहीं', subtitle: 'नया कैटलॉग बनाने के लिए + दबाएं।'))
+              ? const Center(child: EmptyState(icon: Icons.folder_outlined, title: 'No catalogs', subtitle: 'Press + to create a new catalog.'))
               : RefreshIndicator(
                   onRefresh: _load,
                   child: ListView.builder(
@@ -90,7 +90,7 @@ class _CatalogListScreenState extends State<CatalogListScreen> {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _createCatalog,
         icon: const Icon(Icons.add),
-        label: const Text('कैटलॉग'),
+        label: const Text('Catalog'),
       ),
     );
   }
@@ -128,7 +128,7 @@ class _CatalogCard extends StatelessWidget {
                   children: [
                     Text(catalog.name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
                     const SizedBox(height: 4),
-                    Text('${catalog.productsCount} प्रोडक्ट', style: const TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                    Text('${catalog.productsCount} products', style: const TextStyle(color: AppColors.textMuted, fontSize: 12)),
                     if (catalog.description != null && catalog.description!.isNotEmpty) ...[
                       const SizedBox(height: 4),
                       Text(catalog.description!, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: AppColors.textMuted, fontSize: 12)),
