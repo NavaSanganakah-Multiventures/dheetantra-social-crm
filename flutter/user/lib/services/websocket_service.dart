@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/widgets.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'api_service.dart';
+import 'callkit_service.dart';
 import 'data_refresh_service.dart';
 import 'foreground_service.dart';
 
@@ -232,8 +233,20 @@ class WebSocketService with WidgetsBindingObserver {
           });
           break;
         case 'plivo_incoming_call':
-          // Plivo incoming calls ring on the agent's PSTN phone. There is no
-          // in-app WebRTC/SDK audio in the MVP, so intentionally do nothing here.
+          // (नया) Direct-SIP model mein app hi softphone hai. WS broadcast ko
+          // bhi CallKit ring banate hain taaki FCM late/fail ho toh bhi ring
+          // aaye. showIncomingCall ka dedup guard double-ring rok leta hai.
+          final plivoCallId = data['callId']?.toString() ?? '';
+          if (plivoCallId.isNotEmpty) {
+            CallKitService().showIncomingCall({
+              ...data,
+              'id': plivoCallId,
+              'source': 'plivo',
+              'type': 'incoming_call',
+              'callerNumber': data['from'] ?? data['callerNumber'] ?? '',
+              'callerName': data['callerName'] ?? data['from'] ?? 'Unknown',
+            });
+          }
           break;
         case 'call_status_updated':
           _callStatusController.add(data);
