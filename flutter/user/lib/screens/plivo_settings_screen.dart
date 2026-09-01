@@ -76,7 +76,7 @@ class _PlivoSettingsScreenState extends State<PlivoSettingsScreen> {
   Future<void> _copy(String value) async {
     await Clipboard.setData(ClipboardData(text: value));
     if (!mounted) return;
-    _snack('कॉपी हो गया');
+    _snack('Copied');
   }
 
   Future<void> _setAgentStatus(String status) async {
@@ -84,7 +84,7 @@ class _PlivoSettingsScreenState extends State<PlivoSettingsScreen> {
     if (!mounted) return;
     if (res['success'] == true) {
       setState(() => _agentStatus = status);
-      _snack('Agent status अपडेट हो गया');
+      _snack('Agent status updated');
     } else {
       _snack('Error: ${res['error']}');
     }
@@ -95,23 +95,23 @@ class _PlivoSettingsScreenState extends State<PlivoSettingsScreen> {
     final value = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Agent फ़ोन सेट करें'),
+        title: const Text('Set Agent phone'),
         content: TextField(
           controller: ctrl,
           keyboardType: TextInputType.phone,
           decoration: const InputDecoration(
-            labelText: 'फ़ोन नंबर',
+            labelText: 'Phone number',
             hintText: '+919669509952',
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('रद्द करें'),
+            child: const Text('Cancel'),
           ),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(ctrl.text.trim()),
-            child: const Text('सेव करें'),
+            child: const Text('Save'),
           ),
         ],
       ),
@@ -121,7 +121,7 @@ class _PlivoSettingsScreenState extends State<PlivoSettingsScreen> {
     final res = await ApiService().setAgentVoicePhone(value);
     if (!mounted) return;
     if (res['success'] == true) {
-      _snack('Agent फ़ोन सेव हो गया');
+      _snack('Agent phone saved');
       await _load();
     } else {
       _snack('Error: ${res['error']}');
@@ -137,7 +137,7 @@ class _PlivoSettingsScreenState extends State<PlivoSettingsScreen> {
     final values = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(existing == null ? 'Plivo Account जोड़ें' : 'Plivo Account संपादित करें'),
+        title: Text(existing == null ? 'Add Plivo Account' : 'Edit Plivo Account'),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -155,7 +155,7 @@ class _PlivoSettingsScreenState extends State<PlivoSettingsScreen> {
                 obscureText: true,
                 decoration: InputDecoration(
                   labelText: 'Auth Token',
-                  hintText: existing == null ? 'Required' : 'खाली छोड़ें (अपरिवर्तित)',
+                  hintText: existing == null ? 'Required' : 'Leave blank (unchanged)',
                 ),
               ),
               if (existing == null)
@@ -169,7 +169,7 @@ class _PlivoSettingsScreenState extends State<PlivoSettingsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('रद्द करें'),
+            child: const Text('Cancel'),
           ),
           FilledButton(
             onPressed: () {
@@ -180,7 +180,7 @@ class _PlivoSettingsScreenState extends State<PlivoSettingsScreen> {
                 'fromNumber': fromCtrl.text.trim(),
               });
             },
-            child: const Text('सेव करें'),
+            child: const Text('Save'),
           ),
         ],
       ),
@@ -191,11 +191,11 @@ class _PlivoSettingsScreenState extends State<PlivoSettingsScreen> {
     final authId = values['authId'] as String? ?? '';
     final token = values['authToken'] as String? ?? '';
     if (authId.isEmpty) {
-      _snack('Auth ID ज़रूरी है');
+      _snack('Auth ID is required');
       return;
     }
     if (existing == null && token.isEmpty) {
-      _snack('Auth Token ज़रूरी है');
+      _snack('Auth Token is required');
       return;
     }
 
@@ -212,7 +212,7 @@ class _PlivoSettingsScreenState extends State<PlivoSettingsScreen> {
 
     if (!mounted) return;
     if (res['success'] == true) {
-      _snack('Plivo Account सेव हो गया');
+      _snack('Plivo Account saved');
       await _load();
       if (existing == null) {
         final configId = res['configId'] as String?;
@@ -230,7 +230,7 @@ class _PlivoSettingsScreenState extends State<PlivoSettingsScreen> {
     final values = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('From Number जोड़ें'),
+        title: const Text('Add From Number'),
         content: TextField(
           controller: ctrl,
           decoration: const InputDecoration(labelText: 'From Number', hintText: '+919669509952'),
@@ -238,14 +238,14 @@ class _PlivoSettingsScreenState extends State<PlivoSettingsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('रद्द करें'),
+            child: const Text('Cancel'),
           ),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(<String, dynamic>{
               'fromNumber': ctrl.text.trim(),
               'isDefault': false,
             }),
-            child: const Text('जोड़ें'),
+            child: const Text('Add'),
           ),
         ],
       ),
@@ -257,14 +257,14 @@ class _PlivoSettingsScreenState extends State<PlivoSettingsScreen> {
 
     final res = await ApiService().addPlivoFromNumber(configId, number);
     if (!mounted) return;
-    _snack(res['success'] == true ? 'From Number जुड़ गया' : 'Error: ${res['error']}');
+    _snack(res['success'] == true ? 'From Number added' : 'Error: ${res['error']}');
     await _load();
   }
 
   Future<void> _setDefault(String id) async {
     final res = await ApiService().setDefaultPlivoFromNumber(id);
     if (!mounted) return;
-    _snack(res['success'] == true ? 'Default number set हो गया' : 'Error: ${res['error']}');
+    _snack(res['success'] == true ? 'Default number set' : 'Error: ${res['error']}');
     await _load();
   }
 
@@ -272,13 +272,13 @@ class _PlivoSettingsScreenState extends State<PlivoSettingsScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('From Number हटाएं?'),
+        title: const Text('Delete From Number?'),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('रद्द करें')),
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(true),
             style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
-            child: const Text('हटाएं'),
+            child: const Text('Delete'),
           ),
         ],
       ),
@@ -287,7 +287,7 @@ class _PlivoSettingsScreenState extends State<PlivoSettingsScreen> {
 
     final res = await ApiService().deletePlivoFromNumber(id);
     if (!mounted) return;
-    _snack(res['success'] == true ? 'From Number हटा दिया गया' : 'Error: ${res['error']}');
+    _snack(res['success'] == true ? 'From Number deleted' : 'Error: ${res['error']}');
     await _load();
   }
 
@@ -295,7 +295,7 @@ class _PlivoSettingsScreenState extends State<PlivoSettingsScreen> {
     final res = await ApiService().setPlivoAutoDialAgents(configId, value);
     if (!mounted) return;
     if (res['success'] == true) {
-      _snack(value ? 'Auto-forward चालू' : 'Auto-forward बंद');
+      _snack(value ? 'Auto-forward on' : 'Auto-forward off');
       await _load();
     } else {
       _snack('Error: ${res['error']}');
@@ -308,7 +308,7 @@ class _PlivoSettingsScreenState extends State<PlivoSettingsScreen> {
     if (!mounted) return;
     setState(() => _linkingConfigId = null);
     if (res['success'] == true) {
-      _snack(force ? 'SIP Endpoint re-link हो गया' : 'SIP Endpoint link हो गया');
+      _snack(force ? 'SIP Endpoint re-linked' : 'SIP Endpoint linked');
       await _load();
     } else {
       _snack('Error: ${res['error']}');
@@ -318,14 +318,14 @@ class _PlivoSettingsScreenState extends State<PlivoSettingsScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Plivo Account हटाएं?'),
-        content: const Text('इससे उसके सारे From Numbers भी हट जाएंगे।'),
+        title: const Text('Delete Plivo Account?'),
+        content: const Text('This will also delete all its From Numbers.'),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('रद्द करें')),
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(true),
             style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
-            child: const Text('हटाएं'),
+            child: const Text('Delete'),
           ),
         ],
       ),
@@ -334,7 +334,7 @@ class _PlivoSettingsScreenState extends State<PlivoSettingsScreen> {
 
     final res = await ApiService().deletePlivoConfig(id);
     if (!mounted) return;
-    _snack(res['success'] == true ? 'Plivo Account हटा दिया गया' : 'Error: ${res['error']}');
+    _snack(res['success'] == true ? 'Plivo Account deleted' : 'Error: ${res['error']}');
     await _load();
   }
 
@@ -362,7 +362,7 @@ class _PlivoSettingsScreenState extends State<PlivoSettingsScreen> {
                   const Padding(
                     padding: EdgeInsets.all(24),
                     child: Text(
-                      'अभी कोई Plivo Account जुड़ा नहीं है।\nनीचे + Plivo Account बटन से जोड़ें।',
+                      'No Plivo Account connected yet.\nAdd one using the + Plivo Account button below.',
                       textAlign: TextAlign.center,
                       style: TextStyle(color: AppColors.textMuted),
                     ),
@@ -395,12 +395,12 @@ class _PlivoSettingsScreenState extends State<PlivoSettingsScreen> {
                                   ),
                                 ),
                                 IconButton(
-                                  tooltip: 'संपादित करें',
+                                  tooltip: 'Edit',
                                   onPressed: () => _showAccountDialog(cfg),
                                   icon: const Icon(Icons.edit_outlined, size: 20),
                                 ),
                                 IconButton(
-                                  tooltip: 'हटाएं',
+                                  tooltip: 'Delete',
                                   onPressed: () => _deleteConfig(cfg['id'] as String),
                                   icon: const Icon(Icons.delete_outline, size: 20, color: AppColors.danger),
                                 ),
@@ -415,7 +415,7 @@ class _PlivoSettingsScreenState extends State<PlivoSettingsScreen> {
                                   child: Text(
                                     cfg['endpointConfigured'] == true
                                         ? 'Softphone: ${cfg['endpointUsername']}'
-                                        : 'Softphone: link नहीं हुआ',
+                                        : 'Softphone: not linked',
                                     style: TextStyle(
                                       color: cfg['endpointConfigured'] == true ? AppColors.success : AppColors.warning,
                                       fontSize: 12,
@@ -439,7 +439,7 @@ class _PlivoSettingsScreenState extends State<PlivoSettingsScreen> {
                             ),
                             const SizedBox(height: 6),
                             if (numbers.isEmpty)
-                              const Text('कोई From Number नहीं जुड़ा', style: TextStyle(color: AppColors.textMuted, fontSize: 12))
+                              const Text('No From Number connected', style: TextStyle(color: AppColors.textMuted, fontSize: 12))
                             else
                               Wrap(
                                 spacing: 8,
@@ -463,7 +463,7 @@ class _PlivoSettingsScreenState extends State<PlivoSettingsScreen> {
                                 TextButton.icon(
                                   onPressed: () => _showAddNumberDialog(cfg['id'] as String),
                                   icon: const Icon(Icons.add, size: 18),
-                                  label: const Text('Number जोड़ें'),
+                                  label: const Text('Add Number'),
                                 ),
                               ],
                             ),
@@ -533,13 +533,13 @@ class _PlivoSettingsScreenState extends State<PlivoSettingsScreen> {
           ),
           const SizedBox(height: 6),
           const Text(
-            'इन्हीं credentials से app का softphone register होता है। Zoiper (या किसी भी SIP softphone) में यही details डालकर उसी endpoint से connect कर सकते हैं।',
+            'These credentials register the app softphone. Enter these same details in Zoiper (or any SIP softphone) to connect to the same endpoint.',
             style: TextStyle(color: AppColors.textMuted, fontSize: 12),
           ),
           const SizedBox(height: 12),
           if (creds == null)
             const Text(
-              'SIP endpoint अभी link नहीं हुआ — नीचे "Link SIP Endpoint" दबाएं।',
+              'SIP endpoint not linked yet - press "Link SIP Endpoint" below.',
               style: TextStyle(color: AppColors.warning, fontSize: 13, fontWeight: FontWeight.w600),
             )
           else ...[
@@ -566,13 +566,13 @@ class _PlivoSettingsScreenState extends State<PlivoSettingsScreen> {
                     ),
                   ),
                   IconButton(
-                    tooltip: _showSipPassword ? 'छुपाएं' : 'दिखाएं',
+                    tooltip: _showSipPassword ? 'Hide' : 'Show',
                     visualDensity: VisualDensity.compact,
                     onPressed: () => setState(() => _showSipPassword = !_showSipPassword),
                     icon: Icon(_showSipPassword ? Icons.visibility_off : Icons.visibility, size: 18),
                   ),
                   IconButton(
-                    tooltip: 'कॉपी करें',
+                    tooltip: 'Copy',
                     visualDensity: VisualDensity.compact,
                     onPressed: () => _copy(password),
                     icon: const Icon(Icons.copy, size: 18),
@@ -585,8 +585,8 @@ class _PlivoSettingsScreenState extends State<PlivoSettingsScreen> {
               _sipDetailRow('Application SIP URI', applicationSipUri, mono: true),
               const SizedBox(height: 4),
               const Text(
-                'SIP URI (Endpoint) = Zoiper/softphone registration के लिए (phone.plivo.com)।\n'
-                'Application SIP URI = Plivo console के Application page पर दिखने वाला URI (app.plivo.com) — ये inbound SIP calls को आपके app पर route करने के लिए है, Zoiper login के लिए नहीं।',
+                'SIP URI (Endpoint) = for Zoiper/softphone registration (phone.plivo.com).\n'
+                'Application SIP URI = the URI shown on the Application page in the Plivo console (app.plivo.com) - this is for routing inbound SIP calls to your app, not for Zoiper login.',
                 style: TextStyle(color: AppColors.textMuted, fontSize: 11, height: 1.4),
               ),
             ],
@@ -601,17 +601,17 @@ class _PlivoSettingsScreenState extends State<PlivoSettingsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Zoiper में कैसे डालें:',
+                    'How to enter in Zoiper:',
                     style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w700, fontSize: 12),
                   ),
                   SizedBox(height: 4),
                   Text(
                     '• Account type: SIP\n'
-                    '• Username / Auth ID: ऊपर वाला Username\n'
-                    '• Password: ऊपर वाला Password\n'
+                    '• Username / Auth ID: the Username above\n'
+                    '• Password: the Password above\n'
                     '• Domain / Host: phone.plivo.com\n'
-                    '• Transport: UDP (port 5060) — TCP (port 5060) भी चलता है\n'
-                    '• ध्यान दें: app का softphone और Zoiper एक साथ एक ही endpoint पर register न करें — एक समय में एक ही device इस्तेमाल करें।',
+                    '• Transport: UDP (port 5060) - TCP (port 5060) also works\n'
+                    '• Note: do not register the app softphone and Zoiper on the same endpoint at the same time - use one device at a time.',
                     style: TextStyle(color: AppColors.textMuted, fontSize: 12, height: 1.5),
                   ),
                 ],
@@ -668,7 +668,7 @@ class _PlivoSettingsScreenState extends State<PlivoSettingsScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Agent उपलब्धता',
+            'Agent availability',
             style: TextStyle(
               color: AppColors.textPrimary,
               fontSize: 16,
@@ -677,7 +677,7 @@ class _PlivoSettingsScreenState extends State<PlivoSettingsScreen> {
           ),
           const SizedBox(height: 4),
           Text(
-            'Auto-forward ON होने पर कॉल आपके PSTN फ़ोन पर आती है; OFF होने पर app में ring होती है (softphone link ज़रूरी — settings से auto link होता है)।',
+            'When Auto-forward is ON calls ring on your PSTN phone; when OFF the app rings (softphone link required - auto-links from settings).',
             style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
           ),
           const SizedBox(height: 12),
@@ -685,7 +685,7 @@ class _PlivoSettingsScreenState extends State<PlivoSettingsScreen> {
             children: [
               Expanded(
                 child: Text(
-                  _agentPhoneMasked.isEmpty ? 'फ़ोन सेट नहीं है' : 'फ़ोन: $_agentPhoneMasked',
+                  _agentPhoneMasked.isEmpty ? 'Phone not set' : 'Phone: $_agentPhoneMasked',
                   style: TextStyle(
                     color: _agentPhoneMasked.isEmpty ? AppColors.warning : AppColors.textSecondary,
                     fontSize: 13,
@@ -696,7 +696,7 @@ class _PlivoSettingsScreenState extends State<PlivoSettingsScreen> {
               TextButton.icon(
                 onPressed: _editAgentPhone,
                 icon: const Icon(Icons.edit_outlined, size: 16),
-                label: const Text('फ़ोन सेट करें'),
+                label: const Text('Set phone'),
               ),
             ],
           ),
