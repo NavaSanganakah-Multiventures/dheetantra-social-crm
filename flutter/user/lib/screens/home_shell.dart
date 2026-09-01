@@ -121,7 +121,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
       });
     });
 
-    // New incoming message → notification center + unread badge.
+    // New incoming message â notification center + unread badge.
     _wsMsgSub = ws.onNewMessage.listen((data) {
       final msg = data['message'];
       if (msg == null) return;
@@ -150,7 +150,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
       }
     });
 
-    // Only surface user-relevant transitions — a reopened conversation. Routine
+    // Only surface user-relevant transitions â a reopened conversation. Routine
     // admin close/reassign events would otherwise flood the notification center.
     _wsConvStatusSub = ws.onConversationStatusUpdated.listen((data) {
       final status = data['status'] ?? '';

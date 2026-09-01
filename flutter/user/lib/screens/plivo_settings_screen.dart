@@ -36,7 +36,15 @@ class _PlivoSettingsScreenState extends State<PlivoSettingsScreen> {
     Map<String, dynamic>? sipCreds;
     try {
       final sip = await ApiService().getPlivoSipCredentials();
-      if ((sip['username']?.toString() ?? '').isNotEmpty) sipCreds = sip;
+      // Backend returns { credentials: [ ... ] }; the settings card displays a
+      // single SIP endpoint, so pick the first configured endpoint.
+      final credentials = sip['credentials'] as List<dynamic>? ?? [];
+      if (credentials.isNotEmpty) {
+        sipCreds = credentials.first as Map<String, dynamic>;
+      } else if ((sip['username']?.toString() ?? '').isNotEmpty) {
+        // Fallback for older backends that returned a flat credential map.
+        sipCreds = sip;
+      }
     } catch (_) {
       sipCreds = null;
     }
