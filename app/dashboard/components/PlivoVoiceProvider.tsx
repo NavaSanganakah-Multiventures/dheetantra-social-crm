@@ -98,10 +98,15 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
       console.log(`[PlivoWeb] Switching SIP endpoint to config: ${newConfigId}`);
       try {
         clientRef.current.logout();
-        clientRef.current.login(creds.username, creds.password);
-        currentConfigIdRef.current = newConfigId;
         registeredRef.current = false;
         setRegistered(false);
+        // Delay login slightly to ensure logout completes internally
+        setTimeout(() => {
+          if (clientRef.current) {
+            clientRef.current.login(creds.username, creds.password);
+            currentConfigIdRef.current = newConfigId;
+          }
+        }, 150);
       } catch (e) {
         console.error("[PlivoWeb] Error switching SIP endpoint", e);
       }
@@ -165,8 +170,11 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
           return;
         }
         credentialsRef.current = credsList;
-        const defaultCreds = credsList[0];
-        if (!defaultCreds.username || !defaultCreds.password) return;
+        let defaultCreds = credsList.find((c: any) => c.username && c.password);
+        if (!defaultCreds) {
+          console.warn("[PlivoWeb] No valid Plivo softphone credentials found (missing username or password)");
+          return;
+        }
         currentConfigIdRef.current = defaultCreds.plivoConfigId;
         if (cancelled) return;
 
@@ -390,13 +398,22 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
           switchPlivoAccount(info.plivoConfigId);
         }
 
+        let attempts = 0;
+        const maxAttempts = 50; // 50 * 200ms = 10s timeout
         const checkAndDial = () => {
           if (registeredRef.current) {
             client.call("sip:" + info.conferenceName + "@phone.plivo.com");
             setActive(info);
             updateAgentStatus("busy");
           } else {
-            setTimeout(checkAndDial, 200);
+            attempts++;
+            if (attempts > maxAttempts) {
+              console.error("[PlivoWeb] Timeout waiting for SIP registration after hopping");
+              setStatus("error");
+              cleanupCall();
+            } else {
+              setTimeout(checkAndDial, 200);
+            }
           }
         };
         

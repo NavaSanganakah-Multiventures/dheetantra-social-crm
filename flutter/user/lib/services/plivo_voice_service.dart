@@ -72,7 +72,12 @@ class PlivoVoiceService implements SipUaHelperListener {
   Future<bool> _register({String? targetConfigId}) async {
     final inflight = _registrationCompleter;
     if (inflight != null && !inflight.isCompleted) {
-      return _waitRegistration(inflight);
+      await _waitRegistration(inflight);
+      if (targetConfigId != null && _currentConfigId != targetConfigId) {
+        // Continue to register with the requested config since the previous one was different
+      } else {
+        return true;
+      }
     }
 
     if (_credentialsList.isEmpty) {
@@ -87,7 +92,8 @@ class PlivoVoiceService implements SipUaHelperListener {
     }
 
     // Default to the first config if none provided
-    final configToUse = targetConfigId ?? _credentialsList.first['plivoConfigId'] as String;
+    final configToUse = targetConfigId ?? (_credentialsList.first['plivoConfigId'] as String? ?? '');
+    if (configToUse.isEmpty) return false;
 
     if (_helper.registered && _currentConfigId == configToUse) {
        return true; // Already registered to this config
@@ -114,7 +120,11 @@ class PlivoVoiceService implements SipUaHelperListener {
     if (_helper.registered || _helper.connected) {
       debugPrint('[PlivoVoice] Stopping current SIP UA to switch accounts');
       _helper.stop();
-      await Future.delayed(const Duration(milliseconds: 300));
+      int attempts = 0;
+      while (_helper.connected && attempts < 20) {
+        await Future.delayed(const Duration(milliseconds: 50));
+        attempts++;
+      }
     }
 
     final server = (creds['server']?.toString()) ?? _domain;

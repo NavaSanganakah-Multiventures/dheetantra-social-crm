@@ -847,6 +847,15 @@ router.get('/api/plivo/sip-credentials', async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
+  // Security: Verify user is a member of the workspace
+  const memberCheck = await c.env.DB.prepare(
+    "SELECT id FROM workspace_members WHERE user_id = ? AND workspace_id = ?"
+  ).bind(user.id, workspaceId).first();
+
+  if (!memberCheck) {
+    return c.json({ error: 'Forbidden: You do not have access to this workspace' }, 403);
+  }
+
   const cfgs = await c.env.DB.prepare(
     "SELECT id as plivoConfigId, endpoint_username, endpoint_password, endpoint_app_id FROM plivo_configs WHERE workspace_id = ? AND is_active = 1 AND endpoint_username IS NOT NULL AND endpoint_username != '' AND endpoint_password IS NOT NULL AND endpoint_password != '' ORDER BY created_at ASC"
   ).bind(workspaceId).all<{ plivoConfigId: string; endpoint_username: string; endpoint_password: string; endpoint_app_id: string | null }>();
