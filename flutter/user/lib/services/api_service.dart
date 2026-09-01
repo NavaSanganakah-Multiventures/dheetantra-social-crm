@@ -409,6 +409,17 @@ class ApiService {
     }
   }
 
+  // ========== PLIVO CALL ==========
+
+  Future<Map<String, dynamic>> hangupPlivoCall(String callId) async {
+    try {
+      final res = await _dio.post('/api/plivo/call/$callId/hangup');
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
   // ========== TWILIO WORKSPACE CONFIG ==========
 
   Future<List<dynamic>> getTwilioConfigs() async {
@@ -792,7 +803,7 @@ class ApiService {
 
   Future<Map<String, dynamic>> getDashboardStats() async {
     try {
-      // Dono calls parallel chalao ÃÂ¢ÃÂÃÂ sequential hone se dashboard load me
+      // Dono calls parallel chalao - sequential hone se dashboard load me
       // 2x delay aa raha tha.
       final results = await Future.wait<dynamic>([
         getContacts(),
@@ -1188,6 +1199,6 @@ class ApiService {
     if (e.response != null && e.response!.data is Map) {
       return e.response!.data;
     }
-    return {'error': e.message ?? 'ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¥ÃÂÃÂ ÃÂ¤ÃÂ ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂ¡ÃÂ ÃÂ¤ÃÂ¼ÃÂ ÃÂ¤ÃÂ¬ÃÂ ÃÂ¤ÃÂ¡ÃÂ ÃÂ¤ÃÂ¼ ÃÂ ÃÂ¤ÃÂ¹ÃÂ ÃÂ¥ÃÂ ÃÂ ÃÂ¤ÃÂÃÂ ÃÂ¤ÃÂ'};
+    return {'error': e.message ?? 'Something went wrong'};
   }
 }

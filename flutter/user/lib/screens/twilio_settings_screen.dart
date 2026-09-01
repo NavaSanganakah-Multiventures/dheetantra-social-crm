@@ -51,7 +51,7 @@ class _TwilioSettingsScreenState extends State<TwilioSettingsScreen> {
     final values = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(existing == null ? 'Twilio Account à¤à¥à¤¡à¤¼à¥à¤' : 'Twilio Account à¤¸à¤à¤ªà¤¾à¤¦à¤¿à¤¤ à¤à¤°à¥à¤'),
+        title: Text(existing == null ? 'Add Twilio Account' : 'Edit Twilio Account'),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -69,7 +69,7 @@ class _TwilioSettingsScreenState extends State<TwilioSettingsScreen> {
                 obscureText: true,
                 decoration: InputDecoration(
                   labelText: 'Auth Token',
-                  hintText: existing == null ? 'Required' : 'à¤à¤¾à¤²à¥ à¤à¥à¤¡à¤¼à¥à¤ (à¤à¤ªà¤°à¤¿à¤µà¤°à¥à¤¤à¤¿à¤¤)',
+                  hintText: existing == null ? 'Required' : 'Leave blank (unchanged)',
                 ),
               ),
               if (existing == null)
@@ -107,7 +107,7 @@ class _TwilioSettingsScreenState extends State<TwilioSettingsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('à¤°à¤¦à¥à¤¦ à¤à¤°à¥à¤'),
+            child: const Text('Cancel'),
           ),
           FilledButton(
             onPressed: () {
@@ -123,7 +123,7 @@ class _TwilioSettingsScreenState extends State<TwilioSettingsScreen> {
                 'pushCredentialSidIos': pushCredIosCtrl.text.trim(),
               });
             },
-            child: const Text('à¤¸à¥à¤µ à¤à¤°à¥à¤'),
+            child: const Text('Save'),
           ),
         ],
       ),
@@ -134,11 +134,11 @@ class _TwilioSettingsScreenState extends State<TwilioSettingsScreen> {
     final sid = values['accountSid'] as String? ?? '';
     final token = values['authToken'] as String? ?? '';
     if (sid.isEmpty) {
-      _snack('Account SID à¤à¤¼à¤°à¥à¤°à¥ à¤¹à¥');
+      _snack('Account SID is required');
       return;
     }
     if (existing == null && token.isEmpty) {
-      _snack('Auth Token à¤à¤¼à¤°à¥à¤°à¥ à¤¹à¥');
+      _snack('Auth Token is required');
       return;
     }
 
@@ -159,7 +159,7 @@ class _TwilioSettingsScreenState extends State<TwilioSettingsScreen> {
     );
 
     if (!mounted) return;
-    _snack(res['success'] == true ? 'Twilio Account à¤¸à¥à¤µ à¤¹à¥ à¤à¤¯à¤¾' : 'Error: ${res['error']}');
+    _snack(res['success'] == true ? 'Twilio Account saved' : 'Error: ${res['error']}');
     await _load();
   }
 
@@ -168,7 +168,7 @@ class _TwilioSettingsScreenState extends State<TwilioSettingsScreen> {
     final values = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('From Number à¤à¥à¤¡à¤¼à¥à¤'),
+        title: const Text('Add From Number'),
         content: TextField(
           controller: ctrl,
           decoration: const InputDecoration(labelText: 'From Number', hintText: '+919669509952'),
@@ -176,14 +176,14 @@ class _TwilioSettingsScreenState extends State<TwilioSettingsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('à¤°à¤¦à¥à¤¦ à¤à¤°à¥à¤'),
+            child: const Text('Cancel'),
           ),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(<String, dynamic>{
               'fromNumber': ctrl.text.trim(),
               'isDefault': false,
             }),
-            child: const Text('à¤à¥à¤¡à¤¼à¥à¤'),
+            child: const Text('Add'),
           ),
         ],
       ),
@@ -195,14 +195,14 @@ class _TwilioSettingsScreenState extends State<TwilioSettingsScreen> {
 
     final res = await ApiService().addTwilioFromNumber(configId, number);
     if (!mounted) return;
-    _snack(res['success'] == true ? 'From Number à¤à¥à¤¡à¤¼ à¤à¤¯à¤¾' : 'Error: ${res['error']}');
+    _snack(res['success'] == true ? 'From Number added' : 'Error: ${res['error']}');
     await _load();
   }
 
   Future<void> _setDefault(String id) async {
     final res = await ApiService().setDefaultTwilioFromNumber(id);
     if (!mounted) return;
-    _snack(res['success'] == true ? 'Default number set à¤¹à¥ à¤à¤¯à¤¾' : 'Error: ${res['error']}');
+    _snack(res['success'] == true ? 'Default number set' : 'Error: ${res['error']}');
     await _load();
   }
 
@@ -210,13 +210,13 @@ class _TwilioSettingsScreenState extends State<TwilioSettingsScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('From Number à¤¹à¤à¤¾à¤à¤?'),
+        title: const Text('Delete From Number?'),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('à¤°à¤¦à¥à¤¦ à¤à¤°à¥à¤')),
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(true),
             style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
-            child: const Text('à¤¹à¤à¤¾à¤à¤'),
+            child: const Text('Delete'),
           ),
         ],
       ),
@@ -225,7 +225,7 @@ class _TwilioSettingsScreenState extends State<TwilioSettingsScreen> {
 
     final res = await ApiService().deleteTwilioFromNumber(id);
     if (!mounted) return;
-    _snack(res['success'] == true ? 'From Number à¤¹à¤à¤¾ à¤¦à¤¿à¤¯à¤¾ à¤à¤¯à¤¾' : 'Error: ${res['error']}');
+    _snack(res['success'] == true ? 'From Number deleted' : 'Error: ${res['error']}');
     await _load();
   }
 
@@ -233,14 +233,14 @@ class _TwilioSettingsScreenState extends State<TwilioSettingsScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Twilio Account à¤¹à¤à¤¾à¤à¤?'),
-        content: const Text('à¤à¤¸à¤¸à¥ à¤à¤¸à¤à¥ à¤¸à¤¾à¤°à¥ From Numbers à¤­à¥ à¤¹à¤ à¤à¤¾à¤à¤à¤à¥à¥¤'),
+        title: const Text('Delete Twilio Account?'),
+        content: const Text('This will also delete all its From Numbers.'),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('à¤°à¤¦à¥à¤¦ à¤à¤°à¥à¤')),
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(true),
             style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
-            child: const Text('à¤¹à¤à¤¾à¤à¤'),
+            child: const Text('Delete'),
           ),
         ],
       ),
@@ -249,7 +249,7 @@ class _TwilioSettingsScreenState extends State<TwilioSettingsScreen> {
 
     final res = await ApiService().deleteTwilioConfig(id);
     if (!mounted) return;
-    _snack(res['success'] == true ? 'Twilio Account à¤¹à¤à¤¾ à¤¦à¤¿à¤¯à¤¾ à¤à¤¯à¤¾' : 'Error: ${res['error']}');
+    _snack(res['success'] == true ? 'Twilio Account deleted' : 'Error: ${res['error']}');
     await _load();
   }
 
@@ -271,7 +271,7 @@ class _TwilioSettingsScreenState extends State<TwilioSettingsScreen> {
                   child: Padding(
                     padding: EdgeInsets.all(24),
                     child: Text(
-                      'à¤à¤­à¥ à¤à¥à¤ Twilio Account à¤à¥à¤¡à¤¼à¤¾ à¤¨à¤¹à¥à¤ à¤¹à¥à¥¤\nà¤¨à¥à¤à¥ + Twilio Account à¤¬à¤à¤¨ à¤¸à¥ à¤à¥à¤¡à¤¼à¥à¤à¥¤',
+                      'No Twilio Account added yet.\nAdd one using the + Twilio Account button below.',
                       textAlign: TextAlign.center,
                       style: TextStyle(color: AppColors.textMuted),
                     ),
@@ -306,12 +306,12 @@ class _TwilioSettingsScreenState extends State<TwilioSettingsScreen> {
                                   ),
                                 ),
                                 IconButton(
-                                  tooltip: 'à¤¸à¤à¤ªà¤¾à¤¦à¤¿à¤¤ à¤à¤°à¥à¤',
+                                  tooltip: 'Edit',
                                   onPressed: () => _showAccountDialog(cfg),
                                   icon: const Icon(Icons.edit_outlined, size: 20),
                                 ),
                                 IconButton(
-                                  tooltip: 'à¤¹à¤à¤¾à¤à¤',
+                                  tooltip: 'Delete',
                                   onPressed: () => _deleteConfig(cfg['id'] as String),
                                   icon: const Icon(Icons.delete_outline, size: 20, color: AppColors.danger),
                                 ),
@@ -327,7 +327,7 @@ class _TwilioSettingsScreenState extends State<TwilioSettingsScreen> {
                             ),
                             const SizedBox(height: 6),
                             if (numbers.isEmpty)
-                              const Text('à¤à¥à¤ From Number à¤¨à¤¹à¥à¤ à¤à¥à¤¡à¤¼à¤¾', style: TextStyle(color: AppColors.textMuted, fontSize: 12))
+                              const Text('No From Number added', style: TextStyle(color: AppColors.textMuted, fontSize: 12))
                             else
                               Wrap(
                                 spacing: 8,
@@ -348,7 +348,7 @@ class _TwilioSettingsScreenState extends State<TwilioSettingsScreen> {
                                 TextButton.icon(
                                   onPressed: () => _showAddNumberDialog(cfg['id'] as String),
                                   icon: const Icon(Icons.add, size: 18),
-                                  label: const Text('Number à¤à¥à¤¡à¤¼à¥à¤'),
+                                  label: const Text('Add Number'),
                                 ),
                               ],
                             ),

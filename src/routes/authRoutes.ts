@@ -70,10 +70,10 @@ router.post('/api/auth/send-otp', async (c) => {
       const isRegistered = existingUser ? existingUser.is_registered === 1 : false;
 
       if (type === 'login' && !isRegistered) {
-        return c.json({ error: 'अमान्य क्रेडेंशियल' }, 401);
+        return c.json({ error: 'Invalid credentials' }, 401);
       }
       if (type === 'register' && isRegistered) {
-        return c.json({ error: 'यह ईमेल पहले से पंजीकृत है।' }, 400);
+        return c.json({ error: 'This email is already registered.' }, 400);
       }
 
       // If registering and user doesn't exist, create user with is_registered = 0
@@ -96,7 +96,7 @@ router.post('/api/auth/send-otp', async (c) => {
     const cooldownKey = `OTP_COOLDOWN:${email}`;
     const inCooldown = await c.env.SECRETS_KV.get(cooldownKey);
     if (inCooldown) {
-      return c.json({ error: 'कृपया एक और OTP का अनुरोध करने से पहले 60 सेकंड प्रतीक्षा करें।' }, 429);
+      return c.json({ error: 'Please wait 60 seconds before requesting another OTP.' }, 429);
     }
     await c.env.SECRETS_KV.put(cooldownKey, '1', { expirationTtl: 60 });
   }
@@ -238,7 +238,7 @@ router.post('/api/auth/verify-otp', async (c) => {
       const attempts = parseInt(await c.env.SECRETS_KV.get(attemptKey) || '0', 10) + 1;
       await c.env.SECRETS_KV.put(attemptKey, String(attempts), { expirationTtl: 900 });
     }
-    return c.json({ error: 'अमान्य क्रेडेंशियल' }, 401);
+    return c.json({ error: 'Invalid credentials' }, 401);
   }
 
   // Reset attempt counter on success

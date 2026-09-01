@@ -297,7 +297,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
           try {
             const data = JSON.parse(event.data);
             if (data.type === 'whatsapp_incoming_call') {
-              // Calls field handler â has SDP, user can answer
+              // Calls field handler - has SDP, user can answer
               setIncomingCall({
                 id: data.callId,
                 from: data.from,
@@ -313,7 +313,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
               setIncomingCallNoSdp(null);
               // Ringtone is now handled by the useEffect watching incomingCall.status
             } else if (data.type === 'incoming_call' && data.call) {
-              // System message fallback â NO SDP, show as missed call notification
+              // System message fallback - NO SDP, show as missed call notification
               setIncomingCallNoSdp({
                 id: data.call.id,
                 contact_name: data.call.contact_name,
@@ -469,35 +469,35 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
             </div>
 
             <nav className="flex-1 min-h-0 px-4 py-6 space-y-2 overflow-y-auto">
-              <div className="text-xs font-semibold text-surface-500 uppercase tracking-wider mb-4 px-3">à¤à¤µà¤°à¤µà¥à¤¯à¥</div>
-              <NavItem icon={<LayoutDashboard />} label="à¤¡à¥à¤¶à¤¬à¥à¤°à¥à¤¡" isActive={activeTab === 'dashboard'} onClick={() => { setActiveTab('dashboard'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
-              <NavItem icon={<MessageSquare />} label="à¤à¤¨à¤¬à¥à¤à¥à¤¸" isActive={activeTab === 'inbox'} onClick={() => { setActiveTab('inbox'); if (window.innerWidth < 768) setSidebarOpen(false); }} badge={openConversationsCount > 0 ? openConversationsCount.toString() : undefined} />
-              <NavItem icon={<Activity />} label="à¤¸à¤à¥à¤°à¤¿à¤¯ à¤à¥à¤" isActive={activeTab === 'active-conversations'} onClick={() => { setActiveTab('active-conversations'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
-              <NavItem icon={<Users />} label="à¤¸à¤à¤ªà¤°à¥à¤ à¤à¤° à¤²à¥à¤¡à¥à¤¸" isActive={activeTab === 'contacts'} onClick={() => { setActiveTab('contacts'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
-              <NavItem icon={<Phone />} label="à¤à¥à¤² à¤²à¥à¤à¥à¤¸" isActive={activeTab === 'calls'} onClick={() => { setActiveTab('calls'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
+              <div className="text-xs font-semibold text-surface-500 uppercase tracking-wider mb-4 px-3">Overview</div>
+              <NavItem icon={<LayoutDashboard />} label="Dashboard" isActive={activeTab === 'dashboard'} onClick={() => { setActiveTab('dashboard'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
+              <NavItem icon={<MessageSquare />} label="Inbox" isActive={activeTab === 'inbox'} onClick={() => { setActiveTab('inbox'); if (window.innerWidth < 768) setSidebarOpen(false); }} badge={openConversationsCount > 0 ? openConversationsCount.toString() : undefined} />
+              <NavItem icon={<Activity />} label="Active Chats" isActive={activeTab === 'active-conversations'} onClick={() => { setActiveTab('active-conversations'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
+              <NavItem icon={<Users />} label="Contacts & Leads" isActive={activeTab === 'contacts'} onClick={() => { setActiveTab('contacts'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
+              <NavItem icon={<Phone />} label="Call Logs" isActive={activeTab === 'calls'} onClick={() => { setActiveTab('calls'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
               
-              <div className="text-xs font-semibold text-surface-500 uppercase tracking-wider mb-4 mt-8 px-3">à¤à¤à¤¾à¤à¤à¤à¥à¤¸</div>
+              <div className="text-xs font-semibold text-surface-500 uppercase tracking-wider mb-4 mt-8 px-3">Accounts</div>
               <NavItem icon={<Phone />} label="WhatsApp" isActive={activeTab === 'accounts-whatsapp'} onClick={() => { setActiveTab('accounts-whatsapp'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
 
-              <div className="text-xs font-semibold text-surface-500 uppercase tracking-wider mb-4 mt-8 px-3">à¤®à¤¾à¤°à¥à¤à¥à¤à¤¿à¤à¤</div>
-              <NavItem icon={<Megaphone />} label="à¤¬à¥à¤°à¥à¤¡à¤à¤¾à¤¸à¥à¤" isActive={activeTab === 'broadcast'} onClick={() => { setActiveTab('broadcast'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
-              <NavItem icon={<Mail />} label="à¤à¤®à¥à¤² à¤¸à¥à¤µà¤¾" isActive={activeTab === 'email'} onClick={() => { setActiveTab('email'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
-              <NavItem icon={<CalendarClock />} label="à¤¶à¥à¤¡à¥à¤¯à¥à¤²à¥à¤¡ à¤ªà¥à¤¸à¥à¤à¥à¤¸" isActive={activeTab === 'schedule'} onClick={() => { setActiveTab('schedule'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
+              <div className="text-xs font-semibold text-surface-500 uppercase tracking-wider mb-4 mt-8 px-3">Marketing</div>
+              <NavItem icon={<Megaphone />} label="Broadcast" isActive={activeTab === 'broadcast'} onClick={() => { setActiveTab('broadcast'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
+              <NavItem icon={<Mail />} label="Email Service" isActive={activeTab === 'email'} onClick={() => { setActiveTab('email'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
+              <NavItem icon={<CalendarClock />} label="Scheduled Posts" isActive={activeTab === 'schedule'} onClick={() => { setActiveTab('schedule'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
             </nav>
 
             <div className="p-4 bg-surface-100/60 dark:bg-surface-950/50 mt-auto border-t border-surface-200 dark:border-surface-800">
-              <NavItem icon={<Blocks />} label="à¤à¤à¤à¥à¤à¥à¤°à¥à¤¶à¤¨à¥à¤¸" isActive={activeTab === 'integrations'} onClick={() => { setActiveTab('integrations'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
-              <NavItem icon={<Settings />} label="à¤¸à¥à¤à¤¿à¤à¤à¥à¤¸" isActive={activeTab === 'settings'} onClick={() => { setActiveTab('settings'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
+              <NavItem icon={<Blocks />} label="Integrations" isActive={activeTab === 'integrations'} onClick={() => { setActiveTab('integrations'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
+              <NavItem icon={<Settings />} label="Settings" isActive={activeTab === 'settings'} onClick={() => { setActiveTab('settings'); if (window.innerWidth < 768) setSidebarOpen(false); }} />
               
               <div className="mt-4 pt-4 border-t border-surface-200 dark:border-surface-800 flex items-center gap-3 px-3">
                 <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-primary-500 to-purple-500 flex items-center justify-center text-white font-bold shadow-lg shrink-0">
                   {user?.name?.[0] || user?.email?.[0]?.toUpperCase() || 'U'}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-surface-900 dark:text-white truncate">{user?.name || "à¤à¤ªà¤¯à¥à¤à¤à¤°à¥à¤¤à¤¾"}</p>
+                  <p className="text-sm font-medium text-surface-900 dark:text-white truncate">{user?.name || "User"}</p>
                   <p className="text-xs text-surface-500 truncate">{user?.email}</p>
                 </div>
-                <button onClick={onLogout} className="p-2 hover:bg-surface-100 dark:hover:bg-surface-800 rounded-xl transition-colors text-surface-500 hover:text-surface-900 dark:hover:text-white shrink-0" title="à¤²à¥à¤à¤à¤à¤">
+                <button onClick={onLogout} className="p-2 hover:bg-surface-100 dark:hover:bg-surface-800 rounded-xl transition-colors text-surface-500 hover:text-surface-900 dark:hover:text-white shrink-0" title="Logout">
                   <LogOut className="w-4 h-4" />
                 </button>
               </div>
@@ -515,7 +515,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
               <Menu className="w-5 h-5" />
             </button>
             <h1 className="text-lg font-bold capitalize text-surface-900 dark:text-white font-display">
-              {activeTab === 'dashboard' ? 'à¤¡à¥à¤¶à¤¬à¥à¤°à¥à¤¡' : activeTab === 'inbox' ? 'à¤à¤¨à¤¬à¥à¤à¥à¤¸' : activeTab === 'active-conversations' ? 'à¤¸à¤à¥à¤°à¤¿à¤¯ à¤¬à¤¾à¤¤à¤à¥à¤¤' : activeTab === 'broadcast' ? 'à¤¬à¥à¤°à¥à¤¡à¤à¤¾à¤¸à¥à¤' : activeTab === 'schedule' ? 'à¤¶à¥à¤¡à¥à¤¯à¥à¤²à¤°' : activeTab === 'contacts' ? 'à¤¸à¤à¤ªà¤°à¥à¤ à¤à¤° à¤²à¥à¤¡à¥à¤¸' : activeTab === 'accounts-whatsapp' ? 'WhatsApp à¤à¤à¤¾à¤à¤à¤à¥à¤¸' : activeTab === 'calls' ? 'à¤à¥à¤² à¤²à¥à¤à¥à¤¸' : activeTab === 'email' ? 'à¤à¤®à¥à¤² à¤¸à¥à¤µà¤¾' : 'à¤¸à¥à¤à¤¿à¤à¤à¥à¤¸'}
+              {activeTab === 'dashboard' ? 'Dashboard' : activeTab === 'inbox' ? 'Inbox' : activeTab === 'active-conversations' ? 'Active Conversations' : activeTab === 'broadcast' ? 'Broadcast' : activeTab === 'schedule' ? 'Scheduler' : activeTab === 'contacts' ? 'Contacts & Leads' : activeTab === 'accounts-whatsapp' ? 'WhatsApp Accounts' : activeTab === 'calls' ? 'Call Logs' : activeTab === 'email' ? 'Email Service' : 'Settings'}
             </h1>
           </div>
           
@@ -524,15 +524,15 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-surface-400" />
               <input 
                 type="text" 
-                placeholder="à¤à¥à¤à¥à¤..." 
+                placeholder="Search..." 
                 className="pl-9 pr-4 py-2 w-64 text-sm bg-surface-100 dark:bg-surface-900 border border-transparent focus:bg-white dark:focus:bg-surface-950 focus:border-primary-500 rounded-full outline-none transition-all shadow-sm"
               />
             </div>
             {/* WebSocket Connection Status */}
-            <div className="flex items-center gap-1.5 text-[10px] font-medium" title={wsStatus === 'connecting' ? 'WebSocket à¤à¤¨à¥à¤à¥à¤ à¤¹à¥ à¤°à¤¹à¤¾ à¤¹à¥...' : wsStatus === 'connected' ? 'WebSocket à¤à¤¨à¥à¤à¥à¤à¥à¤¡' : 'WebSocket à¤¡à¤¿à¤¸à¥à¤à¤¨à¥à¤à¥à¤à¥à¤¡ - à¤à¥à¤² à¤¨à¤¹à¥à¤ à¤à¤à¤à¤à¥'}>
+            <div className="flex items-center gap-1.5 text-[10px] font-medium" title={wsStatus === 'connecting' ? 'WebSocket connecting...' : wsStatus === 'connected' ? 'WebSocket connected' : 'WebSocket disconnected - calls will not arrive'}>
               <span className={`w-2 h-2 rounded-full ${wsStatus === 'connected' ? 'bg-emerald-400' : wsStatus === 'connecting' ? 'bg-amber-400 animate-pulse' : 'bg-rose-400'}`}></span>
               <span className="text-surface-400 hidden sm:inline">
-                {wsStatus === 'connecting' ? 'à¤à¤¨à¥à¤à¥à¤ à¤¹à¥ à¤°à¤¹à¤¾ à¤¹à¥...' : wsStatus === 'connected' ? 'à¤²à¤¾à¤à¤µ' : 'à¤à¤«à¤²à¤¾à¤à¤¨'}
+                {wsStatus === 'connecting' ? 'Connecting...' : wsStatus === 'connected' ? 'Live' : 'Offline'}
               </span>
             </div>
             <ThemeToggle />
@@ -612,14 +612,14 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
 
               <div className="flex flex-col items-center mb-3 gap-2">
                 <span className="inline-block px-3 py-1 bg-emerald-500/15 text-emerald-400 text-[10px] font-bold uppercase tracking-widest rounded-full">
-                  à¤à¤¨à¤à¤®à¤¿à¤à¤ à¤à¥à¤²
+                  Incoming Call
                 </span>
                 <span className="inline-block px-2 py-1 bg-amber-500/10 text-amber-500 text-[10px] font-semibold rounded-md border border-amber-500/20">
-                  â ï¸ à¤à¥à¤ªà¤¯à¤¾ 30 à¤¸à¥à¤à¤à¤¡ à¤à¥ à¤à¤à¤¦à¤° à¤à¤µà¤¾à¤¬ à¤¦à¥à¤
+                  ⚠️ Please answer within 30 seconds
                 </span>
               </div>
 
-              <h3 className="text-xl font-bold font-display tracking-tight text-white truncate">{incomingCall.contact_name || 'à¤à¤à¥à¤à¤¾à¤¤'}</h3>
+              <h3 className="text-xl font-bold font-display tracking-tight text-white truncate">{incomingCall.contact_name || 'Unknown'}</h3>
               <p className="text-xs text-surface-400 font-mono mt-1">+{incomingCall.phone}</p>
 
               <div className="flex gap-4 mt-8">
@@ -653,7 +653,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                   className="flex-1 bg-rose-500 hover:bg-rose-600 text-white py-3.5 rounded-2xl text-xs font-bold transition-all shadow-lg shadow-rose-500/20 active:scale-95 flex items-center justify-center gap-2"
                 >
                   <X className="w-4 h-4" />
-                  à¤à¤¾à¤à¥à¤
+                  Decline
                 </button>
 
                 <button
@@ -705,13 +705,13 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                       setIncomingCall(null);
                     } catch(e) {
                       console.error("WebRTC answer failed", e);
-                      alert('à¤à¥à¤² à¤à¤¤à¥à¤¤à¤° à¤¦à¥à¤¨à¥ à¤®à¥à¤ à¤µà¤¿à¤«à¤²: ' + (e instanceof Error ? e.message : 'à¤à¤à¥à¤à¤¾à¤¤ à¤¤à¥à¤°à¥à¤à¤¿'));
+                      alert('Failed to answer call: ' + (e instanceof Error ? e.message : 'Unknown error'));
                     }
                   }}
                   className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white py-3.5 rounded-2xl text-xs font-bold transition-all shadow-lg shadow-emerald-500/20 active:scale-95 flex items-center justify-center gap-2"
                 >
                   <Phone className="w-4 h-4" />
-                  à¤à¤ à¤¾à¤à¤
+                  Answer
                 </button>
               </div>
             </motion.div>
@@ -760,15 +760,15 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                 <Phone className="w-5 h-5 text-rose-400" />
               </div>
               <div className="flex-1 min-w-0">
-                <h4 className="text-sm font-bold text-white">à¤®à¤¿à¤¸à¥à¤¡ à¤à¥à¤²</h4>
+                <h4 className="text-sm font-bold text-white">Missed Call</h4>
                 <p className="text-xs text-surface-400 mt-0.5 truncate">
-                  {incomingCallNoSdp.contact_name || 'à¤à¤à¥à¤à¤¾à¤¤'} ({incomingCallNoSdp.phone || 'à¤à¤à¥à¤à¤¾à¤¤'})
+                  {incomingCallNoSdp.contact_name || 'Unknown'} ({incomingCallNoSdp.phone || 'Unknown'})
                 </p>
                 <div className="flex gap-2 mt-2">
                   <span className="text-[10px] text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-full">
                     {callsFieldStatus === 'not_subscribed'
-                      ? 'â ï¸ WhatsApp Cloud API à¤®à¥à¤ "calls" à¤«à¤¼à¥à¤²à¥à¤¡ à¤¸à¤¬à¥à¤¸à¤à¥à¤°à¤¾à¤à¤¬ à¤¨à¤¹à¥à¤ à¤¹à¥ â à¤à¥à¤² à¤à¤¨à¥à¤à¥à¤ à¤¨à¤¹à¥à¤ à¤¹à¥ à¤¸à¤à¤¤à¥'
-                      : 'â¡ WebRTC SDP à¤à¤ªà¤²à¤¬à¥à¤§ à¤¨à¤¹à¥à¤ â à¤à¥à¤µà¤² à¤®à¤¿à¤¸à¥à¤¡ à¤à¥à¤² à¤¹à¥ à¤¦à¤¿à¤à¤¾à¤¯à¤¾ à¤à¤¾ à¤¸à¤à¤¤à¤¾ à¤¹à¥'}
+                      ? '⚠️ WhatsApp Cloud API does not have the "calls" field subscribed - call may not connect'
+                      : '⚡ WebRTC SDP not available - only missed call can be shown'}
                   </span>
                 </div>
               </div>

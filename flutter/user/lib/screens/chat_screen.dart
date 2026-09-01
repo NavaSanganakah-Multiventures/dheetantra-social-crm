@@ -230,7 +230,7 @@ class _ChatScreenState extends State<ChatScreen> {
       debugPrint('Initiate WhatsApp call error: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('कॉल शुरू नहीं हो सकी')),
+        const SnackBar(content: Text('Could not start call')),
       );
     } finally {
       if (mounted) setState(() => _startingCall = false);
@@ -242,7 +242,7 @@ class _ChatScreenState extends State<ChatScreen> {
     if (!mounted) return;
     if (templates.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('कोई टेम्पलेट उपलब्ध नहीं है')),
+        const SnackBar(content: Text('No templates available')),
       );
       return;
     }
@@ -259,7 +259,7 @@ class _ChatScreenState extends State<ChatScreen> {
             const Padding(
               padding: EdgeInsets.all(16),
               child: Text(
-                'टेम्पलेट चुनें',
+                'Select Template',
                 style: TextStyle(
                   color: AppColors.textPrimary,
                   fontSize: 16,
@@ -373,8 +373,8 @@ class _ChatScreenState extends State<ChatScreen> {
                     ? const Center(
                         child: EmptyState(
                           icon: Icons.chat_outlined,
-                          title: 'कोई संदेश नहीं',
-                          subtitle: 'बातचीत शुरू करें।',
+                          title: 'No messages yet',
+                          subtitle: 'Send a message to start the conversation.',
                         ),
                       )
                     : ListView.builder(
@@ -407,7 +407,7 @@ class _ChatScreenState extends State<ChatScreen> {
           if (!isEmail)
             IconButton(
               onPressed: _showTemplatePicker,
-              tooltip: 'टेम्पलेट',
+              tooltip: 'Template',
               icon: const Icon(Icons.description_outlined, color: AppColors.textMuted, size: 22),
             ),
           if (isEmail) const SizedBox(width: 8),
@@ -419,7 +419,7 @@ class _ChatScreenState extends State<ChatScreen> {
               textCapitalization: TextCapitalization.sentences,
               onSubmitted: (_) => _send(),
               decoration: InputDecoration(
-                hintText: isEmail ? 'ईमेल का जवाब दें...' : 'संदेश लिखें...',
+                hintText: isEmail ? 'Type an email reply...' : 'Type a message...',
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
                 isDense: true,
               ),
@@ -449,22 +449,21 @@ class _MessageBubble extends StatelessWidget {
 
   const _MessageBubble({required this.message});
 
-  // हिंदी में type label (web dashboard के MEDIA_LABELS से मेल खाता है)
   String? get _typeLabel {
     switch (message.messageType) {
-      case 'image': return 'फ़ोटो';
-      case 'video': return 'वीडियो';
-      case 'audio': return 'ऑडियो';
-      case 'document': return 'दस्तावेज़';
-      case 'sticker': return 'स्टिकर';
-      case 'location': return 'लोकेशन';
-      case 'contacts': return 'कॉन्टैक्ट';
-      case 'template': return 'टेम्पलेट';
-      case 'interactive': return 'इंटरैक्टिव';
-      case 'reaction': return 'रिएक्शन';
-      case 'order': return 'ऑर्डर';
-      case 'button': return 'बटन';
-      case 'system': return 'सिस्टम';
+      case 'image': return 'Photo';
+      case 'video': return 'Video';
+      case 'audio': return 'Audio';
+      case 'document': return 'Document';
+      case 'sticker': return 'Sticker';
+      case 'location': return 'Location';
+      case 'contacts': return 'Contact';
+      case 'template': return 'Template';
+      case 'interactive': return 'Interactive';
+      case 'reaction': return 'Reaction';
+      case 'order': return 'Order';
+      case 'button': return 'Button';
+      case 'system': return 'System';
       case 'catalog_product': return 'Catalog Product';
       case 'catalog': return 'Catalog';
       case 'product': return 'WhatsApp Product';
@@ -518,8 +517,8 @@ class _MessageBubble extends StatelessWidget {
     return buffer.toString();
   }
 
-  // media_url के अनुसार media preview (image/sticker inline, बाकी
-  // types के लिए tappable tile जो बाहरी ऐप में खोलता है)
+  // media preview per media_url (image/sticker inline, other
+  // types use a tappable tile that opens in an external app)
   Widget? _buildMedia(BuildContext context) {
     final type = message.messageType;
     final raw = message.mediaUrl;
@@ -544,7 +543,7 @@ class _MessageBubble extends StatelessWidget {
       final address = parsed['address'];
       return _mediaTile(
         icon: Icons.location_on,
-        title: (name != null && name.toString().isNotEmpty) ? name.toString() : 'लोकेशन',
+        title: (name != null && name.toString().isNotEmpty) ? name.toString() : 'Location',
         subtitle: (address != null && address.toString().isNotEmpty)
             ? address.toString()
             : (lat != null && lng != null ? '$lat, $lng' : null),
@@ -663,12 +662,12 @@ class _MessageBubble extends StatelessWidget {
         final p = (c is Map && c['phones'] is List && (c['phones'] as List).isNotEmpty)
             ? ((c['phones'][0] is Map) ? c['phones'][0]['phone'] : c['phones'][0])
             : null;
-        return '👤 ${n ?? 'कॉन्टैक्ट'}${p != null ? ' — $p' : ''}';
+        return '👤 ${n ?? 'Contact'}${p != null ? ' — $p' : ''}';
       }).toList();
       return _mediaTile(icon: Icons.contacts, title: rows.join('\n'), fg: fg);
     }
 
-    // Relative R2 paths को absolute बनाएँ
+    // Make relative R2 paths absolute
     final url = raw.startsWith('/api/') ? '${ApiService.baseUrl}$raw' : raw;
     final isUrl = url.startsWith('http');
 
@@ -719,7 +718,7 @@ class _MessageBubble extends StatelessWidget {
     if (type == 'video' && isUrl) {
       return _mediaTile(
         icon: Icons.play_circle_fill,
-        title: 'वीडियो',
+        title: 'Video',
         fg: fg,
         onTap: () => _openUrl(url),
       );
@@ -728,9 +727,9 @@ class _MessageBubble extends StatelessWidget {
     if (type == 'audio' && isUrl) {
       return _mediaTile(
         icon: Icons.mic,
-        title: message.text.contains('Voice') || message.text.contains('वॉयस')
-            ? 'वॉयस नोट'
-            : 'ऑडियो',
+        title: message.text.contains('Voice')
+            ? 'Voice Note'
+            : 'Audio',
         fg: fg,
         onTap: () => _openUrl(url),
       );
@@ -741,7 +740,7 @@ class _MessageBubble extends StatelessWidget {
         icon: Icons.description,
         title: (message.text.isNotEmpty && message.text != 'Document Message')
             ? message.text
-            : 'दस्तावेज़',
+            : 'Document',
         fg: fg,
         onTap: () => _openUrl(url),
       );
@@ -847,7 +846,7 @@ class _MessageBubble extends StatelessWidget {
               const SizedBox(height: 6),
             ],
             // Media (image/sticker inline, video/audio/document/location/
-            // contacts tiles) — text/caption उसके नीचे
+            // contacts tiles) — text/caption below it
             if (mediaWidget != null)
               GestureDetector(
                 onTap: () => _openMedia(context),

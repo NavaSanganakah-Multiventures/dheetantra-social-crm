@@ -63,11 +63,11 @@ class _LoginScreenState extends State<LoginScreen> {
     FocusScope.of(context).unfocus();
     final email = _emailController.text.trim();
     if (email.isEmpty) {
-      _showMessage('कृपया ईमेल दर्ज करें', true);
+      _showMessage('Please enter your email', true);
       return;
     }
     if (!_emailRegex.hasMatch(email)) {
-      _showMessage('कृपया सही ईमेल पता दर्ज करें', true);
+      _showMessage('Please enter a valid email address', true);
       return;
     }
 
@@ -80,7 +80,7 @@ class _LoginScreenState extends State<LoginScreen> {
       _showMessage(result['error'], true);
     } else {
       setState(() => _step = 'otp');
-      _showMessage('OTP आपके ईमेल पर भेजा गया', false);
+      _showMessage('OTP sent to your email', false);
       _startResendCooldown();
       Future.delayed(const Duration(milliseconds: 100), () {
         if (mounted) _otpFocusNodes[0].requestFocus();
@@ -92,7 +92,7 @@ class _LoginScreenState extends State<LoginScreen> {
     FocusScope.of(context).unfocus();
     final otp = _otpControllers.map((c) => c.text).join();
     if (otp.length != 6) {
-      _showMessage('कृपया 6 अंक का OTP दर्ज करें', true);
+      _showMessage('Please enter the 6-digit OTP', true);
       return;
     }
 
@@ -168,7 +168,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 24),
                   const Text(
-                    'वापसी पर स्वागत है!',
+                    'Welcome back!',
                     style: TextStyle(
                       color: AppColors.textPrimary,
                       fontSize: 22,
@@ -179,8 +179,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 6),
                   Text(
                     _step == 'email'
-                        ? 'अपने DheeTantra अकाउंट में लॉगिन करने के लिए अपना ईमेल दर्ज करें।'
-                        : '${_emailController.text.trim()} पर भेजा गया कोड दर्ज करें',
+                        ? 'Enter your email to log in to your DheeTantra account.'
+                        : '${_emailController.text.trim()} - enter the code sent here',
                     style: const TextStyle(color: AppColors.textMuted, fontSize: 13, height: 1.5),
                   ),
                   const SizedBox(height: 28),
@@ -190,7 +190,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       keyboardType: TextInputType.emailAddress,
                       onSubmitted: (_) => _sendOtp(),
                       decoration: const InputDecoration(
-                        labelText: 'ईमेल',
+                        labelText: 'Email',
                         prefixIcon: Icon(Icons.mail_outline_rounded, color: AppColors.textMuted),
                       ),
                     ),
@@ -203,7 +203,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               height: 22,
                               child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
                             )
-                          : const Text('OTP भेजें'),
+                          : const Text('Send OTP'),
                     ),
                   ] else ...[
                     // Responsive OTP boxes: size adapts to screen width.
@@ -249,7 +249,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               height: 22,
                               child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
                             )
-                          : const Text('लॉगिन करें'),
+                          : const Text('Log in'),
                     ),
                     const SizedBox(height: 12),
                     Row(
@@ -262,8 +262,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           style: TextButton.styleFrom(foregroundColor: AppColors.accent),
                           child: Text(
                             _resendCooldown > 0
-                                ? 'दोबारा भेजें ($_resendCooldown सेकंड)'
-                                : 'दोबारा OTP भेजें',
+                                ? 'Resend ($_resendCooldown sec)'
+                                : 'Resend OTP',
                             style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                           ),
                         ),
@@ -279,7 +279,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             });
                           },
                           style: TextButton.styleFrom(foregroundColor: AppColors.textMuted),
-                          child: const Text('ईमेल बदलें', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                          child: const Text('Change email', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                         ),
                       ],
                     ),
@@ -310,7 +310,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       const Text(
-                        'खाता नहीं है?',
+                        'Don\'t have an account?',
                         style: TextStyle(color: AppColors.textMuted, fontSize: 13),
                       ),
                       TextButton(
@@ -320,7 +320,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           );
                         },
                         style: TextButton.styleFrom(foregroundColor: AppColors.accent),
-                        child: const Text('नया बनाएं', style: TextStyle(fontWeight: FontWeight.w700)),
+                        child: const Text('Create one', style: TextStyle(fontWeight: FontWeight.w700)),
                       ),
                     ],
                   ),

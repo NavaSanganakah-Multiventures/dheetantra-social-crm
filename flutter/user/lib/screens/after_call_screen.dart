@@ -41,11 +41,11 @@ class _AfterCallScreenState extends State<AfterCallScreen> {
   bool _scanning = false;
 
   final List<String> _dispositions = [
-    'रुचि है',
-    'फॉलो-अप आवश्यक',
-    'रुचि नहीं है',
-    'गलत नंबर',
-    'कॉलबैक अनुरोधित',
+    'Interested',
+    'Follow-up needed',
+    'Not interested',
+    'Wrong number',
+    'Callback requested',
   ];
 
   @override
@@ -116,9 +116,9 @@ class _AfterCallScreenState extends State<AfterCallScreen> {
     if (!mounted) return;
     setState(() => _uploading = false);
     if (res['error'] != null) {
-      _showSnack('अपलोड विफल: ${res['error']}');
+      _showSnack('Upload failed: ${res['error']}');
     } else {
-      _showSnack('रिकॉर्डिंग अपलोड हुई');
+      _showSnack('Recording uploaded');
     }
   }
 
@@ -130,7 +130,7 @@ class _AfterCallScreenState extends State<AfterCallScreen> {
     if (!mounted) return;
     setState(() => _summarizing = false);
     if (res['error'] != null) {
-      _showSnack('सारांश विफल: ${res['error']}');
+      _showSnack('Summary failed: ${res['error']}');
     } else {
       final summary = res['summary']?.toString() ?? '';
       setState(() => _summary = summary);
@@ -145,16 +145,16 @@ class _AfterCallScreenState extends State<AfterCallScreen> {
     final res = await ApiService().updateCallNotes(callId, notes);
     if (!mounted) return;
     if (res['success'] == true) {
-      _showSnack('कॉल विवरण सहेजा गया');
+      _showSnack('Call details saved');
       Navigator.pop(context);
     } else {
-      _showSnack(res['error'] != null ? 'सहेजने में विफल: ${res['error']}' : 'सहेजने में विफल');
+      _showSnack(res['error'] != null ? 'Failed to save: ${res['error']}' : 'Failed to save');
     }
   }
 
   String _buildNotes() {
     final parts = <String>[];
-    if (_selectedDisposition.isNotEmpty) parts.add('परिणाम: $_selectedDisposition');
+    if (_selectedDisposition.isNotEmpty) parts.add('Result: $_selectedDisposition');
     if (_notesController.text.trim().isNotEmpty) parts.add(_notesController.text.trim());
     return parts.join('\n');
   }
@@ -174,7 +174,7 @@ class _AfterCallScreenState extends State<AfterCallScreen> {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.surface,
-        title: const Text('कॉल के बाद CRM'),
+        title: const Text('Post-call CRM'),
       ),
       body: _creating
           ? const Center(child: CircularProgressIndicator())
@@ -191,7 +191,7 @@ class _AfterCallScreenState extends State<AfterCallScreen> {
                   ),
                   const SizedBox(height: 20),
                   const Text(
-                    'रिकॉर्डिंग',
+                    'Recording',
                     style: TextStyle(
                       color: AppColors.textPrimary,
                       fontSize: 14,
@@ -212,7 +212,7 @@ class _AfterCallScreenState extends State<AfterCallScreen> {
                       children: [
                         if (_pickedRecording == null)
                           Text(
-                            'कोई रिकॉर्डिंग चयनित नहीं',
+                            'No recording selected',
                             style: TextStyle(color: AppColors.textMuted),
                           )
                         else
@@ -227,7 +227,7 @@ class _AfterCallScreenState extends State<AfterCallScreen> {
                               child: OutlinedButton.icon(
                                 onPressed: _pickRecording,
                                 icon: const Icon(Icons.folder_open),
-                                label: const Text('रिकॉर्डिंग चुनें'),
+                                label: const Text('Choose recording'),
                               ),
                             ),
                             if (_pickedRecording != null) ...[
@@ -242,7 +242,7 @@ class _AfterCallScreenState extends State<AfterCallScreen> {
                                           child: CircularProgressIndicator(strokeWidth: 2),
                                         )
                                       : const Icon(Icons.upload),
-                                  label: const Text('अपलोड करें'),
+                                  label: const Text('Upload'),
                                 ),
                               ),
                             ],
@@ -268,7 +268,7 @@ class _AfterCallScreenState extends State<AfterCallScreen> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               const Text(
-                                'स्वतः मिली रिकॉर्डिंग',
+                                'Auto-detected recording',
                                 style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w700),
                               ),
                               if (_scanning)
@@ -286,14 +286,14 @@ class _AfterCallScreenState extends State<AfterCallScreen> {
                               groupValue: _selectedRecordingPath,
                               onChanged: (v) => setState(() => _selectedRecordingPath = v),
                               title: Text(name, style: const TextStyle(color: AppColors.textPrimary, fontSize: 13)),
-                              subtitle: Text('अवधि: ${_fmtDuration((dur / 1000).round())}', style: const TextStyle(color: AppColors.textMuted, fontSize: 11)),
+                              subtitle: Text('Duration: ${_fmtDuration((dur / 1000).round())}', style: const TextStyle(color: AppColors.textMuted, fontSize: 11)),
                               activeColor: AppColors.accent,
                               controlAffinity: ListTileControlAffinity.trailing,
                               contentPadding: EdgeInsets.zero,
                             );
                           }).toList(),
                           if (!_scanning && _scannedRecordings.isEmpty)
-                            const Text('कोई रिकॉर्डिंग नहीं मिली', style: TextStyle(color: AppColors.textMuted)),
+                            const Text('No recording found', style: TextStyle(color: AppColors.textMuted)),
                         ],
                       ),
                     ),
@@ -321,7 +321,7 @@ class _AfterCallScreenState extends State<AfterCallScreen> {
                     decoration: InputDecoration(
                       filled: true,
                       fillColor: AppColors.surface,
-                      hintText: 'कॉल नोट्स / फॉलो-अप...',
+                      hintText: 'Call notes / follow-up...',
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide(color: AppColors.border),
@@ -339,7 +339,7 @@ class _AfterCallScreenState extends State<AfterCallScreen> {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.auto_awesome),
-                    label: const Text('AI सारांश बनाएं'),
+                    label: const Text('Generate AI summary'),
                   ),
                   if (_summary != null) ...[
                     const SizedBox(height: 12),
@@ -362,7 +362,7 @@ class _AfterCallScreenState extends State<AfterCallScreen> {
                     width: double.infinity,
                     child: ElevatedButton(
                       onPressed: _saveNotes,
-                      child: const Text('कॉल विवरण सहेजें'),
+                      child: const Text('Save call details'),
                     ),
                   ),
                   if (_error.isNotEmpty)
@@ -439,7 +439,7 @@ class _HeaderCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      '$duration • ${direction == 'outgoing' ? 'आउटगोइंग' : 'इनकमिंग'}',
+                      '$duration • ${direction == 'outgoing' ? 'Outgoing' : 'Incoming'}',
                       style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
                     ),
                   ],

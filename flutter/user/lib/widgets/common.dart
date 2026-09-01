@@ -30,9 +30,9 @@ String timeLabel(DateTime time) {
     final m = time.minute.toString().padLeft(2, '0');
     return '$h:$m';
   }
-  if (diff == 1) return 'कल';
+  if (diff == 1) return 'Yesterday';
   if (diff < 7) {
-    const days = ['सोम', 'मंगल', 'बुध', 'गुरु', 'शुक्र', 'शनि', 'रवि'];
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     return days[time.weekday - 1];
   }
   return '${time.day}/${time.month}';

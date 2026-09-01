@@ -54,7 +54,7 @@ class _GlobalCallOverlayState extends State<GlobalCallOverlay> {
       if (direction == 'outgoing' || direction == 'BUSINESS_INITIATED') return;
 
       final callId = callData['id']?.toString() ?? callData['callId']?.toString() ?? '';
-      // Respect the "à¤à¥à¤²à¤¿à¤à¤ à¤¸à¤à¥à¤·à¤®" toggle (settings).
+      // Respect the "Calling Enabled" toggle (settings).
       if (!await CallKitService().isCallingEnabled()) {
         try {
           WebRTCService().rejectCall(Map<String, dynamic>.from(callData));
@@ -218,7 +218,7 @@ class _GlobalCallOverlayState extends State<GlobalCallOverlay> {
         callData['callId']?.toString() ??
         '';
     // CallKit plugin ka native incoming UI band karo aur duplicate accept
-    // event ko block karo â warna overlay accept ke baad plugin accept se
+    // event ko block karo — warna overlay accept ke baad plugin accept se
     // dobara CallScreen + double answerCall ho sakta hai.
     CallKitService().markAnsweredByApp(incomingId);
     CallKitService().unregisterInAppCall(incomingId);
@@ -245,8 +245,8 @@ class _GlobalCallOverlayState extends State<GlobalCallOverlay> {
     if (callData != null) {
       await WebRTCService().rejectCall(callData);
     }
-    // Plugin ki native incoming UI bhi band kar do taaki reject ke baad
-    // notification/ringing na baje.
+    // Also turn off the plugin's native incoming UI so nothing keeps
+    // ringing after the reject.
     CallKitService().handleCallEnded(rejectedId);
     CallKitService().unregisterInAppCall(rejectedId);
     _stopRingtone();
@@ -312,7 +312,7 @@ class _GlobalCallOverlayState extends State<GlobalCallOverlay> {
   }
 
   Widget _buildIncomingCallDialog() {
-    final name = _incomingCall!['contact_name'] ?? 'à¤à¤à¥à¤à¤¾à¤¤';
+    final name = _incomingCall!['contact_name'] ?? 'Unknown';
     final phone = _incomingCall!['phone'] ?? '';
 
     return Container(
@@ -355,7 +355,7 @@ class _GlobalCallOverlayState extends State<GlobalCallOverlay> {
                 ),
                 const SizedBox(height: 2),
                 const Text(
-                  'à¤à¤¨à¤à¤®à¤¿à¤à¤ à¤à¥à¤²...',
+                  'Incoming call...',
                   style: TextStyle(
                     color: AppColors.whatsapp,
                     fontSize: 12,
@@ -401,7 +401,7 @@ class _GlobalCallOverlayState extends State<GlobalCallOverlay> {
   }
 
   Widget _buildActiveCallPanel() {
-    final name = _activeCall!['contact_name'] ?? 'à¤à¤à¥à¤à¤¾à¤¤';
+    final name = _activeCall!['contact_name'] ?? 'Unknown';
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -436,7 +436,7 @@ class _GlobalCallOverlayState extends State<GlobalCallOverlay> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  _callStatus == 'connecting' ? 'à¤à¤¨à¥à¤à¥à¤ à¤¹à¥ à¤°à¤¹à¤¾ à¤¹à¥...' : _formatDuration(_callDuration),
+                  _callStatus == 'connecting' ? 'Connecting...' : _formatDuration(_callDuration),
                   style: TextStyle(
                     color: _callStatus == 'connecting' ? AppColors.textMuted : AppColors.success,
                     fontSize: 12,

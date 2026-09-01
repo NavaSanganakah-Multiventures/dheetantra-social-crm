@@ -65,7 +65,7 @@ class _CallsScreenState extends State<CallsScreen> {
     final calls = _calls;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('CRM कॉल लॉग्स'),
+        title: const Text('CRM Call Logs'),
         actions: [
           IconButton(
             onPressed: _loadCalls,
@@ -84,7 +84,7 @@ class _CallsScreenState extends State<CallsScreen> {
               decoration: InputDecoration(
                 filled: true,
                 fillColor: AppColors.surface,
-                hintText: 'नाम या नंबर से खोजें...',
+                hintText: 'Search by name or number...',
                 prefixIcon: const Icon(Icons.search, color: AppColors.textMuted),
                 suffixIcon: _search.isNotEmpty
                     ? IconButton(
@@ -154,8 +154,8 @@ class _CallsScreenState extends State<CallsScreen> {
                     ? const Center(
                         child: EmptyState(
                           icon: Icons.call_outlined,
-                          title: 'कोई कॉल नहीं मिली',
-                          subtitle: 'CRM कॉल लॉग्स यहाँ दिखाई देंगे।',
+                          title: 'No calls found',
+                          subtitle: 'CRM call logs will appear here.',
                         ),
                       )
                     : RefreshIndicator(
@@ -179,18 +179,18 @@ class _CallsScreenState extends State<CallsScreen> {
       case 'gsm': return 'GSM';
       case 'twilio': return 'Twilio';
       case 'plivo': return 'Plivo';
-      default: return 'सभी';
+      default: return 'All';
     }
   }
 
   String _statusLabel(String s) {
     switch (s) {
-      case 'incoming': return 'आने वाली';
-      case 'outgoing': return 'जाने वाली';
-      case 'missed': return 'मिस्ड';
-      case 'busy': return 'व्यस्त';
-      case 'ended': return 'End हुई';
-      default: return 'सभी';
+      case 'incoming': return 'Incoming';
+      case 'outgoing': return 'Outgoing';
+      case 'missed': return 'Missed';
+      case 'busy': return 'Busy';
+      case 'ended': return 'Ended';
+      default: return 'All';
     }
   }
 }
@@ -359,11 +359,11 @@ class _CallTile extends StatelessWidget {
 
   String _statusText(String s) {
     switch (s) {
-      case 'missed': return 'मिस्ड';
-      case 'busy': return 'व्यस्त';
-      case 'declined': return 'अस्वीकृत';
-      case 'ended': return 'End हुई';
-      case 'in_progress': return 'चल रही';
+      case 'missed': return 'Missed';
+      case 'busy': return 'Busy';
+      case 'declined': return 'Declined';
+      case 'ended': return 'Ended';
+      case 'in_progress': return 'In progress';
       default: return s;
     }
   }

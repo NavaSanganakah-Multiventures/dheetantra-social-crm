@@ -103,6 +103,16 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
     setDuration(0);
   }, [clearTimer]);
 
+  const updateAgentStatus = useCallback((newStatus: "live" | "busy" | "not_live") => {
+    if (workspaceId) {
+      fetch("/api/voice/agent-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-workspace-id": workspaceId },
+        body: JSON.stringify({ status: newStatus }),
+      }).catch(console.error);
+    }
+  }, [workspaceId]);
+
   // Initialise Plivo Browser SDK and register the workspace's SIP endpoint.
   useEffect(() => {
     if (!workspaceId) return;
@@ -144,11 +154,16 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
 
         client.on("onLogin", () => {
           setRegistered(true);
+          updateAgentStatus("live");
         });
-        client.on("onLogout", () => setRegistered(false));
+        client.on("onLogout", () => {
+          setRegistered(false);
+          updateAgentStatus("not_live");
+        });
         client.on("onLoginFailed", (cause: any) => {
           console.error("[PlivoWeb] login failed", cause);
           setRegistered(false);
+          updateAgentStatus("not_live");
         });
         client.on("onWebrtcNotSupported", () => {
           console.error("[PlivoWeb] WebRTC not supported in this browser");
@@ -162,10 +177,12 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
         });
         client.on("onCallTerminated", () => {
           cleanupCall();
+          updateAgentStatus("live");
         });
         client.on("onCallFailed", () => {
           cleanupCall();
           setStatus("error");
+          updateAgentStatus("live");
         });
         client.on("onIncomingCall", (callerID: any, extraHeaders: any, callInfo: any) => {
           // Direct endpoint SIP calls are not part of the PSTN conference flow.
@@ -192,7 +209,7 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
       clientRef.current = null;
       cleanupCall();
     };
-  }, [workspaceId, cleanupCall, startTimer]);
+  }, [workspaceId, cleanupCall, startTimer, updateAgentStatus]);
 
   // Own WebSocket listener for Plivo incoming-call alerts and status updates.
   useEffect(() => {
@@ -331,14 +348,16 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
         if (!client) throw new Error("Plivo softphone not initialized");
         client.call("sip:" + info.conferenceName + "@phone.plivo.com");
         setActive(info);
+        updateAgentStatus("busy");
       } catch (err) {
         console.error("[PlivoWeb] connectConference error", err);
         cleanupCall();
         setStatus("error");
+        updateAgentStatus("live");
         throw err;
       }
     },
-    [cleanupCall]
+    [cleanupCall, updateAgentStatus]
   );
 
   const startCall = useCallback(

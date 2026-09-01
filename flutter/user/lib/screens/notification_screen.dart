@@ -85,7 +85,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('कॉल विवरण के लिए कॉल लॉग्स देखें।')),
+          const SnackBar(content: Text('Check call logs for call details.')),
         );
       }
     }
@@ -96,13 +96,13 @@ class _NotificationScreenState extends State<NotificationScreen> {
     final items = NotificationCenter().items;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('सूचनाएं'),
+        title: const Text('Notifications'),
         actions: [
           if (items.isNotEmpty)
             TextButton(
               onPressed: () => setState(() => NotificationCenter().clear()),
               child: const Text(
-                'साफ करें',
+                'Clear',
                 style: TextStyle(color: AppColors.accent, fontSize: 13),
               ),
             ),
@@ -113,8 +113,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
           ? const Center(
               child: EmptyState(
                 icon: Icons.notifications_none_rounded,
-                title: 'कोई सूचना नहीं',
-                subtitle: 'नए संदेश, कॉल्स और अपडेट्स यहाँ दिखेंगे।',
+                title: 'No notifications',
+                subtitle: 'New messages, calls and updates will appear here.',
               ),
             )
           : ListView.separated(

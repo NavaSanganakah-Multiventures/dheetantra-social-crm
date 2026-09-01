@@ -24,7 +24,7 @@ class WebSocketService with WidgetsBindingObserver {
     try {
       WidgetsBinding.instance.addObserver(this);
     } catch (_) {
-      // No binding (unit tests) â lifecycle handling simply disabled.
+      // No binding (unit tests) - lifecycle handling simply disabled.
     }
   }
 
@@ -35,7 +35,7 @@ class WebSocketService with WidgetsBindingObserver {
   static const _confirmTimeout = Duration(seconds: 12);
   /// No inbound traffic (including pongs) for this long = dead network path.
   static const _staleTimeout = Duration(seconds: 75);
-  /// Backgrounded longer than this â force a fresh connection on resume.
+  /// Backgrounded longer than this -> force a fresh connection on resume.
   static const _resumeThreshold = Duration(seconds: 60);
 
   WebSocketChannel? _channel;
@@ -165,7 +165,7 @@ class WebSocketService with WidgetsBindingObserver {
     // Any inbound traffic (pong or real event) proves the socket is alive.
     _lastMessageAt = DateTime.now();
     try {
-      // A real inbound message confirms the handshake completed â only now
+      // A real inbound message confirms the handshake completed - only now
       // does the backoff counter reset (resetting on listen() would make a
       // downed server retry every 2s forever).
       if (!_connectionConfirmed) {
@@ -192,7 +192,7 @@ class WebSocketService with WidgetsBindingObserver {
           if (direction == 'outgoing' || direction == 'BUSINESS_INITIATED') break;
           _incomingCallController.add({
             'id': data['callId'],
-            'contact_name': data['contactName'] ?? data['from'] ?? 'à¤à¤à¥à¤à¤¾à¤¤',
+            'contact_name': data['contactName'] ?? data['from'] ?? 'Unknown',
             'phone': data['from'] ?? '',
             'sdp': data['sdp'],
             'sdpType': data['sdpType'],
@@ -251,7 +251,7 @@ class WebSocketService with WidgetsBindingObserver {
           _conversationDeletedController.add(data);
           break;
         default:
-          // Unknown event â ignore silently.
+          // Unknown event - ignore silently.
           break;
       }
     } catch (e) {
@@ -339,7 +339,7 @@ class WebSocketService with WidgetsBindingObserver {
   }
 
   // ---------------------------------------------------------------------
-  // App lifecycle â the OS freezes the isolate in background, so keepalive
+  // App lifecycle - the OS freezes the isolate in background, so keepalive
   // stops and the socket dies there. On resume we must reconnect FAST instead
   // of waiting on a backed-off timer.
   // ---------------------------------------------------------------------
@@ -374,7 +374,7 @@ class WebSocketService with WidgetsBindingObserver {
     DheetantraForegroundService().isRunning.then((running) {
       if (!running && (_connecting || (isConnected && pausedFor > _resumeThreshold))) {
         // The old socket almost certainly died while frozen (or the handshake
-        // hung) â tear it down and establish a fresh connection now.
+        // hung) - tear it down and establish a fresh connection now.
         debugPrint('WS resume: recycling stale connection');
         _teardown();
       }

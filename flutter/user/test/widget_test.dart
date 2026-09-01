@@ -9,12 +9,12 @@ void main() {
     await tester.pumpWidget(const DheeTantraApp());
 
     expect(find.text('DheeTantra'), findsOneWidget);
-    expect(find.text('सोशल CRM - अपने ग्राहकों से जुड़े रहें'), findsOneWidget);
+    expect(find.text('Social CRM - stay connected with your customers'), findsOneWidget);
 
     await tester.pump(const Duration(milliseconds: 1900));
     await tester.pumpAndSettle();
 
-    expect(find.text('फिर से स्वागत है!'), findsOneWidget);
-    expect(find.text('लॉगिन करें'), findsOneWidget);
+    expect(find.text('Welcome back!'), findsOneWidget);
+    expect(find.text('Log in'), findsOneWidget);
   });
 }

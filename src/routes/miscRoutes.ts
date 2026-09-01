@@ -158,7 +158,7 @@ router.post('/api/whatsapp/webhook/subscribe', async (c) => {
     ).bind(workspaceId).first<{ waba_id: string; access_token: string }>();
 
     if (!config || !config.waba_id) {
-      return c.json({ error: 'WABA ID नहीं मिला। कृपया पहले WhatsApp Config में WABA ID सेव करें।' }, 400);
+      return c.json({ error: 'WABA ID not found. Please save the WABA ID in WhatsApp Config first.' }, 400);
     }
 
     const subsRes = await fetch(`https://graph.facebook.com/v20.0/${config.waba_id}/subscribed_apps`, {
@@ -173,7 +173,7 @@ router.post('/api/whatsapp/webhook/subscribe', async (c) => {
     console.log(`[Webhook Subscribe] Manual subscription for WABA ${config.waba_id}:`, subsData);
 
     if (subsData.success === true) {
-      return c.json({ success: true, message: 'Webhook fields (messages + calls) सफलतापूर्वक subscribe हो गए!' });
+      return c.json({ success: true, message: 'Webhook fields (messages + calls) subscribed successfully!' });
     } else {
       return c.json({ error: 'Subscription failed', details: subsData }, 400);
     }

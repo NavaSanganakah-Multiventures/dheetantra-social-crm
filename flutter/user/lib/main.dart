@@ -43,7 +43,7 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   }
 }
 
-/// CallKit background handler â plugin ka apna background FlutterEngine isolate
+/// CallKit background handler - plugin ka apna background FlutterEngine isolate
 /// ise chalata hai jab app terminated ho aur user native call UI se accept/
 /// decline kare. acceptCallHandle (CallKitService.init mein) main isolate ke
 /// MethodChannel par wahi event deta hai jab app wapas khulta hai, isliye yahan
@@ -64,12 +64,12 @@ Future<void> main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-  // acceptCallHandle native callback ko sabse pehle register karo â cold-start
+  // acceptCallHandle native callback ko sabse pehle register karo - cold-start
   // accept (plugin ka 750ms callback window) main isolate ka method channel
   // ready hone se pehle aa jata hai, tab event lost ho jata hai. Early
   // register se us race ka window kafi kam ho jata hai.
   CallKitService().registerAcceptHandleEarly();
-  // CallKit background engine start karo â iske bina app killed hone par native
+  // CallKit background engine start karo - iske bina app killed hone par native
   // accept/decline events kisi ko nahi milte aur call attend nahi ho pati.
   try {
     await FlutterCallkitIncoming.onBackgroundMessage(_callkitBackgroundEventHandler);

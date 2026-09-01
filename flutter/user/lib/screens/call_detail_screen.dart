@@ -73,10 +73,10 @@ class _CallDetailScreenState extends State<CallDetailScreen> {
     if (!mounted) return;
     setState(() => _saving = false);
     if (res['success'] == true) {
-      _showSnack('नोट्स सहेजे गए');
+      _showSnack('Notes saved');
       _load();
     } else {
-      _showSnack('नोट्स सहेजने में विफल');
+      _showSnack('Failed to save notes');
     }
   }
 
@@ -89,11 +89,11 @@ class _CallDetailScreenState extends State<CallDetailScreen> {
       setState(() => _audioLoading = true);
       try {
         final saved = await _downloadRecording();
-        if (saved == null) throw Exception('डाउनलोड विफल');
+        if (saved == null) throw Exception('Download failed');
         _downloadedPath = saved;
       } catch (e) {
         if (mounted) {
-          _showSnack('रिकॉर्डिंग डाउनलोड विफल: $e');
+          _showSnack('Recording download failed: $e');
           setState(() => _audioLoading = false);
         }
         return;
@@ -105,7 +105,7 @@ class _CallDetailScreenState extends State<CallDetailScreen> {
       await _player.setSourceDeviceFile(_downloadedPath!);
       await _player.resume();
     } catch (e) {
-      if (mounted) _showSnack('प्लेबैक विफल: $e');
+      if (mounted) _showSnack('Playback failed: $e');
     } finally {
       if (mounted) setState(() => _audioLoading = false);
     }
@@ -164,7 +164,7 @@ class _CallDetailScreenState extends State<CallDetailScreen> {
     if (_loading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
-    final name = (_call['contact_name'] ?? _call['name'] ?? 'अज्ञात').toString();
+    final name = (_call['contact_name'] ?? _call['name'] ?? 'Unknown').toString();
     final phone = (_call['phone'] ?? _call['caller_number'] ?? '').toString();
     final direction = (_call['direction'] ?? 'incoming').toString();
     final status = (_call['status'] ?? '').toString();
@@ -177,7 +177,7 @@ class _CallDetailScreenState extends State<CallDetailScreen> {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.surface,
-        title: const Text('कॉल विवरण'),
+        title: const Text('Call details'),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
@@ -207,7 +207,7 @@ class _CallDetailScreenState extends State<CallDetailScreen> {
             ],
             const SizedBox(height: 20),
             const Text(
-              'नोट्स',
+              'Notes',
               style: TextStyle(
                 color: AppColors.textPrimary,
                 fontSize: 14,
@@ -221,7 +221,7 @@ class _CallDetailScreenState extends State<CallDetailScreen> {
               decoration: InputDecoration(
                 filled: true,
                 fillColor: AppColors.surface,
-                hintText: 'कॉल नोट्स / फॉलो-अप...',
+                hintText: 'Call notes / follow-up...',
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide(color: AppColors.border),
@@ -237,7 +237,7 @@ class _CallDetailScreenState extends State<CallDetailScreen> {
                     onPressed: _saving ? null : _saveNotes,
                     child: _saving
                         ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                        : const Text('नोट्स सहेजें'),
+                        : const Text('Save notes'),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -245,7 +245,7 @@ class _CallDetailScreenState extends State<CallDetailScreen> {
                   child: OutlinedButton.icon(
                     onPressed: _openChat,
                     icon: const Icon(Icons.chat_bubble_outline),
-                    label: const Text('चैट खोलें'),
+                    label: const Text('Open chat'),
                   ),
                 ),
               ],
@@ -348,7 +348,7 @@ class _HeaderCard extends StatelessWidget {
             children: [
               _DetailItem(
                 icon: direction == 'outgoing' ? Icons.call_made : Icons.call_received,
-                label: direction == 'outgoing' ? 'आउटगोइंग' : 'इनकमिंग',
+                label: direction == 'outgoing' ? 'Outgoing' : 'Incoming',
               ),
               _DetailItem(
                 icon: Icons.timer_outlined,
@@ -431,11 +431,11 @@ class _PlayerCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    isPlaying ? 'रिकॉर्डिंग रोकें' : 'रिकॉर्डिंग चलाएं',
+                    isPlaying ? 'Stop recording' : 'Play recording',
                     style: const TextStyle(color: AppColors.textPrimary, fontSize: 14, fontWeight: FontWeight.w600),
                   ),
                   Text(
-                    downloaded ? 'चलाने के लिए तैयार' : 'सर्वर से डाउनलोड करने के लिए टैप करें',
+                    downloaded ? 'Ready to play' : 'Tap to download from server',
                     style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
                   ),
                 ],
@@ -470,7 +470,7 @@ class _SummaryCard extends StatelessWidget {
               Icon(Icons.auto_awesome, color: AppColors.success, size: 18),
               const SizedBox(width: 8),
               const Text(
-                'AI सारांश',
+                'AI summary',
                 style: TextStyle(
                   color: AppColors.textPrimary,
                   fontSize: 14,

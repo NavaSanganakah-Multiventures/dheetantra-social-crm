@@ -1,6 +1,7 @@
 import { Hono, Context } from 'hono';
 import { Env } from '../types';
 import { sqliteNow, requireRole } from '../shared';
+import { normalizeE164 } from '../utils/phoneUtils';
 
 // ---------------------------------------------------------------------------
 // Plivo voice provider (PSTN bridge). Mirrors twilioVoice.ts but talks to the
@@ -16,20 +17,6 @@ import { sqliteNow, requireRole } from '../shared';
 //     a "busy" agent is restored to "live".
 // ---------------------------------------------------------------------------
 
-function normalizeE164(raw: string, defaultCountryCode = '91'): string {
-  const trimmed = raw.trim();
-  let digits = trimmed.replace(/\D/g, '');
-
-  if (digits.startsWith('0')) {
-    digits = digits.slice(1);
-  }
-
-  if (!trimmed.startsWith('+') && digits.length === 10) {
-    digits = defaultCountryCode + digits;
-  }
-
-  return '+' + digits;
-}
 
 function maskAuthToken(token: string): string {
   if (!token || token.length <= 4) return '****';
@@ -535,8 +522,8 @@ router.get('/api/plivo/configs', async (c) => {
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
   const { results } = await c.env.DB.prepare(
-    'SELECT id, name, auth_id, auth_token, is_active, auto_dial_agents, endpoint_username, endpoint_password, created_at, updated_at FROM plivo_configs WHERE workspace_id = ? ORDER BY created_at ASC'
-  ).bind(workspaceId).all<{ id: string; name: string; auth_id: string; auth_token: string; is_active: number; auto_dial_agents: number; endpoint_username: string | null; endpoint_password: string | null; created_at: string; updated_at: string }>();
+    'SELECT id, name, auth_id, auth_token, is_active, auto_dial_agents, endpoint_username, endpoint_password, voice_bot_enabled, office_hours_start, office_hours_end, office_hours_audio_url, busy_audio_url, created_at, updated_at FROM plivo_configs WHERE workspace_id = ? ORDER BY created_at ASC'
+  ).bind(workspaceId).all<{ id: string; name: string; auth_id: string; auth_token: string; is_active: number; auto_dial_agents: number; endpoint_username: string | null; endpoint_password: string | null; voice_bot_enabled: number; office_hours_start: string; office_hours_end: string; office_hours_audio_url: string | null; busy_audio_url: string | null; created_at: string; updated_at: string }>();
 
   const configs: any[] = [];
   for (const cfg of results || []) {
@@ -554,6 +541,11 @@ router.get('/api/plivo/configs', async (c) => {
       endpointUsername: cfg.endpoint_username ?? '',
       endpointPasswordMasked: cfg.endpoint_password ? maskAuthToken(cfg.endpoint_password) : '',
       endpointConfigured: !!(cfg.endpoint_username && cfg.endpoint_password),
+      voiceBotEnabled: cfg.voice_bot_enabled === 1,
+      officeHoursStart: cfg.office_hours_start || '09:00',
+      officeHoursEnd: cfg.office_hours_end || '16:00',
+      officeHoursAudioUrl: cfg.office_hours_audio_url,
+      busyAudioUrl: cfg.busy_audio_url,
       fromNumbers: (nums.results || []).map((n) => ({
         id: n.id,
         fromNumber: n.from_number,
@@ -570,15 +562,21 @@ router.post('/api/plivo/configs', requireRole('owner', 'admin'), async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
-  const { name, authId, authToken, fromNumbers, autoDialAgents, endpointUsername, endpointPassword } = await c.req.json() as any;
+  const { name, authId, authToken, fromNumbers, autoDialAgents, endpointUsername, endpointPassword, voiceBotEnabled, officeHoursStart, officeHoursEnd, officeHoursAudioUrl, busyAudioUrl } = await c.req.json() as any;
   if (!authId || !authToken) {
     return c.json({ error: 'authId and authToken are required' }, 400);
   }
 
   const id = crypto.randomUUID();
   await c.env.DB.prepare(
-    'INSERT INTO plivo_configs (id, workspace_id, name, auth_id, auth_token, is_active, auto_dial_agents, endpoint_username, endpoint_password, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?)'
-  ).bind(id, workspaceId, name || 'My Plivo Account', authId, authToken, autoDialAgents === false ? 0 : 1, endpointUsername || null, endpointPassword || null, sqliteNow(), sqliteNow()).run();
+    'INSERT INTO plivo_configs (id, workspace_id, name, auth_id, auth_token, is_active, auto_dial_agents, endpoint_username, endpoint_password, voice_bot_enabled, office_hours_start, office_hours_end, office_hours_audio_url, busy_audio_url, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+  ).bind(
+    id, workspaceId, name || 'My Plivo Account', authId, authToken, autoDialAgents === false ? 0 : 1, 
+    endpointUsername || null, endpointPassword || null, 
+    voiceBotEnabled === false ? 0 : 1, officeHoursStart || '09:00', officeHoursEnd || '16:00', 
+    officeHoursAudioUrl || null, busyAudioUrl || null,
+    sqliteNow(), sqliteNow()
+  ).run();
 
   const nums = Array.isArray(fromNumbers) ? fromNumbers.filter((n: any) => typeof n === 'string' && n.trim()) : [];
 
@@ -649,6 +647,11 @@ router.put('/api/plivo/configs/:id', requireRole('owner', 'admin'), async (c) =>
   if (body.autoDialAgents !== undefined) { updates.push('auto_dial_agents = ?'); params.push(body.autoDialAgents ? 1 : 0); }
   if (body.endpointUsername !== undefined) { updates.push('endpoint_username = ?'); params.push(body.endpointUsername || null); }
   if (body.endpointPassword !== undefined && body.endpointPassword) { updates.push('endpoint_password = ?'); params.push(body.endpointPassword); }
+  if (body.voiceBotEnabled !== undefined) { updates.push('voice_bot_enabled = ?'); params.push(body.voiceBotEnabled ? 1 : 0); }
+  if (body.officeHoursStart !== undefined) { updates.push('office_hours_start = ?'); params.push(body.officeHoursStart); }
+  if (body.officeHoursEnd !== undefined) { updates.push('office_hours_end = ?'); params.push(body.officeHoursEnd); }
+  if (body.officeHoursAudioUrl !== undefined) { updates.push('office_hours_audio_url = ?'); params.push(body.officeHoursAudioUrl || null); }
+  if (body.busyAudioUrl !== undefined) { updates.push('busy_audio_url = ?'); params.push(body.busyAudioUrl || null); }
 
   if (updates.length === 0) return c.json({ error: 'No fields to update' }, 400);
 
@@ -1143,8 +1146,8 @@ router.post('/api/plivo/webhook/voice', async (c) => {
 
     const candidates = dialedNumberCandidates(to);
     const config = await c.env.DB.prepare(
-      'SELECT tc.id AS plivo_config_id, tc.workspace_id, tc.auth_id, tc.auth_token, tc.auto_dial_agents, tfn.id AS from_number_id, tfn.from_number FROM plivo_configs tc JOIN plivo_from_numbers tfn ON tc.id = tfn.plivo_config_id WHERE tfn.from_number IN (?, ?, ?) AND tfn.is_active = 1 AND tc.is_active = 1 LIMIT 1'
-    ).bind(candidates[0], candidates[1], candidates[2]).first<{ plivo_config_id: string; workspace_id: string; auth_id: string; auth_token: string; auto_dial_agents: number; from_number_id: string; from_number: string }>();
+      'SELECT tc.id AS plivo_config_id, tc.workspace_id, tc.auth_id, tc.auth_token, tc.auto_dial_agents, tc.voice_bot_enabled, tc.office_hours_start, tc.office_hours_end, tc.office_hours_audio_url, tc.busy_audio_url, tfn.id AS from_number_id, tfn.from_number FROM plivo_configs tc JOIN plivo_from_numbers tfn ON tc.id = tfn.plivo_config_id WHERE tfn.from_number IN (?, ?, ?) AND tfn.is_active = 1 AND tc.is_active = 1 LIMIT 1'
+    ).bind(candidates[0], candidates[1], candidates[2]).first<{ plivo_config_id: string; workspace_id: string; auth_id: string; auth_token: string; auto_dial_agents: number; voice_bot_enabled: number; office_hours_start: string; office_hours_end: string; office_hours_audio_url: string | null; busy_audio_url: string | null; from_number_id: string; from_number: string }>();
 
     if (!config) {
       console.warn('[Plivo Webhook] no workspace config for dialed number', to);
@@ -1168,6 +1171,44 @@ router.post('/api/plivo/webhook/voice', async (c) => {
 
     const contact = await c.env.DB.prepare('SELECT name FROM contacts WHERE id = ?').bind(contactId).first<{ name: string }>();
     const callerName = contact?.name || from;
+
+    if (config.voice_bot_enabled === 1) {
+      // Dynamic office hours check using config
+      const now = new Date();
+      const utcHours = now.getUTCHours();
+      const utcMinutes = now.getUTCMinutes();
+      const istMinutesTotal = utcHours * 60 + utcMinutes + 330; // IST is UTC+5:30
+      
+      const [startH, startM] = (config.office_hours_start || '09:00').split(':').map(Number);
+      const [endH, endM] = (config.office_hours_end || '16:00').split(':').map(Number);
+      const startMinutes = (startH * 60) + (startM || 0);
+      const endMinutes = (endH * 60) + (endM || 0);
+      
+      // Calculate current IST minutes from midnight
+      const currentIstMinutes = ((Math.floor(istMinutesTotal / 60) % 24) * 60) + (istMinutesTotal % 60);
+
+      if (currentIstMinutes < startMinutes || currentIstMinutes >= endMinutes) {
+        const startAMPM = startH >= 12 ? 'sham' : 'subah';
+        const startDisplay = startH > 12 ? (startH === 12 ? 12 : startH - 12) : (startH === 0 ? 12 : startH);
+        const endAMPM = endH >= 12 ? 'sham' : 'subah';
+        const endDisplay = endH > 12 ? (endH === 12 ? 12 : endH - 12) : (endH === 0 ? 12 : endH);
+        const officeTimeText = `Hamara office time ${startAMPM} ${startDisplay} baje se ${endAMPM} ${endDisplay} baje tak hai. Kripya us samay call karein.`;
+
+        const xml = config.office_hours_audio_url
+          ? XML_DECL + `<Response><PreAnswer><Play>${escXml(config.office_hours_audio_url)}</Play></PreAnswer><Hangup/></Response>`
+          : XML_DECL + `<Response><PreAnswer><Speak language="hi-IN" voice="Polly.Aditi">Namaste, main Arya hoon. ${officeTimeText}</Speak></PreAnswer><Hangup/></Response>`;
+        return plivoXmlResponse(xml, 200);
+      }
+
+      // Agent availability check
+      const liveCountRes = await c.env.DB.prepare("SELECT count(*) as cnt FROM workspace_members WHERE workspace_id = ? AND voice_status = 'live'").bind(config.workspace_id).first<{ cnt: number }>();
+      if (!liveCountRes || liveCountRes.cnt === 0) {
+        const xml = config.busy_audio_url
+          ? XML_DECL + `<Response><PreAnswer><Play>${escXml(config.busy_audio_url)}</Play></PreAnswer><Hangup/></Response>`
+          : XML_DECL + '<Response><PreAnswer><Speak language="hi-IN" voice="Polly.Aditi">Namaste, main Arya hoon. Abhi hamari team vyast hai. Kripya thodi der baad call karein.</Speak></PreAnswer><Hangup/></Response>';
+        return plivoXmlResponse(xml, 200);
+      }
+    }
 
     // Assign an available (live) agent, if any. Fire the agent leg first and
     // only mark them busy once the leg was accepted by Plivo.
@@ -1250,6 +1291,7 @@ router.post('/api/plivo/webhook/status', async (c) => {
   try {
     const body = await parseWebhookBody(c);
     const callId = c.req.query('callId') || '';
+    const leg = c.req.query('leg') || 'customer';
     const callUuid = body.CallUUID || '';
     const requestUuid = body.RequestUUID || '';
     const rawStatus = body.CallStatus || '';
@@ -1309,10 +1351,21 @@ router.post('/api/plivo/webhook/status', async (c) => {
     const terminalStatuses = new Set(['completed', 'busy', 'failed', 'no-answer', 'canceled', 'timeout']);
 
     if (terminalStatuses.has(rawStatus)) {
-      await c.env.DB.prepare("UPDATE calls SET status = ?, duration = ?, ended_at = ? WHERE id = ?")
-        .bind(status, duration, sqliteNow(), call.id).run();
-      await cleanupPlivoCall(c.env, call);
-      await broadcastToWorkspace(c.env, call.workspace_id, { type: 'call_status_updated', call_id: call.id, status, duration, source: 'plivo' });
+      // If the customer leg ends, tear down the call.
+      // If an agent leg ends, ONLY tear down the call if it was 'completed' (answered and then hung up).
+      // If an agent leg fails/busy/no-answer, do NOT tear down the call; leave the caller in the waiting room!
+      if (leg === 'customer' || (leg === 'agent' && rawStatus === 'completed') || leg === 'inbound') {
+        await c.env.DB.prepare("UPDATE calls SET status = ?, duration = ?, ended_at = ? WHERE id = ?")
+          .bind(status, duration, sqliteNow(), call.id).run();
+        await cleanupPlivoCall(c.env, call);
+        await broadcastToWorkspace(c.env, call.workspace_id, { type: 'call_status_updated', call_id: call.id, status, duration, source: 'plivo' });
+      } else if (leg === 'agent') {
+        // Agent leg failed/busy/no-answer. Restore agent to live, but don't drop the caller.
+        if (call.assigned_user_id) {
+          await c.env.DB.prepare("UPDATE workspace_members SET voice_status = 'live' WHERE workspace_id = ? AND user_id = ?")
+            .bind(call.workspace_id, call.assigned_user_id).run();
+        }
+      }
     } else {
       // Guarded update: never downgrade an in_progress/ended call to ringing
       // (Plivo can deliver ring callbacks after answer in rare cases). Also
@@ -1396,7 +1449,7 @@ router.post('/api/plivo/webhook/app', async (c) => {
   const m = /^sip:([^@]+)@/i.exec(to);
   const conferenceName = m ? m[1] : 'default_room';
   return plivoXmlResponse(
-    `<Response><Conference startConferenceOnEnter="true" endConferenceOnExit="false" beep="false">${escXml(conferenceName)}</Conference></Response>`
+    XML_DECL + `<Response><Conference startConferenceOnEnter="true" endConferenceOnExit="false" beep="false">${escXml(conferenceName)}</Conference></Response>`
   );
 });
 

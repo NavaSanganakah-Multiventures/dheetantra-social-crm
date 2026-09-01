@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { Env } from '../types';
 import { requireRole, pagination, sqliteNow } from '../shared';
+import { formatForWhatsApp } from '../utils/phoneUtils';
 import { teardownPlivoCall } from './plivoVoice';
 import { teardownTwilioCall } from './twilioVoice';
 
@@ -96,7 +97,7 @@ router.post('/api/whatsapp/calls/outbound', async (c) => {
   }
   if (!targetPhone) return c.json({ error: 'contactId or to required' }, 400);
 
-  const normalizedPhone = targetPhone.replace(/\D/g, '').replace(/^0/, '');
+  const normalizedPhone = formatForWhatsApp(targetPhone);
   if (!normalizedPhone) return c.json({ error: 'Invalid phone number' }, 400);
 
   let config = await c.env.DB.prepare(

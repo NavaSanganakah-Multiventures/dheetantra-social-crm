@@ -41,15 +41,15 @@ String extensionForType(String? type) {
 
 String labelForType(String? type) {
   switch (type) {
-    case 'image': return 'फोटो';
-    case 'video': return 'वीडियो';
-    case 'audio': return 'ऑडियो';
-    case 'document': return 'दस्तावेज़';
-    case 'sticker': return 'स्टिकर';
-    case 'location': return 'स्थान';
-    case 'contacts': return 'संपर्क';
-    case 'interactive': return 'इंटरैक्टिव';
-    case 'order': return 'ऑर्डर';
-    default: return type ?? 'फ़ाइल';
+    case 'image': return 'Photo';
+    case 'video': return 'Video';
+    case 'audio': return 'Audio';
+    case 'document': return 'Document';
+    case 'sticker': return 'Sticker';
+    case 'location': return 'Location';
+    case 'contacts': return 'Contacts';
+    case 'interactive': return 'Interactive';
+    case 'order': return 'Order';
+    default: return type ?? 'File';
   }
 }

@@ -80,10 +80,10 @@ export default function ActiveConversationsView({
       {/* Header */}
       <div className="p-4 md:p-6 border-b border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-950 shrink-0">
         <div className="flex items-center justify-between mb-2">
-          <h2 className="text-lg font-bold text-surface-900 dark:text-white font-display">सक्रिय बातचीत</h2>
+          <h2 className="text-lg font-bold text-surface-900 dark:text-white font-display">Active Conversations</h2>
           <div className="flex items-center gap-2 text-xs text-surface-500">
-            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500" /> सक्रिय: {openCount}</span>
-            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-surface-400" /> बंद: {closedCount}</span>
+            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500" /> Active: {openCount}</span>
+            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-surface-400" /> Closed: {closedCount}</span>
           </div>
         </div>
 
@@ -96,7 +96,7 @@ export default function ActiveConversationsView({
               type="text" 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="नाम या नंबर से खोजें..."
+              placeholder="Search by name or number..."
               className="w-full pl-9 pr-3 py-2 text-sm rounded-xl border border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-900 focus:border-primary-500 outline-none transition-colors"
             />
           </div>
@@ -113,7 +113,7 @@ export default function ActiveConversationsView({
                     : 'bg-surface-50 dark:bg-surface-900 text-surface-500 hover:text-surface-700 dark:hover:text-surface-300'
                 }`}
               >
-                {s === 'open' ? 'सक्रिय' : s === 'closed' ? 'बंद' : 'सभी'}
+                {s === 'open' ? 'Active' : s === 'closed' ? 'Closed' : 'All'}
               </button>
             ))}
           </div>
@@ -124,7 +124,7 @@ export default function ActiveConversationsView({
             onChange={(e) => setPhoneFilter(e.target.value)}
             className="text-xs p-2 rounded-xl border border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-900 outline-none"
           >
-            <option value="all">सभी लाइनें</option>
+            <option value="all">All lines</option>
             {configs.map(cfg => (
               <option key={cfg.id} value={cfg.phone_number_id}>
                 {cfg.phone_number_id || cfg.id}
@@ -143,8 +143,8 @@ export default function ActiveConversationsView({
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-48 text-surface-400">
             <MessageCircle className="w-12 h-12 mb-3 opacity-40" />
-            <p className="text-sm">कोई बातचीत नहीं मिली</p>
-            <p className="text-xs mt-1">फ़िल्टर बदलकर देखें</p>
+            <p className="text-sm">No conversations found</p>
+            <p className="text-xs mt-1">Try changing the filter</p>
           </div>
         ) : (
           <div className="divide-y divide-surface-100 dark:divide-surface-800">
@@ -163,7 +163,7 @@ export default function ActiveConversationsView({
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-0.5">
                     <h4 className="font-semibold text-sm text-surface-900 dark:text-white truncate">
-                      {conv.contact_name || 'अज्ञात'}
+                      {conv.contact_name || 'Unknown'}
                     </h4>
                     <span className="text-[10px] text-surface-400 whitespace-nowrap ml-2">
                       {conv.customer_last_message_at
@@ -186,11 +186,11 @@ export default function ActiveConversationsView({
                         ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400'
                         : 'bg-surface-100 text-surface-500 dark:bg-surface-800 dark:text-surface-400'
                     }`}>
-                      {conv.status === 'closed' ? 'बंद' : 'सक्रिय'}
+                      {conv.status === 'closed' ? 'Closed' : 'Active'}
                     </span>
                     {conv.customer_last_message_at && (
                       <span className="text-[10px] text-surface-400">
-                        आखिरी गतिविधि: {new Date(conv.customer_last_message_at).toLocaleTimeString('hi-IN', { hour: '2-digit', minute: '2-digit' })}
+                        Last activity: {new Date(conv.customer_last_message_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     )}
                   </div>
@@ -203,7 +203,7 @@ export default function ActiveConversationsView({
                     className="flex items-center gap-1.5 px-3 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-xl text-xs font-semibold transition-all shadow-sm"
                   >
                     <MessageCircle className="w-3.5 h-3.5" />
-                    चैट
+                    Chat
                   </button>
                 </div>
               </div>

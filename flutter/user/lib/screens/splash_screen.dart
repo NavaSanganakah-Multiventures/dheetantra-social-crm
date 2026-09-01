@@ -73,7 +73,7 @@ class _SplashScreenState extends State<SplashScreen> {
             ),
             const SizedBox(height: 6),
             const Text(
-              'सोशल CRM - अपने ग्राहकों से जुड़े रहें',
+              'Social CRM - stay connected with your customers',
               style: TextStyle(color: AppColors.textMuted, fontSize: 13),
             ),
             const SizedBox(height: 48),

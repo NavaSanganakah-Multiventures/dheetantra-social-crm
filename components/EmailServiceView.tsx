@@ -24,10 +24,10 @@ function StatusBadge({ status }: { status: string }) {
     suspended: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400',
   };
   const label: Record<string, string> = {
-    active: 'सक्रिय (वेरिफाइड)',
-    pending: 'वेरिफिकेशन बाकी',
-    failed: 'विफल',
-    suspended: 'सस्पेंड (ऑटो)',
+    active: 'Active (Verified)',
+    pending: 'Verification pending',
+    failed: 'Failed',
+    suspended: 'Suspended (auto)',
   };
   return (
     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${map[status] || map.pending}`}>
@@ -44,9 +44,9 @@ function ReviewBadge({ status }: { status: string }) {
     rejected: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400',
   };
   const label: Record<string, string> = {
-    pending_review: 'रिव्यू बाकी',
-    approved: 'स्वीकृत',
-    rejected: 'अस्वीकृत',
+    pending_review: 'Review pending',
+    approved: 'Approved',
+    rejected: 'Rejected',
   };
   return (
     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${map[status] || map.pending_review}`}>
@@ -69,7 +69,7 @@ function CopyButton({ text, label }: { text: string; label?: string }) {
       className="inline-flex items-center gap-1 text-[11px] font-medium text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 px-2 py-1 rounded-lg hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors"
     >
       {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-      {copied ? 'कॉपी हो गया!' : (label || 'कॉपी करें')}
+      {copied ? 'Copied!' : (label || 'Copy')}
     </button>
   );
 }
@@ -138,39 +138,39 @@ export default function EmailServiceView() {
         if (data.domain) {
           setDomains(prev => prev.map(d => d.id === id ? { ...d, ...data.domain } : d));
         }
-        toast('success', data.message || 'जांच पूरी — status अपडेट हो गया');
+        toast('success', data.message || 'Check complete - status updated');
         refreshDomains();
       } else {
-        toast('error', data.error || 'वेरिफिकेशन विफल');
+        toast('error', data.error || 'Verification failed');
         refreshDomains();
       }
     } catch (e: any) {
-      toast('error', e.message || 'वेरिफिकेशन विफल');
+      toast('error', e.message || 'Verification failed');
       refreshDomains();
     }
   };
 
   const removeDomain = async (id: string, name: string) => {
-    if (!window.confirm(`क्या आप डोमेन "${name}" हटाना चाहते हैं? Zone और Email Routing Cloudflare से भी हट जाएगा।`)) return;
+    if (!window.confirm(`Do you want to delete the domain "${name}"? The Zone and Email Routing will also be removed from Cloudflare.`)) return;
     try {
       const res = await fetch(`/api/domains/${id}`, { method: 'DELETE', headers: getHeaders() });
       const data: any = await res.json();
       if (data.success) {
-        toast('success', 'डोमेन हटा दिया गया');
+        toast('success', 'Domain deleted');
         refreshDomains();
       } else {
-        const detail = (data.errors && data.errors.length) ? ` — ${data.errors.join('; ')}` : '';
-        toast('error', `${data.error || 'डोमेन हटाने में विफल'}${detail}`);
+        const detail = (data.errors && data.errors.length) ? ` - ${data.errors.join('; ')}` : '';
+        toast('error', `${data.error || 'Failed to delete domain'}${detail}`);
         refreshDomains();
       }
     } catch (e: any) {
-      toast('error', e.message || 'डोमेन हटाने में विफल');
+      toast('error', e.message || 'Failed to delete domain');
     }
   };
 
   const testSend = async (domain: any, to: string) => {
     if (!to) {
-      toast('warning', 'टेस्ट ईमेल भेजने के लिए recipient email डालें');
+      toast('warning', 'Enter a recipient email to send the test email');
       return;
     }
     try {
@@ -181,12 +181,12 @@ export default function EmailServiceView() {
       });
       const data: any = await res.json();
       if (data.success) {
-        toast('success', `टेस्ट ईमेल भेजा गया → ${to}`);
+        toast('success', `Test email sent → ${to}`);
       } else {
-        toast('error', data.error || 'टेस्ट ईमेल विफल');
+        toast('error', data.error || 'Test email failed');
       }
     } catch (e: any) {
-      toast('error', e.message || 'टेस्ट ईमेल विफल');
+      toast('error', e.message || 'Test email failed');
     }
   };
 
@@ -197,18 +197,18 @@ export default function EmailServiceView() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-surface-900 dark:text-white">ईमेल सेवा</h2>
+          <h2 className="text-2xl font-bold text-surface-900 dark:text-white">Email Service</h2>
           <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">
-            अपना डोमेन जोड़ें और Cloudflare Email Service से ईमेल भेजें व पाएं।
+            Add your domain and send and receive email via Cloudflare Email Service.
           </p>
         </div>
         <div className="flex items-center gap-3">
           {emailStatus && (
             <div className="text-xs text-surface-600 dark:text-surface-300 bg-surface-100 dark:bg-surface-800 px-3 py-1.5 rounded-lg">
               {emailStatus.can_add_domain ? (
-                <span>डोमेन: <strong>{emailStatus.domains_used} / {emailStatus.domains_allowed}</strong> {emailStatus.entitlement === 'plan' ? '(Plan)' : '(Add-on)'}</span>
+                <span>Domain: <strong>{emailStatus.domains_used} / {emailStatus.domains_allowed}</strong> {emailStatus.entitlement === 'plan' ? '(Plan)' : '(Add-on)'}</span>
               ) : (
-                <span className="text-amber-600 dark:text-amber-400">डोमेन लिमिट पूरी ({emailStatus.domains_used}/{emailStatus.domains_allowed})</span>
+                <span className="text-amber-600 dark:text-amber-400">Domain limit reached ({emailStatus.domains_used}/{emailStatus.domains_allowed})</span>
               )}
             </div>
           )}
@@ -217,7 +217,7 @@ export default function EmailServiceView() {
             disabled={!!emailStatus && !emailStatus.can_add_domain}
             className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary-600 hover:bg-primary-700 dark:bg-primary-500 dark:hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-xl transition-colors shadow-sm"
           >
-            <Plus className="w-4 h-4" /> डोमेन जोड़ें
+            <Plus className="w-4 h-4" /> Add Domain
           </button>
         </div>
       </div>
@@ -225,11 +225,11 @@ export default function EmailServiceView() {
       {/* Sub tabs */}
       <div className="flex gap-2 border-b border-surface-200 dark:border-surface-800">
         {([
-          ['inbox', 'इनबॉक्स', Inbox],
-          ['domains', 'डोमेन', Globe],
-          ['compose', 'ईमेल भेजें', Send],
-          ['templates', 'टेम्पलेट्स', FileText],
-          ['logs', 'सेंड लॉग्स', Mail],
+          ['inbox', 'Inbox', Inbox],
+          ['domains', 'Domains', Globe],
+          ['compose', 'Send Email', Send],
+          ['templates', 'Templates', FileText],
+          ['logs', 'Send Logs', Mail],
         ] as const).map(([key, label, Icon]) => (
           <button
             key={key}
@@ -305,11 +305,11 @@ function InboxSection({ domains }: { domains: any[] }) {
 
   const sendReply = async () => {
     if (!selectedId || !replyBody.trim()) {
-      toast('warning', 'Reply खाली है');
+      toast('warning', 'Reply is empty');
       return;
     }
     if (!detail?.replyMailbox) {
-      toast('error', 'भेजने वाला mailbox set नहीं है। पहले Domain / Mailbox बनाएं और verify करें।');
+      toast('error', 'No sending mailbox is set. Create and verify a Domain / Mailbox first.');
       return;
     }
     setReplySending(true);
@@ -321,15 +321,15 @@ function InboxSection({ domains }: { domains: any[] }) {
       });
       const data: any = await res.json();
       if (data.success) {
-        toast('success', 'Reply भेज दिया गया');
+        toast('success', 'Reply sent');
         setReplyBody('');
         loadDetail(selectedId);
         loadConversations();
       } else {
-        toast('error', data.error || 'Reply भेजने में समस्या');
+        toast('error', data.error || 'Problem sending reply');
       }
     } catch (e: any) {
-      toast('error', e.message || 'Reply भेजने में समस्या');
+      toast('error', e.message || 'Problem sending reply');
     } finally {
       setReplySending(false);
     }
@@ -368,10 +368,10 @@ function InboxSection({ domains }: { domains: any[] }) {
     return (
       <div className="bg-white dark:bg-surface-900 rounded-2xl border border-dashed border-surface-300 dark:border-surface-700 p-10 text-center">
         <Inbox className="w-10 h-10 text-amber-500 mx-auto mb-4" />
-        <h3 className="font-semibold text-surface-900 dark:text-white">पहले अपना डोमेन जोड़ें</h3>
+        <h3 className="font-semibold text-surface-900 dark:text-white">Add your domain first</h3>
         <p className="text-sm text-surface-500 dark:text-surface-400 mt-2 max-w-md mx-auto">
-          ईमेल inbox का उपयोग करने के लिए सबसे पहले &quot;डोमेन&quot; टैब पर जाकर अपना domain जोड़ें और verify करें।
-          उसके बाद आए हुए emails यहाँ दिखेंगे।
+          To use the email inbox, first go to the &quot;Domains&quot; tab, add your domain and verify it.
+          Incoming emails will then appear here.
         </p>
       </div>
     );
@@ -382,8 +382,8 @@ function InboxSection({ domains }: { domains: any[] }) {
       {/* Conversation list */}
       <div className={`${selectedId ? 'hidden md:flex' : 'flex'} md:flex flex-col border-r border-surface-200 dark:border-surface-800`}>
         <div className="p-4 border-b border-surface-200 dark:border-surface-800 flex items-center justify-between">
-          <h3 className="font-semibold text-surface-900 dark:text-white">ईमेल बातचीत</h3>
-          <button onClick={loadConversations} className="p-1.5 text-surface-500 hover:text-primary-600 rounded-lg hover:bg-surface-100 dark:hover:bg-surface-800" title="रिफ्रेश करें">
+          <h3 className="font-semibold text-surface-900 dark:text-white">Email conversations</h3>
+          <button onClick={loadConversations} className="p-1.5 text-surface-500 hover:text-primary-600 rounded-lg hover:bg-surface-100 dark:hover:bg-surface-800" title="Refresh">
             <RefreshCw className="w-4 h-4" />
           </button>
         </div>
@@ -403,7 +403,7 @@ function InboxSection({ domains }: { domains: any[] }) {
                   </p>
                   <p className="text-xs text-surface-500 dark:text-surface-400 truncate">{conv.sender_email}</p>
                   <p className="text-xs text-surface-700 dark:text-surface-300 mt-1 truncate">
-                    {conv.subject ? <span className="font-medium">{conv.subject}</span> : <span className="text-surface-400">(कोई विषय नहीं)</span>}
+                    {conv.subject ? <span className="font-medium">{conv.subject}</span> : <span className="text-surface-400">(No subject)</span>}
                   </p>
                   <p className="text-xs text-surface-500 dark:text-surface-400 mt-1 truncate">{conv.preview || ''}</p>
                 </div>
@@ -417,8 +417,8 @@ function InboxSection({ domains }: { domains: any[] }) {
           ))}
           {conversations.length === 0 && (
             <div className="p-8 text-center text-surface-500 dark:text-surface-400 text-sm">
-              अभी तक कोई ईमेल नहीं आया।<br />
-              <span className="text-xs">सक्रिय domain के mailbox पर email भेजकर test करें।</span>
+              No emails yet.<br />
+              <span className="text-xs">Test by sending an email to the mailbox of an active domain.</span>
             </div>
           )}
         </div>
@@ -429,7 +429,7 @@ function InboxSection({ domains }: { domains: any[] }) {
         {!selectedId ? (
           <div className="flex-1 flex flex-col items-center justify-center text-surface-400 dark:text-surface-500 p-8">
             <Mail className="w-12 h-12 mb-3 opacity-40" />
-            <p className="text-sm">बाईं ओर से कोई conversation चुनें</p>
+            <p className="text-sm">Choose a conversation from the left</p>
           </div>
         ) : detailLoading ? (
           <div className="flex-1 flex items-center justify-center">
@@ -449,10 +449,10 @@ function InboxSection({ domains }: { domains: any[] }) {
                   {detail.conversation.contact_name || detail.conversation.sender_email}
                 </h3>
                 <p className="text-xs text-surface-500 dark:text-surface-400 truncate">{detail.conversation.sender_email}</p>
-                <p className="text-xs text-surface-400 mt-1 truncate">Reply भेजने वाला: {detail.replyMailbox || '—'}</p>
+                <p className="text-xs text-surface-400 mt-1 truncate">Reply sender: {detail.replyMailbox || '-'}</p>
               </div>
               <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${detail.conversation.status === 'open' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-surface-100 text-surface-600 dark:bg-surface-800 dark:text-surface-300'}`}>
-                {detail.conversation.status === 'open' ? 'सक्रिय' : 'बंद'}
+                {detail.conversation.status === 'open' ? 'Active' : 'Closed'}
               </span>
             </div>
 
@@ -467,11 +467,11 @@ function InboxSection({ domains }: { domains: any[] }) {
                     <div className={`max-w-full md:max-w-[80%] rounded-2xl p-4 ${isContact ? 'bg-surface-100 dark:bg-surface-900 text-surface-900 dark:text-surface-100' : 'bg-primary-600 text-white'}`}>
                       <div className="flex items-center gap-2 mb-2">
                         {isContact ? <User className="w-3.5 h-3.5" /> : <CornerUpLeft className="w-3.5 h-3.5" />}
-                        <span className="text-xs font-medium">{isContact ? (detail.conversation.contact_name || 'ग्राहक') : 'आप'}</span>
+                        <span className="text-xs font-medium">{isContact ? (detail.conversation.contact_name || 'Customer') : 'You'}</span>
                         <span className="text-[10px] opacity-70">{formatDate(m.created_at)}</span>
                       </div>
                       {m.media?.subject && (
-                        <p className={`text-xs font-semibold mb-2 ${isContact ? 'text-surface-800 dark:text-surface-200' : 'text-primary-100'}`}>विषय: {m.media.subject}</p>
+                        <p className={`text-xs font-semibold mb-2 ${isContact ? 'text-surface-800 dark:text-surface-200' : 'text-primary-100'}`}>Subject: {m.media.subject}</p>
                       )}
                       <div className={`text-sm overflow-auto ${isContact ? 'text-surface-800 dark:text-surface-200' : 'text-white'}`}>
                         {html ? (
@@ -482,7 +482,7 @@ function InboxSection({ domains }: { domains: any[] }) {
                             className="w-full min-h-[120px] bg-transparent"
                           />
                         ) : (
-                          <p className="whitespace-pre-wrap">{m.content || '(कोई सामग्री नहीं)'}</p>
+                          <p className="whitespace-pre-wrap">{m.content || '(No content)'}</p>
                         )}
                       </div>
                       {(m.media?.attachments || []).length > 0 && (
@@ -512,12 +512,12 @@ function InboxSection({ domains }: { domains: any[] }) {
             </div>
 
             <div className="p-4 border-t border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-950/50">
-              <label className="block text-xs font-semibold text-surface-500 dark:text-surface-400 mb-2">Reply भेजें</label>
+              <label className="block text-xs font-semibold text-surface-500 dark:text-surface-400 mb-2">Send Reply</label>
               <textarea
                 value={replyBody}
                 onChange={e => setReplyBody(e.target.value)}
                 rows={4}
-                placeholder="<p>नमस्ते...</p>"
+                placeholder="<p>Hello...</p>"
                 className="w-full px-3 py-2.5 text-sm rounded-xl border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 text-surface-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500 font-mono"
               />
               <div className="flex justify-end mt-2">
@@ -527,7 +527,7 @@ function InboxSection({ domains }: { domains: any[] }) {
                   className="inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold text-white bg-primary-600 hover:bg-primary-700 dark:bg-primary-500 dark:hover:bg-primary-600 rounded-xl transition-colors disabled:opacity-60"
                 >
                   {replySending ? <Loader2 className="w-4 h-4 animate-spin" /> : <CornerUpLeft className="w-4 h-4" />}
-                  {replySending ? 'भेज रहे हैं...' : 'Reply भेजें'}
+                  {replySending ? 'Sending...' : 'Send Reply'}
                 </button>
               </div>
             </div>
@@ -584,7 +584,7 @@ function DomainsSection({
   const addMailbox = async (domain: any) => {
     const form = newMailbox[domain.id] || { localPart: '', forwardTo: '' };
     if (!form.localPart.trim()) {
-      toast('warning', 'Mailbox name (local part) डालें');
+      toast('warning', 'Enter the Mailbox name (local part)');
       return;
     }
     try {
@@ -595,30 +595,30 @@ function DomainsSection({
       });
       const data: any = await res.json();
       if (data.success) {
-        toast('success', `Mailbox ${data.email.email_address} बन गया`);
+        toast('success', `Mailbox ${data.email.email_address} created`);
         setNewMailbox(prev => ({ ...prev, [domain.id]: { localPart: '', forwardTo: '' } }));
         loadMailboxes(domain.id);
       } else {
-        toast('error', data.error || 'Mailbox बनाने में त्रुटि');
+        toast('error', data.error || 'Error creating Mailbox');
       }
     } catch (e: any) {
-      toast('error', e.message || 'Mailbox बनाने में त्रुटि');
+      toast('error', e.message || 'Error creating Mailbox');
     }
   };
 
   const removeMailbox = async (id: string, email: string, domainId: string) => {
-    if (!window.confirm(`Mailbox "${email}" हटाएं?`)) return;
+    if (!window.confirm(`Delete Mailbox "${email}"?`)) return;
     try {
       const res = await fetch(`/api/domain-emails/${id}`, { method: 'DELETE', headers: getHeaders() });
       const data: any = await res.json();
       if (data.success) {
-        toast('success', 'Mailbox हटा दिया गया');
+        toast('success', 'Mailbox deleted');
         loadMailboxes(domainId);
       } else {
-        toast('error', data.error || 'Mailbox हटाने में विफल');
+        toast('error', data.error || 'Failed to delete Mailbox');
       }
     } catch (e: any) {
-      toast('error', e.message || 'Mailbox हटाने में विफल');
+      toast('error', e.message || 'Failed to delete Mailbox');
     }
   };
 
@@ -636,10 +636,10 @@ function DomainsSection({
         <div className="w-14 h-14 mx-auto bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400 rounded-2xl flex items-center justify-center mb-4">
           <Mail className="w-7 h-7" />
         </div>
-        <h3 className="font-semibold text-surface-900 dark:text-white">कोई डोमेन नहीं जुड़ा है</h3>
+        <h3 className="font-semibold text-surface-900 dark:text-white">No domain connected</h3>
         <p className="text-sm text-surface-500 dark:text-surface-400 mt-1 max-w-md mx-auto">
-          &quot;डोमेन जोड़ें&quot; पर क्लिक करें। डोमेन Cloudflare पर onboard होगा — nameservers या DNS records जोड़ने के बाद
-          आप उस डोमेन से ईमेल भेज और पा सकेंगे।
+          Click &quot;Add Domain&quot;. The domain will be onboarded to Cloudflare - after adding nameservers or DNS records
+          you will be able to send and receive email from that domain.
         </p>
       </div>
     );
@@ -667,8 +667,8 @@ function DomainsSection({
                 <div className="min-w-0">
                   <h3 className="font-semibold text-surface-900 dark:text-white truncate">{domain.domain_name}</h3>
                   <p className="text-xs text-surface-500 dark:text-surface-400 mt-0.5">
-                    {domain.setup_mode === 'cname' ? 'CNAME (सिर्फ DNS) सेटअप' : 'फुल सेटअप (Nameservers)'}
-                    {domain.sending_onboarded ? ' • भेजना: तैयार' : ' • भेजना: बाकी'}
+                    {domain.setup_mode === 'cname' ? 'CNAME (DNS only) setup' : 'Full setup (Nameservers)'}
+                    {domain.sending_onboarded ? ' • Sending: ready' : ' • Sending: pending'}
                   </p>
                 </div>
               </div>
@@ -685,25 +685,25 @@ function DomainsSection({
                       ? 'text-surface-700 dark:text-surface-200 bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700'
                       : 'text-surface-400 bg-surface-100 dark:bg-surface-800 cursor-not-allowed'
                   }`}
-                  title={domain.review_status === 'approved' ? 'फिर से जांचें' : 'Admin की मंज़ूरी बाकी'}
+                  title={domain.review_status === 'approved' ? 'Check again' : 'Awaiting admin approval'}
                 >
                   {verifyingId === domain.id
                     ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
                     : <RefreshCw className="w-3.5 h-3.5" />}
-                  {verifyingId === domain.id ? 'जांच हो रही है...' : 'जांचें'}
+                  {verifyingId === domain.id ? 'Checking...' : 'Check'}
                 </button>
                 <button
                   onClick={() => onRemove(domain.id, domain.domain_name)}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 rounded-lg transition-colors"
                 >
-                  <Trash2 className="w-3.5 h-3.5" /> हटाएं
+                  <Trash2 className="w-3.5 h-3.5" /> Delete
                 </button>
                 <button
                   onClick={() => toggle(domain.id)}
                   className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-surface-500 dark:text-surface-400 hover:text-surface-800 dark:hover:text-surface-200 rounded-lg transition-colors"
                 >
                   {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                  {isOpen ? 'बंद करें' : 'विवरण'}
+                  {isOpen ? 'Close' : 'Details'}
                 </button>
               </div>
             </div>
@@ -720,7 +720,7 @@ function DomainsSection({
                 {domain.review_status !== 'approved' && (
                   <div className="bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 rounded-xl p-4 text-sm text-amber-800 dark:text-amber-300">
                     <AlertCircle className="w-4 h-4 inline mr-1" />
-                    यह डोमेन Admin review में है। Admin approve करने के बाद ही Cloudflare onboarding, DNS records और mailbox setup शुरू होगा।
+                    This domain is under admin review. Cloudflare onboarding, DNS records and mailbox setup will start only after admin approval.
                   </div>
                 )}
 
@@ -728,7 +728,7 @@ function DomainsSection({
                 {domain.status !== 'active' && domain.review_status === 'approved' && (
                   <div className="bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 rounded-xl p-4">
                     <h4 className="text-sm font-semibold text-amber-800 dark:text-amber-300 mb-2 flex items-center gap-2">
-                      <KeyRound className="w-4 h-4" /> सेटअप निर्देश (DNS जोड़ें)
+                      <KeyRound className="w-4 h-4" /> Setup instructions (add DNS)
                     </h4>
                     {domain.setup_mode === 'cname' ? (
                       <div className="space-y-2">
@@ -736,7 +736,7 @@ function DomainsSection({
                           <DnsRecordRow key={i} record={rec} />
                         ))}
                         <p className="text-xs text-amber-700 dark:text-amber-400 mt-2">
-                          ये record अपने DNS provider पर जोड़ें। Cloudflare verify करने के बाद &quot;जांचें&quot; दबाएं।
+                          Add these records at your DNS provider. After Cloudflare verifies them, press &quot;Check&quot;.
                         </p>
                       </div>
                     ) : (
@@ -749,7 +749,7 @@ function DomainsSection({
                           </div>
                         ))}
                         <p className="text-xs text-amber-700 dark:text-amber-400 mt-2">
-                          अपने registrar (जहां से डोमेन खरीदा है) में nameservers बदलें। Cloudflare activate करने के बाद &quot;जांचें&quot; दबाएं।
+                          Change the nameservers at your registrar (where you bought the domain). After Cloudflare activates, press &quot;Check&quot;.
                         </p>
                       </div>
                     )}
@@ -759,22 +759,22 @@ function DomainsSection({
                 {/* DNS records created by Cloudflare */}
                 {records.length > 0 && (
                   <div>
-                    <h4 className="text-sm font-semibold text-surface-800 dark:text-surface-200 mb-2">DNS Records (Cloudflare द्वारा बनाए गए)</h4>
+                    <h4 className="text-sm font-semibold text-surface-800 dark:text-surface-200 mb-2">DNS Records (created by Cloudflare)</h4>
                     <div className="bg-surface-50 dark:bg-surface-950/50 rounded-xl px-4 border border-surface-100 dark:border-surface-800">
                       {records.map((r: any, i: number) => <DnsRecordRow key={i} record={r} />)}
                     </div>
                   </div>
                 )}
 
-                {/* Fallback records that are NOT in the zone yet — must be added at the provider */}
+                {/* Fallback records that are NOT in the zone yet - must be added at the provider */}
                 {pendingRecords.length > 0 && (
                   <div>
-                    <h4 className="text-sm font-semibold text-amber-700 dark:text-amber-400 mb-2">DNS Records (अभी active नहीं — अपने provider पर जोड़ें)</h4>
+                    <h4 className="text-sm font-semibold text-amber-700 dark:text-amber-400 mb-2">DNS Records (not active yet - add at your provider)</h4>
                     <div className="bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 rounded-xl px-4 py-1">
                       {pendingRecords.map((r: any, i: number) => <DnsRecordRow key={i} record={r} />)}
                     </div>
                     <p className="text-xs text-amber-700 dark:text-amber-400 mt-2">
-                      ये record Cloudflare में list नहीं हो सके, इसलिए इन्हें अपने DNS provider पर manually जोड़ें। MX records के बिना इस डोमेन पर email receive नहीं होगा।
+                      These records could not be listed in Cloudflare, so add them manually at your DNS provider. Email will not be received on this domain without MX records.
                     </p>
                   </div>
                 )}
@@ -786,14 +786,14 @@ function DomainsSection({
                       type="email"
                       value={testTo[domain.id] || ''}
                       onChange={e => setTestTo(prev => ({ ...prev, [domain.id]: e.target.value }))}
-                      placeholder="test@example.com (टेस्ट ईमेल किसे भेजें)"
+                      placeholder="test@example.com (who to send the test email to)"
                       className="flex-1 px-3 py-2 text-sm rounded-xl border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 text-surface-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
                     />
                     <button
                       onClick={() => onTestSend(domain, testTo[domain.id] || '')}
                       className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-primary-600 hover:bg-primary-700 dark:bg-primary-500 dark:hover:bg-primary-600 rounded-xl transition-colors"
                     >
-                      <Send className="w-4 h-4" /> टेस्ट ईमेल भेजें
+                      <Send className="w-4 h-4" /> Send Test Email
                     </button>
                   </div>
                 )}
@@ -801,7 +801,7 @@ function DomainsSection({
                 {/* Mailboxes */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <h4 className="text-sm font-semibold text-surface-800 dark:text-surface-200">Mailboxes (ईमेल पते)</h4>
+                    <h4 className="text-sm font-semibold text-surface-800 dark:text-surface-200">Mailboxes (email addresses)</h4>
                   </div>
                   <div className="space-y-2">
                     {(mailboxes[domain.id] || []).map((mb: any) => (
@@ -812,7 +812,7 @@ function DomainsSection({
                           <span className="text-xs text-surface-500 dark:text-surface-400 hidden md:block">→ {mb.forward_to}</span>
                         )}
                         {mb.is_default ? (
-                          <span className="text-[10px] font-semibold text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/20 px-2 py-0.5 rounded-full">डिफ़ॉल्ट</span>
+                          <span className="text-[10px] font-semibold text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/20 px-2 py-0.5 rounded-full">Default</span>
                         ) : null}
                         <button
                           onClick={() => removeMailbox(mb.id, mb.email_address, domain.id)}
@@ -823,21 +823,21 @@ function DomainsSection({
                       </div>
                     ))}
                     {!mailboxes[domain.id]?.length && (
-                      <p className="text-xs text-surface-400 dark:text-surface-500 px-1">कोई mailbox नहीं। नीचे से जोड़ें।</p>
+                      <p className="text-xs text-surface-400 dark:text-surface-500 px-1">No mailboxes. Add one below.</p>
                     )}
                   </div>
                   <div className="flex flex-col sm:flex-row gap-2 mt-2">
                     <input
                       value={newMailbox[domain.id]?.localPart || ''}
                       onChange={e => setNewMailbox(prev => ({ ...prev, [domain.id]: { ...(prev[domain.id] || {}), localPart: e.target.value } }))}
-                      placeholder={domain.review_status === 'approved' ? `mailbox name (जैसे: hello → hello@${domain.domain_name})` : 'Admin की मंज़ूरी बाकी'}
+                      placeholder={domain.review_status === 'approved' ? `mailbox name (e.g. hello → hello@${domain.domain_name})` : 'Awaiting admin approval'}
                       disabled={domain.review_status !== 'approved'}
                       className="flex-1 px-3 py-2 text-sm rounded-xl border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 text-surface-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
                     />
                     <input
                       value={newMailbox[domain.id]?.forwardTo || ''}
                       onChange={e => setNewMailbox(prev => ({ ...prev, [domain.id]: { ...(prev[domain.id] || {}), forwardTo: e.target.value } }))}
-                      placeholder="फॉरवर्ड करें (वैकल्पिक, जैसे: you@gmail.com)"
+                      placeholder="Forward to (optional, e.g. you@gmail.com)"
                       disabled={domain.review_status !== 'approved'}
                       className="flex-1 px-3 py-2 text-sm rounded-xl border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 text-surface-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
                     />
@@ -846,7 +846,7 @@ function DomainsSection({
                       disabled={domain.review_status !== 'approved'}
                       className="inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-surface-700 dark:text-surface-200 bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700"
                     >
-                      <Plus className="w-4 h-4" /> जोड़ें
+                      <Plus className="w-4 h-4" /> Add
                     </button>
                   </div>
                 </div>
@@ -873,7 +873,7 @@ function AddDomainModal({ emailStatus, onClose, onAdded }: { emailStatus: { enti
 
   const submit = async () => {
     if (!domainName.trim()) {
-      toast('warning', 'डोमेन नाम डालें');
+      toast('warning', 'Enter a domain name');
       return;
     }
     setSaving(true);
@@ -887,22 +887,22 @@ function AddDomainModal({ emailStatus, onClose, onAdded }: { emailStatus: { enti
       // 500) never becomes an opaque "Unexpected token" parse error in the UI.
       const text = await res.text();
       let data: any;
-      try { data = JSON.parse(text); } catch { data = { error: 'सर्वर से अमान्य प्रतिक्रिया — कुछ गड़बड़ हो गई।' }; }
+      try { data = JSON.parse(text); } catch { data = { error: 'Invalid response from server - something went wrong.' }; }
       if (data.success) {
-        toast('success', `${data.domain?.domain_name} admin review के लिए submit हो गया।`);
+        toast('success', `${data.domain?.domain_name} submitted for admin review.`);
         onAdded();
         onClose();
       } else {
         // Surface the actionable reason instead of a raw/technical string.
-        let msg = data.error || 'डोमेन जोड़ने में त्रुटि';
-        if (data.code === 'E_EMAIL_ADDON_REQUIRED') msg = 'ईमेल ऐड-ऑन सक्रिय नहीं है। पहले ईमेल ऐड-ॉन प्लान खरीदें।';
-        else if (data.code === 'E_EMAIL_ADDON_LIMIT') msg = `डोमेन लिमिट पूरी: ${data.error} ऐड-ऑन अपग्रेड करें।`;
+        let msg = data.error || 'Error adding domain';
+        if (data.code === 'E_EMAIL_ADDON_REQUIRED') msg = 'Email add-on is not active. Purchase an email add-on plan first.';
+        else if (data.code === 'E_EMAIL_ADDON_LIMIT') msg = `Domain limit reached: ${data.error} upgrade the add-on.`;
         else if (data.code === 'E_DOMAIN_LIMIT') msg = data.error;
-        else if (data.code === 'E_DOMAIN_RATE_LIMIT') msg = 'बहुत ज़्यादा डोमेन जोड़ने की कोशिश — थोड़ी देर बाद कोशिश करें।';
+        else if (data.code === 'E_DOMAIN_RATE_LIMIT') msg = 'Too many domain add attempts - try again later.';
         toast('error', msg);
       }
     } catch (e: any) {
-      toast('error', e.message || 'डोमेन जोड़ने में त्रुटि');
+      toast('error', e.message || 'Error adding domain');
     } finally {
       setSaving(false);
     }
@@ -912,7 +912,7 @@ function AddDomainModal({ emailStatus, onClose, onAdded }: { emailStatus: { enti
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
       <div className="bg-white dark:bg-surface-900 rounded-2xl w-full max-w-lg p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5">
-          <h3 className="text-lg font-bold text-surface-900 dark:text-white">डोमेन जोड़ें</h3>
+          <h3 className="text-lg font-bold text-surface-900 dark:text-white">Add Domain</h3>
           <button onClick={onClose} className="text-surface-400 hover:text-surface-600 dark:hover:text-surface-200">
             <X className="w-5 h-5" />
           </button>
@@ -922,20 +922,20 @@ function AddDomainModal({ emailStatus, onClose, onAdded }: { emailStatus: { enti
           {emailStatus && !emailStatus.can_add_domain && (
             <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-3 text-sm text-amber-700 dark:text-amber-400">
               {emailStatus.domains_allowed === 0 ? (
-                <p>ईमेल डोमेन जोड़ने का विकल्प उपलब्ध नहीं है। कृपया एक ईमेल ऐड-ऑन खरीदें या ऐसा प्लान चुनें जिसमें ईमेल डोमेन शामिल हों।</p>
+                <p>The option to add an email domain is not available. Please purchase an email add-on or choose a plan that includes email domains.</p>
               ) : (
-                <p>डोमेन लिमिट पूरी हो चुकी है ({emailStatus.domains_used}/{emailStatus.domains_allowed})। और डोमेन जोड़ने के लिए प्लान/ऐड-ऑन अपग्रेड करें।</p>
+                <p>Domain limit reached ({emailStatus.domains_used}/{emailStatus.domains_allowed}). Upgrade your plan/add-on to add more domains.</p>
               )}
             </div>
           )}
 
           <div>
-            <label className="block text-xs font-semibold text-surface-500 dark:text-surface-400 mb-1">डोमेन नाम (जैसे: example.com)</label>{emailStatus && !emailStatus.can_add_domain && (
+            <label className="block text-xs font-semibold text-surface-500 dark:text-surface-400 mb-1">Domain name (e.g. example.com)</label>{emailStatus && !emailStatus.can_add_domain && (
             <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-3 text-sm text-amber-700 dark:text-amber-400">
               {emailStatus.domains_allowed === 0 ? (
-                <p>ईमेल डोमेन जोड़ने का विकल्प उपलब्ध नहीं है। कृपया एक ईमेल ऐड-ऑन खरीदें या ऐसा प्लान चुनें जिसमें ईमेल डोमेन शामिल हों।</p>
+                <p>The option to add an email domain is not available. Please purchase an email add-on or choose a plan that includes email domains.</p>
               ) : (
-                <p>डोमेन लिमिट पूरी हो चुकी है ({emailStatus.domains_used}/{emailStatus.domains_allowed})। और डोमेन जोड़ने के लिए प्लान/ऐड-ऑन अपग्रेड करें।</p>
+                <p>Domain limit reached ({emailStatus.domains_used}/{emailStatus.domains_allowed}). Upgrade your plan/add-on to add more domains.</p>
               )}
             </div>
           )}
@@ -951,30 +951,30 @@ function AddDomainModal({ emailStatus, onClose, onAdded }: { emailStatus: { enti
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-surface-500 dark:text-surface-400 mb-1">सेटअप मोड</label>
+            <label className="block text-xs font-semibold text-surface-500 dark:text-surface-400 mb-1">Setup mode</label>
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={() => setSetupMode('full')}
                 className={`p-3 rounded-xl border text-left transition-colors ${setupMode === 'full' ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20' : 'border-surface-200 dark:border-surface-700 hover:border-surface-300'}`}
               >
-                <span className="block text-sm font-semibold text-surface-900 dark:text-white">फुल सेटअप (सुझाया गया)</span>
-                <span className="block text-xs text-surface-500 dark:text-surface-400 mt-1">Nameservers बदलें — बाकी सब automatic</span>
+                <span className="block text-sm font-semibold text-surface-900 dark:text-white">Full setup (recommended)</span>
+                <span className="block text-xs text-surface-500 dark:text-surface-400 mt-1">Change nameservers - everything else automatic</span>
               </button>
               <button
                 type="button"
                 disabled={true}
                 className="p-3 rounded-xl border text-left border-surface-200 dark:border-surface-700 opacity-50 cursor-not-allowed"
               >
-                <span className="block text-sm font-semibold text-surface-900 dark:text-white">CNAME सेटअप</span>
-                <span className="block text-xs text-surface-500 dark:text-surface-400 mt-1">Email Routing के लिए उपलब्ध नहीं — केवल Full Setup चुनें</span>
+                <span className="block text-sm font-semibold text-surface-900 dark:text-white">CNAME setup</span>
+                <span className="block text-xs text-surface-500 dark:text-surface-400 mt-1">Not available for Email Routing - choose Full Setup only</span>
               </button>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-surface-500 dark:text-surface-400 mb-1">डिफ़ॉल्ट Mailbox</label>
+              <label className="block text-xs font-semibold text-surface-500 dark:text-surface-400 mb-1">Default Mailbox</label>
               <input
                 type="text"
                 value={defaultEmailPrefix}
@@ -984,7 +984,7 @@ function AddDomainModal({ emailStatus, onClose, onAdded }: { emailStatus: { enti
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-surface-500 dark:text-surface-400 mb-1">फॉरवर्ड करें (वैकल्पिक)</label>
+              <label className="block text-xs font-semibold text-surface-500 dark:text-surface-400 mb-1">Forward to (optional)</label>
               <input
                 type="email"
                 value={forwardTo}
@@ -1000,7 +1000,7 @@ function AddDomainModal({ emailStatus, onClose, onAdded }: { emailStatus: { enti
               onClick={onClose}
               className="flex-1 px-4 py-2.5 text-sm font-semibold text-surface-600 dark:text-surface-300 bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700 rounded-xl transition-colors"
             >
-              रद्द करें
+              Cancel
             </button>
             <button
               onClick={submit}
@@ -1008,7 +1008,7 @@ function AddDomainModal({ emailStatus, onClose, onAdded }: { emailStatus: { enti
               className="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-primary-600 hover:bg-primary-700 dark:bg-primary-500 dark:hover:bg-primary-600 rounded-xl transition-colors disabled:opacity-60 inline-flex items-center justify-center gap-2"
             >
               {saving && <Loader2 className="w-4 h-4 animate-spin" />}
-              {saving ? 'जोड़ रहे हैं...' : 'डोमेन जोड़ें'}
+              {saving ? 'Adding...' : 'Add Domain'}
             </button>
           </div>
         </div>
@@ -1052,7 +1052,7 @@ function ComposeSection({ domains }: { domains: any[] }) {
 
   const send = async () => {
     if (!to.trim() || !subject.trim() || !body.trim()) {
-      toast('warning', 'To, Subject और Body भरें');
+      toast('warning', 'Fill in To, Subject and Body');
       return;
     }
     setSending(true);
@@ -1064,13 +1064,13 @@ function ComposeSection({ domains }: { domains: any[] }) {
       });
       const data: any = await res.json();
       if (data.success) {
-        toast('success', `ईमेल भेज दिया गया → ${to.trim()}`);
+        toast('success', `Email sent → ${to.trim()}`);
         setTo(''); setSubject(''); setBody('');
       } else {
-        toast('error', data.error || 'ईमेल भेजने में त्रुटि');
+        toast('error', data.error || 'Error sending email');
       }
     } catch (e: any) {
-      toast('error', e.message || 'ईमेल भेजने में त्रुटि');
+      toast('error', e.message || 'Error sending email');
     } finally {
       setSending(false);
     }
@@ -1081,7 +1081,7 @@ function ComposeSection({ domains }: { domains: any[] }) {
       <div className="bg-white dark:bg-surface-900 rounded-2xl border border-dashed border-surface-300 dark:border-surface-700 p-10 text-center">
         <AlertCircle className="w-8 h-8 text-amber-500 mx-auto mb-3" />
         <p className="text-sm text-surface-500 dark:text-surface-400">
-          ईमेल भेजने के लिए पहले किसी डोमेन को verify करें (Status: Active)। &quot;डोमेन&quot; टैब में जाएं।
+          Verify a domain first to send email (Status: Active). Go to the &quot;Domains&quot; tab.
         </p>
       </div>
     );
@@ -1092,7 +1092,7 @@ function ComposeSection({ domains }: { domains: any[] }) {
       <div className="lg:col-span-2 bg-white dark:bg-surface-900 rounded-2xl border border-surface-200 dark:border-surface-800 p-6 space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-semibold text-surface-500 dark:text-surface-400 mb-1">किससे भेजें (आपके डोमेन से)</label>
+            <label className="block text-xs font-semibold text-surface-500 dark:text-surface-400 mb-1">From (your domain)</label>
             <select
               value={from}
               onChange={e => setFrom(e.target.value)}
@@ -1104,7 +1104,7 @@ function ComposeSection({ domains }: { domains: any[] }) {
             </select>
           </div>
           <div>
-            <label className="block text-xs font-semibold text-surface-500 dark:text-surface-400 mb-1">किसे भेजना है</label>
+            <label className="block text-xs font-semibold text-surface-500 dark:text-surface-400 mb-1">To</label>
             <input
               type="email"
               value={to}
@@ -1115,24 +1115,24 @@ function ComposeSection({ domains }: { domains: any[] }) {
           </div>
         </div>
         <div>
-          <label className="block text-xs font-semibold text-surface-500 dark:text-surface-400 mb-1">विषय</label>
+          <label className="block text-xs font-semibold text-surface-500 dark:text-surface-400 mb-1">Subject</label>
           <input
             type="text"
             value={subject}
             onChange={e => setSubject(e.target.value)}
-            placeholder="ईमेल का विषय"
+            placeholder="Email subject"
             className="w-full px-3 py-2.5 text-sm rounded-xl border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 text-surface-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
           />
         </div>
         <div>
           <label className="block text-xs font-semibold text-surface-500 dark:text-surface-400 mb-1">
-            Body — वेरिएबल: {'{{name}} {{otp}} {{link}}'}
+            Body - variables: {'{{name}} {{otp}} {{link}}'}
           </label>
           <textarea
             value={body}
             onChange={e => setBody(e.target.value)}
             rows={8}
-            placeholder="<h1>नमस्ते {{name}}!</h1><p>आपका OTP है: {{otp}}</p>"
+            placeholder="<h1>Hello {{name}}!</h1><p>Your OTP is: {{otp}}</p>"
             className="w-full px-3 py-2.5 text-sm rounded-xl border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 text-surface-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500 font-mono"
           />
         </div>
@@ -1143,13 +1143,13 @@ function ComposeSection({ domains }: { domains: any[] }) {
             className="inline-flex items-center gap-2 px-6 py-2.5 bg-primary-600 hover:bg-primary-700 dark:bg-primary-500 dark:hover:bg-primary-600 text-white text-sm font-semibold rounded-xl transition-colors disabled:opacity-60"
           >
             {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-            {sending ? 'भेज रहे हैं...' : 'ईमेल भेजें'}
+            {sending ? 'Sending...' : 'Send Email'}
           </button>
         </div>
       </div>
 
       <div className="bg-white dark:bg-surface-900 rounded-2xl border border-surface-200 dark:border-surface-800 p-6 h-fit">
-        <h4 className="text-sm font-semibold text-surface-900 dark:text-white mb-3">टेम्पलेट इस्तेमाल करें</h4>
+        <h4 className="text-sm font-semibold text-surface-900 dark:text-white mb-3">Use a template</h4>
         <TemplatePicker value={templateType} onChange={setTemplateType} />
       </div>
     </div>
@@ -1175,14 +1175,14 @@ function TemplatePicker({ value, onChange }: { value: string; onChange: (v: stri
     try {
       await navigator.clipboard.writeText(t.body_html);
       onChange(t.template_type);
-      toast('info', 'टेम्पलेट body copy हो गया — body में paste करें');
+      toast('info', 'Template body copied - paste it into the body');
     } catch {
       onChange(t.template_type);
     }
   };
 
   if (!templates.length) {
-    return <p className="text-xs text-surface-400">कोई टेम्पलेट नहीं बना है। &quot;टेम्पलेट्स&quot; टैब में बनाएं।</p>;
+    return <p className="text-xs text-surface-400">No templates yet. Create them in the &quot;Templates&quot; tab.</p>;
   }
 
   return (
@@ -1223,7 +1223,7 @@ function TemplatesSection() {
 
   const save = async () => {
     if (!editing?.template_type || !editing?.subject || !editing?.body_html) {
-      toast('warning', 'Template type, subject और body भरें');
+      toast('warning', 'Fill in Template type, subject and body');
       return;
     }
     try {
@@ -1234,21 +1234,21 @@ function TemplatesSection() {
       });
       const data: any = await res.json();
       if (data.success) {
-        toast('success', 'टेम्पलेट सेव हो गया');
+        toast('success', 'Template saved');
         setEditing(null);
         load();
       } else {
-        toast('error', data.error || 'सेव करने में त्रुटि');
+        toast('error', data.error || 'Error saving');
       }
     } catch (e: any) {
-      toast('error', e.message || 'सेव करने में त्रुटि');
+      toast('error', e.message || 'Error saving');
     }
   };
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <div className="bg-white dark:bg-surface-900 rounded-2xl border border-surface-200 dark:border-surface-800 p-6">
-        <h4 className="text-sm font-semibold text-surface-900 dark:text-white mb-3">टेम्पलेट्स ({templates.length})</h4>
+        <h4 className="text-sm font-semibold text-surface-900 dark:text-white mb-3">Templates ({templates.length})</h4>
         <div className="space-y-2">
           {templates.map(t => (
             <div key={t.id} className="flex items-center gap-3 px-4 py-3 bg-surface-50 dark:bg-surface-950/50 border border-surface-100 dark:border-surface-800 rounded-xl">
@@ -1261,40 +1261,40 @@ function TemplatesSection() {
                 onClick={() => setEditing(t)}
                 className="px-3 py-1.5 text-xs font-semibold text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/20 rounded-lg hover:bg-primary-100 dark:hover:bg-primary-900/40 transition-colors"
               >
-                एडिट करें
+                Edit
               </button>
             </div>
           ))}
-          {!templates.length && <p className="text-xs text-surface-400">कोई टेम्पलेट नहीं। दाईं ओर से बनाएं।</p>}
+          {!templates.length && <p className="text-xs text-surface-400">No templates. Create from the right.</p>}
         </div>
       </div>
 
       <div className="bg-white dark:bg-surface-900 rounded-2xl border border-surface-200 dark:border-surface-800 p-6 h-fit space-y-3">
-        <h4 className="text-sm font-semibold text-surface-900 dark:text-white">{editing ? 'टेम्पलेट एडिट करें' : 'नया टेम्पलेट'}</h4>
+        <h4 className="text-sm font-semibold text-surface-900 dark:text-white">{editing ? 'Edit Template' : 'New Template'}</h4>
         <input
           value={editing?.template_type || ''}
           onChange={e => setEditing((p: any) => ({ ...p, template_type: e.target.value.toLowerCase().replace(/\s+/g, '_') }))}
-          placeholder="template_type (जैसे: welcome, invoice, otp)"
+          placeholder="template_type (e.g. welcome, invoice, otp)"
           className="w-full px-3 py-2.5 text-sm rounded-xl border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 text-surface-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
         />
         <input
           value={editing?.subject || ''}
           onChange={e => setEditing((p: any) => ({ ...p, subject: e.target.value }))}
-          placeholder="विषय"
+          placeholder="Subject"
           className="w-full px-3 py-2.5 text-sm rounded-xl border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 text-surface-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
         />
         <textarea
           value={editing?.body_html || ''}
           onChange={e => setEditing((p: any) => ({ ...p, body_html: e.target.value }))}
           rows={8}
-          placeholder="HTML body — {{name}} {{otp}} {{link}} use करें"
+          placeholder="HTML body - use {{name}} {{otp}} {{link}}"
           className="w-full px-3 py-2.5 text-sm rounded-xl border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 text-surface-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500 font-mono"
         />
         <button
           onClick={save}
           className="w-full px-4 py-2.5 text-sm font-semibold text-white bg-primary-600 hover:bg-primary-700 dark:bg-primary-500 dark:hover:bg-primary-600 rounded-xl transition-colors"
         >
-          {editing ? 'अपडेट करें' : 'टेम्पलेट बनाएं'}
+          {editing ? 'Update' : 'Create Template'}
         </button>
       </div>
     </div>
@@ -1328,17 +1328,17 @@ function LogsSection() {
   return (
     <div className="bg-white dark:bg-surface-900 rounded-2xl border border-surface-200 dark:border-surface-800 overflow-hidden">
       <div className="px-5 py-4 border-b border-surface-100 dark:border-surface-800">
-        <h4 className="text-sm font-semibold text-surface-900 dark:text-white">सेंड लॉग्स (पिछले 100)</h4>
+        <h4 className="text-sm font-semibold text-surface-900 dark:text-white">Send Logs (last 100)</h4>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-xs text-surface-500 dark:text-surface-400 border-b border-surface-100 dark:border-surface-800">
-              <th className="px-5 py-3 font-semibold">समय</th>
-              <th className="px-5 py-3 font-semibold">किससे</th>
-              <th className="px-5 py-3 font-semibold">किसको</th>
-              <th className="px-5 py-3 font-semibold">विषय</th>
-              <th className="px-5 py-3 font-semibold">स्थिति</th>
+              <th className="px-5 py-3 font-semibold">Time</th>
+              <th className="px-5 py-3 font-semibold">From</th>
+              <th className="px-5 py-3 font-semibold">To</th>
+              <th className="px-5 py-3 font-semibold">Subject</th>
+              <th className="px-5 py-3 font-semibold">Status</th>
             </tr>
           </thead>
           <tbody>
@@ -1352,14 +1352,14 @@ function LogsSection() {
                 <td className="px-5 py-3 text-xs text-surface-600 dark:text-surface-400 max-w-[200px] truncate">{l.subject || ''}</td>
                 <td className="px-5 py-3">
                   <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${l.status === 'sent' ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'}`}>
-                    {l.status === 'sent' ? 'भेजा गया' : (l.error_code || 'विफल')}
+                    {l.status === 'sent' ? 'Sent' : (l.error_code || 'Failed')}
                   </span>
                 </td>
               </tr>
             ))}
             {!logs.length && (
               <tr>
-                <td colSpan={5} className="px-5 py-10 text-center text-sm text-surface-400">अभी तक कोई ईमेल नहीं भेजा गया</td>
+                <td colSpan={5} className="px-5 py-10 text-center text-sm text-surface-400">No emails sent yet</td>
               </tr>
             )}
           </tbody>
