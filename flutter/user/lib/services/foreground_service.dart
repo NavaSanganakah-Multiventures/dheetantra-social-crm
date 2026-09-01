@@ -65,8 +65,8 @@ class DheetantraForegroundService {
     }
     
     await FlutterForegroundTask.startService(
-      notificationTitle: 'DheeTantra सक्रिय है',
-      notificationText: 'नए संदेश प्राप्त हो रहे हैं',
+      notificationTitle: 'DheeTantra is active',
+      notificationText: 'Receiving new messages',
       callback: startCallback,
     );
   }
