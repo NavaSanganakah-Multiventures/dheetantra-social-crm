@@ -31,6 +31,8 @@ class PlivoVoiceService implements SipUaHelperListener {
   Completer<bool>? _registrationCompleter;
 
   String? _currentConfigId;
+  /// In-flight registration ke target config ki id (race fix ke liye).
+  String? _inFlightConfigId;
   List<dynamic> _credentialsList = [];
   bool _initStarted = false;
   bool _isMuted = false;
@@ -72,12 +74,17 @@ class PlivoVoiceService implements SipUaHelperListener {
   Future<bool> _register({String? targetConfigId}) async {
     final inflight = _registrationCompleter;
     if (inflight != null && !inflight.isCompleted) {
-      return _waitRegistration(inflight);
+      // Same endpoint ke liye existing attempt par wait karo; alag endpoint
+      // maanga gaya hai to pehle current attempt khatam hone do, phir neeche
+      // naye endpoint par register shuru karenge (warna switch skip ho jata).
+      if (_inFlightConfigId == targetConfigId || targetConfigId == null) {
+        return _waitRegistration(inflight);
+      }
+      await _waitRegistration(inflight);
     }
 
     if (_credentialsList.isEmpty) {
-      final res = await ApiService().getPlivoSipCredentials();
-      _credentialsList = res['credentials'] as List<dynamic>? ?? [];
+      await _refreshCredentials();
     }
 
     if (_credentialsList.isEmpty) {
@@ -88,6 +95,12 @@ class PlivoVoiceService implements SipUaHelperListener {
 
     // Default to the first config if none provided
     final configToUse = targetConfigId ?? _credentialsList.first['plivoConfigId'] as String;
+
+    // Cache me is config ki credentials nahi hain (jaise baad me naya Plivo
+    // account link hua ho) to backend se dobara fetch karo.
+    if (!_credentialsList.any((c) => c['plivoConfigId'] == configToUse)) {
+      await _refreshCredentials();
+    }
 
     if (_helper.registered && _currentConfigId == configToUse) {
        return true; // Already registered to this config
@@ -140,6 +153,7 @@ class PlivoVoiceService implements SipUaHelperListener {
 
     final completer = Completer<bool>();
     _registrationCompleter = completer;
+    _inFlightConfigId = configToUse;
 
     try {
       await _helper.start(settings);
@@ -147,10 +161,27 @@ class PlivoVoiceService implements SipUaHelperListener {
     } catch (e) {
       debugPrint('[PlivoVoice] SIP start error: $e');
       if (!completer.isCompleted) completer.complete(false);
+      if (identical(_registrationCompleter, completer)) {
+        _registrationCompleter = null;
+        _inFlightConfigId = null;
+      }
       return false;
     }
 
     return _waitRegistration(completer);
+  }
+
+  /// Backend se fresh SIP credentials fetch karke cache update karta hai.
+  Future<void> _refreshCredentials() async {
+    try {
+      final res = await ApiService().getPlivoSipCredentials();
+      final list = res['credentials'] as List<dynamic>? ?? [];
+      if (list.isNotEmpty) {
+        _credentialsList = list;
+      }
+    } catch (e) {
+      debugPrint('[PlivoVoice] failed to refresh SIP credentials: $e');
+    }
   }
 
   Future<void> switchAccountBackground(String configId) async {
@@ -175,6 +206,7 @@ class PlivoVoiceService implements SipUaHelperListener {
     } finally {
       if (identical(_registrationCompleter, completer)) {
         _registrationCompleter = null;
+        _inFlightConfigId = null;
       }
       // Allow future retries (e.g. network came back, credentials linked later).
       _initStarted = false;
