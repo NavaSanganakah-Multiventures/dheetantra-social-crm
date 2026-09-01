@@ -242,7 +242,13 @@ class _CallScreenState extends State<CallScreen> {
       final conferenceName = widget.callData['conferenceName']?.toString() ??
           widget.callData['id']?.toString() ??
           widget.callData['callId']?.toString() ?? '';
-      final ok = await PlivoVoiceService().joinConference(conferenceName);
+      // Incoming call jis Plivo config par aayi hai usi endpoint par join karo.
+      // Background switch miss ho jaye to bhi yahan sahi account register hoga.
+      final plivoConfigId = widget.callData['plivoConfigId']?.toString();
+      final ok = await PlivoVoiceService().joinConference(
+        conferenceName,
+        plivoConfigId: plivoConfigId,
+      );
       if (!ok && mounted) {
         // joinConference() already emitted a specific error (e.g. SIP
         // registration failure); do not override it with a generic message.
