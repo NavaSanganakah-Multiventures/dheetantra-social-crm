@@ -31,7 +31,7 @@ export function WhatsAppManagerView() {
   const [isFetchingProfile, setIsFetchingProfile] = useState(false);
   const [showMicTestModal, setShowMicTestModal] = useState(false);
   const [isMicTesting, setIsMicTesting] = useState(false);
-  const [micTestStatus, setMicTestStatus] = useState("निष्क्रिय");
+  const [micTestStatus, setMicTestStatus] = useState("Idle");
 
   // Refs for Mic Test audio streaming
   const micAudioContextRef = useRef<AudioContext | null>(null);
@@ -43,11 +43,11 @@ export function WhatsAppManagerView() {
   const startMicTest = async () => {
     try {
       setIsMicTesting(true);
-      setMicTestStatus("Gemini से कनेक्ट हो रहा है...");
+      setMicTestStatus("Connecting to Gemini...");
 
       const wId = localStorage.getItem('workspaceId');
       if (!wId) {
-        setMicTestStatus("त्रुटि: Workspace ID नहीं मिली");
+        setMicTestStatus("Error: Workspace ID not found");
         setIsMicTesting(false);
         return;
       }
@@ -59,13 +59,13 @@ export function WhatsAppManagerView() {
       micWsRef.current = ws;
 
       ws.onopen = async () => {
-        setMicTestStatus("कनेक्ट हुआ, माइक सेट हो रहा है...");
+        setMicTestStatus("Connected, setting up microphone...");
 
         // 1. Send Setup message with instructions
         ws.send(JSON.stringify({
           setup: {
             model: "models/gemini-2.0-flash-exp",
-            systemInstruction: { parts: [{ text: aiVoiceInstructions || "आप एक सहायक AI सहायक हैं। कृपया हिंदी में विनम्रता से बात करें।" }] },
+            systemInstruction: { parts: [{ text: aiVoiceInstructions || "You are a helpful AI assistant. Please speak politely in Hindi." }] },
             generationConfig: { responseModalities: ["AUDIO"] }
           }
         }));
@@ -116,11 +116,11 @@ export function WhatsAppManagerView() {
             source.connect(processor);
             processor.connect(micAudioContextRef.current.destination);
 
-            setMicTestStatus("सुन रहा है (Gemini से बात करें)");
+            setMicTestStatus("Listening (talk to Gemini)");
 
         } catch (err) {
             console.error("Mic error:", err);
-            setMicTestStatus("माइक एक्सेस करने में त्रुटि।");
+            setMicTestStatus("Error accessing microphone.");
             stopMicTest();
         }
       };
@@ -172,25 +172,25 @@ export function WhatsAppManagerView() {
       };
 
       ws.onerror = () => {
-          setMicTestStatus("WebSocket त्रुटि।");
+          setMicTestStatus("WebSocket error.");
           stopMicTest();
       };
 
       ws.onclose = () => {
-          setMicTestStatus("कनेक्शन बंद हो गया।");
+          setMicTestStatus("Connection closed.");
           stopMicTest();
       };
 
     } catch (err) {
       console.error(err);
-      setMicTestStatus("शुरू करने में विफल।");
+      setMicTestStatus("Failed to start.");
       setIsMicTesting(false);
     }
   };
 
   const stopMicTest = () => {
       setIsMicTesting(false);
-      setMicTestStatus("निष्क्रिय");
+      setMicTestStatus("Idle");
 
       if (micProcessorRef.current) {
           micProcessorRef.current.disconnect();
@@ -252,12 +252,12 @@ export function WhatsAppManagerView() {
   const [flowScreens, setFlowScreens] = useState<any[]>([
     {
       id: "screen_1",
-      title: "मुख्य स्क्रीन",
+      title: "Main screen",
       components: [
-        { id: "c1", type: "text", label: "विवरण", content: "कृप्या अपनी जानकारी दर्ज करें।" },
-        { id: "c2", type: "input", label: "आपका नाम", name: "fullName", placeholder: "उदा. राहुल कुमार", required: true },
-        { id: "c3", type: "input", label: "ईमेल पता", name: "email", placeholder: "उदा. rahul@example.com", required: true },
-        { id: "c4", type: "submit", label: "प्रस्तुत करें" }
+        { id: "c1", type: "text", label: "Description", content: "Please enter your information." },
+        { id: "c2", type: "input", label: "Your name", name: "fullName", placeholder: "e.g. Rahul Kumar", required: true },
+        { id: "c3", type: "input", label: "Email address", name: "email", placeholder: "e.g. rahul@example.com", required: true },
+        { id: "c4", type: "submit", label: "Submit" }
       ]
     }
   ]);
@@ -327,7 +327,7 @@ export function WhatsAppManagerView() {
         if (data.type === 'WA_EMBEDDED_SIGNUP') {
           if (data.event === 'FINISH') {
             const { phone_number_id, waba_id } = data.data;
-            setMessage("Embedded Signup पूरा हुआ, सर्वर पर रजिस्टर किया जा रहा है...");
+            setMessage("Embedded Signup complete, registering on server...");
             
             fetch('/api/meta/embedded-signup', {
                 method: 'POST',
@@ -340,13 +340,13 @@ export function WhatsAppManagerView() {
                 })
             }).then(r => r.json()).then((res: any) => {
                 if (res.success) {
-                    setMessage(`सफल! WhatsApp खाता जोड़ा गया: ${res.waba}`);
+                    setMessage(`Success! WhatsApp account added: ${res.waba}`);
                     loadConfigs();
                 } else {
-                    setMessage(`त्रुटि: ${res.error}`);
+                    setMessage(`Error: ${res.error}`);
                 }
             }).catch(() => {
-                setMessage("सर्वर से संपर्क करने में त्रुटि।");
+                setMessage("Error contacting the server.");
             });
           }
         }
@@ -359,11 +359,11 @@ export function WhatsAppManagerView() {
   // Fetch Profile from Meta
   const handleFetchMetaProfile = async () => {
     if (!phoneNumberId) {
-      setMessage("मेटा से फ़ेच करने के लिए कृपया पहले Phone Number ID भरें।");
+      setMessage("Please enter the Phone Number ID first to fetch from Meta.");
       return;
     }
     setIsFetchingProfile(true);
-    setMessage("Meta से नवीनतम प्रोफ़ाइल फ़ेच की जा रही है...");
+    setMessage("Fetching the latest profile from Meta...");
     try {
       const res = await fetch(`/api/whatsapp/config/profile?phoneNumberId=${phoneNumberId}`, {
         headers: { 'x-workspace-id': localStorage.getItem('workspaceId') || '' }
@@ -376,12 +376,12 @@ export function WhatsAppManagerView() {
         setProfileEmail(data.profile.email || "");
         setProfileAddress(data.profile.address || "");
         if (data.profile.profile_picture_url) setProfilePictureUrl(data.profile.profile_picture_url);
-        setMessage("मेटा से प्रोफ़ाइल सफलतापूर्वक फ़ेच की गई! सुरक्षित करने के लिए 'सुरक्षित करें' दबाएँ।");
+        setMessage("Profile fetched from Meta successfully! Press 'Save' to store it.");
       } else {
-        setMessage("त्रुटि: प्रोफ़ाइल फ़ेच करने में विफल (" + (data.error || "अज्ञात त्रुटि") + ")");
+        setMessage("Error: failed to fetch profile (" + (data.error || "unknown error") + ")");
       }
     } catch (e) {
-      setMessage("सर्वर से संपर्क करने में त्रुटि।");
+      setMessage("Error contacting the server.");
     } finally {
       setIsFetchingProfile(false);
     }
@@ -394,7 +394,7 @@ export function WhatsAppManagerView() {
     try {
       const wId = localStorage.getItem('workspaceId');
       if (!wId) {
-        setMessage("Workspace ID नहीं मिली। कृप्या पेज रीफ़्रेश करें या दोबारा लॉगिन करें।");
+        setMessage("Workspace ID not found. Please refresh the page or log in again.");
         return;
       }
       const payload: any = {
@@ -439,14 +439,14 @@ export function WhatsAppManagerView() {
       });
       const data: any = await res.json();
       if (data.success) {
-        setMessage("सफलतापूर्वक सहेज लिया गया!");
+        setMessage("Saved successfully!");
         setShowProfileModal(false);
         loadConfigs();
       } else {
-        setMessage("त्रुटि: " + (data.error || "सहेजने में असमर्थ"));
+        setMessage("Error: " + (data.error || "Unable to save"));
       }
     } catch (e) {
-      setMessage("सर्वर त्रुटि");
+      setMessage("Server error");
     } finally {
       setSavingConfig(false);
     }
@@ -490,7 +490,7 @@ export function WhatsAppManagerView() {
   };
 
   const handleDeleteProfile = async (id: string) => {
-    if (!confirm("क्या आप वाकई इस प्रोफाइल को हटाना चाहते हैं?")) return;
+    if (!confirm("Are you sure you want to delete this profile?")) return;
     try {
       const res = await fetch(`/api/whatsapp/config/${id}`, {
         method: 'DELETE',
@@ -503,7 +503,7 @@ export function WhatsAppManagerView() {
         alert(data.error);
       }
     } catch (e) {
-      alert("त्रुटि हुई");
+      alert("Something went wrong");
     }
   };
 
@@ -514,12 +514,12 @@ export function WhatsAppManagerView() {
     setFlowScreens([
       {
         id: "screen_1",
-        title: "मुख्य स्क्रीन",
+        title: "Main screen",
         components: [
-          { id: "c1", type: "text", label: "विवरण", content: "कृप्या अपनी जानकारी दर्ज करें।" },
-          { id: "c2", type: "input", label: "आपका नाम", name: "fullName", placeholder: "उदा. राहुल कुमार", required: true },
-          { id: "c3", type: "input", label: "ईमेल पता", name: "email", placeholder: "उदा. rahul@example.com", required: true },
-          { id: "c4", type: "submit", label: "प्रस्तुत करें" }
+          { id: "c1", type: "text", label: "Description", content: "Please enter your information." },
+          { id: "c2", type: "input", label: "Your name", name: "fullName", placeholder: "e.g. Rahul Kumar", required: true },
+          { id: "c3", type: "input", label: "Email address", name: "email", placeholder: "e.g. rahul@example.com", required: true },
+          { id: "c4", type: "submit", label: "Submit" }
         ]
       }
     ]);
@@ -547,7 +547,7 @@ export function WhatsAppManagerView() {
 
   const handleSaveFlow = async () => {
     if (!flowName.trim()) {
-      alert("फ़्लो का नाम आवश्यक है");
+      alert("Flow name is required");
       return;
     }
     try {
@@ -574,12 +574,12 @@ export function WhatsAppManagerView() {
         alert(data.error);
       }
     } catch (e) {
-      alert("सहेजने में विफलता");
+      alert("Failed to save");
     }
   };
 
   const handleDeleteFlow = async (id: string) => {
-    if (!confirm("क्या आप वाकई इस फ़्लो को हटाना चाहते हैं?")) return;
+    if (!confirm("Are you sure you want to delete this flow?")) return;
     try {
       const res = await fetch(`/api/whatsapp/flows/${id}`, {
         method: 'DELETE',
@@ -592,12 +592,12 @@ export function WhatsAppManagerView() {
         alert(data.error);
       }
     } catch (e) {
-      alert("त्रुटि हुई");
+      alert("Something went wrong");
     }
   };
 
   const handlePublishFlow = async (id: string) => {
-    if (!confirm("क्या आप इस फ़्लो को लाइव/प्रकाशित करना चाहते हैं?")) return;
+    if (!confirm("Are you sure you want to publish this flow live?")) return;
     try {
       const res = await fetch(`/api/whatsapp/flows/${id}/publish`, {
         method: 'POST',
@@ -610,7 +610,7 @@ export function WhatsAppManagerView() {
         alert(data.error);
       }
     } catch (e) {
-      alert("त्रुटि हुई");
+      alert("Something went wrong");
     }
   };
 
@@ -625,19 +625,19 @@ export function WhatsAppManagerView() {
     };
 
     if (type === 'text') {
-      newComp.label = "विवरण";
-      newComp.content = "यहाँ विवरण दर्ज करें...";
+      newComp.label = "Description";
+      newComp.content = "Enter description here...";
     } else if (type === 'input' || type === 'textarea') {
-      newComp.label = "नई इनपुट फील्ड";
-      newComp.placeholder = "दर्ज करें...";
+      newComp.label = "New input field";
+      newComp.placeholder = "Enter...";
       newComp.name = "field_" + newComp.id;
       newComp.required = false;
     } else if (type === 'select') {
-      newComp.label = "ड्रॉपडाउन फील्ड";
+      newComp.label = "Dropdown field";
       newComp.name = "select_" + newComp.id;
-      newComp.options = "विकल्प 1, विकल्प 2, विकल्प 3";
+      newComp.options = "Option 1, Option 2, Option 3";
     } else if (type === 'submit') {
-      newComp.label = "प्रस्तुत करें";
+      newComp.label = "Submit";
     }
 
     const updatedScreens = flowScreens.map(s => {
@@ -694,10 +694,10 @@ export function WhatsAppManagerView() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-surface-900 p-6 rounded-2xl border border-surface-200 dark:border-surface-800 shadow-sm">
         <div>
           <h2 className="text-2xl font-bold text-surface-900 dark:text-white flex items-center gap-2">
-            <Phone className="w-6 h-6 text-emerald-500" /> WhatsApp हब
+            <Phone className="w-6 h-6 text-emerald-500" /> WhatsApp Hub
           </h2>
           <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">
-            अपने कनेक्टेड प्रोफ़ाइल, टेम्पलेट्स और इंटरेक्टिव फ़्लो को प्रबंधित करें।
+            Manage your connected profiles, templates and interactive flows.
           </p>
         </div>
         
@@ -707,19 +707,19 @@ export function WhatsAppManagerView() {
             onClick={() => setActiveSubTab('profiles')}
             className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 ${activeSubTab === 'profiles' ? 'bg-white dark:bg-surface-900 text-surface-950 dark:text-white shadow-sm' : 'text-surface-500 hover:text-surface-800'}`}
           >
-            <User className="w-4 h-4 text-emerald-500" /> प्रोफ़ाइल
+            <User className="w-4 h-4 text-emerald-500" /> Profile
           </button>
           <button 
             onClick={() => setActiveSubTab('templates')}
             className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 ${activeSubTab === 'templates' ? 'bg-white dark:bg-surface-900 text-surface-950 dark:text-white shadow-sm' : 'text-surface-500 hover:text-surface-800'}`}
           >
-            <FileText className="w-4 h-4 text-primary-500" /> टेम्पलेट्स
+            <FileText className="w-4 h-4 text-primary-500" /> Templates
           </button>
           <button 
             onClick={() => setActiveSubTab('flows')}
             className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 ${activeSubTab === 'flows' ? 'bg-white dark:bg-surface-900 text-surface-950 dark:text-white shadow-sm' : 'text-surface-500 hover:text-surface-800'}`}
           >
-            <Blocks className="w-4 h-4 text-amber-500" /> फ़्लो
+            <Blocks className="w-4 h-4 text-amber-500" /> Flows
           </button>
         </div>
       </div>
@@ -729,7 +729,7 @@ export function WhatsAppManagerView() {
         <div className="space-y-6">
           <div className="flex justify-between items-center bg-surface-50 dark:bg-surface-900/40 p-4 rounded-xl border border-surface-100 dark:border-surface-800/60">
             <h3 className="font-bold text-surface-800 dark:text-surface-200 flex items-center gap-1.5">
-              कनेक्टेड WhatsApp प्रोफ़ाइल ({configs.length})
+              Connected WhatsApp profiles ({configs.length})
             </h3>
             <div className="flex gap-3">
               {/* Meta Onboarding button */}
@@ -738,9 +738,9 @@ export function WhatsAppManagerView() {
                   if (typeof window !== 'undefined' && (window as any).FB) {
                     (window as any).FB.login((response: any) => {
                       if (response.authResponse) {
-                        setMessage("Meta login सफल, Embedded Onboarding शुरू...");
+                        setMessage("Meta login successful, starting Embedded Onboarding...");
                       } else {
-                        setMessage("Meta login रद्द या त्रुटि।");
+                        setMessage("Meta login cancelled or error.");
                       }
                     }, {
                       scope: 'whatsapp_business_management,whatsapp_business_messaging',
@@ -756,12 +756,12 @@ export function WhatsAppManagerView() {
                       }
                     });
                   } else {
-                    alert("Meta Facebook SDK लोड नहीं हुआ है। कृपया पेज रीलोड करें।");
+                    alert("Meta Facebook SDK is not loaded. Please reload the page.");
                   }
                 }}
                 className="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all shadow-sm flex items-center gap-2"
               >
-                <Blocks className="w-4 h-4" /> ऑटो कनेक्ट
+                <Blocks className="w-4 h-4" /> Auto connect
               </button>
               
               <button 
@@ -780,7 +780,7 @@ export function WhatsAppManagerView() {
                 }}
                 className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all shadow-sm flex items-center gap-2"
               >
-                <Plus className="w-4 h-4" /> मैन्युअल जोड़ें
+                <Plus className="w-4 h-4" /> Add manually
               </button>
             </div>
           </div>
@@ -793,12 +793,12 @@ export function WhatsAppManagerView() {
           )}
 
           {loadingConfigs ? (
-            <div className="p-12 text-center text-surface-400">प्रोफ़ाइल लोड की जा रही हैं...</div>
+            <div className="p-12 text-center text-surface-400">Loading profiles...</div>
           ) : configs.length === 0 ? (
             <div className="p-16 text-center border-2 border-dashed border-surface-200 dark:border-surface-800 rounded-3xl bg-white dark:bg-surface-950/30 flex flex-col items-center">
               <Phone className="w-12 h-12 text-surface-300 dark:text-surface-700 mb-4 animate-bounce" />
-              <h4 className="font-bold text-lg mb-1">कोई सक्रिय खाता नहीं मिला</h4>
-              <p className="text-sm text-surface-500 max-w-sm mb-6">WhatsApp API का उपयोग शुरू करने के लिए एक खाता मैन्युअल रूप से जोड़ें या एम्बेडेड साइनअप का उपयोग करें।</p>
+              <h4 className="font-bold text-lg mb-1">No active account found</h4>
+              <p className="text-sm text-surface-500 max-w-sm mb-6">Add an account manually or use Embedded Signup to start using the WhatsApp API.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -808,7 +808,7 @@ export function WhatsAppManagerView() {
                     <div className="flex justify-between items-start">
                       <div>
                         <h4 className="font-bold text-surface-900 dark:text-white flex items-center gap-1.5 font-display">
-                          {cfg.phone_number_id ? `+${cfg.phone_number_id.substring(0,2)}...` : "WhatsApp API लाइन"}
+                          {cfg.phone_number_id ? `+${cfg.phone_number_id.substring(0,2)}...` : "WhatsApp API line"}
                         </h4>
                         <p className="text-[11px] text-surface-400 font-mono mt-1">ID: {cfg.id}</p>
                       </div>
@@ -817,23 +817,23 @@ export function WhatsAppManagerView() {
                         cfg.reply_mode === 'rule_based' ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400' :
                         'bg-surface-100 text-surface-700 dark:bg-surface-800 dark:text-surface-400'
                       }`}>
-                        {cfg.reply_mode === 'ai' ? 'AI बॉट' : cfg.reply_mode === 'rule_based' ? 'रूल्स' : 'मैन्युअल'}
+                        {cfg.reply_mode === 'ai' ? 'AI Bot' : cfg.reply_mode === 'rule_based' ? 'Rules' : 'Manual'}
                       </span>
                     </div>
 
                     <div className="space-y-2 border-t border-surface-100 dark:border-surface-800 pt-3 text-xs">
-                      <div className="flex justify-between"><span className="text-surface-400">Phone ID:</span> <span className="font-mono text-surface-700 dark:text-surface-300">{cfg.phone_number_id || "कोई नहीं"}</span></div>
-                      <div className="flex justify-between"><span className="text-surface-400">WABA ID:</span> <span className="font-mono text-surface-700 dark:text-surface-300">{cfg.waba_id || "कोई नहीं"}</span></div>
+                      <div className="flex justify-between"><span className="text-surface-400">Phone ID:</span> <span className="font-mono text-surface-700 dark:text-surface-300">{cfg.phone_number_id || "None"}</span></div>
+                      <div className="flex justify-between"><span className="text-surface-400">WABA ID:</span> <span className="font-mono text-surface-700 dark:text-surface-300">{cfg.waba_id || "None"}</span></div>
                       {cfg.username && (
-                        <div className="flex justify-between"><span className="text-surface-400">यूज़रनेम:</span> <span className="font-mono text-primary-600 dark:text-primary-400">@{cfg.username}</span></div>
+                        <div className="flex justify-between"><span className="text-surface-400">Username:</span> <span className="font-mono text-primary-600 dark:text-primary-400">@{cfg.username}</span></div>
                       )}
                       {cfg.about && (
-                        <div className="flex justify-between"><span className="text-surface-400">जानकारी:</span> <span className="text-surface-700 dark:text-surface-300 truncate max-w-[180px]">{cfg.about}</span></div>
+                        <div className="flex justify-between"><span className="text-surface-400">About:</span> <span className="text-surface-700 dark:text-surface-300 truncate max-w-[180px]">{cfg.about}</span></div>
                       )}
                       <div className="flex justify-between">
-                        <span className="text-surface-400">कॉलिंग:</span>
+                        <span className="text-surface-400">Calling:</span>
                         <span className={`font-mono ${cfg.calling_enabled ? 'text-emerald-500' : 'text-red-400'}`}>
-                          {cfg.calling_enabled ? 'सक्षम' : 'अक्षम'}
+                          {cfg.calling_enabled ? 'Enabled' : 'Disabled'}
                         </span>
                       </div>
                     </div>
@@ -841,7 +841,7 @@ export function WhatsAppManagerView() {
 
                   <div className="p-4 bg-surface-50 dark:bg-surface-950/50 border-t border-surface-100 dark:border-surface-800 flex gap-2">
                     <button onClick={() => handleEditProfile(cfg)} className="flex-1 bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 text-surface-700 dark:text-surface-300 py-2 rounded-xl text-xs font-semibold hover:bg-surface-50 dark:hover:bg-surface-800 transition-all flex items-center justify-center gap-1.5 shadow-sm">
-                      <Edit className="w-3.5 h-3.5" /> संपादित करें
+                      <Edit className="w-3.5 h-3.5" /> Edit
                     </button>
                     <button onClick={() => handleDeleteProfile(cfg.id)} className="p-2 border border-surface-200 dark:border-surface-800 text-surface-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl transition-all">
                       <Trash2 className="w-4 h-4" />
@@ -858,7 +858,7 @@ export function WhatsAppManagerView() {
               <div className="bg-white dark:bg-surface-900 rounded-2xl w-full max-w-sm overflow-hidden border border-surface-200 dark:border-surface-800 shadow-xl animate-in zoom-in-95 duration-250">
                 <div className="p-4 border-b border-surface-100 dark:border-surface-800 flex justify-between items-center">
                   <h3 className="text-lg font-bold text-surface-900 dark:text-white flex items-center gap-2">
-                    <Phone className="w-5 h-5 text-primary-500" /> Gemini से बात करें
+                    <Phone className="w-5 h-5 text-primary-500" /> Talk to Gemini
                   </h3>
                   <button onClick={() => { stopMicTest(); setShowMicTestModal(false); }} className="text-surface-400 hover:text-surface-600 dark:hover:text-surface-200">
                     <X className="w-5 h-5" />
@@ -878,7 +878,7 @@ export function WhatsAppManagerView() {
                   </div>
 
                   <div>
-                    <h4 className="font-bold text-surface-900 dark:text-white">{isMicTesting ? 'माइक चालू है' : 'टेस्ट के लिए तैयार'}</h4>
+                    <h4 className="font-bold text-surface-900 dark:text-white">{isMicTesting ? 'Mic is on' : 'Ready to test'}</h4>
                     <p className="text-xs text-surface-500 mt-1">{micTestStatus}</p>
                   </div>
 
@@ -888,14 +888,14 @@ export function WhatsAppManagerView() {
                         onClick={startMicTest}
                         className="bg-primary-600 hover:bg-primary-700 text-white px-6 py-2.5 rounded-xl text-sm font-bold shadow-sm transition-all"
                       >
-                        शुरू करें
+                        Start
                       </button>
                     ) : (
                       <button
                         onClick={stopMicTest}
                         className="bg-rose-500 hover:bg-rose-600 text-white px-6 py-2.5 rounded-xl text-sm font-bold shadow-sm transition-all flex items-center gap-2"
                       >
-                         रोकें
+                         Stop
                       </button>
                     )}
                   </div>
@@ -910,7 +910,7 @@ export function WhatsAppManagerView() {
               <div className="bg-white dark:bg-surface-900 rounded-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto border border-surface-200 dark:border-surface-800 shadow-xl animate-in zoom-in-95 duration-250">
                 <div className="p-6 border-b border-surface-100 dark:border-surface-800 flex justify-between items-center">
                   <h3 className="text-lg font-bold text-surface-900 dark:text-white">
-                    {editingConfig ? "WhatsApp खाता संपादित करें" : "नया WhatsApp खाता जोड़ें"}
+                    {editingConfig ? "Edit WhatsApp account" : "Add new WhatsApp account"}
                   </h3>
                   <button onClick={() => setShowProfileModal(false)} className="text-surface-400 hover:text-surface-600 dark:hover:text-surface-200"><X className="w-5 h-5" /></button>
                 </div>
@@ -923,7 +923,7 @@ export function WhatsAppManagerView() {
                         type="text" 
                         value={phoneNumberId} 
                         onChange={(e) => setPhoneNumberId(e.target.value)}
-                        placeholder="उदा. 104523912..."
+                        placeholder="e.g. 104523912..."
                         className="w-full text-sm p-2.5 rounded-xl border border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-950 focus:border-primary-500 outline-none"
                       />
                     </div>
@@ -933,7 +933,7 @@ export function WhatsAppManagerView() {
                         type="text" 
                         value={wabaId} 
                         onChange={(e) => setWabaId(e.target.value)}
-                        placeholder="उदा. 104234059..."
+                        placeholder="e.g. 104234059..."
                         className="w-full text-sm p-2.5 rounded-xl border border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-950 focus:border-primary-500 outline-none"
                       />
                     </div>
@@ -957,20 +957,20 @@ export function WhatsAppManagerView() {
                         type="text" 
                         value={verifyToken} 
                         onChange={(e) => setVerifyToken(e.target.value)}
-                        placeholder="उदा. secureToken123"
+                        placeholder="e.g. secureToken123"
                         className="w-full text-sm p-2.5 rounded-xl border border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-950 focus:border-primary-500 outline-none"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-surface-500 uppercase tracking-wider mb-1">ऑटो-रिप्लाई मोड</label>
+                      <label className="block text-xs font-semibold text-surface-500 uppercase tracking-wider mb-1">Auto-reply mode</label>
                       <select 
                         value={replyMode} 
                         onChange={(e) => setReplyMode(e.target.value)}
                         className="w-full text-sm p-2.5 rounded-xl border border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-950 focus:border-primary-500 outline-none"
                       >
-                        <option value="manual">मैन्युअल</option>
-                        <option value="ai">AI चैटबॉट</option>
-                        <option value="rule_based">रूल्स आधारित</option>
+                        <option value="manual">Manual</option>
+                        <option value="ai">AI Chatbot</option>
+                        <option value="rule_based">Rule-based</option>
                       </select>
                     </div>
                   </div>
@@ -978,7 +978,7 @@ export function WhatsAppManagerView() {
                   {replyMode === 'ai' && (
                     <div className="grid grid-cols-1 gap-4 bg-surface-50 dark:bg-surface-900 p-4 rounded-xl border border-surface-200 dark:border-surface-800">
                       <div>
-                        <label className="block text-xs font-semibold text-surface-500 uppercase tracking-wider mb-1">AI प्रदाता</label>
+                        <label className="block text-xs font-semibold text-surface-500 uppercase tracking-wider mb-1">AI provider</label>
                         <select
                           value={aiProvider}
                           onChange={(e) => setAiProvider(e.target.value)}
@@ -989,19 +989,19 @@ export function WhatsAppManagerView() {
                         </select>
                       </div>
                       <div>
-                        <label className="block text-xs font-semibold text-surface-500 uppercase tracking-wider mb-1">वॉइस AI एजेंट निर्देश</label>
+                        <label className="block text-xs font-semibold text-surface-500 uppercase tracking-wider mb-1">Voice AI agent instructions</label>
                         <textarea
                           value={aiVoiceInstructions}
                           onChange={(e) => setAiVoiceInstructions(e.target.value)}
-                          placeholder="उदा. आप वॉइस कॉल के लिए एक सहायक AI सहायक हैं। कृपया हिंदी में विनम्रता से बात करें।"
+                          placeholder="e.g. You are a helpful AI assistant for voice calls. Please speak politely in Hindi."
                           className="w-full text-sm p-2.5 rounded-xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-950 focus:border-primary-500 outline-none h-20"
                         />
-                        <p className="text-[10px] text-surface-400 mt-1">ये निर्देश तब उपयोग किए जाएंगे जब कोई यूज़र WhatsApp पर वॉइस कॉल करेगा (WebRTC System Call)।</p>
+                        <p className="text-[10px] text-surface-400 mt-1">These instructions are used when a user makes a voice call on WhatsApp (WebRTC System Call).</p>
                         <button
                           onClick={() => setShowMicTestModal(true)}
                           className="mt-3 bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all shadow-sm flex items-center gap-2"
                         >
-                          <Phone className="w-4 h-4" /> Gemini से बात करें
+                          <Phone className="w-4 h-4" /> Talk to Gemini
                         </button>
                       </div>
                     </div>
@@ -1009,7 +1009,7 @@ export function WhatsAppManagerView() {
 
                   {/* Calling and WebRTC configuration sub-panel */}
                   <div className="border-t border-surface-100 dark:border-surface-800 pt-4 mt-2">
-                    <h4 className="text-xs font-bold text-surface-800 dark:text-surface-200 uppercase tracking-wider mb-3">SIP Calling / WebRTC सेटिंग्स (वैकल्पिक)</h4>
+                    <h4 className="text-xs font-bold text-surface-800 dark:text-surface-200 uppercase tracking-wider mb-3">SIP Calling / WebRTC settings (optional)</h4>
                     <div className="space-y-3">
                       <div>
                         <label className="block text-[11px] font-semibold text-surface-400 mb-1">SIP Server WS Address</label>
@@ -1071,7 +1071,7 @@ export function WhatsAppManagerView() {
                           ) : (
                             <Facebook className="w-3.5 h-3.5" />
                           )}
-                          {isFetchingProfile ? 'फ़ेच हो रहा है...' : 'मेटा से फ़ेच करें'}
+                          {isFetchingProfile ? 'Fetching...' : 'Fetch from Meta'}
                         </button>
                       )}
                     </div>
@@ -1080,10 +1080,10 @@ export function WhatsAppManagerView() {
                       <div className="flex flex-col items-center mb-4">
                         <div className="relative">
                           {profilePictureUrl ? (
-                            <img src={profilePictureUrl} alt="प्रोफ़ाइल" className="w-24 h-24 rounded-full object-cover border-2 border-surface-200 dark:border-surface-700" />
+                            <img src={profilePictureUrl} alt="Profile" className="w-24 h-24 rounded-full object-cover border-2 border-surface-200 dark:border-surface-700" />
                           ) : (
                             <div className="w-24 h-24 rounded-full bg-surface-100 dark:bg-surface-800 border-2 border-dashed border-surface-300 dark:border-surface-600 flex items-center justify-center">
-                              <span className="text-surface-400 text-xs">कोई फ़ोटो नहीं</span>
+                              <span className="text-surface-400 text-xs">No photo</span>
                             </div>
                           )}
                           <label className="absolute -bottom-1 -right-1 w-8 h-8 bg-primary-500 hover:bg-primary-600 text-white rounded-full flex items-center justify-center cursor-pointer shadow-md transition-colors">
@@ -1108,12 +1108,12 @@ export function WhatsAppManagerView() {
                                   const data: any = await res.json();
                                   if (data.success) {
                                     setProfilePictureUrl(data.profile_picture_url);
-                                    setMessage("प्रोफ़ाइल फ़ोटो अपडेट की गई!");
+                                    setMessage("Profile photo updated!");
                                   } else {
-                                    setMessage("त्रुटि: " + (data.error || "अपलोड विफल"));
+                                    setMessage("Error: " + (data.error || "Upload failed"));
                                   }
                                 } catch (err) {
-                                  setMessage("अपलोड त्रुटि");
+                                  setMessage("Upload error");
                                 } finally {
                                   setUploadingPicture(false);
                                 }
@@ -1126,12 +1126,12 @@ export function WhatsAppManagerView() {
                             )}
                           </label>
                         </div>
-                        <p className="text-[10px] text-surface-400 mt-2">प्रोफ़ाइल फ़ोटो — WhatsApp पर सिंक होती है</p>
+                        <p className="text-[10px] text-surface-400 mt-2">Profile photo - syncs with WhatsApp</p>
                       </div>
 
                       {/* About with character counter */}
                       <div>
-                        <label className="block text-[11px] font-semibold text-surface-400 mb-1">जानकारी</label>
+                        <label className="block text-[11px] font-semibold text-surface-400 mb-1">About</label>
                         <div className="relative">
                           <textarea
                             value={profileAbout}
@@ -1139,7 +1139,7 @@ export function WhatsAppManagerView() {
                               const val = e.target.value;
                               if (val.length <= 139) setProfileAbout(val);
                             }}
-                            placeholder="आपका WhatsApp Business about टेक्स्ट"
+                            placeholder="Your WhatsApp Business about text"
                             rows={2}
                             className="w-full text-xs p-2.5 rounded-xl border border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-950 focus:border-primary-500 outline-none resize-none pr-16"
                           />
@@ -1147,22 +1147,22 @@ export function WhatsAppManagerView() {
                             {profileAbout.length}/139
                           </span>
                         </div>
-                        <p className="text-[10px] text-surface-400 mt-1">Meta अधिकतम 139 अक्षरों की अनुमति देता है। WhatsApp Business प्रोफ़ाइल पर सिंक होता है।</p>
+                        <p className="text-[10px] text-surface-400 mt-1">Meta allows a maximum of 139 characters. Syncs to the WhatsApp Business profile.</p>
                       </div>
                       <div>
-                        <label className="block text-[11px] font-semibold text-surface-400 mb-1">विस्तृत विवरण</label>
+                        <label className="block text-[11px] font-semibold text-surface-400 mb-1">Detailed description</label>
                         <textarea
                           value={profileDescription}
                           onChange={(e) => setProfileDescription(e.target.value)}
-                          placeholder="व्यवसाय का विस्तृत विवरण"
+                          placeholder="Detailed business description"
                           rows={3}
                           className="w-full text-xs p-2.5 rounded-xl border border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-950 focus:border-primary-500 outline-none resize-none"
                         />
-                        <p className="text-[10px] text-surface-400 mt-1">WhatsApp Business प्रोफ़ाइल पर सिंक होता है</p>
+                        <p className="text-[10px] text-surface-400 mt-1">Syncs to the WhatsApp Business profile</p>
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div>
-                          <label className="block text-[11px] font-semibold text-surface-400 mb-1">वेबसाइट</label>
+                          <label className="block text-[11px] font-semibold text-surface-400 mb-1">Website</label>
                           <input 
                             type="url" 
                             value={profileWebsite} 
@@ -1170,10 +1170,10 @@ export function WhatsAppManagerView() {
                             placeholder="https://example.com"
                             className="w-full text-xs p-2.5 rounded-xl border border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-950 focus:border-primary-500 outline-none"
                           />
-                          <p className="text-[10px] text-surface-400 mt-1">WhatsApp Business प्रोफ़ाइल पर सिंक होता है</p>
+                          <p className="text-[10px] text-surface-400 mt-1">Syncs to the WhatsApp Business profile</p>
                         </div>
                         <div>
-                          <label className="block text-[11px] font-semibold text-surface-400 mb-1">ईमेल पता</label>
+                          <label className="block text-[11px] font-semibold text-surface-400 mb-1">Email address</label>
                           <input 
                             type="email" 
                             value={profileEmail} 
@@ -1181,11 +1181,11 @@ export function WhatsAppManagerView() {
                             placeholder="business@example.com"
                             className="w-full text-xs p-2.5 rounded-xl border border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-950 focus:border-primary-500 outline-none"
                           />
-                          <p className="text-[10px] text-surface-400 mt-1">WhatsApp Business प्रोफ़ाइल पर सिंक होता है</p>
+                          <p className="text-[10px] text-surface-400 mt-1">Syncs to the WhatsApp Business profile</p>
                         </div>
                       </div>
                       <div>
-                        <label className="block text-[11px] font-semibold text-surface-400 mb-1">पता</label>
+                        <label className="block text-[11px] font-semibold text-surface-400 mb-1">Address</label>
                         <input 
                           type="text" 
                           value={profileAddress} 
@@ -1193,10 +1193,10 @@ export function WhatsAppManagerView() {
                           placeholder="123 Main St, City, Country"
                           className="w-full text-xs p-2.5 rounded-xl border border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-950 focus:border-primary-500 outline-none"
                         />
-                        <p className="text-[10px] text-surface-400 mt-1">WhatsApp Business प्रोफ़ाइल पर सिंक होता है</p>
+                        <p className="text-[10px] text-surface-400 mt-1">Syncs to the WhatsApp Business profile</p>
                       </div>
                       <div>
-                        <label className="block text-[11px] font-semibold text-surface-400 mb-1">WhatsApp यूज़रनेम</label>
+                        <label className="block text-[11px] font-semibold text-surface-400 mb-1">WhatsApp username</label>
                         <div className="flex items-center gap-1">
                           <span className="text-surface-400 text-xs font-mono">@</span>
                           <input 
@@ -1207,17 +1207,17 @@ export function WhatsAppManagerView() {
                             className="flex-1 text-xs p-2.5 rounded-xl border border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-950 focus:border-primary-500 outline-none"
                           />
                         </div>
-                        <p className="text-[10px] text-surface-400 mt-1">केवल अक्षर, संख्याएँ, अंडरस्कोर और डॉट्स। केवल स्थानीय (Meta पर सिंक नहीं होता)।</p>
+                        <p className="text-[10px] text-surface-400 mt-1">Only letters, numbers, underscores and dots. Local only (does not sync to Meta).</p>
                       </div>
                     </div>
                   </div>
 
                   {/* Call Settings Section */}
                   <div className="border-t border-surface-100 dark:border-surface-800 pt-4 mt-2">
-                    <h4 className="text-xs font-bold text-surface-800 dark:text-surface-200 uppercase tracking-wider mb-3">कॉल सेटिंग्स</h4>
+                    <h4 className="text-xs font-bold text-surface-800 dark:text-surface-200 uppercase tracking-wider mb-3">Call settings</h4>
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">
-                        <label className="text-xs font-medium text-surface-700 dark:text-surface-300">कॉलिंग सक्षम</label>
+                        <label className="text-xs font-medium text-surface-700 dark:text-surface-300">Calling enabled</label>
                         <button 
                           onClick={() => setCallingEnabledSettings(!callingEnabledSettings)}
                           className={`relative w-11 h-6 rounded-full transition-colors ${callingEnabledSettings ? 'bg-emerald-500' : 'bg-surface-300 dark:bg-surface-600'}`}
@@ -1228,7 +1228,7 @@ export function WhatsAppManagerView() {
 
                       <div className="border-t border-surface-100 dark:border-surface-800 pt-3">
                         <div className="flex items-center justify-between mb-3">
-                          <label className="text-xs font-medium text-surface-700 dark:text-surface-300">कॉल शेड्यूल</label>
+                          <label className="text-xs font-medium text-surface-700 dark:text-surface-300">Call schedule</label>
                           <button 
                             onClick={() => setCallScheduleEnabled(!callScheduleEnabled)}
                             className={`relative w-11 h-6 rounded-full transition-colors ${callScheduleEnabled ? 'bg-primary-500' : 'bg-surface-300 dark:bg-surface-600'}`}
@@ -1241,7 +1241,7 @@ export function WhatsAppManagerView() {
                           <>
                             <div className="grid grid-cols-2 gap-3 mb-3">
                               <div>
-                                <label className="block text-[11px] font-semibold text-surface-400 mb-1">शुरुआत समय</label>
+                                <label className="block text-[11px] font-semibold text-surface-400 mb-1">Start time</label>
                                 <input 
                                   type="time" 
                                   value={callScheduleStart} 
@@ -1250,7 +1250,7 @@ export function WhatsAppManagerView() {
                                 />
                               </div>
                               <div>
-                                <label className="block text-[11px] font-semibold text-surface-400 mb-1">समाप्ति समय</label>
+                                <label className="block text-[11px] font-semibold text-surface-400 mb-1">End time</label>
                                 <input 
                                   type="time" 
                                   value={callScheduleEnd} 
@@ -1260,7 +1260,7 @@ export function WhatsAppManagerView() {
                               </div>
                             </div>
                             <div>
-                              <label className="block text-[11px] font-semibold text-surface-400 mb-2">सक्रिय दिन</label>
+                              <label className="block text-[11px] font-semibold text-surface-400 mb-2">Active days</label>
                               <div className="flex gap-1.5 flex-wrap">
                                 {[
                                   { key: 1, label: 'S' },
@@ -1309,7 +1309,7 @@ export function WhatsAppManagerView() {
                       onClick={() => setShowProfileModal(false)}
                       className="px-4 py-2 text-sm text-surface-500 hover:text-surface-700 bg-surface-100 dark:bg-surface-800 rounded-xl font-semibold"
                     >
-                      रद्द करें
+                      Cancel
                     </button>
                     <button 
                       onClick={handleSaveProfile}
@@ -1319,9 +1319,9 @@ export function WhatsAppManagerView() {
                       {savingConfig ? (
                         <span className="flex items-center gap-2">
                           <span className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
-                          सहेजा जा रहा है...
+                          Saving...
                         </span>
-                      ) : "सुरक्षित करें"}
+                      ) : "Save"}
                     </button>
                   </div>
                 </div>
@@ -1341,23 +1341,23 @@ export function WhatsAppManagerView() {
         <div className="space-y-6">
           <div className="flex justify-between items-center bg-surface-50 dark:bg-surface-900/40 p-4 rounded-xl border border-surface-100 dark:border-surface-800/60">
             <h3 className="font-bold text-surface-800 dark:text-surface-200 flex items-center gap-1.5">
-              WhatsApp फ़्लो / फॉर्म सूची ({flows.length})
+              WhatsApp Flow / Form list ({flows.length})
             </h3>
             <button 
               onClick={handleCreateFlow}
               className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all shadow-sm flex items-center gap-2"
             >
-              <Plus className="w-4 h-4" /> नया फ़्लो बनाएँ
+              <Plus className="w-4 h-4" /> Create new flow
             </button>
           </div>
 
           {loadingFlows ? (
-            <div className="p-12 text-center text-surface-400">फ़्लो लोड किए जा रहे हैं...</div>
+            <div className="p-12 text-center text-surface-400">Loading flows...</div>
           ) : flows.length === 0 ? (
             <div className="p-16 text-center border-2 border-dashed border-surface-200 dark:border-surface-800 rounded-3xl bg-white dark:bg-surface-950/30 flex flex-col items-center">
               <Blocks className="w-12 h-12 text-surface-300 dark:text-surface-700 mb-4 animate-pulse" />
-              <h4 className="font-bold text-lg mb-1">कोई फ़्लो/फॉर्म नहीं मिला</h4>
-              <p className="text-sm text-surface-500 max-w-sm mb-6">WhatsApp पर ग्राहकों से सीधे फॉर्म / जानकारी एकत्र करने के लिए एक फ़्लो डिज़ाइन करें।</p>
+              <h4 className="font-bold text-lg mb-1">No flow/form found</h4>
+              <p className="text-sm text-surface-500 max-w-sm mb-6">Design a flow to collect forms / information directly from customers on WhatsApp.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -1373,23 +1373,23 @@ export function WhatsAppManagerView() {
                         flow.status === 'PUBLISHED' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400' :
                         'bg-surface-100 text-surface-700 dark:bg-surface-800 dark:text-surface-400'
                       }`}>
-                        {flow.status === 'PUBLISHED' ? 'लाइव' : 'ड्राफ़्ट'}
+                        {flow.status === 'PUBLISHED' ? 'Live' : 'Draft'}
                       </span>
                     </div>
 
                     <div className="text-xs text-surface-500 bg-surface-50 dark:bg-surface-950 p-3 rounded-xl border border-surface-100 dark:border-surface-900 flex justify-between items-center">
-                      <span>श्रेणी: <strong>{flow.categories || "UTILITY"}</strong></span>
-                      <span>स्क्रीन संख्या: <strong>{JSON.parse(flow.screens_json || '[]').length || 1}</strong></span>
+                      <span>Category: <strong>{flow.categories || "UTILITY"}</strong></span>
+                      <span>Screens: <strong>{JSON.parse(flow.screens_json || '[]').length || 1}</strong></span>
                     </div>
                   </div>
 
                   <div className="p-4 bg-surface-50 dark:bg-surface-950/50 border-t border-surface-100 dark:border-surface-800 flex gap-2">
                     <button onClick={() => handleEditFlow(flow)} className="flex-1 bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 text-surface-700 dark:text-surface-300 py-2 rounded-xl text-xs font-semibold hover:bg-surface-50 dark:hover:bg-surface-800 transition-all flex items-center justify-center gap-1.5 shadow-sm">
-                      <Edit className="w-3.5 h-3.5" /> संपादित करें
+                      <Edit className="w-3.5 h-3.5" /> Edit
                     </button>
                     {flow.status !== 'PUBLISHED' && (
                       <button onClick={() => handlePublishFlow(flow.id)} className="px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold transition-all">
-                        लाइव करें
+                        Go live
                       </button>
                     )}
                     <button onClick={() => handleDeleteFlow(flow.id)} className="p-2 border border-surface-200 dark:border-surface-800 text-surface-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl transition-all">
@@ -1412,9 +1412,9 @@ export function WhatsAppManagerView() {
                     <Blocks className="w-5 h-5 text-amber-500" />
                     <div>
                       <h3 className="text-lg font-bold text-surface-900 dark:text-white">
-                        {editingFlow ? "WhatsApp फ़्लो संपादित करें" : "नया WhatsApp फ़्लो बनाएँ"}
+                        {editingFlow ? "Edit WhatsApp flow" : "Create new WhatsApp flow"}
                       </h3>
-                      <p className="text-xs text-surface-400 mt-0.5">बिना कोडिंग के WhatsApp फॉर्म्स और इंटरएक्टिव स्क्रीन डिज़ाइन करें</p>
+                      <p className="text-xs text-surface-400 mt-0.5">Design WhatsApp forms and interactive screens without coding</p>
                     </div>
                   </div>
                   <button onClick={() => setShowFlowModal(false)} className="text-surface-400 hover:text-surface-600 dark:hover:text-surface-200"><X className="w-5 h-5" /></button>
@@ -1426,46 +1426,46 @@ export function WhatsAppManagerView() {
                   {/* Left Column: Screen Structure & Fields insertion (4 cols) */}
                   <div className="lg:col-span-4 border-r border-surface-100 dark:border-surface-800 p-4 overflow-y-auto space-y-4">
                     <div>
-                      <label className="block text-[11px] font-semibold text-surface-400 uppercase tracking-wider mb-1">फ़्लो का नाम</label>
+                      <label className="block text-[11px] font-semibold text-surface-400 uppercase tracking-wider mb-1">Flow name</label>
                       <input 
                         type="text" 
                         value={flowName} 
                         onChange={(e) => setFlowName(e.target.value)}
-                        placeholder="उदा. लीड फॉर्म, सर्वे"
+                        placeholder="e.g. Lead form, survey"
                         className="w-full text-sm p-2 rounded-lg border border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-950 focus:border-amber-500 outline-none"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-semibold text-surface-400 uppercase tracking-wider mb-1">श्रेणी</label>
+                      <label className="block text-[11px] font-semibold text-surface-400 uppercase tracking-wider mb-1">Category</label>
                       <select 
                         value={flowCategory} 
                         onChange={(e) => setFlowCategory(e.target.value)}
                         className="w-full text-sm p-2 rounded-lg border border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-950 focus:border-amber-500 outline-none"
                       >
-                        <option value="UTILITY">उपयोगिता</option>
-                        <option value="MARKETING">मार्केटिंग</option>
+                        <option value="UTILITY">Utility</option>
+                        <option value="MARKETING">Marketing</option>
                       </select>
                     </div>
 
                     {/* Component Actions Palette */}
                     <div className="border-t border-surface-100 dark:border-surface-800 pt-3">
-                      <h4 className="text-xs font-bold text-surface-800 dark:text-surface-200 uppercase tracking-wider mb-2">कंपोनेंट्स जोड़ें</h4>
+                      <h4 className="text-xs font-bold text-surface-800 dark:text-surface-200 uppercase tracking-wider mb-2">Add components</h4>
                       <div className="grid grid-cols-2 gap-2">
                         <button onClick={() => addFlowComponent('text')} className="flex items-center gap-1.5 p-2 bg-surface-50 dark:bg-surface-950 hover:bg-surface-100 dark:hover:bg-surface-800 rounded-lg border border-surface-200 dark:border-surface-800 text-xs font-semibold text-surface-700 dark:text-surface-300 text-left transition-all">
-                          <span className="text-primary-500 font-bold font-mono">T</span> विवरण / निर्देश
+                          <span className="text-primary-500 font-bold font-mono">T</span> Description / instructions
                         </button>
                         <button onClick={() => addFlowComponent('input')} className="flex items-center gap-1.5 p-2 bg-surface-50 dark:bg-surface-950 hover:bg-surface-100 dark:hover:bg-surface-800 rounded-lg border border-surface-200 dark:border-surface-800 text-xs font-semibold text-surface-700 dark:text-surface-300 text-left transition-all">
-                          <Plus className="w-3.5 h-3.5 text-emerald-500" /> टेक्स्ट इनपुट
+                          <Plus className="w-3.5 h-3.5 text-emerald-500" /> Text input
                         </button>
                         <button onClick={() => addFlowComponent('textarea')} className="flex items-center gap-1.5 p-2 bg-surface-50 dark:bg-surface-950 hover:bg-surface-100 dark:hover:bg-surface-800 rounded-lg border border-surface-200 dark:border-surface-800 text-xs font-semibold text-surface-700 dark:text-surface-300 text-left transition-all">
-                          <Plus className="w-3.5 h-3.5 text-blue-500" /> लंबा संदेश
+                          <Plus className="w-3.5 h-3.5 text-blue-500" /> Long message
                         </button>
                         <button onClick={() => addFlowComponent('select')} className="flex items-center gap-1.5 p-2 bg-surface-50 dark:bg-surface-950 hover:bg-surface-100 dark:hover:bg-surface-800 rounded-lg border border-surface-200 dark:border-surface-800 text-xs font-semibold text-surface-700 dark:text-surface-300 text-left transition-all">
-                          <Plus className="w-3.5 h-3.5 text-amber-500" /> ड्रॉपडाउन लिस्ट
+                          <Plus className="w-3.5 h-3.5 text-amber-500" /> Dropdown list
                         </button>
                         <button onClick={() => addFlowComponent('submit')} className="col-span-2 flex items-center justify-center gap-1.5 p-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-bold transition-all">
-                          <Check className="w-3.5 h-3.5" /> सबमिट बटन
+                          <Check className="w-3.5 h-3.5" /> Submit button
                         </button>
                       </div>
                     </div>
@@ -1474,14 +1474,14 @@ export function WhatsAppManagerView() {
                     {selectedComponent ? (
                       <div className="border-t border-surface-100 dark:border-surface-800 pt-3 space-y-3 bg-surface-50/50 dark:bg-surface-950/20 p-3 rounded-xl border border-dashed">
                         <div className="flex justify-between items-center">
-                          <h4 className="text-xs font-bold text-amber-500 uppercase tracking-wider">फ़ील्ड गुण</h4>
-                          <button onClick={() => deleteComponent(selectedComponent.id)} className="text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 p-1.5 rounded-lg transition-all" title="फ़ील्ड हटाएँ">
+                          <h4 className="text-xs font-bold text-amber-500 uppercase tracking-wider">Field properties</h4>
+                          <button onClick={() => deleteComponent(selectedComponent.id)} className="text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 p-1.5 rounded-lg transition-all" title="Delete field">
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
 
                         <div>
-                          <label className="block text-[10px] font-bold text-surface-400 mb-1">लेबल</label>
+                          <label className="block text-[10px] font-bold text-surface-400 mb-1">Label</label>
                           <input 
                             type="text"
                             value={selectedComponent.label || ""}
@@ -1492,7 +1492,7 @@ export function WhatsAppManagerView() {
 
                         {selectedComponent.type === 'text' && (
                           <div>
-                            <label className="block text-[10px] font-bold text-surface-400 mb-1">विवरण सामग्री</label>
+                            <label className="block text-[10px] font-bold text-surface-400 mb-1">Description content</label>
                             <textarea 
                               rows={2}
                               value={selectedComponent.content || ""}
@@ -1505,7 +1505,7 @@ export function WhatsAppManagerView() {
                         {(selectedComponent.type === 'input' || selectedComponent.type === 'textarea') && (
                           <>
                             <div>
-                              <label className="block text-[10px] font-bold text-surface-400 mb-1">प्लेसहोल्डर</label>
+                              <label className="block text-[10px] font-bold text-surface-400 mb-1">Placeholder</label>
                               <input 
                                 type="text"
                                 value={selectedComponent.placeholder || ""}
@@ -1520,26 +1520,26 @@ export function WhatsAppManagerView() {
                                 onChange={(e) => updateComponentProperty(selectedComponent.id, 'required', e.target.checked)}
                                 id="chk_req"
                               />
-                              <label htmlFor="chk_req" className="text-xs text-surface-600 dark:text-surface-400 font-semibold cursor-pointer">भरना आवश्यक है?</label>
+                              <label htmlFor="chk_req" className="text-xs text-surface-600 dark:text-surface-400 font-semibold cursor-pointer">Required?</label>
                             </div>
                           </>
                         )}
 
                         {selectedComponent.type === 'select' && (
                           <div>
-                            <label className="block text-[10px] font-bold text-surface-400 mb-1">विकल्प सूची (कोमा से अलग करें)</label>
+                            <label className="block text-[10px] font-bold text-surface-400 mb-1">Option list (comma separated)</label>
                             <input 
                               type="text"
                               value={selectedComponent.options || ""}
                               onChange={(e) => updateComponentProperty(selectedComponent.id, 'options', e.target.value)}
-                              placeholder="उदा. हाँ, नहीं, शायद"
+                              placeholder="e.g. Yes, No, Maybe"
                               className="w-full text-xs p-2 rounded border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 outline-none"
                             />
                           </div>
                         )}
 
                         <div>
-                          <label className="block text-[10px] font-bold text-surface-400 mb-1">वैरिएबल कुंजी</label>
+                          <label className="block text-[10px] font-bold text-surface-400 mb-1">Variable key</label>
                           <input 
                             type="text"
                             value={selectedComponent.name || ""}
@@ -1550,7 +1550,7 @@ export function WhatsAppManagerView() {
                       </div>
                     ) : (
                       <div className="text-center p-6 border-2 border-dashed border-surface-100 dark:border-surface-800 rounded-2xl text-surface-400 text-xs">
-                        संपादित करने के लिए लाइव प्रीव्यू स्क्रीन पर किसी फील्ड/अवयव पर क्लिक करें।
+                        Click any field/component on the live preview screen to edit it.
                       </div>
                     )}
                   </div>
@@ -1560,7 +1560,7 @@ export function WhatsAppManagerView() {
                     
                     {/* Visual Layout Reorder List */}
                     <div className="w-full md:w-1/2 space-y-3 shrink-0">
-                      <h4 className="text-xs font-bold text-surface-500 uppercase tracking-wider mb-2">स्क्रीन अवयव क्रम</h4>
+                      <h4 className="text-xs font-bold text-surface-500 uppercase tracking-wider mb-2">Screen component order</h4>
                       <div className="space-y-2">
                         {activeScreen?.components.map((comp: any) => (
                           <div 
@@ -1570,7 +1570,7 @@ export function WhatsAppManagerView() {
                           >
                             <div className="min-w-0">
                               <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-surface-100 dark:bg-surface-800 text-surface-500 font-mono">{comp.type}</span>
-                              <h5 className="text-xs font-bold text-surface-800 dark:text-surface-200 mt-1 truncate">{comp.label || comp.content || "बिना नाम की फील्ड"}</h5>
+                              <h5 className="text-xs font-bold text-surface-800 dark:text-surface-200 mt-1 truncate">{comp.label || comp.content || "Unnamed field"}</h5>
                             </div>
                             <button 
                               onClick={(e) => { e.stopPropagation(); deleteComponent(comp.id); }}
@@ -1596,7 +1596,7 @@ export function WhatsAppManagerView() {
                         <Phone className="w-4 h-4 text-emerald-300" />
                         <div className="min-w-0">
                           <h5 className="text-xs font-bold truncate">Dhita CRM Forms</h5>
-                          <p className="text-[9px] text-emerald-200">सक्रिय फॉर्म स्क्रीन</p>
+                          <p className="text-[9px] text-emerald-200">Active form screen</p>
                         </div>
                       </div>
 
@@ -1608,8 +1608,8 @@ export function WhatsAppManagerView() {
                         {/* Elegant Form Window simulating WhatsApp Native Flow screen */}
                         <div className="bg-white dark:bg-surface-950 p-4 rounded-xl border border-surface-200 dark:border-surface-800 shadow-sm space-y-3 relative z-10">
                           <h4 className="font-bold text-sm text-surface-800 dark:text-surface-200 pb-2 border-b border-surface-100 dark:border-surface-900 flex items-center justify-between">
-                            <span>{activeScreen?.title || "शीर्षक"}</span>
-                            <span className="text-[10px] text-surface-400 uppercase tracking-widest font-bold">1 में से 1</span>
+                            <span>{activeScreen?.title || "Title"}</span>
+                            <span className="text-[10px] text-surface-400 uppercase tracking-widest font-bold">1 of 1</span>
                           </h4>
 
                           {/* Dynamic components rendering inside Mockup */}
@@ -1618,7 +1618,7 @@ export function WhatsAppManagerView() {
                               if (c.type === 'text') {
                                 return (
                                   <div key={c.id} className="text-xs text-surface-600 dark:text-surface-400 leading-relaxed whitespace-pre-wrap bg-surface-50 dark:bg-surface-900 p-2 rounded border border-surface-100 dark:border-surface-800">
-                                    {c.content || "निर्देश प्रविष्ट करें..."}
+                                    {c.content || "Enter instructions..."}
                                   </div>
                                 );
                               }
@@ -1626,12 +1626,12 @@ export function WhatsAppManagerView() {
                                 return (
                                   <div key={c.id} className="space-y-1">
                                     <label className="block text-[10px] font-semibold text-surface-500">
-                                      {c.label || "इनपुट"} {c.required && <span className="text-red-500">*</span>}
+                                      {c.label || "Input"} {c.required && <span className="text-red-500">*</span>}
                                     </label>
                                     <input 
                                       type="text"
                                       disabled
-                                      placeholder={c.placeholder || "विवरण..."}
+                                      placeholder={c.placeholder || "Description..."}
                                       className="w-full text-xs p-2 rounded-lg border border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-900/50 outline-none"
                                     />
                                   </div>
@@ -1641,12 +1641,12 @@ export function WhatsAppManagerView() {
                                 return (
                                   <div key={c.id} className="space-y-1">
                                     <label className="block text-[10px] font-semibold text-surface-500">
-                                      {c.label || "लंबा संदेश"} {c.required && <span className="text-red-500">*</span>}
+                                      {c.label || "Long message"} {c.required && <span className="text-red-500">*</span>}
                                     </label>
                                     <textarea 
                                       rows={2}
                                       disabled
-                                      placeholder={c.placeholder || "विवरण..."}
+                                      placeholder={c.placeholder || "Description..."}
                                       className="w-full text-xs p-2 rounded-lg border border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-900/50 outline-none resize-none"
                                     />
                                   </div>
@@ -1656,7 +1656,7 @@ export function WhatsAppManagerView() {
                                 const opts = (c.options || "").split(",").map((o: string) => o.trim()).filter((o: string) => o.length > 0);
                                 return (
                                   <div key={c.id} className="space-y-1">
-                                    <label className="block text-[10px] font-semibold text-surface-500">{c.label || "ड्रॉपडाउन"}</label>
+                                    <label className="block text-[10px] font-semibold text-surface-500">{c.label || "Dropdown"}</label>
                                     <select disabled className="w-full text-xs p-2 rounded-lg border border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-900/50 outline-none">
                                       {opts.map((o: string, idx: number) => <option key={idx}>{o}</option>)}
                                     </select>
@@ -1666,7 +1666,7 @@ export function WhatsAppManagerView() {
                               if (c.type === 'submit') {
                                 return (
                                   <button key={c.id} disabled className="w-full py-2 bg-[#075e54] text-white font-bold text-xs rounded-lg shadow-sm hover:opacity-95 mt-4">
-                                    {c.label || "प्रस्तुत करें"}
+                                    {c.label || "Submit"}
                                   </button>
                                 );
                               }
@@ -1691,13 +1691,13 @@ export function WhatsAppManagerView() {
                     onClick={() => setShowFlowModal(false)}
                     className="px-4 py-2 text-sm text-surface-500 hover:text-surface-700 bg-surface-100 dark:bg-surface-800 rounded-xl font-semibold"
                   >
-                    रद्द करें
+                    Cancel
                   </button>
                   <button 
                     onClick={handleSaveFlow}
                     className="px-6 py-2 text-sm bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold transition-all shadow-sm"
                   >
-                    सहेजें और बंद करें
+                    Save and close
                   </button>
                 </div>
 

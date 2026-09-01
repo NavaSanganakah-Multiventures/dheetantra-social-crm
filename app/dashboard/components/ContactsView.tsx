@@ -70,20 +70,20 @@ export function ContactsView({
 
           const data: any = await res.json();
           if (data.success) {
-            alert(`सफलतापूर्वक ${data.imported} संपर्क आयात किए गए`);
+            alert(`Successfully ${data.imported} contacts imported`);
             loadContacts();
           } else {
-            alert(data.error || 'संपर्क आयात करने में विफल');
+            alert(data.error || 'Failed to import contacts');
           }
         } catch (error) {
-          alert('संपर्क आयात करते समय त्रुटि हुई');
+          alert('Error while importing contacts');
         } finally {
           setImporting(false);
           if (fileInputRef.current) fileInputRef.current.value = '';
         }
       },
       error: (error: any) => {
-        alert('CSV पार्स करने में विफल: ' + error.message);
+        alert('Failed to parse CSV: ' + error.message);
         setImporting(false);
         if (fileInputRef.current) fileInputRef.current.value = '';
       }
@@ -164,15 +164,15 @@ export function ContactsView({
   const saveContact = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formName.trim() || !formPhone) {
-      alert("कृपया नाम और फ़ोन नंबर भरें।");
+      alert("Please enter a name and phone number.");
       return;
     }
     if (!isValidPhoneNumber(formPhone)) {
-      alert("मुख्य फ़ोन नंबर अमान्य है। कृपया सही नंबर और देश चुनें।");
+      alert("The primary phone number is invalid. Please enter a valid number and choose the country.");
       return;
     }
     if (formAdditionalPhone && !isValidPhoneNumber(formAdditionalPhone)) {
-      alert("अतिरिक्त फ़ोन नंबर अमान्य है।");
+      alert("The additional phone number is invalid.");
       return;
     }
 
@@ -214,15 +214,15 @@ export function ContactsView({
         setShowModal(false);
         loadContacts();
       } else {
-        alert(data.error || "संपर्क सहेजने में विफल");
+        alert(data.error || "Failed to save contact");
       }
     } catch (err) {
-      alert("त्रुटि हुई");
+      alert("Something went wrong");
     }
   };
 
   const deleteContact = async (id: string) => {
-    if (!confirm("क्या आप वाकई इस संपर्क को हटाना चाहते हैं?")) return;
+    if (!confirm("Are you sure you want to delete this contact?")) return;
     try {
       const wId = localStorage.getItem('workspaceId');
       const res = await fetch(`/api/crm/contacts/${id}`, {
@@ -234,10 +234,10 @@ export function ContactsView({
       if (res.ok) {
         loadContacts();
       } else {
-        alert("हटाने में विफल");
+        alert("Failed to delete");
       }
     } catch (e) {
-      alert("त्रुटि हुई");
+      alert("Something went wrong");
     }
   };
 
@@ -257,10 +257,10 @@ export function ContactsView({
         setActiveChat(data.conversation);
         setActiveTab('inbox');
       } else {
-        alert(data.error || "चैट शुरू करने में असमर्थ। कृपया WhatsApp सेटिंग्स की जांच करें।");
+        alert(data.error || "Unable to start chat. Please check your WhatsApp settings.");
       }
     } catch (e) {
-      alert("चैट शुरू करने में त्रुटि हुई");
+      alert("Error while starting chat");
     }
   };
 
@@ -278,11 +278,11 @@ export function ContactsView({
 
   // Kanban Pipeline Stages
   const stages = [
-    { key: 'new', label: 'नई लीड', color: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800' },
-    { key: 'contacted', label: 'संपर्कित', color: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800' },
-    { key: 'qualified', label: 'योग्य', color: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-200 dark:border-purple-800' },
-    { key: 'closed_won', label: 'सफल', color: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800' },
-    { key: 'closed_lost', label: 'विफल', color: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-800' }
+    { key: 'new', label: 'New Lead', color: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800' },
+    { key: 'contacted', label: 'Contacted', color: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800' },
+    { key: 'qualified', label: 'Qualified', color: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-200 dark:border-purple-800' },
+    { key: 'closed_won', label: 'Won', color: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800' },
+    { key: 'closed_lost', label: 'Lost', color: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-800' }
   ];
 
   const leads = contacts.filter(c => c.is_lead === 1 || c.is_lead === true);
@@ -302,13 +302,13 @@ export function ContactsView({
             onClick={() => setSubTab('all')}
             className={`px-4 py-2 text-xs font-semibold rounded-lg transition-all ${subTab === 'all' ? 'bg-white dark:bg-surface-700 text-primary-600 dark:text-primary-400 shadow-sm' : 'text-surface-500 hover:text-surface-800 dark:hover:text-surface-300'}`}
           >
-            सभी संपर्क
+            All Contacts
           </button>
           <button
             onClick={() => setSubTab('leads')}
             className={`px-4 py-2 text-xs font-semibold rounded-lg transition-all ${subTab === 'leads' ? 'bg-white dark:bg-surface-700 text-primary-600 dark:text-primary-400 shadow-sm' : 'text-surface-500 hover:text-surface-800 dark:hover:text-surface-300'}`}
           >
-            लीड्स पाइपलाइन
+            Leads Pipeline
           </button>
         </div>
 
@@ -318,7 +318,7 @@ export function ContactsView({
               onClick={() => setExportModalOpen(true)}
               className="bg-surface-900 dark:bg-surface-100 text-white dark:text-surface-900 hover:bg-surface-800 dark:hover:bg-surface-200 px-4 py-2 rounded-xl text-xs font-semibold shadow-sm transition-all whitespace-nowrap"
             >
-              एक्सपोर्ट / कॉपी करें ({selectedContactIds.size})
+              Export / Copy ({selectedContactIds.size})
             </button>
           )}
           <input
@@ -333,13 +333,13 @@ export function ContactsView({
             disabled={importing}
             className="bg-white dark:bg-surface-800 hover:bg-surface-50 dark:hover:bg-surface-700 text-surface-700 dark:text-surface-300 px-4 py-2 rounded-xl text-xs font-semibold shadow-sm border border-surface-200 dark:border-surface-700 flex items-center gap-2 transition-all disabled:opacity-50"
           >
-            <Upload className={`w-4 h-4 ${importing ? 'animate-pulse' : ''}`} /> {importing ? 'आयात हो रहा है...' : 'CSV से आयात करें'}
+            <Upload className={`w-4 h-4 ${importing ? 'animate-pulse' : ''}`} /> {importing ? 'Importing...' : 'Import from CSV'}
           </button>
           <button
             onClick={openAddModal}
             className="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-md shadow-primary-600/15 flex items-center gap-2 transition-all"
           >
-            <Plus className="w-4 h-4" /> नया संपर्क जोड़ें
+            <Plus className="w-4 h-4" /> Add New Contact
           </button>
         </div>
       </div>
@@ -352,7 +352,7 @@ export function ContactsView({
               <Search className="w-4 h-4 text-surface-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
-                placeholder="नाम, नंबर, ईमेल या सोशल आईडी से खोजें..."
+                placeholder="Search by name, number, email or social ID..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-10 pr-4 py-3 bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 rounded-xl outline-none focus:border-primary-500 text-sm transition-all shadow-xs"
@@ -369,17 +369,17 @@ export function ContactsView({
                 }}
                 className="whitespace-nowrap px-4 py-3 bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 rounded-xl text-sm font-medium hover:bg-surface-50 dark:hover:bg-surface-800 transition-all text-surface-700 dark:text-surface-300"
               >
-                {selectedContactIds.size === filteredContacts.length ? 'सभी सेलेक्ट हटाएँ' : 'सभी चुनें'}
+                {selectedContactIds.size === filteredContacts.length ? 'Clear selection' : 'Select all'}
               </button>
             )}
           </div>
 
           {loading ? (
-            <div className="text-center py-12 text-sm text-surface-500">संपर्क लोड हो रहे हैं...</div>
+            <div className="text-center py-12 text-sm text-surface-500">Loading contacts...</div>
           ) : filteredContacts.length === 0 ? (
             <div className="text-center py-16 bg-white dark:bg-surface-900 rounded-2xl border border-surface-200/50 dark:border-surface-800/50">
               <Users className="w-10 h-10 text-surface-300 mx-auto mb-3" />
-              <p className="text-sm text-surface-500">कोई संपर्क नहीं मिला।</p>
+              <p className="text-sm text-surface-500">No contacts found.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -409,7 +409,7 @@ export function ContactsView({
                         </h3>
                         {c.gender && (
                           <span className="text-[10px] bg-surface-100 dark:bg-surface-800 px-2 py-0.5 rounded text-surface-500 font-medium">
-                            {c.gender === 'Male' ? 'पुरुष' : c.gender === 'Female' ? 'महिला' : c.gender}
+                            {c.gender === 'Male' ? 'Male' : c.gender === 'Female' ? 'Female' : c.gender}
                           </span>
                         )}
                       </div>
@@ -420,7 +420,7 @@ export function ContactsView({
                           c.lead_status === 'closed_lost' ? 'bg-red-500/10 text-red-600 border-red-200' :
                           'bg-primary-500/10 text-primary-600 border-primary-200'
                         }`}>
-                          लीड
+                          Lead
                         </span>
                       )}
                     </div>
@@ -429,18 +429,18 @@ export function ContactsView({
                     <div className="space-y-2 text-xs text-surface-600 dark:text-surface-400 border-t border-surface-100 dark:border-surface-800/50 pt-3">
                       <div className="flex items-center gap-2">
                         <Phone className="w-3.5 h-3.5 text-surface-400" />
-                        <span><strong>मुख्य नंबर:</strong> {c.phone || c.platform_contact_id}</span>
+                        <span><strong>Primary number:</strong> {c.phone || c.platform_contact_id}</span>
                       </div>
                       {c.additional_phone && (
                         <div className="flex items-center gap-2">
                           <Phone className="w-3.5 h-3.5 text-surface-400" />
-                          <span><strong>अतिरिक्त नंबर:</strong> {c.additional_phone}</span>
+                          <span><strong>Additional number:</strong> {c.additional_phone}</span>
                         </div>
                       )}
                       {c.email && (
                         <div className="flex items-center gap-2">
                           <Mail className="w-3.5 h-3.5 text-surface-400" />
-                          <span className="truncate"><strong>ईमेल:</strong> {c.email}</span>
+                          <span className="truncate"><strong>Email:</strong> {c.email}</span>
                         </div>
                       )}
 
@@ -475,15 +475,15 @@ export function ContactsView({
                       {(c.is_lead === 1 || c.is_lead === true) && (
                         <div className="mt-3 p-2 bg-primary-50/40 dark:bg-primary-950/10 rounded-lg border border-primary-100/40 space-y-1 text-[11px]">
                           <div className="flex justify-between text-surface-500">
-                            <span>लीड स्टेटस:</span>
+                            <span>Lead status:</span>
                             <span className="font-semibold text-primary-600 dark:text-primary-400 uppercase">{c.lead_status || 'new'}</span>
                           </div>
                           <div className="flex justify-between text-surface-500">
-                            <span>लीड सोर्स:</span>
+                            <span>Lead source:</span>
                             <span className="font-semibold capitalize text-surface-700 dark:text-surface-300">{c.lead_source || 'manual'}</span>
                           </div>
                           <div className="flex justify-between text-surface-500">
-                            <span>अनुमानित मूल्य:</span>
+                            <span>Estimated value:</span>
                             <span className="font-semibold text-surface-800 dark:text-surface-200">₹{(c.lead_value || 0).toLocaleString()}</span>
                           </div>
                         </div>
@@ -497,19 +497,19 @@ export function ContactsView({
                       onClick={() => initiateWhatsAppChat(c.id)}
                       className="flex-1 bg-primary-600 hover:bg-primary-700 text-white px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm transition-all"
                     >
-                      <Send className="w-3.5 h-3.5" /> WhatsApp चैट
+                      <Send className="w-3.5 h-3.5" /> WhatsApp Chat
                     </button>
                     <button
                       onClick={() => openEditModal(c)}
                       className="p-2 border border-surface-200 dark:border-surface-800 hover:bg-surface-50 dark:hover:bg-surface-800 rounded-xl text-surface-600 dark:text-surface-400 transition-all"
-                      title="संपर्क संपादित करें"
+                      title="Edit contact"
                     >
                       <Edit className="w-3.5 h-3.5" />
                     </button>
                     <button
                       onClick={() => deleteContact(c.id)}
                       className="p-2 border border-surface-200 dark:border-surface-800 hover:bg-rose-50 dark:hover:bg-rose-950/20 hover:text-rose-600 rounded-xl text-surface-600 dark:text-surface-400 transition-all"
-                      title="संपर्क हटाएं"
+                      title="Delete contact"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -535,7 +535,7 @@ export function ContactsView({
                       <span className="bg-surface-200 dark:bg-surface-800 text-[10px] text-surface-600 dark:text-surface-400 px-2 py-0.5 rounded-full font-bold">{count}</span>
                     </div>
                     <div className="text-[11px] text-surface-500 flex items-center gap-1 font-mono">
-                      <Coins className="w-3 h-3 text-amber-500" /> मूल्य: ₹{totalValue.toLocaleString()}
+                      <Coins className="w-3 h-3 text-amber-500" /> Value: ₹{totalValue.toLocaleString()}
                     </div>
                   </div>
 
@@ -543,7 +543,7 @@ export function ContactsView({
                   <div className="flex-1 space-y-3 overflow-y-auto">
                     {stageLeads.length === 0 ? (
                       <div className="text-center py-8 text-[11px] text-surface-400 border border-dashed border-surface-200 dark:border-surface-800 rounded-xl">
-                        कोई लीड नहीं
+                        No leads
                       </div>
                     ) : (
                       stageLeads.map(lead => (
@@ -564,7 +564,7 @@ export function ContactsView({
                               onClick={() => initiateWhatsAppChat(lead.id)}
                               className="flex-1 bg-primary-50 hover:bg-primary-100 dark:bg-primary-950/20 dark:hover:bg-primary-950/40 text-primary-600 dark:text-primary-400 text-[10px] py-1 rounded-md font-bold flex items-center justify-center gap-1 transition-all"
                             >
-                              <Send className="w-2.5 h-2.5" /> चैट
+                              <Send className="w-2.5 h-2.5" /> Chat
                             </button>
                             <button
                               onClick={() => openEditModal(lead)}
@@ -591,7 +591,7 @@ export function ContactsView({
             {/* Header */}
             <div className="p-5 border-b border-surface-200 dark:border-surface-800 flex justify-between items-center bg-surface-50 dark:bg-surface-900/50">
               <h2 className="font-bold text-surface-950 dark:text-white text-base">
-                {isEdit ? "संपर्क संपादित करें" : "नया संपर्क जोड़ें"}
+                {isEdit ? "Edit contact" : "Add New Contact"}
               </h2>
               <button onClick={() => setShowModal(false)} className="text-surface-400 hover:text-surface-600 dark:hover:text-surface-200">
                 <X className="w-5 h-5" />
@@ -603,113 +603,113 @@ export function ContactsView({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Name */}
                 <div className="sm:col-span-2">
-                  <label className="block text-xs font-semibold text-surface-500 mb-1">पूरा नाम *</label>
+                  <label className="block text-xs font-semibold text-surface-500 mb-1">Full name *</label>
                   <input
                     type="text"
                     required
                     value={formName}
                     onChange={(e) => setFormName(e.target.value)}
-                    placeholder="उदा. राहुल शर्मा"
+                    placeholder="e.g. Rahul Sharma"
                     className="w-full px-3 py-2 bg-surface-50 dark:bg-surface-800/50 border border-surface-200 dark:border-surface-700/60 rounded-xl text-sm outline-none focus:border-primary-500"
                   />
                 </div>
 
                 {/* Primary Phone */}
                 <div>
-                  <label className="block text-xs font-semibold text-surface-500 mb-1">मुख्य फ़ोन नंबर *</label>
+                  <label className="block text-xs font-semibold text-surface-500 mb-1">Primary phone number *</label>
                   <PhoneInput
                     international
                     defaultCountry="IN"
                     required
                     value={formPhone}
                     onChange={(val) => setFormPhone(val || '')}
-                    placeholder="फ़ोन नंबर दर्ज करें"
+                    placeholder="Enter phone number"
                     className="w-full px-3 py-2 bg-surface-50 dark:bg-surface-800/50 border border-surface-200 dark:border-surface-700/60 rounded-xl text-sm outline-none focus:border-primary-500"
                   />
                 </div>
 
                 {/* Additional Phone */}
                 <div>
-                  <label className="block text-xs font-semibold text-surface-500 mb-1">अतिरिक्त फ़ोन नंबर</label>
+                  <label className="block text-xs font-semibold text-surface-500 mb-1">Additional phone number</label>
                   <PhoneInput
                     international
                     defaultCountry="IN"
                     value={formAdditionalPhone}
                     onChange={(val) => setFormAdditionalPhone(val || '')}
-                    placeholder="अतिरिक्त नंबर दर्ज करें"
+                    placeholder="Enter additional number"
                     className="w-full px-3 py-2 bg-surface-50 dark:bg-surface-800/50 border border-surface-200 dark:border-surface-700/60 rounded-xl text-sm outline-none focus:border-primary-500"
                   />
                 </div>
 
                 {/* Email */}
                 <div>
-                  <label className="block text-xs font-semibold text-surface-500 mb-1">ईमेल</label>
+                  <label className="block text-xs font-semibold text-surface-500 mb-1">Email</label>
                   <input
                     type="email"
                     value={formEmail}
                     onChange={(e) => setFormEmail(e.target.value)}
-                    placeholder="उदा. rahul@example.com"
+                    placeholder="e.g. rahul@example.com"
                     className="w-full px-3 py-2 bg-surface-50 dark:bg-surface-800/50 border border-surface-200 dark:border-surface-700/60 rounded-xl text-sm outline-none focus:border-primary-500"
                   />
                 </div>
 
                 {/* Gender */}
                 <div>
-                  <label className="block text-xs font-semibold text-surface-500 mb-1">लिंग</label>
+                  <label className="block text-xs font-semibold text-surface-500 mb-1">Gender</label>
                   <select
                     value={formGender}
                     onChange={(e) => setFormGender(e.target.value)}
                     className="w-full px-3 py-2 bg-surface-50 dark:bg-surface-800/50 border border-surface-200 dark:border-surface-700/60 rounded-xl text-sm outline-none focus:border-primary-500"
                   >
-                    <option value="Male">पुरुष</option>
-                    <option value="Female">महिला</option>
-                    <option value="Other">अन्य</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
                   </select>
                 </div>
 
                 {/* Instagram */}
                 <div>
-                  <label className="block text-xs font-semibold text-surface-500 mb-1">इंस्टाग्राम यूजरनेम</label>
+                  <label className="block text-xs font-semibold text-surface-500 mb-1">Instagram username</label>
                   <input
                     type="text"
                     value={formInstagram}
                     onChange={(e) => setFormInstagram(e.target.value)}
-                    placeholder="उदा. rahul_sharma"
+                    placeholder="e.g. rahul_sharma"
                     className="w-full px-3 py-2 bg-surface-50 dark:bg-surface-800/50 border border-surface-200 dark:border-surface-700/60 rounded-xl text-sm outline-none focus:border-primary-500"
                   />
                 </div>
 
                 {/* Facebook */}
                 <div>
-                  <label className="block text-xs font-semibold text-surface-500 mb-1">फेसबुक यूजरनेम</label>
+                  <label className="block text-xs font-semibold text-surface-500 mb-1">Facebook username</label>
                   <input
                     type="text"
                     value={formFacebook}
                     onChange={(e) => setFormFacebook(e.target.value)}
-                    placeholder="उदा. rahul.sharma.fb"
+                    placeholder="e.g. rahul.sharma.fb"
                     className="w-full px-3 py-2 bg-surface-50 dark:bg-surface-800/50 border border-surface-200 dark:border-surface-700/60 rounded-xl text-sm outline-none focus:border-primary-500"
                   />
                 </div>
 
                 {/* WhatsApp Username */}
                 <div className="sm:col-span-2">
-                  <label className="block text-xs font-semibold text-surface-500 mb-1">व्हाट्सएप यूजरनेम / उपनाम</label>
+                  <label className="block text-xs font-semibold text-surface-500 mb-1">WhatsApp username / alias</label>
                   <input
                     type="text"
                     value={formWhatsApp}
                     onChange={(e) => setFormWhatsApp(e.target.value)}
-                    placeholder="उदा. Rahul S"
+                    placeholder="e.g. Rahul S"
                     className="w-full px-3 py-2 bg-surface-50 dark:bg-surface-800/50 border border-surface-200 dark:border-surface-700/60 rounded-xl text-sm outline-none focus:border-primary-500"
                   />
                 </div>
 
                 {/* Notes */}
                 <div className="sm:col-span-2">
-                  <label className="block text-xs font-semibold text-surface-500 mb-1">नोट्स / टिप्पणियां</label>
+                  <label className="block text-xs font-semibold text-surface-500 mb-1">Notes / comments</label>
                   <textarea
                     value={formNotes}
                     onChange={(e) => setFormNotes(e.target.value)}
-                    placeholder="संपर्क के बारे में अतिरिक्त जानकारी..."
+                    placeholder="Additional information about the contact..."
                     className="w-full px-3 py-2 bg-surface-50 dark:bg-surface-800/50 border border-surface-200 dark:border-surface-700/60 rounded-xl text-sm outline-none focus:border-primary-500 h-20 resize-none"
                   />
                 </div>
@@ -717,8 +717,8 @@ export function ContactsView({
                 {/* Is Lead Toggle */}
                 <div className="sm:col-span-2 bg-surface-50 dark:bg-surface-800/20 p-4 rounded-xl border border-surface-100 dark:border-surface-800 flex items-center justify-between">
                   <div>
-                    <h4 className="text-xs font-bold text-surface-800 dark:text-surface-200">क्या यह लीड है?</h4>
-                    <p className="text-[10px] text-surface-400">लीड के रूप में चिह्नित करने पर आप इसे सेल्स फनल में ट्रैक कर पाएंगे।</p>
+                    <h4 className="text-xs font-bold text-surface-800 dark:text-surface-200">Is this a lead?</h4>
+                    <p className="text-[10px] text-surface-400">Marking as a lead lets you track it in the sales funnel.</p>
                   </div>
                   <input
                     type="checkbox"
@@ -732,43 +732,43 @@ export function ContactsView({
                 {formIsLead && (
                   <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4 bg-primary-50/20 dark:bg-primary-950/5 p-4 rounded-xl border border-primary-100/50 dark:border-primary-900/10">
                     <div>
-                      <label className="block text-xs font-semibold text-surface-500 mb-1">लीड स्टेटस</label>
+                      <label className="block text-xs font-semibold text-surface-500 mb-1">Lead status</label>
                       <select
                         value={formLeadStatus}
                         onChange={(e) => setFormLeadStatus(e.target.value)}
                         className="w-full px-3 py-2 bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 rounded-lg text-sm outline-none"
                       >
-                        <option value="new">नई लीड</option>
-                        <option value="contacted">संपर्क किया</option>
-                        <option value="qualified">योग्य लीड</option>
-                        <option value="closed_won">सफल</option>
-                        <option value="closed_lost">विफल</option>
+                        <option value="new">New Lead</option>
+                        <option value="contacted">Contacted</option>
+                        <option value="qualified">Qualified Lead</option>
+                        <option value="closed_won">Won</option>
+                        <option value="closed_lost">Lost</option>
                       </select>
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-surface-500 mb-1">लीड सोर्स</label>
+                      <label className="block text-xs font-semibold text-surface-500 mb-1">Lead source</label>
                       <select
                         value={formLeadSource}
                         onChange={(e) => setFormLeadSource(e.target.value)}
                         className="w-full px-3 py-2 bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 rounded-lg text-sm outline-none"
                       >
-                        <option value="website">वेबसाइट</option>
-                        <option value="facebook">फेसबुक</option>
-                        <option value="instagram">इंस्टाग्राम</option>
-                        <option value="whatsapp">व्हाट्सएप</option>
-                        <option value="referral">रेफरल</option>
-                        <option value="manual">मैनुअल</option>
+                        <option value="website">Website</option>
+                        <option value="facebook">Facebook</option>
+                        <option value="instagram">Instagram</option>
+                        <option value="whatsapp">WhatsApp</option>
+                        <option value="referral">Referral</option>
+                        <option value="manual">Manual</option>
                       </select>
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-surface-500 mb-1">अनुमानित मूल्य (₹)</label>
+                      <label className="block text-xs font-semibold text-surface-500 mb-1">Estimated value (₹)</label>
                       <input
                         type="number"
                         value={formLeadValue}
                         onChange={(e) => setFormLeadValue(e.target.value)}
-                        placeholder="उदा. 15000"
+                        placeholder="e.g. 15000"
                         className="w-full px-3 py-2 bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 rounded-lg text-sm outline-none"
                       />
                     </div>
@@ -782,14 +782,14 @@ export function ContactsView({
                   type="submit"
                   className="flex-1 bg-primary-600 hover:bg-primary-700 text-white py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm"
                 >
-                  {isEdit ? "बदलाव सहेजें" : "संपर्क सहेजें"}
+                  {isEdit ? "Save changes" : "Save contact"}
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
                   className="px-5 border border-surface-200 dark:border-surface-800 hover:bg-surface-50 dark:hover:bg-surface-800 rounded-xl text-xs font-medium text-surface-700 dark:text-surface-300 transition-all"
                 >
-                  रद्द करें
+                  Cancel
                 </button>
               </div>
             </form>
@@ -802,25 +802,25 @@ export function ContactsView({
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="bg-white dark:bg-surface-900 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl border border-surface-200 dark:border-surface-800 animate-in fade-in zoom-in-95 duration-200">
             <div className="p-5 border-b border-surface-100 dark:border-surface-800">
-              <h2 className="text-lg font-bold text-surface-900 dark:text-white">एक्सपोर्ट / कॉपी करें</h2>
-              <p className="text-xs text-surface-500 mt-1">{selectedContactIds.size} संपर्क चुने गए</p>
+              <h2 className="text-lg font-bold text-surface-900 dark:text-white">Export / Copy</h2>
+              <p className="text-xs text-surface-500 mt-1">{selectedContactIds.size} contacts selected</p>
             </div>
             
             <div className="p-5 space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-surface-500 mb-2">कॉपी फॉरमैट</label>
+                <label className="block text-xs font-semibold text-surface-500 mb-2">Copy format</label>
                 <div className="flex gap-2 p-1 bg-surface-100 dark:bg-surface-800 rounded-lg">
                   <button 
                     onClick={() => setCopyFormat('newline')}
                     className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all ${copyFormat === 'newline' ? 'bg-white dark:bg-surface-700 shadow-sm text-primary-600 dark:text-primary-400' : 'text-surface-500 hover:text-surface-700'}`}
                   >
-                    लाइन-बाय-लाइन
+                    Line-by-line
                   </button>
                   <button 
                     onClick={() => setCopyFormat('comma')}
                     className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all ${copyFormat === 'comma' ? 'bg-white dark:bg-surface-700 shadow-sm text-primary-600 dark:text-primary-400' : 'text-surface-500 hover:text-surface-700'}`}
                   >
-                    कौमा
+                    Comma
                   </button>
                 </div>
               </div>
@@ -830,30 +830,30 @@ export function ContactsView({
                   onClick={() => {
                     const selected = filteredContacts.filter(c => selectedContactIds.has(c.id));
                     const values = selected.map(c => c.phone).filter(v => !!v);
-                    if (!values.length) { alert('कोई फ़ोन नंबर नहीं मिला।'); return; }
+                    if (!values.length) { alert('No phone numbers found.'); return; }
                     navigator.clipboard.writeText(values.join(copyFormat === 'comma' ? ', ' : '\\n')).then(() => {
-                      toast('success', `${values.length} नंबर क्लिपबोर्ड में कॉपी हो गए।`);
+                      toast('success', `${values.length} numbers copied to clipboard.`);
                       setExportModalOpen(false);
                     });
                   }}
                   className="w-full py-2.5 bg-primary-50 hover:bg-primary-100 dark:bg-primary-500/10 dark:hover:bg-primary-500/20 text-primary-700 dark:text-primary-400 text-sm font-semibold rounded-xl transition-colors text-left px-4 flex items-center justify-between"
                 >
-                  <span>सिर्फ फ़ोन नंबर कॉपी करें</span>
+                  <span>Copy phone numbers only</span>
                   <Copy className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => {
                     const selected = filteredContacts.filter(c => selectedContactIds.has(c.id));
                     const values = selected.map(c => c.email).filter(v => !!v);
-                    if (!values.length) { alert('कोई ईमेल नहीं मिला।'); return; }
+                    if (!values.length) { alert('No emails found.'); return; }
                     navigator.clipboard.writeText(values.join(copyFormat === 'comma' ? ', ' : '\\n')).then(() => {
-                      toast('success', `${values.length} ईमेल क्लिपबोर्ड में कॉपी हो गए।`);
+                      toast('success', `${values.length} emails copied to clipboard.`);
                       setExportModalOpen(false);
                     });
                   }}
                   className="w-full py-2.5 bg-primary-50 hover:bg-primary-100 dark:bg-primary-500/10 dark:hover:bg-primary-500/20 text-primary-700 dark:text-primary-400 text-sm font-semibold rounded-xl transition-colors text-left px-4 flex items-center justify-between"
                 >
-                  <span>सिर्फ ईमेल कॉपी करें</span>
+                  <span>Copy emails only</span>
                   <Copy className="w-4 h-4" />
                 </button>
                 <button
@@ -882,7 +882,7 @@ export function ContactsView({
                   }}
                   className="w-full py-2.5 border border-surface-200 dark:border-surface-800 hover:bg-surface-50 dark:hover:bg-surface-800 text-surface-700 dark:text-surface-300 text-sm font-semibold rounded-xl transition-colors text-left px-4 flex items-center justify-between"
                 >
-                  <span>CSV में एक्सपोर्ट करें</span>
+                  <span>Export to CSV</span>
                   <Download className="w-4 h-4" />
                 </button>
               </div>
@@ -893,7 +893,7 @@ export function ContactsView({
                 onClick={() => setExportModalOpen(false)}
                 className="w-full py-2.5 bg-white dark:bg-surface-800 hover:bg-surface-100 dark:hover:bg-surface-700 text-surface-700 dark:text-surface-300 border border-surface-200 dark:border-surface-700 text-sm font-semibold rounded-xl transition-colors shadow-sm"
               >
-                बंद करें
+                Close
               </button>
             </div>
           </div>

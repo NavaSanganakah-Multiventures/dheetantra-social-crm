@@ -128,9 +128,9 @@ export function PlivoSettingsSection() {
       const data: any = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to update status");
       setVoiceStatus(data.voiceStatus || status);
-      toast("success", "वॉयस स्टेटस अपडेट हो गया");
+      toast("success", "Voice status updated");
     } catch (e: any) {
-      toast("error", e?.message || "स्टेटस अपडेट नहीं हुआ");
+      toast("error", e?.message || "Status not updated");
     } finally {
       setSavingStatus(false);
     }
@@ -145,11 +145,11 @@ export function PlivoSettingsSection() {
         body: JSON.stringify({ phone: phoneInput }),
       });
       const data: any = await res.json();
-      if (!res.ok) throw new Error(data.error || "फोन सेव नहीं हुआ");
+      if (!res.ok) throw new Error(data.error || "Phone not saved");
       setPhoneInput(data.phone || phoneInput);
-      toast("success", "एजेंट फोन सेव हो गया");
+      toast("success", "Agent phone saved");
     } catch (e: any) {
-      toast("error", e?.message || "फोन सेव नहीं हुआ");
+      toast("error", e?.message || "Phone not saved");
     } finally {
       setSavingPhone(false);
     }
@@ -193,13 +193,13 @@ export function PlivoSettingsSection() {
           body: JSON.stringify(body),
         });
         const data: any = await res.json();
-        if (!res.ok) throw new Error(data.error || "अकाउंट अपडेट नहीं हुआ");
-        toast("success", "Plivo अकाउंट अपडेट हो गया");
+        if (!res.ok) throw new Error(data.error || "Account not updated");
+        toast("success", "Plivo account updated");
       } else {
         const authId = formAuthId.trim();
         const authToken = formAuthToken.trim();
-        if (!authId) throw new Error("Auth ID आवश्यक है");
-        if (!authToken) throw new Error("Auth Token आवश्यक है");
+        if (!authId) throw new Error("Auth ID is required");
+        if (!authToken) throw new Error("Auth Token is required");
         const fromNumbers = formFromNumbers.split(",").map((s: string) => s.trim()).filter(Boolean);
         const res = await fetch("/api/plivo/configs", {
           method: "POST",
@@ -213,20 +213,20 @@ export function PlivoSettingsSection() {
           }),
         });
         const data: any = await res.json();
-        if (!res.ok) throw new Error(data.error || "अकाउंट नहीं बना");
-        toast("success", "Plivo अकाउंट जुड़ गया");
+        if (!res.ok) throw new Error(data.error || "Account not created");
+        toast("success", "Plivo account connected");
       }
       setShowForm(false);
       load();
     } catch (e: any) {
-      toast("error", e?.message || "अकाउंट सेव नहीं हुआ");
+      toast("error", e?.message || "Account not saved");
     } finally {
       setSavingConfig(false);
     }
   };
 
   const deleteConfig = async (cfg: any) => {
-    if (!confirm('क्या आप वाकई "' + cfg.name + '" अकाउंट हटाना चाहते हैं?')) return;
+    if (!confirm('Are you sure you want to delete "' + cfg.name + '" account?')) return;
     const wId = localStorage.getItem("workspaceId");
     if (!wId) return;
     try {
@@ -235,11 +235,11 @@ export function PlivoSettingsSection() {
         headers: { "x-workspace-id": wId },
       });
       const data: any = await res.json();
-      if (!res.ok) throw new Error(data.error || "हटाने में विफल");
-      toast("success", "Plivo अकाउंट हटा दिया गया");
+      if (!res.ok) throw new Error(data.error || "Failed to delete");
+      toast("success", "Plivo account deleted");
       load();
     } catch (e: any) {
-      toast("error", e?.message || "हटाने में विफल");
+      toast("error", e?.message || "Failed to delete");
     }
   };
 
@@ -253,11 +253,11 @@ export function PlivoSettingsSection() {
         body: JSON.stringify({ autoDialAgents: value }),
       });
       const data: any = await res.json();
-      if (!res.ok) throw new Error(data.error || "अपडेट विफल");
-      toast("success", value ? "ऑटो-डायल चालू" : "ऑटो-डायल बंद");
+      if (!res.ok) throw new Error(data.error || "Update failed");
+      toast("success", value ? "Auto-dial on" : "Auto-dial off");
       load();
     } catch (e: any) {
-      toast("error", e?.message || "अपडेट विफल");
+      toast("error", e?.message || "Update failed");
     }
   };
 
@@ -272,12 +272,12 @@ export function PlivoSettingsSection() {
         body: JSON.stringify({ force }),
       });
       const data: any = await res.json();
-      if (!res.ok) throw new Error(data.error || "SIP Endpoint लिंक नहीं हुआ");
+      if (!res.ok) throw new Error(data.error || "SIP Endpoint not linked");
       setLinkInfo((m) => ({ ...m, [cfg.id]: data }));
-      toast("success", force ? "SIP Endpoint दोबारा जुड़ गया" : "SIP Endpoint जुड़ गया");
+      toast("success", force ? "SIP Endpoint relinked" : "SIP Endpoint linked");
       load();
     } catch (e: any) {
-      toast("error", e?.message || "SIP Endpoint लिंक नहीं हुआ");
+      toast("error", e?.message || "SIP Endpoint not linked");
     } finally {
       setLinkBusy((b) => ({ ...b, [cfg.id]: false }));
     }
@@ -295,17 +295,17 @@ export function PlivoSettingsSection() {
         body: JSON.stringify({ fromNumber: num, isDefault: false }),
       });
       const data: any = await res.json();
-      if (!res.ok) throw new Error(data.error || "नंबर नहीं जुड़ा");
-      toast("success", "फ्रॉम नंबर जुड़ गया");
+      if (!res.ok) throw new Error(data.error || "Number not linked");
+      toast("success", "From number linked");
       setNewFromNumber((m) => ({ ...m, [cfgId]: "" }));
       load();
     } catch (e: any) {
-      toast("error", e?.message || "नंबर नहीं जुड़ा");
+      toast("error", e?.message || "Number not linked");
     }
   };
 
   const removeFromNumber = async (num: any) => {
-    if (!confirm('"' + num.fromNumber + '" नंबर हटाएं?')) return;
+    if (!confirm('"' + num.fromNumber + '" number?')) return;
     const wId = localStorage.getItem("workspaceId");
     if (!wId) return;
     try {
@@ -314,11 +314,11 @@ export function PlivoSettingsSection() {
         headers: { "x-workspace-id": wId },
       });
       const data: any = await res.json();
-      if (!res.ok) throw new Error(data.error || "नंबर नहीं हटा");
-      toast("success", "नंबर हटा दिया गया");
+      if (!res.ok) throw new Error(data.error || "Number not deleted");
+      toast("success", "Number deleted");
       load();
     } catch (e: any) {
-      toast("error", e?.message || "नंबर नहीं हटा");
+      toast("error", e?.message || "Number not deleted");
     }
   };
 
@@ -331,18 +331,18 @@ export function PlivoSettingsSection() {
         headers: { "x-workspace-id": wId },
       });
       const data: any = await res.json();
-      if (!res.ok) throw new Error(data.error || "डिफ़ॉल्ट सेट नहीं हुआ");
-      toast("success", "डिफ़ॉल्ट नंबर सेट हो गया");
+      if (!res.ok) throw new Error(data.error || "Default not set");
+      toast("success", "Default number set");
       load();
     } catch (e: any) {
-      toast("error", e?.message || "डिफ़ॉल्ट सेट नहीं हुआ");
+      toast("error", e?.message || "Default not set");
     }
   };
 
   const statusLabels: Record<string, string> = {
-    live: "लाइव",
-    not_live: "ऑफ़लाइन",
-    busy: "बिज़ी",
+    live: "Live",
+    not_live: "Offline",
+    busy: "Busy",
   };
 
   const statusStyles: Record<string, string> = {
@@ -356,14 +356,14 @@ export function PlivoSettingsSection() {
       <div className="p-8">
         <div className="flex items-center gap-3 mb-1">
           <PhoneCall className="w-5 h-5 text-primary-600 dark:text-primary-400" />
-          <h2 className="font-bold text-lg text-surface-900 dark:text-white font-display">प्लिवो वॉयस (Plivo Voice)</h2>
+          <h2 className="font-bold text-lg text-surface-900 dark:text-white font-display">Plivo Voice</h2>
         </div>
-        <p className="text-sm text-surface-500 mb-6">Plivo से ब्राउज़र (WebRTC) और PSTN कॉलिंग — इनकमिंग/आउटगोइंग कॉल्स सेट करें।</p>
+        <p className="text-sm text-surface-500 mb-6">Browser (WebRTC) and PSTN calling via Plivo - set up incoming/outgoing calls.</p>
 
         {/* Agent availability + PSTN phone */}
         <div className="mb-8 pb-8 border-b border-surface-100 dark:border-surface-800">
-          <h3 className="font-bold text-base mb-1 text-surface-900 dark:text-white">एजेंट वॉयस स्टेटस</h3>
-          <p className="text-sm text-surface-500 mb-4">आपकी कॉल उपलब्धता और PSTN फोन नंबर (ऑटो-डायल और फॉलबैक ब्रिज के लिए)।</p>
+          <h3 className="font-bold text-base mb-1 text-surface-900 dark:text-white">Agent voice status</h3>
+          <p className="text-sm text-surface-500 mb-4">Your call availability and PSTN phone number (for auto-dial and fallback bridge).</p>
 
           <div className="flex flex-wrap gap-2 mb-4">
             {(["live", "not_live", "busy"] as const).map((s) => {
@@ -386,7 +386,7 @@ export function PlivoSettingsSection() {
 
           <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
             <div className="flex-1">
-              <label className="text-xs font-bold text-surface-600 dark:text-surface-400 block mb-1">एजेंट फोन (PSTN)</label>
+              <label className="text-xs font-bold text-surface-600 dark:text-surface-400 block mb-1">Agent phone (PSTN)</label>
               <input
                 value={phoneInput}
                 onChange={(e) => setPhoneInput(e.target.value)}
@@ -399,7 +399,7 @@ export function PlivoSettingsSection() {
               disabled={savingPhone}
               className="px-5 py-2.5 bg-primary-600 hover:bg-primary-700 text-white text-sm font-bold rounded-xl transition-all active:scale-95 disabled:opacity-60"
             >
-              {savingPhone ? "सेविंग..." : "फोन सेव करें"}
+              {savingPhone ? "Saving..." : "Save phone"}
             </button>
           </div>
 
@@ -408,9 +408,9 @@ export function PlivoSettingsSection() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left text-xs text-surface-400 border-b border-surface-100 dark:border-surface-800">
-                    <th className="py-2 pr-3 font-medium">एजेंट</th>
-                    <th className="py-2 pr-3 font-medium">स्टेटस</th>
-                    <th className="py-2 font-medium">फोन</th>
+                    <th className="py-2 pr-3 font-medium">Agent</th>
+                    <th className="py-2 pr-3 font-medium">Status</th>
+                    <th className="py-2 font-medium">Phone</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -418,7 +418,7 @@ export function PlivoSettingsSection() {
                     <tr key={a.userId} className="border-b border-surface-50 dark:border-surface-800/50">
                       <td className="py-2 pr-3 text-surface-700 dark:text-surface-200">
                         {a.name || a.email}
-                        {me && a.userId === me.id ? " (आप)" : ""}
+                        {me && a.userId === me.id ? " (you)" : ""}
                       </td>
                       <td className="py-2 pr-3">
                         <span
@@ -447,25 +447,25 @@ export function PlivoSettingsSection() {
         <div>
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="font-bold text-base text-surface-900 dark:text-white">Plivo अकाउंट्स</h3>
-              <p className="text-sm text-surface-500">Plivo क्रेडेंशियल्स, फ्रॉम नंबर और SIP सॉफ्टफोन एंडपॉइंट।</p>
+              <h3 className="font-bold text-base text-surface-900 dark:text-white">Plivo Accounts</h3>
+              <p className="text-sm text-surface-500">Plivo credentials, from numbers and SIP softphone endpoints.</p>
             </div>
             <button
               onClick={openAdd}
               className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-xs font-bold rounded-xl transition-all active:scale-95"
             >
-              <Plus className="w-4 h-4" /> नया अकाउंट
+              <Plus className="w-4 h-4" /> New account
             </button>
           </div>
 
           {showForm && (
             <div className="mb-6 p-5 rounded-2xl border border-primary-200 dark:border-primary-900/60 bg-primary-50/50 dark:bg-primary-950/20">
               <h4 className="font-bold text-sm text-surface-900 dark:text-white mb-4">
-                {editingId ? "अकाउंट संपादित करें" : "नया Plivo अकाउंट"}
+                {editingId ? "Edit account" : "New Plivo account"}
               </h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs font-bold text-surface-600 dark:text-surface-400 block mb-1">नाम</label>
+                  <label className="text-xs font-bold text-surface-600 dark:text-surface-400 block mb-1">Name</label>
                   <input
                     value={formName}
                     onChange={(e) => setFormName(e.target.value)}
@@ -485,19 +485,19 @@ export function PlivoSettingsSection() {
                 </div>
                 <div>
                   <label className="text-xs font-bold text-surface-600 dark:text-surface-400 block mb-1">
-                    Auth Token {editingId ? "(नया, बदलना हो तो)" : ""}
+                    Auth Token {editingId ? "(new, to change it)" : ""}
                   </label>
                   <input
                     value={formAuthToken}
                     onChange={(e) => setFormAuthToken(e.target.value)}
                     type="password"
-                    placeholder={editingId ? "•••••••• (छोड़ें)" : "Auth Token"}
+                    placeholder={editingId ? "•••••••• (leave blank)" : "Auth Token"}
                     className="w-full px-4 py-2.5 bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-700 rounded-xl text-sm text-surface-900 dark:text-white outline-none focus:ring-2 focus:ring-primary-500"
                   />
                 </div>
                 {!editingId && (
                   <div>
-                    <label className="text-xs font-bold text-surface-600 dark:text-surface-400 block mb-1">फ्रॉम नंबर (कॉमा से अलग)</label>
+                    <label className="text-xs font-bold text-surface-600 dark:text-surface-400 block mb-1">From numbers (comma separated)</label>
                     <input
                       value={formFromNumbers}
                       onChange={(e) => setFormFromNumbers(e.target.value)}
@@ -513,7 +513,7 @@ export function PlivoSettingsSection() {
                     onChange={(e) => setFormAutoDial(e.target.checked)}
                     className="rounded border-surface-300"
                   />
-                  ऑटो-डायल एजेंट्स (लाइव एजेंट के PSTN फोन पर ऑटो-फॉरवर्ड)
+                  Auto-dial agents (auto-forward to live agent&apos;s PSTN phone)
                 </label>
               </div>
               <div className="flex gap-3 mt-4">
@@ -522,13 +522,13 @@ export function PlivoSettingsSection() {
                   disabled={savingConfig}
                   className="px-5 py-2.5 bg-primary-600 hover:bg-primary-700 text-white text-sm font-bold rounded-xl transition-all active:scale-95 disabled:opacity-60"
                 >
-                  {savingConfig ? "सेविंग..." : editingId ? "अपडेट करें" : "अकाउंट जोड़ें"}
+                  {savingConfig ? "Saving..." : editingId ? "Update" : "Add account"}
                 </button>
                 <button
                   onClick={() => setShowForm(false)}
                   className="px-5 py-2.5 bg-surface-100 dark:bg-surface-800 text-surface-700 dark:text-surface-300 text-sm font-bold rounded-xl transition-all"
                 >
-                  रद्द करें
+                  Cancel
                 </button>
               </div>
             </div>
@@ -538,7 +538,7 @@ export function PlivoSettingsSection() {
             <div className="flex flex-col items-center justify-center p-10 border-2 border-dashed border-surface-200 dark:border-surface-800 rounded-2xl bg-surface-50 dark:bg-surface-950/50">
               <Phone className="w-10 h-10 text-surface-300 dark:text-surface-700 mb-4" />
               <p className="text-sm text-surface-500 font-medium text-center">
-                कोई Plivo अकाउंट नहीं जुड़ा। ऊपर &quot;नया अकाउंट&quot; से शुरू करें।
+                No Plivo account connected. Start with &quot;New account&quot; above.
               </p>
             </div>
           )}
@@ -576,28 +576,28 @@ export function PlivoSettingsSection() {
                       <button
                         onClick={() => setExpanded(isOpen ? null : cfg.id)}
                         className="p-2 text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800 rounded-lg transition-all"
-                        title={isOpen ? "छोटा करें" : "विस्तार करें"}
+                        title={isOpen ? "Collapse" : "Expand"}
                       >
                         {isOpen ? "−" : "+"}
                       </button>
-                      <button onClick={() => openEdit(cfg)} title="संपादित करें" className="p-2 text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800 rounded-lg transition-all">
+                      <button onClick={() => openEdit(cfg)} title="Edit" className="p-2 text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800 rounded-lg transition-all">
                         <Edit className="w-4 h-4" />
                       </button>
-                      <button onClick={() => deleteConfig(cfg)} title="हटाएं" className="p-2 text-surface-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-all">
+                      <button onClick={() => deleteConfig(cfg)} title="Delete" className="p-2 text-surface-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-all">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
 
                   <div className="flex items-center justify-between mt-4 pt-4 border-t border-surface-100 dark:border-surface-800">
-                    <span className="text-xs font-bold text-surface-600 dark:text-surface-400">ऑटो-डायल एजेंट्स</span>
+                    <span className="text-xs font-bold text-surface-600 dark:text-surface-400">Auto-dial agents</span>
                     <button
                       onClick={() => toggleAutoDial(cfg, !cfg.autoDialAgents)}
                       className={
                         "relative w-11 h-6 rounded-full transition-colors " +
                         (cfg.autoDialAgents ? "bg-primary-600" : "bg-surface-300 dark:bg-surface-700")
                       }
-                      title="ऑटो-डायल टॉगल करें"
+                      title="Toggle auto-dial"
                     >
                       <span
                         className={
@@ -612,7 +612,7 @@ export function PlivoSettingsSection() {
                     <div className="mt-5 pt-5 border-t border-surface-100 dark:border-surface-800 space-y-5">
                       {/* From numbers */}
                       <div>
-                        <h5 className="text-xs font-bold text-surface-600 dark:text-surface-400 mb-2">फ्रॉम नंबर (Caller ID)</h5>
+                        <h5 className="text-xs font-bold text-surface-600 dark:text-surface-400 mb-2">From numbers (Caller ID)</h5>
                         {cfg.fromNumbers && cfg.fromNumbers.length > 0 ? (
                           <div className="flex flex-wrap gap-2 mb-3">
                             {cfg.fromNumbers.map((n: any) => (
@@ -623,18 +623,18 @@ export function PlivoSettingsSection() {
                                 {n.isDefault && <Star className="w-3 h-3 fill-amber-400 text-amber-400" />}
                                 {n.fromNumber}
                                 {!n.isDefault && (
-                                  <button onClick={() => makeDefault(n)} title="डिफ़ॉल्ट बनाएं" className="text-surface-400 hover:text-amber-500">
+                                  <button onClick={() => makeDefault(n)} title="Make default" className="text-surface-400 hover:text-amber-500">
                                     <Star className="w-3 h-3" />
                                   </button>
                                 )}
-                                <button onClick={() => removeFromNumber(n)} title="हटाएं" className="text-surface-400 hover:text-red-500">
+                                <button onClick={() => removeFromNumber(n)} title="Delete" className="text-surface-400 hover:text-red-500">
                                   <Trash2 className="w-3 h-3" />
                                 </button>
                               </span>
                             ))}
                           </div>
                         ) : (
-                          <p className="text-xs text-surface-400 mb-3">कोई फ्रॉम नंबर नहीं।</p>
+                          <p className="text-xs text-surface-400 mb-3">No from numbers.</p>
                         )}
                         <div className="flex gap-2">
                           <input
@@ -647,25 +647,25 @@ export function PlivoSettingsSection() {
                             onClick={() => addFromNumber(cfg.id)}
                             className="px-4 py-2 bg-surface-800 dark:bg-surface-700 text-white text-xs font-bold rounded-xl transition-all active:scale-95"
                           >
-                            जोड़ें
+                            Add
                           </button>
                         </div>
                       </div>
 
                       {/* SIP endpoint */}
                       <div>
-                        <h5 className="text-xs font-bold text-surface-600 dark:text-surface-400 mb-2">SIP सॉफ्टफोन एंडपॉइंट</h5>
+                        <h5 className="text-xs font-bold text-surface-600 dark:text-surface-400 mb-2">SIP softphone endpoint</h5>
                         <div className="p-4 rounded-xl bg-surface-50 dark:bg-surface-900 border border-surface-100 dark:border-surface-800 text-xs space-y-1.5">
                           <div className="flex justify-between">
-                            <span className="text-surface-500">सर्वर</span>
+                            <span className="text-surface-500">Server</span>
                             <span className="font-mono text-surface-700 dark:text-surface-200">phone.plivo.com:5060</span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-surface-500">यूज़रनेम</span>
+                            <span className="text-surface-500">Username</span>
                             <span className="font-mono text-surface-700 dark:text-surface-200">{cfg.endpointUsername || "—"}</span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-surface-500">पासवर्ड</span>
+                            <span className="text-surface-500">Password</span>
                             <span className="font-mono text-surface-700 dark:text-surface-200">{cfg.endpointPasswordMasked || "—"}</span>
                           </div>
                           <div className="flex justify-between items-center gap-3">
@@ -679,7 +679,7 @@ export function PlivoSettingsSection() {
                             </span>
                           </div>
                           <p className="text-[11px] text-surface-400 pt-1">
-                            ब्राउज़र सॉफ्टफोन अपने आप SIP क्रेडेंशियल्स लेता है। Zoiper/हार्ड फोन के लिए यह डिटेल इस्तेमाल करें।
+                            The browser softphone picks up SIP credentials automatically. Use these details for Zoiper/hard phones.
                           </p>
                         </div>
                         <div className="flex gap-2 mt-3">
@@ -689,7 +689,7 @@ export function PlivoSettingsSection() {
                             className="flex items-center gap-2 px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold rounded-xl transition-all active:scale-95 disabled:opacity-60"
                           >
                             {linkBusy[cfg.id] ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2 className="w-4 h-4" />}
-                            {cfg.endpointConfigured ? "दोबारा जोड़ें" : "SIP Endpoint जोड़ें"}
+                            {cfg.endpointConfigured ? "Relink" : "Add SIP Endpoint"}
                           </button>
                           {cfg.endpointConfigured && (
                             <button
@@ -697,7 +697,7 @@ export function PlivoSettingsSection() {
                               disabled={!!linkBusy[cfg.id]}
                               className="px-4 py-2 bg-surface-100 dark:bg-surface-800 text-surface-700 dark:text-surface-300 text-xs font-bold rounded-xl transition-all active:scale-95 disabled:opacity-60"
                             >
-                              नया एंडपॉइंट बनाएं (force)
+                              Create new endpoint (force)
                             </button>
                           )}
                         </div>

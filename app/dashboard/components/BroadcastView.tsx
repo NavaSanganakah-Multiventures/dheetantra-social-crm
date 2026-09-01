@@ -125,10 +125,10 @@ export function BroadcastView() {
         setCampaignId(data.campaignId);
         setProgress({ total: data.total, sent: 0, failed: 0, pending: data.total });
       } else {
-        alert(data.error || 'ब्रॉडकास्ट बनाने में विफल');
+        alert(data.error || 'Failed to create broadcast');
       }
     } catch {
-      alert('सर्वर एरर');
+      alert('Server error');
     } finally {
       setSending(false);
     }
@@ -145,8 +145,8 @@ export function BroadcastView() {
           <Megaphone className="w-6 h-6" />
         </div>
         <div>
-          <h2 className="text-2xl font-semibold tracking-tight">WhatsApp ब्रॉडकास्ट</h2>
-          <p className="text-sm text-surface-500">टेम्पलेट संदेश भेजें अपने सभी संपर्कों को</p>
+          <h2 className="text-2xl font-semibold tracking-tight">WhatsApp Broadcast</h2>
+          <p className="text-sm text-surface-500">Send template messages to all your contacts</p>
         </div>
       </div>
 
@@ -155,7 +155,7 @@ export function BroadcastView() {
           <div className="flex items-center justify-between">
             <h3 className="font-semibold text-lg">{campaignName}</h3>
             <span className={`text-xs font-semibold px-3 py-1 rounded-full ${progress.sent + progress.failed >= progress.total ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400'}`}>
-              {progress.sent + progress.failed >= progress.total ? 'पूर्ण' : 'प्रगति में...'}
+              {progress.sent + progress.failed >= progress.total ? 'Complete' : 'In progress...'}
             </span>
           </div>
           <div className="w-full bg-surface-100 dark:bg-surface-800 rounded-full h-4 overflow-hidden">
@@ -164,20 +164,20 @@ export function BroadcastView() {
           <div className="grid grid-cols-3 gap-4 text-center">
             <div className="bg-emerald-50 dark:bg-emerald-900/20 p-4 rounded-xl">
               <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{progress.sent}</p>
-              <p className="text-xs text-emerald-600/70 dark:text-emerald-400/70 mt-1">भेजे गए</p>
+              <p className="text-xs text-emerald-600/70 dark:text-emerald-400/70 mt-1">Sent</p>
             </div>
             <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-xl">
               <p className="text-2xl font-bold text-red-600 dark:text-red-400">{progress.failed}</p>
-              <p className="text-xs text-red-600/70 dark:text-red-400/70 mt-1">विफल</p>
+              <p className="text-xs text-red-600/70 dark:text-red-400/70 mt-1">Failed</p>
             </div>
             <div className="bg-surface-50 dark:bg-surface-800 p-4 rounded-xl">
               <p className="text-2xl font-bold text-surface-600 dark:text-surface-400">{progress.pending}</p>
-              <p className="text-xs text-surface-500 mt-1">बाकी</p>
+              <p className="text-xs text-surface-500 mt-1">Remaining</p>
             </div>
           </div>
           {progress.sent + progress.failed >= progress.total && (
             <button onClick={() => { setCampaignId(null); setProgress(null); setCampaignName(''); setSelectedContactIds(new Set()); setSelectedTemplate(null); }} className="w-full bg-surface-900 text-white dark:bg-surface-100 dark:text-surface-900 font-medium rounded-lg px-4 py-3 hover:scale-[0.99] transition-transform">
-              नया ब्रॉडकास्ट बनाएं
+              Create new broadcast
             </button>
           )}
         </div>
@@ -186,14 +186,14 @@ export function BroadcastView() {
           {/* Left: Config */}
           <div className="lg:col-span-1 space-y-4">
             <div className="bg-white dark:bg-surface-900 p-6 rounded-2xl border border-surface-200 dark:border-surface-800 shadow-sm space-y-4">
-              <h3 className="font-semibold text-sm">ब्रॉडकास्ट सेटिंग्स</h3>
+              <h3 className="font-semibold text-sm">Broadcast settings</h3>
               <div>
-                <label className="block text-xs font-semibold text-surface-500 uppercase tracking-wider mb-1.5">अभियान का नाम</label>
-                <input type="text" value={campaignName} onChange={e => setCampaignName(e.target.value)} placeholder="जैसे: Summer Promo Blast" className="w-full bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-surface-800 rounded-lg px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500" />
+                <label className="block text-xs font-semibold text-surface-500 uppercase tracking-wider mb-1.5">Campaign name</label>
+                <input type="text" value={campaignName} onChange={e => setCampaignName(e.target.value)} placeholder="e.g. Summer Promo Blast" className="w-full bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-surface-800 rounded-lg px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500" />
               </div>
               {configs.length > 1 && (
                 <div>
-                  <label className="block text-xs font-semibold text-surface-500 uppercase tracking-wider mb-1.5">प्रेषक WABA</label>
+                  <label className="block text-xs font-semibold text-surface-500 uppercase tracking-wider mb-1.5">Sender WABA</label>
                   <select value={chosenWaba?.id || ''} onChange={e => setChosenWaba(configs.find(c => c.id === e.target.value))} className="w-full bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-surface-800 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-primary-500 font-mono">
                     {configs.map(cfg => <option key={cfg.id} value={cfg.id}>{cfg.phone_number_id}</option>)}
                   </select>
@@ -202,9 +202,9 @@ export function BroadcastView() {
             </div>
 
             <div className="bg-white dark:bg-surface-900 p-6 rounded-2xl border border-surface-200 dark:border-surface-800 shadow-sm space-y-3">
-              <h3 className="font-semibold text-sm">टेम्पलेट चुनें</h3>
+              <h3 className="font-semibold text-sm">Choose template</h3>
               {templates.length === 0 ? (
-                <p className="text-xs text-surface-400">कोई स्वीकृत टेम्पलेट नहीं मिला</p>
+                <p className="text-xs text-surface-400">No approved templates found</p>
               ) : (
                 <div className="space-y-2 max-h-60 overflow-y-auto">
                   {templates.map(t => (
@@ -219,11 +219,11 @@ export function BroadcastView() {
 
             {selectedTemplate && templateParams.length > 0 && (
               <div className="bg-white dark:bg-surface-900 p-6 rounded-2xl border border-surface-200 dark:border-surface-800 shadow-sm space-y-3">
-                <h3 className="font-semibold text-sm">पैरामीटर मान</h3>
+                <h3 className="font-semibold text-sm">Parameter values</h3>
                 {templateParams.map((val, idx) => (
                   <div key={idx} className="flex items-center gap-2">
                     <span className="text-xs font-bold font-mono text-primary-500 bg-primary-50 dark:bg-primary-900/20 px-2 py-1 rounded">{'{{' + (idx + 1) + '}}'}</span>
-                    <input type="text" value={val} onChange={e => { const c = [...templateParams]; c[idx] = e.target.value; setTemplateParams(c); }} placeholder={`मान ${idx + 1}`} className="flex-1 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-surface-800 rounded-lg px-3 py-2 text-sm outline-none focus:border-primary-500" />
+                    <input type="text" value={val} onChange={e => { const c = [...templateParams]; c[idx] = e.target.value; setTemplateParams(c); }} placeholder={`Value ${idx + 1}`} className="flex-1 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-surface-800 rounded-lg px-3 py-2 text-sm outline-none focus:border-primary-500" />
                   </div>
                 ))}
               </div>
@@ -235,19 +235,19 @@ export function BroadcastView() {
             <div className="bg-white dark:bg-surface-900 rounded-2xl border border-surface-200 dark:border-surface-800 shadow-sm flex flex-col h-[calc(100vh-12rem)]">
               <div className="p-4 border-b border-surface-200 dark:border-surface-800 space-y-3">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-sm">प्राप्तकर्ता चुनें <span className="text-surface-400 font-normal">({selectedContactIds.size} चुने गए)</span></h3>
+                  <h3 className="font-semibold text-sm">Choose recipients <span className="text-surface-400 font-normal">({selectedContactIds.size} selected)</span></h3>
                   <div className="flex items-center gap-3">
                     <span className={`text-xs ${activeOnly ? 'text-primary-600 dark:text-primary-400' : 'text-surface-400'}`}>
-                      {activeContactIds.size} सक्रिय
+                      {activeContactIds.size} Active
                     </span>
                     <button onClick={toggleAll} className="text-xs text-primary-600 dark:text-primary-400 font-medium hover:underline">
-                      {selectedContactIds.size === filteredContacts.length ? 'सभी हटाएं' : 'सभी चुनें'}
+                      {selectedContactIds.size === filteredContacts.length ? 'Remove all' : 'Select all'}
                     </button>
                   </div>
                 </div>
                 <div className="relative">
                   <Search className="w-4 h-4 text-surface-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input type="text" value={contactSearch} onChange={e => setContactSearch(e.target.value)} placeholder="नाम या नंबर से खोजें..." className="w-full pl-9 pr-4 py-2.5 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-surface-800 rounded-lg text-sm outline-none focus:border-primary-500" />
+                  <input type="text" value={contactSearch} onChange={e => setContactSearch(e.target.value)} placeholder="Search by name or number..." className="w-full pl-9 pr-4 py-2.5 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-surface-800 rounded-lg text-sm outline-none focus:border-primary-500" />
                 </div>
                 {/* Active conversations filter toggle */}
                 <div className="flex items-center gap-2 pt-1">
@@ -260,23 +260,23 @@ export function BroadcastView() {
                     }`}
                   >
                     <MessageCircle className="w-3.5 h-3.5" />
-                    केवल सक्रिय बातचीत वाले
+                    Only with active conversations
                   </button>
                 </div>
               </div>
               <div className="flex-1 min-h-0 overflow-y-auto">
                 {filteredContacts.length === 0 ? (
-                  <div className="p-8 text-center text-sm text-surface-400">कोई संपर्क नहीं मिला</div>
+                  <div className="p-8 text-center text-sm text-surface-400">No contacts found</div>
                 ) : (
                   filteredContacts.map(c => (
                     <label key={c.id} className={`flex items-center gap-3 px-4 py-3 border-b border-surface-100 dark:border-surface-800/50 cursor-pointer hover:bg-surface-50 dark:hover:bg-surface-800/30 transition-colors ${selectedContactIds.has(c.id) ? 'bg-primary-50/50 dark:bg-primary-900/10' : ''}`}>
                       <input type="checkbox" checked={selectedContactIds.has(c.id)} onChange={() => toggleContact(c.id)} className="w-4 h-4 rounded border-surface-300 text-primary-600 focus:ring-primary-500" />
                       <div className="flex-1 min-w-0 flex items-center gap-2">
                         {activeContactIds.has(c.id) && (
-                          <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 shrink-0" title="सक्रिय बातचीत" />
+                          <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 shrink-0" title="Active conversation" />
                         )}
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-surface-900 dark:text-surface-100 truncate">{c.name || 'अज्ञात'}</p>
+                          <p className="text-sm font-medium text-surface-900 dark:text-surface-100 truncate">{c.name || 'Unknown'}</p>
                           <p className="text-xs text-surface-500">{c.phone || c.platform_contact_id}</p>
                         </div>
                       </div>
@@ -287,7 +287,7 @@ export function BroadcastView() {
               </div>
               <div className="p-4 border-t border-surface-200 dark:border-surface-800">
                 <button onClick={handleSend} disabled={!campaignName || !selectedTemplate || selectedContactIds.size === 0 || sending} className="w-full disabled:opacity-40 bg-primary-600 hover:bg-primary-700 disabled:hover:bg-primary-600 text-white font-medium rounded-lg px-4 py-3 transition-all flex items-center justify-center gap-2">
-                  {sending ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> भेज रहे हैं...</> : <><Send className="w-4 h-4" /> {selectedContactIds.size} को ब्रॉडकास्ट भेजें</>}
+                  {sending ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> Sending...</> : <><Send className="w-4 h-4" /> {selectedContactIds.size} Send broadcast to</>}
                 </button>
               </div>
             </div>

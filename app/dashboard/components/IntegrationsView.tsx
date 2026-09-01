@@ -5,9 +5,9 @@ export function IntegrationsView() {
     <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-surface-900 dark:text-white">इंटीग्रेशन्स</h2>
+          <h2 className="text-2xl font-bold text-surface-900 dark:text-white">Integrations</h2>
           <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">
-            अपने अकाउंट को अन्य सेवाओं से कनेक्ट करें।
+            Connect your account to other services.
           </p>
         </div>
       </div>
@@ -21,13 +21,13 @@ export function IntegrationsView() {
             <div>
               <h3 className="font-semibold text-surface-900 dark:text-white">Google Contacts</h3>
               <p className="text-xs text-surface-500 dark:text-surface-400 mt-1">
-                अपने Google Contacts को सिंक करें।
+                Sync your Google Contacts.
               </p>
             </div>
           </div>
           <div className="mt-auto pt-4 flex gap-3">
              <button disabled className="w-full bg-surface-100 dark:bg-surface-800 text-surface-400 dark:text-surface-500 py-2 rounded-xl text-sm font-medium cursor-not-allowed">
-               जल्द आ रहा है
+               Coming soon
              </button>
           </div>
         </div>
@@ -39,9 +39,9 @@ export function IntegrationsView() {
               <Blocks className="w-6 h-6" />
             </div>
             <div>
-              <h3 className="font-semibold text-surface-900 dark:text-white">आगामी इंटीग्रेशन</h3>
+              <h3 className="font-semibold text-surface-900 dark:text-white">Upcoming integrations</h3>
               <p className="text-xs text-surface-500 dark:text-surface-400 mt-1">
-                अधिक इंटीग्रेशन जल्द आ रहे हैं
+                More integrations coming soon
               </p>
             </div>
           </div>
