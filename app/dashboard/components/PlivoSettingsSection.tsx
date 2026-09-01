@@ -47,6 +47,9 @@ export function PlivoSettingsSection() {
   const [formAuthToken, setFormAuthToken] = useState("");
   const [formFromNumbers, setFormFromNumbers] = useState("");
   const [formAutoDial, setFormAutoDial] = useState(false);
+  const [formVoiceBotEnabled, setFormVoiceBotEnabled] = useState(true);
+  const [formOfficeHoursStart, setFormOfficeHoursStart] = useState("09:00");
+  const [formOfficeHoursEnd, setFormOfficeHoursEnd] = useState("16:00");
   const [savingConfig, setSavingConfig] = useState(false);
 
   const [newFromNumber, setNewFromNumber] = useState<Record<string, string>>({});
@@ -162,6 +165,9 @@ export function PlivoSettingsSection() {
     setFormAuthToken("");
     setFormFromNumbers("");
     setFormAutoDial(false);
+    setFormVoiceBotEnabled(true);
+    setFormOfficeHoursStart("09:00");
+    setFormOfficeHoursEnd("16:00");
     setShowForm(true);
   };
 
@@ -172,6 +178,9 @@ export function PlivoSettingsSection() {
     setFormAuthToken("");
     setFormFromNumbers((cfg.fromNumbers || []).map((n: any) => n.fromNumber).join(", "));
     setFormAutoDial(!!cfg.autoDialAgents);
+    setFormVoiceBotEnabled(cfg.voiceBotEnabled !== false);
+    setFormOfficeHoursStart(cfg.officeHoursStart || "09:00");
+    setFormOfficeHoursEnd(cfg.officeHoursEnd || "16:00");
     setShowForm(true);
   };
 
@@ -184,6 +193,9 @@ export function PlivoSettingsSection() {
         const body: any = {
           name: formName.trim() || "My Plivo Account",
           autoDialAgents: formAutoDial,
+          voiceBotEnabled: formVoiceBotEnabled,
+          officeHoursStart: formOfficeHoursStart,
+          officeHoursEnd: formOfficeHoursEnd,
         };
         const token = formAuthToken.trim();
         if (token) body.authToken = token;
@@ -210,6 +222,9 @@ export function PlivoSettingsSection() {
             authToken,
             fromNumbers,
             autoDialAgents: formAutoDial,
+            voiceBotEnabled: formVoiceBotEnabled,
+            officeHoursStart: formOfficeHoursStart,
+            officeHoursEnd: formOfficeHoursEnd,
           }),
         });
         const data: any = await res.json();
@@ -506,7 +521,7 @@ export function PlivoSettingsSection() {
                     />
                   </div>
                 )}
-                <label className="flex items-center gap-2 text-sm text-surface-700 dark:text-surface-300 md:col-span-2">
+                <label className="flex items-center gap-2 text-sm text-surface-700 dark:text-surface-300 md:col-span-2 mt-2">
                   <input
                     type="checkbox"
                     checked={formAutoDial}
@@ -515,6 +530,43 @@ export function PlivoSettingsSection() {
                   />
                   Auto-dial agents (auto-forward to live agent&apos;s PSTN phone)
                 </label>
+                
+                <div className="md:col-span-2 pt-4 border-t border-surface-100 dark:border-surface-800">
+                  <h5 className="font-bold text-sm text-surface-800 dark:text-surface-200 mb-3">Voice Bot (Automated Greetings)</h5>
+                  
+                  <label className="flex items-center gap-2 text-sm text-surface-700 dark:text-surface-300 mb-4">
+                    <input
+                      type="checkbox"
+                      checked={formVoiceBotEnabled}
+                      onChange={(e) => setFormVoiceBotEnabled(e.target.checked)}
+                      className="rounded border-surface-300"
+                    />
+                    Enable automated &apos;Arya&apos; voice assistant (plays custom out-of-office & busy messages)
+                  </label>
+                  
+                  {formVoiceBotEnabled && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-surface-50 dark:bg-surface-900 p-4 rounded-xl border border-surface-100 dark:border-surface-800">
+                      <div>
+                        <label className="text-xs font-bold text-surface-600 dark:text-surface-400 block mb-1">Office Start Time (HH:MM)</label>
+                        <input
+                          type="time"
+                          value={formOfficeHoursStart}
+                          onChange={(e) => setFormOfficeHoursStart(e.target.value)}
+                          className="w-full px-4 py-2.5 bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 rounded-xl text-sm text-surface-900 dark:text-white outline-none focus:ring-2 focus:ring-primary-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-surface-600 dark:text-surface-400 block mb-1">Office End Time (HH:MM)</label>
+                        <input
+                          type="time"
+                          value={formOfficeHoursEnd}
+                          onChange={(e) => setFormOfficeHoursEnd(e.target.value)}
+                          className="w-full px-4 py-2.5 bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 rounded-xl text-sm text-surface-900 dark:text-white outline-none focus:ring-2 focus:ring-primary-500"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="flex gap-3 mt-4">
                 <button
