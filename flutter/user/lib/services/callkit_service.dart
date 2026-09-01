@@ -236,7 +236,8 @@ class CallKitService {
       'id', 'callId', 'sdp', 'sdpType', 'callerName', 'callerNumber',
       'contact_name', 'phone', 'email', 'lastMessage', 'phoneNumberId',
       'from', 'contactEmail', 'direction', 'type', 'status', 'nameCaller',
-      'handle', 'avatar', 'source', 'conferenceName',
+      'handle', 'avatar', 'source', 'conferenceName', 'sipTarget', 'dialUri',
+      'plivoConfigId',
     };
     final out = <String, dynamic>{};
     raw.forEach((key, value) {
