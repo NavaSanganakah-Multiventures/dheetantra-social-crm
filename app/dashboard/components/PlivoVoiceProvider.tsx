@@ -159,6 +159,13 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
         client.on("onMediaConnected", () => {
           setStatus("connected");
           startTimer();
+          try {
+            if (client.audio && client.audio.speakerDevices && typeof client.audio.speakerDevices.set === "function") {
+              client.audio.speakerDevices.set("default");
+            }
+          } catch (e) {
+            console.error("[PlivoWeb] auto-set speaker error", e);
+          }
         });
         client.on("onCallTerminated", () => {
           cleanupCall();
