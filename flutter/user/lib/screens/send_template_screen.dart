@@ -62,19 +62,19 @@ class _SendTemplateScreenState extends State<SendTemplateScreen> {
     final recipient = _recipientController.text.trim();
     if (!_canSendTemplate) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('सिर्फ़ owner या admin WhatsApp template भेज सकता है')),
+        const SnackBar(content: Text('Only owner or admin can send WhatsApp templates')),
       );
       return;
     }
     if (_selectedTemplate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('कृपया टेम्प्लेट चुनें')),
+        const SnackBar(content: Text('Please choose a template')),
       );
       return;
     }
     if (recipient.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('कृपया प्राप्तकर्ता का नंबर दर्ज करें')),
+        const SnackBar(content: Text('Please enter the recipient's number')),
       );
       return;
     }
@@ -93,11 +93,11 @@ class _SendTemplateScreenState extends State<SendTemplateScreen> {
     if (!mounted) return;
     if (res['error'] != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('त्रुटि: ${res['error']}')),
+        SnackBar(content: Text('Error: ${res['error']}')),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('टेम्प्लेट भेजा गया')),
+        const SnackBar(content: Text('Template sent')),
       );
       Navigator.of(context).pop();
     }
@@ -107,7 +107,7 @@ class _SendTemplateScreenState extends State<SendTemplateScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('WhatsApp टेम्प्लेट भेजें'),
+        title: const Text('Send WhatsApp template'),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -116,14 +116,14 @@ class _SendTemplateScreenState extends State<SendTemplateScreen> {
               children: [
                 if (_templates.isEmpty)
                   const Text(
-                    'कोई टेम्प्लेट उपलब्ध नहीं। कृपया पहले Meta Dashboard से टेम्प्लेट बनाएं।',
+                    'No templates available. Please create a template from the Meta Dashboard first.',
                     style: TextStyle(color: AppColors.textMuted),
                   )
                 else
                   DropdownButtonFormField<dynamic>(
                     value: _selectedTemplate,
                     dropdownColor: AppColors.surfaceAlt,
-                    decoration: const InputDecoration(labelText: 'टेम्प्लेट चुनें'),
+                    decoration: const InputDecoration(labelText: 'Choose template'),
                     items: _templates
                         .map((t) => DropdownMenuItem(
                               value: t,
@@ -143,7 +143,7 @@ class _SendTemplateScreenState extends State<SendTemplateScreen> {
                   DropdownButtonFormField<WhatsAppConfig>(
                     value: _selectedConfig,
                     dropdownColor: AppColors.surfaceAlt,
-                    decoration: const InputDecoration(labelText: 'WhatsApp खाता चुनें'),
+                    decoration: const InputDecoration(labelText: 'Choose WhatsApp account'),
                     items: _configs
                         .map((c) => DropdownMenuItem(
                               value: c,
@@ -160,14 +160,14 @@ class _SendTemplateScreenState extends State<SendTemplateScreen> {
                   controller: _recipientController,
                   keyboardType: TextInputType.phone,
                   decoration: const InputDecoration(
-                    labelText: 'प्राप्तकर्ता का नंबर',
+                    labelText: 'Recipient number',
                     hintText: '+919876543210',
                   ),
                 ),
                 if (_paramControllers.isNotEmpty) ...[
                   const SizedBox(height: 20),
                   const Text(
-                    'टेम्प्लेट पैरामीटर',
+                    'Template parameters',
                     style: TextStyle(
                       color: AppColors.textPrimary,
                       fontSize: 15,
@@ -179,7 +179,7 @@ class _SendTemplateScreenState extends State<SendTemplateScreen> {
                     TextField(
                       controller: _paramControllers[i],
                       decoration: InputDecoration(
-                        labelText: 'मान ${i + 1} ({{${i + 1}}})',
+                        labelText: 'Value ${i + 1} ({{${i + 1}}})',
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -198,7 +198,7 @@ class _SendTemplateScreenState extends State<SendTemplateScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          'पूर्वावलोकन',
+                          'Preview',
                           style: TextStyle(color: AppColors.textMuted, fontSize: 12),
                         ),
                         const SizedBox(height: 6),
@@ -225,7 +225,7 @@ class _SendTemplateScreenState extends State<SendTemplateScreen> {
                         SizedBox(width: 10),
                         Expanded(
                           child: Text(
-                            'सिर्फ़ owner या admin ही WhatsApp template भेज सकते हैं।',
+                            'Only owner or admin can send WhatsApp templates.',
                             style: TextStyle(color: AppColors.warning, fontSize: 13),
                           ),
                         ),
@@ -240,7 +240,7 @@ class _SendTemplateScreenState extends State<SendTemplateScreen> {
                           height: 20,
                           child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                         )
-                      : const Text('टेम्प्लेट भेजें'),
+                      : const Text('Send template'),
                 ),
               ],
             ),
