@@ -1139,7 +1139,7 @@ router.post('/api/plivo/webhook/voice', async (c) => {
     const xml = XML_DECL +
       '<Response>' +
       '<Wait length="3"/>' +
-      '<Dial timeout="30" action="' + escXml(statusCallbackUrl) + '" method="POST">' +
+      '<Dial timeout="30" action="' + escXml(statusCallbackUrl) + '" method="POST" callbackUrl="' + escXml(statusCallbackUrl) + '" callbackMethod="POST">' +
       '<User>' + escXml(sipTarget) + '</User>' +
       '</Dial>' +
       '</Response>';
@@ -1161,7 +1161,8 @@ router.post('/api/plivo/webhook/status', async (c) => {
     const requestUuid = body.RequestUUID || '';
     const rawStatus = body.CallStatus || '';
     const conferenceAction = body.ConferenceAction || '';
-    const dialStatus = body.DialStatus || ''; // (नया) Dial answer/hangup status
+    const dialAction = body.DialAction || '';
+    const dialStatus = body.DialStatus || '';
     const duration = parseInt(body.BillDuration || '0', 10) || 0;
 
     let call: any = null;
@@ -1197,22 +1198,60 @@ router.post('/api/plivo/webhook/status', async (c) => {
       return c.text('OK', 200);
     }
 
-    // (नया) Direct <Dial> status events: answer => in_progress, hangup => ended.
-    if (dialStatus) {
-      if (dialStatus === 'answer' && call.status !== 'in_progress' && call.status !== 'ended') {
+    // (नया) Direct <Dial> events. callbackUrl => DialAction (answer/connected/hangup);
+    // action URL => DialStatus (completed/busy/failed/cancel/timeout/no-answer).
+    const dialDuration = parseInt(body.DialBLegBillDuration || body.DialBLegDuration || body.BillDuration || '0', 10) || 0;
+
+    if (dialAction === 'answer' || dialAction === 'connected') {
+      if (call.status !== 'in_progress' && call.status !== 'ended') {
         await c.env.DB.prepare("UPDATE calls SET status = 'in_progress' WHERE id = ?")
           .bind(call.id).run();
         await broadcastToWorkspace(c.env, call.workspace_id, {
           type: 'call_status_updated', call_id: call.id, status: 'in_progress', duration: 0, source: 'plivo'
         });
-      } else if (dialStatus === 'hangup' || dialStatus === 'completed') {
+      }
+      return c.text('OK', 200);
+    }
+
+    if (dialAction === 'hangup') {
+      await c.env.DB.prepare("UPDATE calls SET status = 'ended', duration = ?, ended_at = ? WHERE id = ?")
+        .bind(dialDuration, sqliteNow(), call.id).run();
+      await cleanupPlivoCall(c.env, call);
+      await broadcastToWorkspace(c.env, call.workspace_id, {
+        type: 'call_status_updated', call_id: call.id, status: 'ended', duration: dialDuration, source: 'plivo'
+      });
+      return c.text('OK', 200);
+    }
+
+    if (dialStatus === 'completed') {
+      if (call.status !== 'ended') {
         await c.env.DB.prepare("UPDATE calls SET status = 'ended', duration = ?, ended_at = ? WHERE id = ?")
-          .bind(duration, sqliteNow(), call.id).run();
+          .bind(dialDuration, sqliteNow(), call.id).run();
         await cleanupPlivoCall(c.env, call);
         await broadcastToWorkspace(c.env, call.workspace_id, {
-          type: 'call_status_updated', call_id: call.id, status: 'ended', duration, source: 'plivo'
+          type: 'call_status_updated', call_id: call.id, status: 'ended', duration: dialDuration, source: 'plivo'
         });
       }
+      return c.text('OK', 200);
+    }
+
+    // Dial complete hone par terminal states (busy/no-answer/timeout/failed/cancel).
+    const dialTerminal: Record<string, string> = {
+      busy: 'busy',
+      failed: 'failed',
+      cancel: 'canceled',
+      canceled: 'canceled',
+      timeout: 'no_answer',
+      'no-answer': 'no_answer',
+    };
+    if (dialStatus && dialTerminal[dialStatus]) {
+      const finalStatus = dialTerminal[dialStatus];
+      await c.env.DB.prepare("UPDATE calls SET status = ?, duration = ?, ended_at = ? WHERE id = ?")
+        .bind(finalStatus, dialDuration, sqliteNow(), call.id).run();
+      await cleanupPlivoCall(c.env, call);
+      await broadcastToWorkspace(c.env, call.workspace_id, {
+        type: 'call_status_updated', call_id: call.id, status: finalStatus, duration: dialDuration, source: 'plivo'
+      });
       return c.text('OK', 200);
     }
 
@@ -1326,7 +1365,7 @@ router.post('/api/plivo/webhook/app', async (c) => {
 
     const xml = XML_DECL +
       '<Response>' +
-      '<Dial timeout="30" callerId="' + escXml(call?.from_number || '') + '" callbackUrl="' + escXml(statusUrl) + '" callbackMethod="POST">' +
+      '<Dial timeout="30" callerId="' + escXml(call?.from_number || '') + '" action="' + escXml(statusUrl) + '" method="POST" callbackUrl="' + escXml(statusUrl) + '" callbackMethod="POST">' +
       '<Number>' + escXml(dest) + '</Number>' +
       '</Dial>' +
       '</Response>';
