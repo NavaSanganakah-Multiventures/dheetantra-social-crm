@@ -350,7 +350,7 @@ class PlivoVoiceService implements SipUaHelperListener {
       });
       _localStream = mediaStream;
 
-      await call.answer(_helper.buildCallOptions(true), mediaStream: mediaStream);
+      call.answer(_helper.buildCallOptions(true), mediaStream: mediaStream);
       _isOnCall = true;
       return true;
     } catch (e) {
