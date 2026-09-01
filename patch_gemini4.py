@@ -32,7 +32,7 @@ replace = '''        // Also send an initial clientContent to jumpstart it
                   turns: [
                     {
                       role: "user",
-                      parts: [{ text: "नमस्ते!" }],
+                      parts: [{ text: "Hello!" }],
                     },
                   ],
                   turnComplete: true,
