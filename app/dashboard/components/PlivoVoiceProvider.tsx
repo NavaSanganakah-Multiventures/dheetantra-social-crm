@@ -145,8 +145,8 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
         }
 
         const sdk = new PlivoCtor({
-          debug: "ALL",
-          permOnClick: false,
+          debug: "ERROR",
+          permOnClick: true,
           closeProtection: true,
           enableQualityTracking: "localonly",
         });
