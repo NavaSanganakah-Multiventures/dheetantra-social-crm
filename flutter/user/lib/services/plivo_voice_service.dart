@@ -30,6 +30,8 @@ class PlivoVoiceService implements SipUaHelperListener {
   MediaStream? _localStream;
   Completer<bool>? _registrationCompleter;
 
+  String? _currentConfigId;
+  List<dynamic> _credentialsList = [];
   bool _initStarted = false;
   bool _isMuted = false;
   bool _speakerOn = false;
@@ -67,13 +69,40 @@ class PlivoVoiceService implements SipUaHelperListener {
 
   /// Backend se endpoint credentials lekar SIP UA ko start/register karta hai.
   /// Concurrent callers (init + outbound join) ek hi attempt par wait karte hain.
-  Future<bool> _register() async {
+  Future<bool> _register({String? targetConfigId}) async {
     final inflight = _registrationCompleter;
     if (inflight != null && !inflight.isCompleted) {
       return _waitRegistration(inflight);
     }
 
-    final creds = await ApiService().getPlivoSipCredentials();
+    if (_credentialsList.isEmpty) {
+      final res = await ApiService().getPlivoSipCredentials();
+      _credentialsList = res['credentials'] as List<dynamic>? ?? [];
+    }
+
+    if (_credentialsList.isEmpty) {
+      debugPrint('[PlivoVoice] SIP endpoint credentials not configured');
+      _callStateController.add('error: Plivo softphone endpoint not configured');
+      return false;
+    }
+
+    // Default to the first config if none provided
+    final configToUse = targetConfigId ?? _credentialsList.first['plivoConfigId'] as String;
+
+    if (_helper.registered && _currentConfigId == configToUse) {
+       return true; // Already registered to this config
+    }
+
+    final creds = _credentialsList.firstWhere(
+      (c) => c['plivoConfigId'] == configToUse, 
+      orElse: () => null
+    );
+
+    if (creds == null) {
+      debugPrint('[PlivoVoice] SIP endpoint credentials not found for $configToUse');
+      return false;
+    }
+
     final username = creds['username'] as String?;
     final password = creds['password'] as String?;
     if (username == null || username.isEmpty || password == null || password.isEmpty) {
@@ -82,12 +111,17 @@ class PlivoVoiceService implements SipUaHelperListener {
       return false;
     }
 
-    // Single source of truth: backend se mila SIP URI/server/port hi use karo,
-    // taaki registration ka SIP URI hamesha wahi ho jo settings me dikhta hai.
+    if (_helper.registered || _helper.connected) {
+      debugPrint('[PlivoVoice] Stopping current SIP UA to switch accounts');
+      _helper.stop();
+      await Future.delayed(const Duration(milliseconds: 300));
+    }
+
     final server = (creds['server']?.toString()) ?? _domain;
     final port = (creds['port']?.toString()) ?? _sipPort;
     final sipUri = (creds['sipUri']?.toString()) ?? 'sip:$username@$server';
-    debugPrint('[PlivoVoice] registering SIP URI: $sipUri (TCP, $server:$port)');
+    debugPrint('[PlivoVoice] registering SIP URI: $sipUri (TCP, $server:$port) for config $configToUse');
+    
     final settings = UaSettings()
       ..transportType = TransportType.TCP
       ..host = server
@@ -107,10 +141,9 @@ class PlivoVoiceService implements SipUaHelperListener {
     final completer = Completer<bool>();
     _registrationCompleter = completer;
 
-
-
     try {
       await _helper.start(settings);
+      _currentConfigId = configToUse;
     } catch (e) {
       debugPrint('[PlivoVoice] SIP start error: $e');
       if (!completer.isCompleted) completer.complete(false);
@@ -118,6 +151,11 @@ class PlivoVoiceService implements SipUaHelperListener {
     }
 
     return _waitRegistration(completer);
+  }
+
+  Future<void> switchAccountBackground(String configId) async {
+    if (_currentConfigId == configId && _helper.registered) return;
+    await _register(targetConfigId: configId);
   }
 
   /// Registration attempt ka result wait karta hai (timeout ke saath). Fail
@@ -158,7 +196,7 @@ class PlivoVoiceService implements SipUaHelperListener {
   /// Conference join karne ke liye SIP outbound call. Dest = conference name
   /// as a SIP URI on phone.plivo.com; backend ka /api/plivo/webhook/app usi
   /// naam ke Plivo conference me dial karke bridge kar deta hai.
-  Future<bool> joinConference(String conferenceName) async {
+  Future<bool> joinConference(String conferenceName, {String? plivoConfigId}) async {
     final name = (conferenceName ?? '').trim();
     if (name.isEmpty) {
       debugPrint('[PlivoVoice] joinConference: empty conference name');
@@ -166,8 +204,8 @@ class PlivoVoiceService implements SipUaHelperListener {
     }
 
     try {
-      if (!_helper.registered) {
-        final registered = await _register();
+      if (!_helper.registered || (plivoConfigId != null && _currentConfigId != plivoConfigId)) {
+        final registered = await _register(targetConfigId: plivoConfigId);
         if (!registered) {
           // _register() ne specific error already stream par bheja hai.
           return false;
@@ -203,7 +241,7 @@ class PlivoVoiceService implements SipUaHelperListener {
       if (ok != true) {
         // One reconnect attempt: re-register and try again.
         debugPrint('[PlivoVoice] initial call attempt failed, reconnecting...');
-        final registered = await _register();
+        final registered = await _register(targetConfigId: plivoConfigId);
         if (registered) {
           await _waitUntilConnected(timeout: const Duration(seconds: 8));
           ok = await _helper.call(dest, voiceOnly: true, mediaStream: mediaStream);
