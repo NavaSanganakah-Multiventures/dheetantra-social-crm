@@ -27,6 +27,19 @@ function conferenceNameFromCallId(callId: string): string {
   return 'conf_' + callId.replace(/-/g, '');
 }
 
+function e164FromTo(to: string): string {
+  const raw = String(to ?? '').trim();
+  if (!raw) return '';
+  const userPart = raw.includes('sip:')
+    ? raw.replace(/^sip:/i, '').split('@')[0]
+    : raw.replace(/^tel:/i, '');
+  return normalizeE164(userPart);
+}
+
+function sipUriForConfig(endpointUsername: string): string {
+  return 'sip:' + endpointUsername + '@phone.plivo.com';
+}
+
 function plivoApiBase(authId: string): string {
   return 'https://api.plivo.com/v1/Account/' + encodeURIComponent(authId) + '/';
 }
@@ -422,47 +435,36 @@ async function broadcastToWorkspace(env: Env, workspaceId: string, payload: any)
   }
 }
 
-// Restore a busy agent to live and tear down the Plivo conference (the
-// conference DELETE disconnects every remaining member, e.g. the agent leg).
+// Busy agent ko live restore karo. Conference ab exist nahi karti, isliye
+// koi DELETE/hangup yahan nahi chahiye.
 async function cleanupPlivoCall(env: Env, call: { id: string; workspace_id: string; plivo_config_id?: string | null; assigned_user_id?: string | null }) {
   if (call.assigned_user_id) {
     await env.DB.prepare(
       "UPDATE workspace_members SET voice_status = 'live', voice_status_updated_at = ? WHERE workspace_id = ? AND user_id = ? AND voice_status = 'busy'"
     ).bind(sqliteNow(), call.workspace_id, call.assigned_user_id).run();
   }
-  if (call.plivo_config_id) {
-    const cfg = await env.DB.prepare('SELECT auth_id, auth_token FROM plivo_configs WHERE id = ?')
-      .bind(call.plivo_config_id).first<{ auth_id: string; auth_token: string }>();
-    if (cfg) {
-      await hangupPlivoConference(cfg, conferenceNameFromCallId(call.id));
-    }
-  }
 }
 
-async function pushIncomingCallToAgents(env: Env, c: any, workspaceId: string, callId: string, from: string, callerName: string, conferenceName: string, plivoConfigId: string, answerInApp: boolean) {
+async function pushIncomingCallToAgents(env: Env, c: any, workspaceId: string, callId: string, from: string, callerName: string, sipTarget: string, plivoConfigId: string) {
   c.executionCtx.waitUntil(
     (async () => {
       try {
-        // Only available (live) agents should receive an in-app CallKit ring.
-        // For the informational PSTN-forward notification (auto-dial ON) we keep
-        // the existing all-members behavior (the dialed agent is already busy).
-        const liveOnly = answerInApp ? " AND voice_status = 'live'" : '';
-        const members = await env.DB.prepare('SELECT user_id FROM workspace_members WHERE workspace_id = ?' + liveOnly)
-          .bind(workspaceId).all<{ user_id: string }>();
+        // Ab sirf live agents ko hi ring bhejte hain (koi PSTN forward nahi).
+        const members = await env.DB.prepare(
+          "SELECT user_id FROM workspace_members WHERE workspace_id = ? AND voice_status = 'live'"
+        ).bind(workspaceId).all<{ user_id: string }>();
         if (!members.results || members.results.length === 0) return;
 
-        // Notify the Web Dashboard via WebSocket so the agent can answer
-        if (answerInApp) {
-          await broadcastToWorkspace(env, workspaceId, {
-            type: 'plivo_incoming_call',
-            callId,
-            from,
-            callerName,
-            conferenceName,
-            workspaceId,
-            plivoConfigId,
-          });
-        }
+        await broadcastToWorkspace(env, workspaceId, {
+          type: 'plivo_incoming_call',
+          callId,
+          from,
+          callerName,
+          sipTarget,
+          workspaceId,
+          plivoConfigId,
+          direction: 'incoming',
+        });
 
         const userIds = members.results.map((m) => m.user_id);
         const placeholders = userIds.map(() => '?').join(',');
@@ -486,18 +488,20 @@ async function pushIncomingCallToAgents(env: Env, c: any, workspaceId: string, c
                 'Call from ' + callerName,
                 {
                   workspaceId,
-                  type: answerInApp ? 'incoming_call' : 'plivo_incoming_call',
+                  type: 'incoming_call',
                   source: 'plivo',
                   id: callId,
                   callerNumber: from,
                   callerName,
-                  conferenceName,
+                  sipTarget,
                   plivoConfigId,
+                  direction: 'incoming',
                 },
                 { ttlSeconds: 0, category: 'call', sound: 'default', dataOnly: true }
               )
             )
           );
+
           for (let i = 0; i < sends.length; i++) {
             const s = sends[i];
             if (s.status === 'fulfilled' && (s.value as any).unregistered) {
@@ -882,7 +886,8 @@ router.post('/api/plivo/call', async (c) => {
   const user = c.get('user') as any;
   if (!user || !user.id) return c.json({ error: 'Authentication required' }, 401);
 
-  const { to, contactId, plivoConfigId, fromNumber, mode, inApp } = await c.req.json() as any;
+  // mode/inApp/auto-dial branches hata diye — app ab khud SIP dial karti hai.
+  const { to, contactId, plivoConfigId, fromNumber } = await c.req.json() as any;
   if (!to || typeof to !== 'string') {
     return c.json({ error: 'To number is required' }, 400);
   }
@@ -895,11 +900,11 @@ router.post('/api/plivo/call', async (c) => {
   let config: any = null;
   if (plivoConfigId) {
     config = await c.env.DB.prepare(
-      'SELECT id, auth_id, auth_token, auto_dial_agents FROM plivo_configs WHERE id = ? AND workspace_id = ? AND is_active = 1'
+      'SELECT id FROM plivo_configs WHERE id = ? AND workspace_id = ? AND is_active = 1'
     ).bind(plivoConfigId, workspaceId).first();
   } else {
     config = await c.env.DB.prepare(
-      'SELECT id, auth_id, auth_token, auto_dial_agents FROM plivo_configs WHERE workspace_id = ? AND is_active = 1 ORDER BY created_at ASC LIMIT 1'
+      'SELECT id FROM plivo_configs WHERE workspace_id = ? AND is_active = 1 ORDER BY created_at ASC LIMIT 1'
     ).bind(workspaceId).first();
   }
 
@@ -926,160 +931,45 @@ router.post('/api/plivo/call', async (c) => {
     return c.json({ error: 'Invalid from number configured for this workspace' }, 400);
   }
 
-  const autoDialAgents = config.auto_dial_agents === 1;
-
   let resolvedContactId = contactId;
   if (!resolvedContactId) {
     resolvedContactId = await findOrCreateGsmContact(c.env.DB, workspaceId, normalizedTo, normalizedTo);
   }
 
   const callId = crypto.randomUUID();
-  const conferenceName = conferenceNameFromCallId(callId);
   const createdAt = sqliteNow();
-  const baseUrl = getBaseUrl(c as Context);
-  const statusUrl = baseUrl + '/api/plivo/webhook/status?callId=' + callId;
-  const fallbackUrl = baseUrl + '/api/plivo/webhook/fallback';
 
-  // In-app (softphone) answering mode: fire only the customer leg into a
-  // conference waiting room. The agent's app answers via the Plivo softphone
-  // endpoint (same flow as inbound with auto-forward OFF).
-  if (mode === 'in_app' || inApp === true || !autoDialAgents) {
-    await c.env.DB.prepare(
-      "INSERT INTO calls (id, workspace_id, contact_id, phone_number_id, caller_number, source, type, direction, status, duration, plivo_config_id, assigned_user_id, external_call_id, created_at) VALUES (?, ?, ?, ?, ?, 'plivo', 'voice', 'outgoing', 'ringing', 0, ?, ?, ?, ?)"
-    ).bind(callId, workspaceId, resolvedContactId, fromRow.id, normalizedTo, config.id, user.id, null, createdAt).run();
-
-    const answerUrl = baseUrl + '/api/plivo/webhook/outbound?callId=' + callId + '&conferenceName=' + encodeURIComponent(conferenceName) + '&leg=customer&waiting=1';
-
-    const customerRes = await createPlivoCall(config, {
-      to: normalizedTo,
-      from: from,
-      answer_url: answerUrl,
-      answer_method: 'POST',
-      ring_url: statusUrl + '&leg=customer',
-      ring_method: 'POST',
-      hangup_url: statusUrl + '&leg=customer',
-      hangup_method: 'POST',
-      fallback_url: fallbackUrl,
-      fallback_method: 'POST',
-    });
-
-    if (!customerRes.ok) {
-      console.error('[Plivo] outbound customer leg failed', customerRes);
-      await c.env.DB.prepare("UPDATE calls SET status = 'failed' WHERE id = ? AND workspace_id = ?").bind(callId, workspaceId).run();
-      return c.json({ success: false, error: customerRes.error || 'Failed to fire Plivo call leg' }, 502);
-    }
-
-    const customerRequestUuid = customerRes.requestUuid || null;
-    await c.env.DB.prepare(
-      'UPDATE calls SET external_call_id = ? WHERE id = ? AND workspace_id = ?'
-    ).bind(customerRequestUuid, callId, workspaceId).run();
-
-    return c.json({
-      success: true,
-      callId,
-      requestUuid: customerRequestUuid,
-      conferenceName,
-      to: normalizedTo,
-      from,
-      inApp: true,
-    });
-  }
-
-  // Auto-dial ON: bridge the customer leg and the agent's PSTN phone leg
-  // together into the same conference (legacy fallback bridge).
-  const userRow = await c.env.DB.prepare('SELECT phone FROM users WHERE id = ?').bind(user.id).first<{ phone?: string | null }>();
-  const agentPhone = (userRow?.phone || '').trim();
-  if (!agentPhone) {
-    return c.json({ error: 'Your agent phone is not set. Add it in Plivo Voice settings before making calls.' }, 400);
-  }
-  const normalizedAgent = normalizeE164(agentPhone);
-  if (!/^\+\d{7,15}$/.test(normalizedAgent)) {
-    return c.json({ error: 'Your agent phone is invalid. Set a valid E.164 number in Plivo Voice settings.' }, 400);
-  }
-
+  // Ye row sirf call ka record hai. Asli SIP dial app khud karti hai.
+  // status 'dialing' isliye — /api/plivo/webhook/app baad mein ise match karega.
   await c.env.DB.prepare(
-    "INSERT INTO calls (id, workspace_id, contact_id, phone_number_id, caller_number, source, type, direction, status, duration, plivo_config_id, assigned_user_id, external_call_id, created_at) VALUES (?, ?, ?, ?, ?, 'plivo', 'voice', 'outgoing', 'queued', 0, ?, ?, ?, ?)"
+    "INSERT INTO calls (id, workspace_id, contact_id, phone_number_id, caller_number, source, type, direction, status, duration, plivo_config_id, assigned_user_id, external_call_id, created_at) VALUES (?, ?, ?, ?, ?, 'plivo', 'voice', 'outgoing', 'dialing', 0, ?, ?, ?, ?)"
   ).bind(callId, workspaceId, resolvedContactId, fromRow.id, normalizedTo, config.id, user.id, null, createdAt).run();
 
-  const answerUrl = baseUrl + '/api/plivo/webhook/outbound?callId=' + callId + '&conferenceName=' + encodeURIComponent(conferenceName);
-
-  const [customerRes, agentRes] = await Promise.allSettled([
-    createPlivoCall(config, {
-      to: normalizedTo,
-      from: from,
-      answer_url: answerUrl + '&leg=customer',
-      answer_method: 'POST',
-      ring_url: statusUrl + '&leg=customer',
-      ring_method: 'POST',
-      hangup_url: statusUrl + '&leg=customer',
-      hangup_method: 'POST',
-      fallback_url: fallbackUrl,
-      fallback_method: 'POST',
-    }),
-    createPlivoCall(config, {
-      to: normalizedAgent,
-      from: from,
-      answer_url: answerUrl + '&leg=agent',
-      answer_method: 'POST',
-      hangup_url: statusUrl + '&leg=agent',
-      hangup_method: 'POST',
-      fallback_url: fallbackUrl,
-      fallback_method: 'POST',
-    }),
-  ]);
-
-  const customerOk = customerRes.status === 'fulfilled' && customerRes.value.ok;
-  const agentOk = agentRes.status === 'fulfilled' && agentRes.value.ok;
-
-  if (!customerOk || !agentOk) {
-    const reason = !customerOk
-      ? (customerRes.status === 'rejected' ? String((customerRes as any).reason) : (customerRes as any).value?.error)
-      : (agentRes.status === 'rejected' ? String((agentRes as any).reason) : (agentRes as any).value?.error);
-    console.error('[Plivo] outbound bridge leg failed', { customerOk, agentOk, reason });
-    await c.env.DB.prepare("UPDATE calls SET status = 'failed' WHERE id = ? AND workspace_id = ?").bind(callId, workspaceId).run();
-    // Tear down whatever did get created so a half-open bridge is not left behind.
-    await hangupPlivoConference(config, conferenceName);
-    return c.json({ success: false, error: reason || 'Failed to fire Plivo call legs' }, 502);
-  }
-
-  // Store the customer leg's request_uuid as the initial external_call_id.
-  // The outbound answer webhook replaces it with the customer CallUUID once
-  // the customer answers.
-  const customerRequestUuid = (customerRes as any).value.requestUuid || null;
-  await c.env.DB.prepare(
-    'UPDATE calls SET external_call_id = ? WHERE id = ? AND workspace_id = ?'
-  ).bind(customerRequestUuid, callId, workspaceId).run();
+  // App is SIP URI ko apne registered endpoint se dial karegi.
+  const dialUri = 'sip:' + normalizedTo + '@phone.plivo.com';
 
   return c.json({
     success: true,
     callId,
-    requestUuid: customerRequestUuid,
-    conferenceName,
+    dialUri,
+    plivoConfigId: config.id,
     to: normalizedTo,
     from,
   });
 });
-
-// ---------------------------------------------------------------
-// App-side hangup/decline for Plivo calls.
-// ---------------------------------------------------------------
 
 export async function teardownPlivoCall(
   env: Env,
   call: { id: string; workspace_id: string; plivo_config_id?: string | null; external_call_id?: string | null; assigned_user_id?: string | null },
   finalStatus: 'ended' | 'declined'
 ) {
-  if (call.plivo_config_id) {
+  if (call.plivo_config_id && call.external_call_id) {
     const cfg = await env.DB.prepare('SELECT auth_id, auth_token FROM plivo_configs WHERE id = ?')
       .bind(call.plivo_config_id).first<{ auth_id: string; auth_token: string }>();
     if (cfg) {
-      // Primary cleanup: delete the conference (drops every member).
-      await hangupPlivoConference(cfg, conferenceNameFromCallId(call.id));
-      // Best-effort leg hangup (external_call_id may be a request_uuid, not a
-      // CallUUID, so a 404 here is expected and ignored).
-      if (call.external_call_id) {
-        await hangupPlivoCallLeg(cfg, call.external_call_id);
-      }
+      // Direct SIP flow: conference nahi hai, sirf active SIP leg hangup karo
+      // (external_call_id request_uuid bhi ho sakta hai, 404 expected/ignored).
+      await hangupPlivoCallLeg(cfg, call.external_call_id);
     }
   }
 
@@ -1150,8 +1040,8 @@ router.post('/api/plivo/webhook/voice', async (c) => {
 
     const candidates = dialedNumberCandidates(to);
     const config = await c.env.DB.prepare(
-      'SELECT tc.id AS plivo_config_id, tc.workspace_id, tc.auth_id, tc.auth_token, tc.auto_dial_agents, tc.voice_bot_enabled, tc.office_hours_start, tc.office_hours_end, tc.office_hours_audio_url, tc.busy_audio_url, tfn.id AS from_number_id, tfn.from_number FROM plivo_configs tc JOIN plivo_from_numbers tfn ON tc.id = tfn.plivo_config_id WHERE tfn.from_number IN (?, ?, ?) AND tfn.is_active = 1 AND tc.is_active = 1 LIMIT 1'
-    ).bind(candidates[0], candidates[1], candidates[2]).first<{ plivo_config_id: string; workspace_id: string; auth_id: string; auth_token: string; auto_dial_agents: number; voice_bot_enabled: number; office_hours_start: string; office_hours_end: string; office_hours_audio_url: string | null; busy_audio_url: string | null; from_number_id: string; from_number: string }>();
+      'SELECT tc.id AS plivo_config_id, tc.workspace_id, tc.auth_id, tc.auth_token, tc.endpoint_username, tc.auto_dial_agents, tc.voice_bot_enabled, tc.office_hours_start, tc.office_hours_end, tc.office_hours_audio_url, tc.busy_audio_url, tfn.id AS from_number_id, tfn.from_number FROM plivo_configs tc JOIN plivo_from_numbers tfn ON tc.id = tfn.plivo_config_id WHERE tfn.from_number IN (?, ?, ?) AND tfn.is_active = 1 AND tc.is_active = 1 LIMIT 1'
+    ).bind(candidates[0], candidates[1], candidates[2]).first<{ plivo_config_id: string; workspace_id: string; auth_id: string; auth_token: string; endpoint_username: string | null; auto_dial_agents: number; voice_bot_enabled: number; office_hours_start: string; office_hours_end: string; office_hours_audio_url: string | null; busy_audio_url: string | null; from_number_id: string; from_number: string }>();
 
     if (!config) {
       console.warn('[Plivo Webhook] no workspace config for dialed number', to);
@@ -1214,74 +1104,44 @@ router.post('/api/plivo/webhook/voice', async (c) => {
       }
     }
 
-    // Assign an available (live) agent, if any. Fire the agent leg first and
-    // only mark them busy once the leg was accepted by Plivo.
-    let assignedAgentId: string | null = null;
-    // Honor the per-account "auto-forward to live agent" toggle. When OFF, no
-    // outbound PSTN leg is dialed (no Plivo forwarding charge); the caller waits
-    // in the conference and agents can answer in the app (Phase 2).
-    const agent = config.auto_dial_agents === 1 ? await pickAvailableAgent(c.env.DB, config.workspace_id) : null;
-    if (agent) {
-      const baseUrl = getBaseUrl(c as Context);
-      const agentAnswerUrl = baseUrl + '/api/plivo/webhook/outbound?callId=' + callId + '&conferenceName=' + encodeURIComponent(conferenceName) + '&leg=agent';
-      const agentFallbackUrl = baseUrl + '/api/plivo/webhook/fallback';
-      const agentHangupUrl = baseUrl + '/api/plivo/webhook/status?callId=' + callId + '&leg=agent';
+    // ---- Direct SIP (koi conference nahi, koi agent PSTN leg nahi) ----
+    // Inbound PSTN caller ko seedha usi account ke endpoint par ring karte hain.
+    // 'plivoConfigId' push mein jaata hai jisse app instant logout/login karta hai.
 
-      const res = await createPlivoCall(
-        { auth_id: config.auth_id, auth_token: config.auth_token },
-        {
-          to: normalizeE164(agent.phone),
-          from: normalizeE164(config.from_number),
-          answer_url: agentAnswerUrl,
-          answer_method: 'POST',
-          hangup_url: agentHangupUrl,
-          hangup_method: 'POST',
-          fallback_url: agentFallbackUrl,
-          fallback_method: 'POST',
-        }
-      );
-
-      if (res.ok) {
-        assignedAgentId = agent.user_id;
-        await c.env.DB.prepare(
-          "UPDATE workspace_members SET voice_status = 'busy', voice_status_updated_at = ? WHERE workspace_id = ? AND user_id = ? AND voice_status = 'live'"
-        ).bind(sqliteNow(), config.workspace_id, agent.user_id).run();
-        await c.env.DB.prepare('UPDATE calls SET assigned_user_id = ? WHERE id = ?').bind(agent.user_id, callId).run();
-      } else {
-        console.error('[Plivo Webhook] failed to dial agent leg, leaving caller on hold:', res.error);
-      }
+    if (!config.endpoint_username) {
+      console.warn('[Plivo Webhook] endpoint not configured for this account, hanging up');
+      return plivoXmlResponse(XML_DECL + '<Response><Hangup reason="busy"/></Response>', 200);
     }
 
-    // App answering (auto-forward toggle OFF) vs PSTN forward (toggle ON).
-    const answerInApp = config.auto_dial_agents !== 1;
+    const sipTarget = sipUriForConfig(config.endpoint_username);
 
-    // Notify all online dashboard/web clients via the workspace Durable Object.
     await broadcastToWorkspace(c.env, config.workspace_id, {
       type: 'plivo_incoming_call',
       callId,
       from,
       callerName,
-      conferenceName,
+      sipTarget,
       workspaceId: config.workspace_id,
       plivoConfigId: config.plivo_config_id,
-      assignedAgentId,
-      answerInApp,
+      direction: 'incoming',
     });
 
-    // Push to the agents' apps. When the auto-forward toggle is OFF, the push
-    // is routed as an in-app CallKit ring (type 'incoming_call'); when ON, the
-    // agent answers on PSTN and the push stays a local-only notification.
-    await pushIncomingCallToAgents(c.env, c, config.workspace_id, callId, from, callerName, conferenceName, config.plivo_config_id, answerInApp);
+    await pushIncomingCallToAgents(
+      c.env, c, config.workspace_id, callId, from, callerName,
+      sipTarget, config.plivo_config_id
+    );
 
     const baseUrl = getBaseUrl(c as Context);
-    const statusCallbackUrl = baseUrl + '/api/plivo/webhook/status?callId=' + callId + '&leg=inbound';
+    const statusCallbackUrl = baseUrl + '/api/plivo/webhook/status?callId=' + callId + '&leg=dial';
 
-    // Caller waits in the conference waiting room. If an agent was dialed, the
-    // agent leg (startConferenceOnEnter="true") starts the conference when they
-    // answer. If no agent, the caller simply hears hold music until they hang up.
-    const xml = XML_DECL +
-      '<Response>' +
-      '<Conference startConferenceOnEnter="false" endConferenceOnExit="true" waitSound="' + escXml(HOLD_MUSIC_URL) + '" callbackUrl="' + escXml(statusCallbackUrl) + '" callbackMethod="POST">' + escXml(conferenceName) + '</Conference>' +
+    // 3 sec Wait = app ko account switch (switchAccountBackground /
+    // switchPlivoAccount) complete karne ka time. Phir endpoint par SIP INVITE jaata hai.
+    // 8 sec Wait = app ko account switch (switchAccountBackground/
+    // switchPlivoAccount) + SIP REGISTER complete karne ka time (3s kam padta tha).
+      '<Wait length="8"/>' +
+      '<Dial timeout="30" action="' + escXml(statusCallbackUrl) + '" method="POST" callbackUrl="' + escXml(statusCallbackUrl) + '" callbackMethod="POST">' +
+      '<User>' + escXml(sipTarget) + '</User>' +
+      '</Dial>' +
       '</Response>';
     return plivoXmlResponse(xml, 200);
   } catch (e: any) {
@@ -1301,6 +1161,8 @@ router.post('/api/plivo/webhook/status', async (c) => {
     const requestUuid = body.RequestUUID || '';
     const rawStatus = body.CallStatus || '';
     const conferenceAction = body.ConferenceAction || '';
+    const dialAction = body.DialAction || '';
+    const dialStatus = body.DialStatus || '';
     const duration = parseInt(body.BillDuration || '0', 10) || 0;
 
     let call: any = null;
@@ -1333,6 +1195,63 @@ router.post('/api/plivo/webhook/status', async (c) => {
         await cleanupPlivoCall(c.env, call);
         await broadcastToWorkspace(c.env, call.workspace_id, { type: 'call_status_updated', call_id: call.id, status: 'ended', duration, source: 'plivo' });
       }
+      return c.text('OK', 200);
+    }
+
+    // (नया) Direct <Dial> events. callbackUrl => DialAction (answer/connected/hangup);
+    // action URL => DialStatus (completed/busy/failed/cancel/timeout/no-answer).
+    const dialDuration = parseInt(body.DialBLegBillDuration || body.DialBLegDuration || body.BillDuration || '0', 10) || 0;
+
+    if (dialAction === 'answer' || dialAction === 'connected') {
+      if (call.status !== 'in_progress' && call.status !== 'ended') {
+        await c.env.DB.prepare("UPDATE calls SET status = 'in_progress' WHERE id = ?")
+          .bind(call.id).run();
+        await broadcastToWorkspace(c.env, call.workspace_id, {
+          type: 'call_status_updated', call_id: call.id, status: 'in_progress', duration: 0, source: 'plivo'
+        });
+      }
+      return c.text('OK', 200);
+    }
+
+    if (dialAction === 'hangup') {
+      await c.env.DB.prepare("UPDATE calls SET status = 'ended', duration = ?, ended_at = ? WHERE id = ?")
+        .bind(dialDuration, sqliteNow(), call.id).run();
+      await cleanupPlivoCall(c.env, call);
+      await broadcastToWorkspace(c.env, call.workspace_id, {
+        type: 'call_status_updated', call_id: call.id, status: 'ended', duration: dialDuration, source: 'plivo'
+      });
+      return c.text('OK', 200);
+    }
+
+    if (dialStatus === 'completed') {
+      if (call.status !== 'ended') {
+        await c.env.DB.prepare("UPDATE calls SET status = 'ended', duration = ?, ended_at = ? WHERE id = ?")
+          .bind(dialDuration, sqliteNow(), call.id).run();
+        await cleanupPlivoCall(c.env, call);
+        await broadcastToWorkspace(c.env, call.workspace_id, {
+          type: 'call_status_updated', call_id: call.id, status: 'ended', duration: dialDuration, source: 'plivo'
+        });
+      }
+      return c.text('OK', 200);
+    }
+
+    // Dial complete hone par terminal states (busy/no-answer/timeout/failed/cancel).
+    const dialTerminal: Record<string, string> = {
+      busy: 'busy',
+      failed: 'failed',
+      cancel: 'canceled',
+      canceled: 'canceled',
+      timeout: 'no_answer',
+      'no-answer': 'no_answer',
+    };
+    if (dialStatus && dialTerminal[dialStatus]) {
+      const finalStatus = dialTerminal[dialStatus];
+      await c.env.DB.prepare("UPDATE calls SET status = ?, duration = ?, ended_at = ? WHERE id = ?")
+        .bind(finalStatus, dialDuration, sqliteNow(), call.id).run();
+      await cleanupPlivoCall(c.env, call);
+      await broadcastToWorkspace(c.env, call.workspace_id, {
+        type: 'call_status_updated', call_id: call.id, status: finalStatus, duration: dialDuration, source: 'plivo'
+      });
       return c.text('OK', 200);
     }
 
@@ -1394,73 +1313,85 @@ router.post('/api/plivo/webhook/status', async (c) => {
 // Outbound answer URL: put the answered leg into the bridge conference.
 // leg=customer stores the customer CallUUID; leg=agent just joins the room.
 router.post('/api/plivo/webhook/outbound', async (c) => {
-  try {
-    const body = await parseWebhookBody(c);
-    const callId = c.req.query('callId') || '';
-    const leg = c.req.query('leg') || 'customer';
-    const waiting = c.req.query('waiting') === '1';
-    const callUuid = body.CallUUID || '';
-    const conferenceName = c.req.query('conferenceName') || (callId ? conferenceNameFromCallId(callId) : 'default_room');
-
-    if (callId) {
-      const callConfig = await c.env.DB.prepare('SELECT pc.auth_token FROM calls c JOIN plivo_configs pc ON pc.id = c.plivo_config_id WHERE c.id = ?').bind(callId).first<{ auth_token: string }>();
-      if (!(await verifyPlivoSignature(c, callConfig?.auth_token, body))) {
-        console.warn('[Plivo Webhook] invalid signature on outbound webhook', callId);
-        return c.text('Forbidden', 403);
-      }
-    }
-
-    if (callId && leg === 'customer' && callUuid) {
-      const call = await c.env.DB.prepare('SELECT id, workspace_id FROM calls WHERE id = ?').bind(callId).first<{ id: string; workspace_id: string }>();
-      if (call) {
-        await c.env.DB.prepare("UPDATE calls SET external_call_id = ?, status = CASE WHEN status = 'ended' THEN status ELSE 'in_progress' END WHERE id = ?")
-          .bind(callUuid, callId).run();
-        await broadcastToWorkspace(c.env, call.workspace_id, { type: 'call_status_updated', call_id: callId, status: 'in_progress', duration: 0, source: 'plivo' });
-      }
-    }
-
-    // In-app answer mode: the customer waits with hold music until the agent
-    // joins the conference via the softphone endpoint (/api/plivo/webhook/app).
-    if (waiting) {
-      const baseUrl = getBaseUrl(c as Context);
-      const statusCallbackUrl = baseUrl + '/api/plivo/webhook/status?callId=' + callId + '&leg=customer';
-      const xml = XML_DECL +
-        '<Response>' +
-        '<Conference startConferenceOnEnter="false" endConferenceOnExit="true" waitSound="' + escXml(HOLD_MUSIC_URL) + '" callbackUrl="' + escXml(statusCallbackUrl) + '" callbackMethod="POST">' + escXml(conferenceName) + '</Conference>' +
-        '</Response>';
-      return plivoXmlResponse(xml, 200);
-    }
-
-    // The customer leg ends the conference when it leaves; agent legs do not.
-    const endConferenceOnExit = leg === 'customer' ? 'true' : 'false';
-    const xml = XML_DECL +
-      '<Response>' +
-      '<Conference startConferenceOnEnter="true" endConferenceOnExit="' + endConferenceOnExit + '">' + escXml(conferenceName) + '</Conference>' +
-      '</Response>';
-    return plivoXmlResponse(xml, 200);
-  } catch (e: any) {
-    console.error('[Plivo Webhook] outbound error:', e);
-    return plivoXmlResponse(XML_DECL + '<Response><Hangup/></Response>', 500);
-  }
+  // Naya direct-SIP flow is route ka use nahi karta. Galati se aa jaaye to
+  // call silently hangup kar do (conference wapas kabhi nahi banana).
+  return plivoXmlResponse(XML_DECL + '<Response><Hangup/></Response>', 200);
 });
 
-// Answer URL for outbound SIP calls placed by the app's softphone. The app
-// dials sip:<conferenceName>@phone.plivo.com; Plivo's SIP endpoint routing
-// sends that INVITE here, and we bridge the SIP leg into the matching
-// conference (the one the inbound caller is already held in).
+// Answer URL for outbound SIP calls placed by the app's softphone (direct SIP dispatcher).
 router.post('/api/plivo/webhook/app', async (c) => {
   const body = await parseWebhookBody(c);
   const to = (body.To || body.to || '').toString();
-  const m = /^sip:([^@]+)@/i.exec(to);
-  const conferenceName = m ? m[1] : 'default_room';
+  const from = (body.From || '').toString();
+
+  // 'sip:username@phone.plivo.com' se username nikalo.
+  const toUser = /^sip:([^@]+)@/i.exec(to)?.[1] || '';
+  const fromUser = /^sip:([^@]+)@/i.exec(from)?.[1] || '';
+
+  // Multi-account mapping: config hamesha 'From' endpoint se pehchano (To se nahi),
+  // taaki callerId/from-number usi account se aaye jisne dial kiya.
+  const cfg = await c.env.DB.prepare(
+    'SELECT id, workspace_id, auth_token, endpoint_username FROM plivo_configs WHERE endpoint_username = ? AND is_active = 1 LIMIT 1'
+  ).bind(fromUser).first<{ id: string; workspace_id: string; auth_token: string; endpoint_username: string }>();
+
+  if (cfg && !(await verifyPlivoSignature(c, cfg.auth_token, body))) {
+    console.warn('[Plivo Webhook] invalid signature on app webhook');
+    return c.text('Forbidden', 403);
+  }
+
+  const dest = e164FromTo(to);
+
+  // Case 1: customer PSTN dial (E.164) — dialing row match karke CallUUID update karo.
+  if (/^\+\d{7,15}$/.test(dest)) {
+    if (!cfg) {
+      console.warn('[Plivo Webhook] no config matched for endpoint From user, hanging up');
+      return plivoXmlResponse(XML_DECL + '<Response><Hangup/></Response>', 200);
+    }
+    const call = await c.env.DB.prepare(
+      'SELECT c.id, c.workspace_id, f.from_number FROM calls c JOIN plivo_from_numbers f ON f.id = c.phone_number_id WHERE c.workspace_id = ? AND c.plivo_config_id = ? AND c.caller_number = ? AND c.direction = ? AND c.source = ? AND c.status = ? ORDER BY c.created_at DESC LIMIT 1'
+    ).bind(cfg.workspace_id, cfg.id, dest, 'outgoing', 'plivo', 'dialing').first<{ id: string; workspace_id: string; from_number: string }>();
+
+    const baseUrl = getBaseUrl(c as Context);
+    const statusUrl = baseUrl + '/api/plivo/webhook/status?callId=' + (call?.id || '') + '&leg=customer';
+    const callUuid = body.CallUUID || '';
+
+    if (call && callUuid) {
+      await c.env.DB.prepare("UPDATE calls SET external_call_id = ?, status = 'ringing' WHERE id = ?")
+        .bind(callUuid, call.id).run();
+      await broadcastToWorkspace(c.env, call.workspace_id, {
+        type: 'call_status_updated', call_id: call.id, status: 'ringing', duration: 0, source: 'plivo'
+      });
+    }
+
+    const xml = XML_DECL +
+      '<Response>' +
+      '<Dial timeout="30" callerId="' + escXml(call?.from_number || '') + '" action="' + escXml(statusUrl) + '" method="POST" callbackUrl="' + escXml(statusUrl) + '" callbackMethod="POST">' +
+      '<Number>' + escXml(dest) + '</Number>' +
+      '</Dial>' +
+      '</Response>';
+    return plivoXmlResponse(xml, 200);
+  }
+
+  // Case 2: SIP-to-SIP (To user kisi doosre endpoint ka username hai).
+  const targetCfg = await c.env.DB.prepare(
+    'SELECT id, endpoint_username FROM plivo_configs WHERE endpoint_username = ? AND is_active = 1 LIMIT 1'
+  ).bind(toUser).first<{ id: string; endpoint_username: string }>();
+
+  if (targetCfg) {
+    const xml = XML_DECL +
+      '<Response>' +
+      '<Dial timeout="30"><User>' + escXml(sipUriForConfig(targetCfg.endpoint_username)) + '</User></Dial>' +
+      '</Response>';
+    return plivoXmlResponse(xml, 200);
+  }
+
+  // Case 3: legacy conference name (purane calls ke liye sirf fallback).
+  const conferenceName = toUser || 'default_room';
   return plivoXmlResponse(
-    XML_DECL + `<Response><Conference startConferenceOnEnter="true" endConferenceOnExit="false" beep="false">${escXml(conferenceName)}</Conference></Response>`
+    XML_DECL + '<Response><Conference startConferenceOnEnter="true" endConferenceOnExit="false" beep="false">' + escXml(conferenceName) + '</Conference></Response>'
   );
 });
 
-// Fallback URL for all Plivo webhooks. When a primary handler fails, explicitly
-// end the call instead of leaving the caller in silence; this also stops Plivo
-// from retrying the failing handler indefinitely.
 router.post('/api/plivo/webhook/fallback', async (c) => {
   return plivoXmlResponse(XML_DECL + '<Response><Hangup/></Response>', 200);
 });
