@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../models/models.dart';
 import '../services/api_service.dart';
-import '../theme/app_theme.dart';
 import 'chat_screen.dart';
 
 class SendNewMessageScreen extends StatefulWidget {

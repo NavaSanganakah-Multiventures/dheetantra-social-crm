@@ -121,7 +121,7 @@ class _SendTemplateScreenState extends State<SendTemplateScreen> {
                   )
                 else
                   DropdownButtonFormField<dynamic>(
-                    value: _selectedTemplate,
+                    initialValue: _selectedTemplate,
                     dropdownColor: AppColors.surfaceAlt,
                     decoration: const InputDecoration(labelText: 'Choose template'),
                     items: _templates
@@ -141,7 +141,7 @@ class _SendTemplateScreenState extends State<SendTemplateScreen> {
                 const SizedBox(height: 16),
                 if (_configs.length > 1)
                   DropdownButtonFormField<WhatsAppConfig>(
-                    value: _selectedConfig,
+                    initialValue: _selectedConfig,
                     dropdownColor: AppColors.surfaceAlt,
                     decoration: const InputDecoration(labelText: 'Choose WhatsApp account'),
                     items: _configs

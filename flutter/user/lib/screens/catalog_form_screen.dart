@@ -100,7 +100,7 @@ class _CatalogFormScreenState extends State<CatalogFormScreen> {
           TextField(controller: _descriptionController, maxLines: 3, decoration: const InputDecoration(labelText: 'Description')),
           const SizedBox(height: 16),
           DropdownButtonFormField<String>(
-            value: _status,
+            initialValue: _status,
             decoration: const InputDecoration(labelText: 'Status'),
             items: ['active', 'inactive', 'draft'].map((s) => DropdownMenuItem(value: s, child: Text(s == 'active' ? 'Active' : s == 'inactive' ? 'Inactive' : 'Draft'))).toList(),
             onChanged: (v) => setState(() => _status = v ?? 'active'),

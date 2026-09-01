@@ -9,7 +9,7 @@ import '../services/api_service.dart';
 import '../services/fcm_service.dart';
 import '../services/notification_center.dart';
 import '../services/websocket_service.dart';
-import '../services/battery_optimization_service.dart';
+
 import '../services/foreground_service.dart';
 import '../services/caller_id_service.dart';
 import '../theme/app_theme.dart';
@@ -27,6 +27,7 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  // ignore: unused_field
   bool _defaultDialer = false;
   static const _notificationsPref = 'notifications_enabled';
   static const _callsPref = 'calls_enabled';

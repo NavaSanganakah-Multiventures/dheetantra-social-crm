@@ -42,9 +42,8 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
       final ws = workspace?['workspace'] as Map<String, dynamic>?;
       _workspaceName = ws?['name']?.toString() ?? workspace?['name']?.toString() ?? 'Workspace';
       _planName = ws?['plan_name']?.toString() ?? workspace?['plan_name']?.toString() ?? 'Free';
-      _members = membersData is List
-          ? membersData.map((j) => WorkspaceMember.fromJson(j as Map<String, dynamic>)).toList()
-          : [];
+      _members = (membersData as List)
+          .map((j) => WorkspaceMember.fromJson(j as Map<String, dynamic>)).toList();
       _loading = false;
     });
   }

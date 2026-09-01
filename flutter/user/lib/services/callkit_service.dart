@@ -302,6 +302,7 @@ class CallKitService {
     }
   }
 
+  // ignore: unused_element
   void _openCallScreen(Map<String, dynamic> callData) {
     final navigator = appNavigatorKey.currentState;
     if (navigator == null) {

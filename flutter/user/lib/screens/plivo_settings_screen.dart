@@ -42,9 +42,7 @@ class _PlivoSettingsScreenState extends State<PlivoSettingsScreen> {
     }
 
     var me = ApiService().currentUser;
-    if (me == null) {
-      me = await ApiService().getMe();
-    }
+    me ??= await ApiService().getMe();
     final myId = me?['id']?.toString();
 
     Map<String, dynamic>? meAgent;
@@ -490,7 +488,7 @@ class _PlivoSettingsScreenState extends State<PlivoSettingsScreen> {
                         ),
                       ),
                     );
-                  }).toList(),
+                  }),
               ],
             ),
     );

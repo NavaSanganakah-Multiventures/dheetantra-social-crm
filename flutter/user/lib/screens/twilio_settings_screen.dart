@@ -199,6 +199,7 @@ class _TwilioSettingsScreenState extends State<TwilioSettingsScreen> {
     await _load();
   }
 
+  // ignore: unused_element
   Future<void> _setDefault(String id) async {
     final res = await ApiService().setDefaultTwilioFromNumber(id);
     if (!mounted) return;

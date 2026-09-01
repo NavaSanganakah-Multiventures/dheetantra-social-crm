@@ -170,7 +170,7 @@ class _WhatsAppAccountsScreenState extends State<WhatsAppAccountsScreen> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  value: replyMode,
+                  initialValue: replyMode,
                   dropdownColor: AppColors.surfaceAlt,
                   decoration: const InputDecoration(labelText: 'Auto-reply mode'),
                   items: _replyModes

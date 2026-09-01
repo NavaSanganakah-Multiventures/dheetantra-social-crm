@@ -11,7 +11,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../models/models.dart';
 import '../theme/app_theme.dart';
 import '../utils/file_utils.dart';
-import '../widgets/common.dart';
+
 
 /// Full-screen media viewer: pinch-zoom images, in-app PDFs, and
 /// open/download/share for audio/video/documents.
@@ -66,9 +66,9 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
     });
     try {
       final baseDir = await getApplicationDocumentsDirectory();
-      final subDir = Directory(baseDir.path + '/downloads');
+      final subDir = Directory('${baseDir.path}/downloads');
       await subDir.create(recursive: true);
-      final path = subDir.path + '/' + _fileName;
+      final path = '${subDir.path}/$_fileName';
       await Dio().download(_url!, path);
       if (mounted) {
         setState(() {
@@ -133,7 +133,7 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Text(
-            'PDF load error: ' + _error!,
+            'PDF load error: $_error',
             textAlign: TextAlign.center,
             style: const TextStyle(color: AppColors.textMuted),
           ),
@@ -195,7 +195,7 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
             const CircularProgressIndicator()
           else if (_localPath != null)
             Text(
-              'Saved to: ' + _localPath!,
+              'Saved to: $_localPath',
               textAlign: TextAlign.center,
               style: const TextStyle(color: AppColors.success, fontSize: 12),
             ),

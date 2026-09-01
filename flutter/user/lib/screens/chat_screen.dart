@@ -562,7 +562,7 @@ class _MessageBubble extends StatelessWidget {
       final note = _safeString(parsed['note']);
       final description = _safeString(parsed['description']);
       var title = name.isNotEmpty ? name : 'Product';
-      if (price.isNotEmpty) title = title + ' - ' + currency + ' ' + price;
+      if (price.isNotEmpty) title = '$title - $currency $price';
       var subtitle = note.isNotEmpty ? note : description;
       return _mediaTile(icon: Icons.shopping_bag, title: title, subtitle: subtitle.isNotEmpty ? subtitle : null, fg: fg);
     }
@@ -572,8 +572,8 @@ class _MessageBubble extends StatelessWidget {
       final count = parsed['products_count']?.toString() ?? '0';
       final description = _safeString(parsed['description']);
       var title = name.isNotEmpty ? name : 'Catalog';
-      var subtitle = count + ' products';
-      if (description.isNotEmpty) subtitle = description + '\n' + subtitle;
+      var subtitle = '$count products';
+      if (description.isNotEmpty) subtitle = '$description\n$subtitle';
       return _mediaTile(icon: Icons.storefront, title: title, subtitle: subtitle.isNotEmpty ? subtitle : null, fg: fg);
     }
     if ((type == 'product' || type == 'multi_product') && parsed is Map) {
@@ -588,12 +588,12 @@ class _MessageBubble extends StatelessWidget {
 
 
     if (type == 'interactive' && parsed is Map) {
-      final subtype = parsed['interactive']?['type'] ?? parsed['interactive_type'];
+      final _ = parsed['interactive']?['type'] ?? parsed['interactive_type'];
       String title = '';
       String subtitle = '';
       if (parsed['button_title'] != null) {
         title = _safeString(parsed['button_title']);
-        subtitle = parsed['button_id'] != null ? 'ID: ' + _safeString(parsed['button_id']) : '';
+        subtitle = parsed['button_id'] != null ? 'ID: ${_safeString(parsed['button_id'])}' : '';
       } else if (parsed['list_title'] != null) {
         title = _safeString(parsed['list_title']);
         subtitle = parsed['list_description'] != null ? _safeString(parsed['list_description']) : '';
@@ -617,7 +617,7 @@ class _MessageBubble extends StatelessWidget {
       return _mediaTile(
         icon: Icons.smart_button,
         title: text.isNotEmpty ? text : 'Button reply',
-        subtitle: payload.isNotEmpty ? 'Payload: ' + payload : null,
+        subtitle: payload.isNotEmpty ? 'Payload: $payload' : null,
         fg: fg,
       );
     }
@@ -633,7 +633,7 @@ class _MessageBubble extends StatelessWidget {
           final name = it?['product_retailer_id']?.toString() ?? 'Product';
           final qty = it?['quantity']?.toString() ?? '';
           final price = it?['item_price']?.toString() ?? '';
-          return (e.key + 1).toString() + '. ' + name + (qty.isNotEmpty ? ' x' + qty : '') + (price.isNotEmpty ? ' @' + price : '');
+          return '${e.key + 1}. $name${qty.isNotEmpty ? ' x$qty' : ''}${price.isNotEmpty ? ' @$price' : ''}';
         }).join('\n');
       }
       return _mediaTile(

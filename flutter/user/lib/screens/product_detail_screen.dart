@@ -25,7 +25,7 @@ class ProductDetailScreen extends StatelessWidget {
     );
     if (context.mounted) {
       if (shareRes['error'] != null) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('WhatsApp share failed: ' + shareRes['error'].toString())));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('WhatsApp share failed: ${shareRes['error']}')));
       } else {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Product sent on WhatsApp')));
       }
@@ -36,7 +36,7 @@ class ProductDetailScreen extends StatelessWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Delete product?'),
-        content: Text(product.name + ' will be deleted permanently.'),
+        content: Text('${product.name} will be deleted permanently.'),
         actions: [
           TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
           TextButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Delete')),
@@ -47,7 +47,7 @@ class ProductDetailScreen extends StatelessWidget {
     final res = await ApiService().deleteProduct(product.id);
     if (context.mounted) {
       if (res['error'] != null) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ' + res['error'].toString())));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${res['error']}')));
       } else {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Product deleted')));
         Navigator.of(context).pop();
@@ -68,7 +68,7 @@ class ProductDetailScreen extends StatelessWidget {
     );
     if (context.mounted) {
       if (shareRes['error'] != null) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Share failed: ' + shareRes['error'].toString())));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Share failed: ${shareRes['error']}')));
       } else {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Product sent in chat')));
       }
@@ -91,7 +91,7 @@ class ProductDetailScreen extends StatelessWidget {
           const SizedBox(height: 20),
           Text(product.name, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
           const SizedBox(height: 8),
-          Text(product.currency + ' ' + product.price.toStringAsFixed(0), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.accent)),
+          Text('${product.currency} ${product.price.toStringAsFixed(0)}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.accent)),
           if (product.description != null && product.description!.isNotEmpty) ...[
             const SizedBox(height: 16),
             Text(product.description!, style: const TextStyle(color: AppColors.textMuted)),

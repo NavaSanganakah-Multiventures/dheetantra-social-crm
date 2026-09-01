@@ -60,7 +60,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     if (!mounted) return;
     setState(() => _fetching = false);
     if (res['error'] != null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Fetch failed: ' + res['error'].toString())));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Fetch failed: ${res['error']}')));
       return;
     }
     final product = res['product'] as Map<String, dynamic>?;
@@ -107,7 +107,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     if (!mounted) return;
     setState(() => _saving = false);
     if (res['error'] != null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ' + res['error'].toString())));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${res['error']}')));
     } else {
       Navigator.of(context).pop({'success': true, 'product': res['product']});
     }

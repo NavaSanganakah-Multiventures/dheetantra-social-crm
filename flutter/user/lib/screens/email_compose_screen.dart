@@ -99,7 +99,7 @@ class _EmailComposeScreenState extends State<EmailComposeScreen> {
                   )
                 else
                   DropdownButtonFormField<EmailMailbox>(
-                    value: _selectedMailbox,
+                    initialValue: _selectedMailbox,
                     dropdownColor: AppColors.surfaceAlt,
                     decoration: const InputDecoration(labelText: 'From (sender address)'),
                     items: _mailboxes

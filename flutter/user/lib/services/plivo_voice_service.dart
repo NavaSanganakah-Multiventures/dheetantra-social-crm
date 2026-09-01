@@ -310,8 +310,8 @@ class PlivoVoiceService implements SipUaHelperListener {
 
   @override
   void registrationStateChanged(RegistrationState state) {
-    debugPrint('[PlivoVoice] registration state: ${state.state}' +
-        (state.cause != null ? ' (cause: ${state.cause})' : ''));
+    debugPrint('[PlivoVoice] registration state: ${state.state}'
+        '${state.cause != null ? ' (cause: ${state.cause})' : ''}');
     final completer = _registrationCompleter;
     if (completer == null || completer.isCompleted) return;
     if (state.state == RegistrationStateEnum.REGISTERED) {
