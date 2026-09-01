@@ -1174,7 +1174,7 @@ router.post('/api/plivo/webhook/status', async (c) => {
       call = await c.env.DB.prepare('SELECT id, workspace_id, plivo_config_id, external_call_id, assigned_user_id, status FROM calls WHERE external_call_id = ?').bind(requestUuid).first();
     }
 
-    if (!call) return c.text('OK', 200);
+    if (!call) return plivoXmlResponse(XML_DECL + '<Response/>', 200);
 
     const plivoConfig = await c.env.DB.prepare('SELECT auth_token FROM plivo_configs WHERE id = ?').bind(call.plivo_config_id).first<{ auth_token: string }>();
     if (!(await verifyPlivoSignature(c, plivoConfig?.auth_token, body))) {
@@ -1195,7 +1195,7 @@ router.post('/api/plivo/webhook/status', async (c) => {
         await cleanupPlivoCall(c.env, call);
         await broadcastToWorkspace(c.env, call.workspace_id, { type: 'call_status_updated', call_id: call.id, status: 'ended', duration, source: 'plivo' });
       }
-      return c.text('OK', 200);
+      return plivoXmlResponse(XML_DECL + '<Response/>', 200);
     }
 
     // (नया) Direct <Dial> events. callbackUrl => DialAction (answer/connected/hangup);
@@ -1210,7 +1210,7 @@ router.post('/api/plivo/webhook/status', async (c) => {
           type: 'call_status_updated', call_id: call.id, status: 'in_progress', duration: 0, source: 'plivo'
         });
       }
-      return c.text('OK', 200);
+      return plivoXmlResponse(XML_DECL + '<Response/>', 200);
     }
 
     if (dialAction === 'hangup') {
@@ -1220,7 +1220,7 @@ router.post('/api/plivo/webhook/status', async (c) => {
       await broadcastToWorkspace(c.env, call.workspace_id, {
         type: 'call_status_updated', call_id: call.id, status: 'ended', duration: dialDuration, source: 'plivo'
       });
-      return c.text('OK', 200);
+      return plivoXmlResponse(XML_DECL + '<Response/>', 200);
     }
 
     if (dialStatus === 'completed') {
@@ -1232,7 +1232,7 @@ router.post('/api/plivo/webhook/status', async (c) => {
           type: 'call_status_updated', call_id: call.id, status: 'ended', duration: dialDuration, source: 'plivo'
         });
       }
-      return c.text('OK', 200);
+      return plivoXmlResponse(XML_DECL + '<Response/>', 200);
     }
 
     // Dial complete hone par terminal states (busy/no-answer/timeout/failed/cancel).
@@ -1252,10 +1252,10 @@ router.post('/api/plivo/webhook/status', async (c) => {
       await broadcastToWorkspace(c.env, call.workspace_id, {
         type: 'call_status_updated', call_id: call.id, status: finalStatus, duration: dialDuration, source: 'plivo'
       });
-      return c.text('OK', 200);
+      return plivoXmlResponse(XML_DECL + '<Response/>', 200);
     }
 
-    if (!rawStatus) return c.text('OK', 200);
+    if (!rawStatus) return plivoXmlResponse(XML_DECL + '<Response/>', 200);
 
     const statusMap: Record<string, string> = {
       ringing: 'ringing',
@@ -1303,10 +1303,10 @@ router.post('/api/plivo/webhook/status', async (c) => {
       }
     }
 
-    return c.text('OK', 200);
+    return plivoXmlResponse(XML_DECL + '<Response/>', 200);
   } catch (e: any) {
     console.error('[Plivo Webhook] status error:', e);
-    return c.text('OK', 200);
+    return plivoXmlResponse(XML_DECL + '<Response/>', 200);
   }
 });
 
