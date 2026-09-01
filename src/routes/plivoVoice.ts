@@ -1291,6 +1291,7 @@ router.post('/api/plivo/webhook/status', async (c) => {
   try {
     const body = await parseWebhookBody(c);
     const callId = c.req.query('callId') || '';
+    const leg = c.req.query('leg') || 'customer';
     const callUuid = body.CallUUID || '';
     const requestUuid = body.RequestUUID || '';
     const rawStatus = body.CallStatus || '';
