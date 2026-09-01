@@ -9,7 +9,8 @@ export interface PlivoCallInfo {
   from: string;
   callerName: string;
   phone?: string;
-  conferenceName: string;
+  dialUri?: string;
+  sipTarget?: string;
   workspaceId: string;
   plivoConfigId?: string;
   direction: "incoming" | "outgoing";
@@ -78,6 +79,7 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
   const credentialsRef = useRef<any[]>([]);
   const currentConfigIdRef = useRef<string | null>(null);
   const registeredRef = useRef<boolean>(false);
+  const incomingCallUUIDRef = useRef<string | null>(null);
 
   useEffect(() => {
     registeredRef.current = registered;
@@ -131,6 +133,7 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
     setIsMuted(false);
     setSpeakerOn(false);
     setDuration(0);
+    incomingCallUUIDRef.current = null;
   }, [clearTimer]);
 
   const updateAgentStatus = useCallback((newStatus: "live" | "busy" | "not_live") => {
@@ -220,7 +223,14 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
           updateAgentStatus("live");
         });
         client.on("onIncomingCall", (callerID: any, extraHeaders: any, callInfo: any) => {
-          // Direct endpoint SIP calls are not part of the PSTN conference flow.
+          // Direct SIP inbound: Plivo <Dial><User> se endpoint par ring aati hai.
+          incomingCallUUIDRef.current = callInfo?.callUUID || null;
+          setStatus("incoming");
+        });
+        client.on("onIncomingCallCanceled", () => {
+          incomingCallUUIDRef.current = null;
+          setIncoming(null);
+          setStatus("idle");
         });
 
         client.login(defaultCreds.username, defaultCreds.password);
@@ -271,7 +281,7 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
                 id: data.callId,
                 from: data.from,
                 callerName: data.callerName || data.from,
-                conferenceName: data.conferenceName,
+                sipTarget: data.sipTarget,
                 workspaceId: wsId,
                 plivoConfigId: data.plivoConfigId,
                 direction: "incoming",
@@ -376,39 +386,44 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
     };
   }, [incoming?.id]);
 
-  // Join the Plivo conference by dialing the conference's SIP address through
-  // the registered endpoint. This mirrors the Flutter softphone flow.
-  const connectConference = useCallback(
-    async (info: PlivoCallInfo) => {
-      setIncoming(null);
+  // Direct SIP dial (outbound): server ab sirf dialUri deta hai; use endpoint se dial karo.
+  const connectDirectSip = useCallback(
+    async (sipUri: string, plivoConfigId?: string) => {
       setStatus("connecting");
       try {
         const client = clientRef.current;
         if (!client) throw new Error("Plivo softphone not initialized");
-        
-        if (info.plivoConfigId) {
-          switchPlivoAccount(info.plivoConfigId);
+
+        if (plivoConfigId) {
+          switchPlivoAccount(plivoConfigId);
         }
 
         const checkAndDial = () => {
           if (registeredRef.current) {
-            client.call("sip:" + info.conferenceName + "@phone.plivo.com");
-            setActive(info);
-            updateAgentStatus("busy");
+            client.call(sipUri);
           } else {
             setTimeout(checkAndDial, 200);
           }
         };
-        
         checkAndDial();
       } catch (e: any) {
-        console.error("[PlivoWeb] answer error", e);
+        console.error("[PlivoWeb] direct SIP dial error", e);
         setStatus("error");
         cleanupCall();
       }
     },
-    [cleanupCall, updateAgentStatus, switchPlivoAccount]
+    [cleanupCall, switchPlivoAccount]
   );
+
+  // Inbound: Plivo <Wait length="3"/> ke baad INVITE bhejta hai; callUUID tak wait karo.
+  const waitForIncoming = useCallback(async (ms = 8000): Promise<string | null> => {
+    const deadline = Date.now() + ms;
+    while (Date.now() < deadline) {
+      if (incomingCallUUIDRef.current) return incomingCallUUIDRef.current;
+      await new Promise((r) => setTimeout(r, 150));
+    }
+    return null;
+  }, []);
 
   const startCall = useCallback(
     async (contact: PlivoContact, opts?: { fromNumber?: string; plivoConfigId?: string }) => {
@@ -424,7 +439,6 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
           body: JSON.stringify({
             to: contact.phone,
             contactId: contact.id || undefined,
-            mode: "in_app",
             ...(opts?.plivoConfigId ? { plivoConfigId: opts.plivoConfigId } : {}),
             ...(opts?.fromNumber ? { fromNumber: opts.fromNumber } : {}),
           }),
@@ -438,12 +452,14 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
           from: contact.phone,
           callerName: contact.name || contact.phone,
           phone: contact.phone,
-          conferenceName: data.conferenceName,
+          dialUri: data.dialUri,
           workspaceId,
-          plivoConfigId: opts?.plivoConfigId,
+          plivoConfigId: data.plivoConfigId ?? opts?.plivoConfigId,
           direction: "outgoing",
         };
-        await connectConference(info);
+        await connectDirectSip(data.dialUri, data.plivoConfigId ?? opts?.plivoConfigId);
+        setActive(info);
+        updateAgentStatus("busy");
       } catch (err: any) {
         console.error("[PlivoWeb] startCall error", err);
         cleanupCall();
@@ -451,21 +467,39 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
         throw err;
       }
     },
-    [workspaceId, connectConference, cleanupCall]
+    [workspaceId, connectDirectSip, cleanupCall, updateAgentStatus]
   );
 
-  const answer = useCallback(() => {
+  const answer = useCallback(async () => {
     if (!incoming) return;
     if (!clientRef.current) {
       console.warn("[PlivoWeb] cannot answer: softphone not registered");
       return;
     }
-    connectConference(incoming);
-  }, [incoming, connectConference]);
+    const uuid = await waitForIncoming();
+    if (!uuid) {
+      setStatus("error");
+      return;
+    }
+    clientRef.current.answer(uuid);
+    setActive({ ...incoming });
+    setIncoming(null);
+    updateAgentStatus("busy");
+  }, [incoming, waitForIncoming, updateAgentStatus]);
 
   const reject = useCallback(async () => {
     const callId = incoming?.id;
+    const uuid = incomingCallUUIDRef.current;
+    if (uuid && clientRef.current) {
+      try {
+        clientRef.current.reject(uuid);
+      } catch (e) {
+        console.error("[PlivoWeb] reject error", e);
+      }
+    }
     setIncoming(null);
+    setStatus("idle");
+    updateAgentStatus("live");
     if (isSafeCallId(callId) && workspaceId) {
       try {
         await fetch(`/api/plivo/call/${encodeURIComponent(callId)}/decline`, {
@@ -476,7 +510,7 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
         console.error("[PlivoWeb] reject error", e);
       }
     }
-  }, [incoming, workspaceId]);
+  }, [incoming, workspaceId, updateAgentStatus]);
 
   const hangup = useCallback(async () => {
     const callId = active?.id;
