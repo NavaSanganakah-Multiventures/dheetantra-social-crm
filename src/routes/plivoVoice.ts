@@ -1164,14 +1164,14 @@ router.post('/api/plivo/webhook/voice', async (c) => {
     const istHours = Math.floor(istMinutesTotal / 60) % 24;
     
     if (istHours < 9 || istHours >= 16) {
-      const xml = XML_DECL + '<Response><Speak language="hi-IN">Hamara office time subah 9 baje se sham 4 baje tak hai. Kripya us samay call karein.</Speak><Hangup/></Response>';
+      const xml = XML_DECL + '<Response><PreAnswer><Speak language="hi-IN">Hamara office time subah 9 baje se sham 4 baje tak hai. Kripya us samay call karein.</Speak></PreAnswer><Hangup/></Response>';
       return plivoXmlResponse(xml, 200);
     }
 
     // Agent availability check
     const liveCountRes = await c.env.DB.prepare("SELECT count(*) as cnt FROM workspace_members WHERE workspace_id = ? AND voice_status = 'live'").bind(config.workspace_id).first<{ cnt: number }>();
     if (!liveCountRes || liveCountRes.cnt === 0) {
-      const xml = XML_DECL + '<Response><Speak language="hi-IN">Abhi hamari team vyast hai. Kripya thodi der baad call karein.</Speak><Hangup/></Response>';
+      const xml = XML_DECL + '<Response><PreAnswer><Speak language="hi-IN">Abhi hamari team vyast hai. Kripya thodi der baad call karein.</Speak></PreAnswer><Hangup/></Response>';
       return plivoXmlResponse(xml, 200);
     }
 
