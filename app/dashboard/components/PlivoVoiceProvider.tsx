@@ -11,6 +11,7 @@ export interface PlivoCallInfo {
   phone?: string;
   conferenceName: string;
   workspaceId: string;
+  plivoConfigId?: string;
   direction: "incoming" | "outgoing";
 }
 
@@ -74,9 +75,38 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
   const timerRef = useRef<any>(null);
   const activeRef = useRef<PlivoCallInfo | null>(null);
 
+  const credentialsRef = useRef<any[]>([]);
+  const currentConfigIdRef = useRef<string | null>(null);
+  const registeredRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    registeredRef.current = registered;
+  }, [registered]);
+
   useEffect(() => {
     activeRef.current = active;
   }, [active]);
+
+  const switchPlivoAccount = useCallback((newConfigId: string) => {
+    if (!newConfigId) return;
+    if (currentConfigIdRef.current === newConfigId) return;
+    
+    const creds = credentialsRef.current.find((c: any) => c.plivoConfigId === newConfigId);
+    if (!creds || !creds.username || !creds.password) return;
+
+    if (clientRef.current) {
+      console.log(`[PlivoWeb] Switching SIP endpoint to config: ${newConfigId}`);
+      try {
+        clientRef.current.logout();
+        clientRef.current.login(creds.username, creds.password);
+        currentConfigIdRef.current = newConfigId;
+        registeredRef.current = false;
+        setRegistered(false);
+      } catch (e) {
+        console.error("[PlivoWeb] Error switching SIP endpoint", e);
+      }
+    }
+  }, []);
 
   const clearTimer = useCallback(() => {
     if (timerRef.current) {
@@ -129,10 +159,15 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
           return;
         }
         const data: any = await res.json();
-        if (!data.username || !data.password) {
+        const credsList = data.credentials || [];
+        if (credsList.length === 0) {
           console.warn("[PlivoWeb] Plivo softphone endpoint not configured");
           return;
         }
+        credentialsRef.current = credsList;
+        const defaultCreds = credsList[0];
+        if (!defaultCreds.username || !defaultCreds.password) return;
+        currentConfigIdRef.current = defaultCreds.plivoConfigId;
         if (cancelled) return;
 
         const mod: any = await import("plivo-browser-sdk");
@@ -188,7 +223,7 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
           // Direct endpoint SIP calls are not part of the PSTN conference flow.
         });
 
-        client.login(data.username, data.password);
+        client.login(defaultCreds.username, defaultCreds.password);
       } catch (err) {
         console.error("[PlivoWeb] init error", err);
       }
@@ -229,12 +264,16 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
           try {
             const data = JSON.parse(event.data);
             if (data.type === "plivo_incoming_call") {
+              if (data.plivoConfigId) {
+                switchPlivoAccount(data.plivoConfigId);
+              }
               setIncoming({
                 id: data.callId,
                 from: data.from,
                 callerName: data.callerName || data.from,
                 conferenceName: data.conferenceName,
                 workspaceId: wsId,
+                plivoConfigId: data.plivoConfigId,
                 direction: "incoming",
               });
             } else if (data.type === "call_status_updated" && data.source === "plivo") {
@@ -346,18 +385,29 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
       try {
         const client = clientRef.current;
         if (!client) throw new Error("Plivo softphone not initialized");
-        client.call("sip:" + info.conferenceName + "@phone.plivo.com");
-        setActive(info);
-        updateAgentStatus("busy");
-      } catch (err) {
-        console.error("[PlivoWeb] connectConference error", err);
-        cleanupCall();
+        
+        if (info.plivoConfigId) {
+          switchPlivoAccount(info.plivoConfigId);
+        }
+
+        const checkAndDial = () => {
+          if (registeredRef.current) {
+            client.call("sip:" + info.conferenceName + "@phone.plivo.com");
+            setActive(info);
+            updateAgentStatus("busy");
+          } else {
+            setTimeout(checkAndDial, 200);
+          }
+        };
+        
+        checkAndDial();
+      } catch (e: any) {
+        console.error("[PlivoWeb] answer error", e);
         setStatus("error");
-        updateAgentStatus("live");
-        throw err;
+        cleanupCall();
       }
     },
-    [cleanupCall, updateAgentStatus]
+    [cleanupCall, updateAgentStatus, switchPlivoAccount]
   );
 
   const startCall = useCallback(
@@ -390,6 +440,7 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
           phone: contact.phone,
           conferenceName: data.conferenceName,
           workspaceId,
+          plivoConfigId: opts?.plivoConfigId,
           direction: "outgoing",
         };
         await connectConference(info);
@@ -405,12 +456,12 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
 
   const answer = useCallback(() => {
     if (!incoming) return;
-    if (!registered || !clientRef.current) {
+    if (!clientRef.current) {
       console.warn("[PlivoWeb] cannot answer: softphone not registered");
       return;
     }
     connectConference(incoming);
-  }, [incoming, connectConference, registered]);
+  }, [incoming, connectConference]);
 
   const reject = useCallback(async () => {
     const callId = incoming?.id;

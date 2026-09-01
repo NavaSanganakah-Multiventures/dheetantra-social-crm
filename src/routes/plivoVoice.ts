@@ -460,6 +460,7 @@ async function pushIncomingCallToAgents(env: Env, c: any, workspaceId: string, c
             callerName,
             conferenceName,
             workspaceId,
+            plivoConfigId,
           });
         }
 
@@ -846,15 +847,16 @@ router.get('/api/plivo/sip-credentials', async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
-  const cfg = await c.env.DB.prepare(
-    "SELECT endpoint_username, endpoint_password, endpoint_app_id FROM plivo_configs WHERE workspace_id = ? AND is_active = 1 AND endpoint_username IS NOT NULL AND endpoint_username != '' AND endpoint_password IS NOT NULL AND endpoint_password != '' ORDER BY created_at ASC LIMIT 1"
-  ).bind(workspaceId).first<{ endpoint_username: string; endpoint_password: string; endpoint_app_id: string | null } | null>();
+  const cfgs = await c.env.DB.prepare(
+    "SELECT id as plivoConfigId, endpoint_username, endpoint_password, endpoint_app_id FROM plivo_configs WHERE workspace_id = ? AND is_active = 1 AND endpoint_username IS NOT NULL AND endpoint_username != '' AND endpoint_password IS NOT NULL AND endpoint_password != '' ORDER BY created_at ASC"
+  ).bind(workspaceId).all<{ plivoConfigId: string; endpoint_username: string; endpoint_password: string; endpoint_app_id: string | null }>();
 
-  if (!cfg || !cfg.endpoint_username || !cfg.endpoint_password) {
+  if (!cfgs.results || cfgs.results.length === 0) {
     return c.json({ error: 'Plivo softphone endpoint not configured' }, 400);
   }
 
-  return c.json({
+  const credentials = cfgs.results.map((cfg) => ({
+    plivoConfigId: cfg.plivoConfigId,
     username: cfg.endpoint_username,
     password: cfg.endpoint_password,
     server: 'phone.plivo.com',
@@ -863,7 +865,9 @@ router.get('/api/plivo/sip-credentials', async (c) => {
     transport: 'UDP/TCP',
     sipUri: `sip:${cfg.endpoint_username}@phone.plivo.com`,
     applicationSipUri: cfg.endpoint_app_id ? `sip:${cfg.endpoint_app_id}@app.plivo.com` : null,
-  });
+  }));
+
+  return c.json({ credentials });
 });
 
 // ---------------------------------------------------------------
@@ -1259,6 +1263,7 @@ router.post('/api/plivo/webhook/voice', async (c) => {
       callerName,
       conferenceName,
       workspaceId: config.workspace_id,
+      plivoConfigId: config.plivo_config_id,
       assignedAgentId,
       answerInApp,
     });
