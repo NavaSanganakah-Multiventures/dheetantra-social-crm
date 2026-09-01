@@ -32,22 +32,22 @@ class BatteryOptimizationService {
     return showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('बैटरी सेटिंग अपडेट करें'),
+        title: const Text('Update battery settings'),
         content: const Text(
-          'DheeTantra को background में चालू रखने और नए संदेश (WhatsApp/Email) तुरंत प्राप्त करने के लिए बैटरी ऑप्टिमाइजेशन (Battery Optimization) को बंद करना आवश्यक है।\n\n'
-          'कृपया इसे सेटिंग्स में जाकर "Unrestricted" या "Don\'t optimize" पर सेट करें।'
+          'To keep DheeTantra running in the background and receive new messages (WhatsApp/Email) instantly, battery optimization must be disabled.\n\n'
+          'Please go to settings and set it to "Unrestricted" or "Don\'t optimize".'
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('बाद में'),
+            child: const Text('Later'),
           ),
           ElevatedButton(
             onPressed: () async {
               Navigator.of(context).pop();
               await Permission.ignoreBatteryOptimizations.request();
             },
-            child: const Text('सेटिंग्स खोलें'),
+            child: const Text('Open settings'),
           ),
         ],
       ),
