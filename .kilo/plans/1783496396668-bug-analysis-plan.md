@@ -1,25 +1,25 @@
-# बग सुधार + Secrets KV Migration योजना
+# Bug Fixes + Secrets KV Migration Plan
 
-> **प्रोजेक्ट:** Dheetantra Social CRM  
-> **तारीख:** 08 जुलाई 2026
-
----
-
-## सारांश
-
-मुख्य दो काम:
-1. **12 bugs** ठीक करना — बिल्ड तोड़ने वाले, type safety, सुरक्षा, लॉजिक
-2. **Secrets को env से KV में migrate** करना — `GEMINI_API_KEY`, `TURN_KEY_*`, `FCM_SERVICE_ACCOUNT_JSON`, `WHATSAPP_*`
-
-`ENVIRONMENT` flag env में ही रहेगा (secret नहीं है)।
+> **Project:** Dheetantra Social CRM  
+> **Date:** 08 July 2026
 
 ---
 
-## भाग A: Secrets KV Migration
+## Summary
 
-### A1. `src/types.ts` — Env interface से secrets हटाएँ
+Two main tasks:
+1. Fix **12 bugs** - build-breaking, type safety, security, logic
+2. **Migrate secrets from env to KV** - `GEMINI_API_KEY`, `TURN_KEY_*`, `FCM_SERVICE_ACCOUNT_JSON`, `WHATSAPP_*`
 
-**वर्तमान:**
+`ENVIRONMENT` flag stays in env (it is not a secret).
+
+---
+
+## Part A: Secrets KV Migration
+
+### A1. `src/types.ts` - remove secrets from the Env interface
+
+**Current:**
 ```typescript
 export interface Env {
   DB: D1Database;
@@ -29,16 +29,16 @@ export interface Env {
   AUTOMATION_WORKFLOW: any;
   NOTIFICATION_QUEUE: Queue<any>;
   ENVIRONMENT: string;
-  WHATSAPP_VERIFY_TOKEN: string;    // ← हटाना है (KV se padh raha hai)
-  WHATSAPP_API_TOKEN: string;       // ← हटाना है (KV se padh raha hai)
+  WHATSAPP_VERIFY_TOKEN: string;    // <- to remove (already read from KV)
+  WHATSAPP_API_TOKEN: string;       // <- to remove (already read from KV)
   EMAIL_SENDER: any;
-  TURN_KEY_ID: string;              // ← हटाना है (KV fallback hai)
-  TURN_KEY_API_TOKEN: string;       // ← हटाना है (KV fallback hai)
-  GEMINI_API_KEY: string;           // ← हटाना है (KV se padhega)
+  TURN_KEY_ID: string;              // <- to remove (KV fallback exists)
+  TURN_KEY_API_TOKEN: string;       // <- to remove (KV fallback exists)
+  GEMINI_API_KEY: string;           // <- to remove (will read from KV)
 }
 ```
 
-**नया:**
+**New:**
 ```typescript
 export interface Env {
   DB: D1Database;
@@ -52,14 +52,14 @@ export interface Env {
 }
 ```
 
-### A2. `src/services/chatbot.ts:204` — GEMINI_API_KEY KV से पढ़ें
+### A2. `src/services/chatbot.ts:204` - read GEMINI_API_KEY from KV
 
-**वर्तमान:**
+**Current:**
 ```typescript
 const ai = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
 ```
 
-**नया:**
+**New:**
 ```typescript
 const geminiKey = await env.SECRETS_KV.get('GEMINI_API_KEY');
 if (!geminiKey) {
@@ -69,25 +69,25 @@ if (!geminiKey) {
 const ai = new GoogleGenAI({ apiKey: geminiKey });
 ```
 
-### A3. `src/index.ts:2416-2417` — TURN keys से env fallback हटाएँ
+### A3. `src/index.ts:2416-2417` - remove env fallback from TURN keys
 
-**वर्तमान:**
+**Current:**
 ```typescript
 const turnKeyId = (c.env.SECRETS_KV ? (await c.env.SECRETS_KV.get('CLOUDFLARE_CALLS_APP_ID') || await c.env.SECRETS_KV.get('TURN_KEY_ID')) : null) || c.env.TURN_KEY_ID;
 const turnToken = (c.env.SECRETS_KV ? (await c.env.SECRETS_KV.get('CLOUDFLARE_API_TOKEN') || await c.env.SECRETS_KV.get('TURN_KEY_API_TOKEN')) : null) || c.env.TURN_KEY_API_TOKEN;
 ```
 
-**नया:**
+**New:**
 ```typescript
 const turnKeyId = await c.env.SECRETS_KV.get('CLOUDFLARE_CALLS_APP_ID') || await c.env.SECRETS_KV.get('TURN_KEY_ID');
 const turnToken = await c.env.SECRETS_KV.get('CLOUDFLARE_API_TOKEN') || await c.env.SECRETS_KV.get('TURN_KEY_API_TOKEN');
 ```
 
-### A4. `lib/fcm.ts` — FCM_SERVICE_ACCOUNT_JSON KV से पढ़ें
+### A4. `lib/fcm.ts` - read FCM_SERVICE_ACCOUNT_JSON from KV
 
-**वर्तमान:** `fcm.ts` `CloudflareEnv` type import करता है और `env.FCM_SERVICE_ACCOUNT_JSON` direct access करता है।
+**Current:** `fcm.ts` imports the `CloudflareEnv` type and directly accesses `env.FCM_SERVICE_ACCOUNT_JSON`.
 
-**नया:** `fcm.ts` में `sendPushNotification` का first parameter `Env` (from `../src/types`) होगा। अंदर KV से पढ़ेगा:
+**New:** In `fcm.ts`, the first parameter of `sendPushNotification` will be `Env` (from `../src/types`). It will read from KV inside:
 
 ```typescript
 import type { Env } from '../src/types';
@@ -108,9 +108,9 @@ export async function sendPushNotification(
 }
 ```
 
-### A5. `lib/cloudflare.ts` — CloudflareEnv से FCM हटाएँ
+### A5. `lib/cloudflare.ts` - remove FCM from CloudflareEnv
 
-`FCM_SERVICE_ACCOUNT_JSON` property हटाएँ — ab ye KV se aata hai, env binding se nahi।
+Remove the `FCM_SERVICE_ACCOUNT_JSON` property - it now comes from KV, not from an env binding.
 
 ```typescript
 export interface CloudflareEnv {
@@ -121,16 +121,16 @@ export interface CloudflareEnv {
   BROADCAST_QUEUE: any;
   POST_PUBLISHER_WORKFLOW: any;
   MEDIA_BUCKET: any;
-  // FCM_SERVICE_ACCOUNT_JSON हटाया — ab KV se padhega
+  // FCM_SERVICE_ACCOUNT_JSON removed - now reads from KV
 }
 ```
 
-### A6. `.env.example` अपडेट करें
+### A6. Update `.env.example`
 
-`GEMINI_API_KEY` को env example से हटाएँ और KV instructions में add करें:
+Remove `GEMINI_API_KEY` from the env example and add it to the KV instructions:
 
 ```
-# KV SECRETS में set करें (wrangler kv key put):
+# Set in KV SECRETS (wrangler kv key put):
 # - GEMINI_API_KEY
 # - WHATSAPP_API_TOKEN
 # - WHATSAPP_VERIFY_TOKEN
@@ -146,25 +146,25 @@ export interface CloudflareEnv {
 
 ---
 
-## भाग B: Build-Breaking Bugs
+## Part B: Build-Breaking Bugs
 
-### B1. `src/index.ts:10` — `schemaSql`, `dropSql` import हटाएँ
+### B1. `src/index.ts:10` - remove `schemaSql`, `dropSql` imports
 
 ```typescript
 // DELETE this line:
 import { schemaSql, dropSql } from './schema';
 ```
 
-ये exports `schema.ts` में मौजूद नहीं हैं। अगर ज़रूरत है तो `schema.sql` फ़ाइल को TypeScript constant में convert करें।
+These exports do not exist in `schema.ts`. If needed, convert the `schema.sql` file into a TypeScript constant.
 
-### B2. `src/routes/admin.ts:47` — `schema.sql` import ठीक करें
+### B2. `src/routes/admin.ts:47` - fix the `schema.sql` import
 
-**वर्तमान:**
+**Current:**
 ```typescript
 import schemaSqlContent from '../../schema.sql';
 ```
 
-**नया — Option A (recommended):** एक `src/schema-content.ts` फ़ाइल बनाएँ:
+**New - Option A (recommended):** create a `src/schema-content.ts` file:
 ```typescript
 // src/schema-content.ts
 // This will be replaced at build time or read at runtime
@@ -173,7 +173,7 @@ export const SCHEMA_SQL = `
 `;
 ```
 
-**Option B:** `.d.ts` declaration file बनाएँ:
+**Option B:** create a `.d.ts` declaration file:
 ```typescript
 // schema.sql.d.ts
 declare module '*.sql' {
@@ -182,53 +182,53 @@ declare module '*.sql' {
 }
 ```
 
-### B3. `src/index.ts:25` — `data.type` unknown access
+### B3. `src/index.ts:25` - `data.type` unknown access
 
 ```typescript
-// वर्तमान:
+// Current:
 const data = await request.json();
 console.log(`[DO Broadcast] Sending type=${data.type}...`);
 
-// नया:
+// New:
 const data = await request.json() as { type?: string; [key: string]: any };
 console.log(`[DO Broadcast] Sending type=${data.type}...`);
 ```
 
-### B4. `src/index.ts:753-754, 2779, 2784` — `data.url` unknown access (3 जगह)
+### B4. `src/index.ts:753-754, 2779, 2784` - `data.url` unknown access (3 places)
 
 ```typescript
-// वर्तमान:
+// Current:
 const data = await res.json();
 if (data.url) { ... }
 
-// नया:
+// New:
 const data = await res.json() as { url?: string };
 if (data.url) { ... }
 ```
 
-### B5. `src/services/chatbot.ts:92` — calling_enabled type
+### B5. `src/services/chatbot.ts:92` - calling_enabled type
 
 ```typescript
-// वर्तमान:
+// Current:
 const cfg = await env.DB.prepare("SELECT calling_enabled FROM whatsapp_configs WHERE phone_number_id = ?")
   .bind(phoneNumberId).first();
-callingEnabled = cfg.calling_enabled; // unknown → number
+callingEnabled = cfg.calling_enabled; // unknown -> number
 
-// नया:
+// New:
 const cfg = await env.DB.prepare("SELECT calling_enabled FROM whatsapp_configs WHERE phone_number_id = ?")
   .bind(phoneNumberId).first<{ calling_enabled: number }>();
 callingEnabled = cfg.calling_enabled;
 ```
 
-### B6. `src/services/chatbot.ts:190` — reply_mode type
+### B6. `src/services/chatbot.ts:190` - reply_mode type
 
 ```typescript
-// वर्तमान:
+// Current:
 const config = await env.DB.prepare('SELECT reply_mode FROM whatsapp_configs WHERE phone_number_id = ?')
   .bind(phoneNumberId).first();
-replyMode = config.reply_mode; // unknown → string
+replyMode = config.reply_mode; // unknown -> string
 
-// नया:
+// New:
 const config = await env.DB.prepare('SELECT reply_mode FROM whatsapp_configs WHERE phone_number_id = ?')
   .bind(phoneNumberId).first<{ reply_mode: string }>();
 replyMode = config.reply_mode;
@@ -236,51 +236,51 @@ replyMode = config.reply_mode;
 
 ---
 
-## भाग C: सुरक्षा Bugs
+## Part C: Security Bugs
 
-### C1. `src/routes/admin.ts:21` — हार्डकोडेड admin email हटाएँ
+### C1. `src/routes/admin.ts:21` - remove the hardcoded admin email
 
 ```typescript
-// वर्तमान:
+// Current:
 let isAdmin = email === 'navasanganakah@gmail.com';
 
-// नया — हटाएँ, केवल KV-based admin list use करें:
+// New - remove it, use only the KV-based admin list:
 let isAdmin = false;
 const adminEmailsConfig = await c.env.SECRETS_KV.get('ADMIN_EMAILS');
 ```
 
-### C2. `src/routes/admin.ts:383-417` — KV secrets values mask करें
+### C2. `src/routes/admin.ts:383-417` - mask KV secret values
 
 ```typescript
-// वर्तमान:
+// Current:
 val = await c.env.SECRETS_KV.get(keyName) || '';
 
-// नया — सभी secret values mask करें:
+// New - mask all secret values:
 val = '••••••••';
 ```
 
-### C3. `src/index.ts:963-968` — Dummy login endpoint
+### C3. `src/index.ts:963-968` - Dummy login endpoint
 
 ```typescript
-// वर्तमान:
+// Current:
 app.post('/api/auth/login', async (c) => {
   return c.json({ token: 'jwt_or_api_key', workspace_id: 'tenant_123' });
 });
 
-// नया — हटाएँ या proper auth लगाएँ:
+// New - remove it or add proper auth:
 // DELETE this endpoint entirely (OTP-based login already exists)
 ```
 
-### C4. `src/index.ts` — Protected routes पर auth middleware
+### C4. `src/index.ts` - auth middleware on protected routes
 
-न्यूनतम इन routes पर auth check add करें:
+At minimum, add auth checks on these routes:
 - `/api/crm/contacts` (line 971)
 - `/api/crm/contacts/import` (line 985)
 - `/api/broadcast` (line 2649)
 - `/api/workspace` (line 2720)
 
 ```typescript
-// Helper function (index.ts के ऊपर add करें):
+// Helper function (add at the top of index.ts):
 async function requireSession(c: any): Promise<{ id: string } | null> {
   const sessionId = getCookie(c, 'auth_session');
   if (!sessionId || !c.env.SECRETS_KV) return null;
@@ -289,7 +289,7 @@ async function requireSession(c: any): Promise<{ id: string } | null> {
   try { return JSON.parse(userDataStr); } catch { return null; }
 }
 
-// Protected routes में:
+// In protected routes:
 app.get('/api/crm/contacts', async (c) => {
   const user = await requireSession(c);
   if (!user) return c.json({ error: 'Unauthorized' }, 401);
@@ -299,46 +299,46 @@ app.get('/api/crm/contacts', async (c) => {
 
 ---
 
-## भाग D: सफ़ाई
+## Part D: Cleanup
 
-### D1. `fix_syntax.js` — delete करें
+### D1. `fix_syntax.js` - delete it
 
-Root directory में मौजूद अस्थायी fix script है। `.gitignore` में `fix_*.js` pattern भी add करें।
+A temporary fix script present in the root directory. Also add the `fix_*.js` pattern to `.gitignore`.
 
 ---
 
-## भाग E: Env Type Sync (架构)
+## Part E: Env Type Sync (architecture)
 
-### E1. `lib/cloudflare.ts` — CloudflareEnv और `src/types.ts` — Env को sync करें
+### E1. `lib/cloudflare.ts` - sync CloudflareEnv and `src/types.ts` - Env
 
-दोनों interfaces में अब sync हो जाएगा:
-- `src/types.ts` Env: केवल Worker bindings (DB, KV, R2, DO, Queue, ENVIRONMENT, EMAIL_SENDER)
+Both interfaces will now be in sync:
+- `src/types.ts` Env: only Worker bindings (DB, KV, R2, DO, Queue, ENVIRONMENT, EMAIL_SENDER)
 - `lib/cloudflare.ts` CloudflareEnv: Next.js frontend bindings (DB, KV, EMAIL_SENDER, INBOX_DO, BROADCAST_QUEUE, POST_PUBLISHER_WORKFLOW, MEDIA_BUCKET)
 
 ---
 
-## कार्य क्रम (Execution Order)
+## Execution Order
 
-1. **A1** — `src/types.ts` Env interface cleanup
-2. **A2** — `chatbot.ts` GEMINI_API_KEY → KV
-3. **A3** — `index.ts` TURN keys env fallback हटाएँ
-4. **A4+A5** — `lib/fcm.ts` + `lib/cloudflare.ts` FCM → KV
-5. **A6** — `.env.example` update
-6. **B1+B2** — Schema import ठीक करें
-7. **B3+B4** — Type assertions add करें (index.ts)
-8. **B5+B6** — Generic types add करें (chatbot.ts)
-9. **C1** — Hardcoded admin email हटाएँ
-10. **C2** — KV secrets masking
-11. **C3** — Dummy login endpoint हटाएँ
-12. **C4** — Auth middleware add करें
-13. **D1** — `fix_syntax.js` delete
+1. **A1** - `src/types.ts` Env interface cleanup
+2. **A2** - `chatbot.ts` GEMINI_API_KEY -> KV
+3. **A3** - remove `index.ts` TURN keys env fallback
+4. **A4+A5** - `lib/fcm.ts` + `lib/cloudflare.ts` FCM -> KV
+5. **A6** - `.env.example` update
+6. **B1+B2** - fix schema imports
+7. **B3+B4** - add type assertions (index.ts)
+8. **B5+B6** - add generic types (chatbot.ts)
+9. **C1** - remove hardcoded admin email
+10. **C2** - KV secrets masking
+11. **C3** - remove the dummy login endpoint
+12. **C4** - add auth middleware
+13. **D1** - `fix_syntax.js` delete
 
 ---
 
-## सत्यापन
+## Verification
 
-1. `npx tsc --noEmit` — 0 errors
-2. `npm run build` — successful build
-3. FCM push notification flow verify करें (KV से service account पढ़ रहा है)
-4. Gemini AI reply mode test करें (KV से key पढ़ रहा है)
-5. TURN/ICE credentials test करें (KV se aa rahe hain)
+1. `npx tsc --noEmit` - 0 errors
+2. `npm run build` - successful build
+3. Verify the FCM push notification flow (reading the service account from KV)
+4. Test Gemini AI reply mode (reading the key from KV)
+5. Test TURN/ICE credentials (they are coming from KV)
