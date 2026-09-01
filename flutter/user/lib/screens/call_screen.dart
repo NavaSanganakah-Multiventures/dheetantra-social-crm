@@ -51,9 +51,6 @@ class _CallScreenState extends State<CallScreen> {
 
   bool get _isPlivo => widget.callData['source']?.toString() == 'plivo';
 
-  bool get _isInAppPlivo => _isPlivo &&
-      (widget.callData['conferenceName']?.toString() ?? '').isNotEmpty;
-
   bool get _muted => _isPlivo
       ? PlivoVoiceService().isMuted
       : (_isTwilio ? TwilioVoiceService().isMuted : WebRTCService().isMuted);
@@ -76,13 +73,11 @@ class _CallScreenState extends State<CallScreen> {
       _rtcStateSub = WebRTCService().onCallState.listen(_onCallState);
     }
     _wsStatusSub = WebSocketService().onCallStatusUpdated.listen(_onCallStatus);
-    // Twilio and Plivo (in-app mode) answer via their own SDKs: request mic
-    // permission and join the conference on accept. Plivo's legacy auto-dial
-    // (PSTN bridge) mode has no conferenceName and is answered on the agent's
-    // phone, so it must not auto-join in-app.
+    // Twilio aur Plivo dono apne SDK se answer/dial karte hain (ab direct SIP).
+    // Plivo ke liye ab koi conference/PSTN bridge nahi hai.
     final isOutgoingWhatsApp =
         (widget.callData['direction']?.toString() ?? '') == 'outgoing';
-    if (_isTwilio || _isInAppPlivo) {
+    if (_isTwilio || _isPlivo) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _requestPermissionAndAnswer());
     } else if (!isOutgoingWhatsApp) {
       // Incoming WhatsApp WebRTC: foreground WS path carries the SDP offer
@@ -131,12 +126,10 @@ class _CallScreenState extends State<CallScreen> {
 
     final status = data['status']?.toString() ?? '';
 
-    // Twilio (and the legacy Plivo PSTN bridge without in-app audio) are
-    // bridged through the backend; the customer-leg status drives the timer.
-    // For in-app Plivo, the softphone's own 'connected' (SIP STREAM) event is
-    // the source of truth: 'in_progress' can arrive while the customer is
-    // still waiting and the agent hasn't connected yet.
-    if ((_isTwilio || (_isPlivo && !_isInAppPlivo)) &&
+    // Ab sirf Twilio backend-bridged hai; Plivo direct SIP hai, isliye
+    // Plivo ke liye timer sirf softphone ke 'connected' (SIP STREAM) se
+    // chalta hai, backend ke in_progress se nahi.
+    if (_isTwilio &&
         (status == 'in_progress' || status == 'answered' || status == 'connected')) {
       if (mounted && _status != 'connected') {
         setState(() {
@@ -238,25 +231,27 @@ class _CallScreenState extends State<CallScreen> {
 
   Future<void> _startAnswer() async {
     if (_isPlivo) {
-      debugPrint('[CallScreen] joining Plivo conference');
-      final conferenceName = widget.callData['conferenceName']?.toString() ??
-          widget.callData['id']?.toString() ??
-          widget.callData['callId']?.toString() ?? '';
-      // Incoming call jis Plivo config par aayi hai usi endpoint par join karo.
-      // Background switch miss ho jaye to bhi yahan sahi account register hoga.
+      final dialUri = widget.callData['dialUri']?.toString();
       final plivoConfigId = widget.callData['plivoConfigId']?.toString();
-      final ok = await PlivoVoiceService().joinConference(
-        conferenceName,
-        plivoConfigId: plivoConfigId,
-      );
+      final bool ok;
+      if (dialUri != null && dialUri.isNotEmpty) {
+        // Outbound: server ne dialUri diya hai, ise seedha endpoint se dial karo.
+        debugPrint('[CallScreen] direct SIP outbound: $dialUri');
+        ok = await PlivoVoiceService().callNumberDirect(dialUri,
+            plivoConfigId: plivoConfigId);
+      } else {
+        // Inbound: Plivo ke <Dial><User> se aaya SIP INVITE answer karo.
+        debugPrint('[CallScreen] answering incoming direct SIP call');
+        ok = await PlivoVoiceService().answerIncomingCall(
+            plivoConfigId: plivoConfigId);
+      }
       if (!ok && mounted) {
-        // joinConference() already emitted a specific error (e.g. SIP
-        // registration failure); do not override it with a generic message.
+        // Service ne specific error already stream par bheja hai.
         if (!_status.startsWith('error:')) {
           setState(() => _status = 'error: Failed to connect Plivo call');
         }
-        // The customer leg may still be waiting in the conference; release it
-        // so the caller is not left on hold after the agent failed to join.
+        // Local SIP state release + backend calls row cleanup.
+        unawaited(PlivoVoiceService().hangUp());
         unawaited(ApiService().hangupPlivoCall(widget.callData['id']?.toString() ?? ''));
       }
       return;

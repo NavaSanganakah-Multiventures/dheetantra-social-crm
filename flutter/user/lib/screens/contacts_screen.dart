@@ -496,7 +496,9 @@ class _ContactDetailScreenState extends State<_ContactDetailScreen> {
       CallScreen.push(context, {
         'id': res['callId'],
         'source': 'plivo',
-        if (res['inApp'] == true) 'conferenceName': res['conferenceName'],
+        'direction': 'outgoing',
+        'dialUri': res['dialUri'],
+        'plivoConfigId': res['plivoConfigId'],
         'callerName': contact.name,
         'callerNumber': contact.phone,
         'phone': contact.phone,
