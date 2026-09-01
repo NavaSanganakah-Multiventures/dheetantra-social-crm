@@ -26,6 +26,10 @@ interface PlivoConfig {
   endpointUsername?: string;
   endpointPasswordMasked?: string;
   fromNumbers?: any[];
+  voiceBotEnabled?: boolean;
+  aiFallbackEnabled?: boolean;
+  aiInstructions?: string;
+  aiVoiceModel?: string;
 }
 
 export function PlivoSettingsSection() {
@@ -52,6 +56,9 @@ export function PlivoSettingsSection() {
   const [formOfficeHoursEnd, setFormOfficeHoursEnd] = useState("16:00");
   const [formOfficeHoursAudioUrl, setFormOfficeHoursAudioUrl] = useState("");
   const [formBusyAudioUrl, setFormBusyAudioUrl] = useState("");
+  const [formAiFallback, setFormAiFallback] = useState(false);
+  const [formAiInstructions, setFormAiInstructions] = useState("");
+  const [formAiModel, setFormAiModel] = useState("models/gemini-2.0-flash-exp");
   const [isUploadingAudio, setIsUploadingAudio] = useState(false);
   const [savingConfig, setSavingConfig] = useState(false);
 
@@ -198,6 +205,9 @@ export function PlivoSettingsSection() {
     setFormOfficeHoursEnd("16:00");
     setFormOfficeHoursAudioUrl("");
     setFormBusyAudioUrl("");
+    setFormAiFallback(false);
+    setFormAiInstructions("");
+    setFormAiModel("models/gemini-2.0-flash-exp");
     setShowForm(true);
   };
 
@@ -213,6 +223,9 @@ export function PlivoSettingsSection() {
     setFormOfficeHoursEnd(cfg.officeHoursEnd || "16:00");
     setFormOfficeHoursAudioUrl(cfg.officeHoursAudioUrl || "");
     setFormBusyAudioUrl(cfg.busyAudioUrl || "");
+    setFormAiFallback(cfg.aiFallbackEnabled === true);
+    setFormAiInstructions(cfg.aiInstructions || "");
+    setFormAiModel(cfg.aiVoiceModel || "models/gemini-2.0-flash-exp");
     setShowForm(true);
   };
 
@@ -230,6 +243,9 @@ export function PlivoSettingsSection() {
           officeHoursEnd: formOfficeHoursEnd,
           officeHoursAudioUrl: formOfficeHoursAudioUrl,
           busyAudioUrl: formBusyAudioUrl,
+          aiFallbackEnabled: formAiFallback,
+          aiInstructions: formAiInstructions,
+          aiVoiceModel: formAiModel,
         };
         const token = formAuthToken.trim();
         if (token) body.authToken = token;
@@ -261,6 +277,9 @@ export function PlivoSettingsSection() {
             officeHoursEnd: formOfficeHoursEnd,
             officeHoursAudioUrl: formOfficeHoursAudioUrl,
             busyAudioUrl: formBusyAudioUrl,
+            aiFallbackEnabled: formAiFallback,
+            aiInstructions: formAiInstructions,
+            aiVoiceModel: formAiModel,
           }),
         });
         const data: any = await res.json();
@@ -306,6 +325,24 @@ export function PlivoSettingsSection() {
       const data: any = await res.json();
       if (!res.ok) throw new Error(data.error || "Update failed");
       toast("success", value ? "Auto-dial on" : "Auto-dial off");
+      load();
+    } catch (e: any) {
+      toast("error", e?.message || "Update failed");
+    }
+  };
+
+  const toggleAiFallback = async (cfg: any, value: boolean) => {
+    const wId = localStorage.getItem("workspaceId");
+    if (!wId) return;
+    try {
+      const res = await fetch("/api/plivo/configs/" + cfg.id, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", "x-workspace-id": wId },
+        body: JSON.stringify({ aiFallbackEnabled: value }),
+      });
+      const data: any = await res.json();
+      if (!res.ok) throw new Error(data.error || "Update failed");
+      toast("success", value ? "AI fallback on" : "AI fallback off");
       load();
     } catch (e: any) {
       toast("error", e?.message || "Update failed");
@@ -542,7 +579,7 @@ export function PlivoSettingsSection() {
                     value={formAuthToken}
                     onChange={(e) => setFormAuthToken(e.target.value)}
                     type="password"
-                    placeholder={editingId ? "•••••••• (leave blank)" : "Auth Token"}
+                    placeholder={editingId ? "â¢â¢â¢â¢â¢â¢â¢â¢ (leave blank)" : "Auth Token"}
                     className="w-full px-4 py-2.5 bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-700 rounded-xl text-sm text-surface-900 dark:text-white outline-none focus:ring-2 focus:ring-primary-500"
                   />
                 </div>
@@ -641,6 +678,45 @@ export function PlivoSettingsSection() {
                     </div>
                   )}
                 </div>
+
+                {/* AI Voice Agent (Fallback when no human agent is online) */}
+                <div className="md:col-span-2 pt-4 border-t border-surface-100 dark:border-surface-800">
+                  <h5 className="font-bold text-sm text-surface-800 dark:text-surface-200 mb-3">AI Voice Agent (Fallback)</h5>
+                  <label className="flex items-center gap-2 text-sm text-surface-700 dark:text-surface-300 mb-1">
+                    <input
+                      type="checkbox"
+                      checked={formAiFallback}
+                      onChange={(e) => setFormAiFallback(e.target.checked)}
+                      className="rounded border-surface-300"
+                    />
+                    Route to the AI voice agent (Gemini) when no human agent is online (Audio Stream / WebSocket)
+                  </label>
+                  {formAiFallback && (
+                    <div className="grid grid-cols-1 gap-4 bg-surface-50 dark:bg-surface-900 p-4 rounded-xl border border-surface-100 dark:border-surface-800 mt-3">
+                      <div>
+                        <label className="text-xs font-bold text-surface-600 dark:text-surface-400 block mb-1">AI instructions (system prompt)</label>
+                        <textarea
+                          value={formAiInstructions}
+                          onChange={(e) => setFormAiInstructions(e.target.value)}
+                          rows={4}
+                          placeholder="You are a helpful AI assistant. Greet the caller politely in Hindi and help them."
+                          className="w-full px-4 py-2.5 bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 rounded-xl text-sm text-surface-900 dark:text-white outline-none focus:ring-2 focus:ring-primary-500"
+                        />
+                        <p className="text-[11px] text-surface-400 mt-1">Used when an inbound call can&apos;t reach a live human agent. Keep it short and conversational.</p>
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-surface-600 dark:text-surface-400 block mb-1">Gemini model</label>
+                        <input
+                          value={formAiModel}
+                          onChange={(e) => setFormAiModel(e.target.value)}
+                          placeholder="models/gemini-2.0-flash-exp"
+                          className="w-full px-4 py-2.5 bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 rounded-xl text-sm text-surface-900 dark:text-white outline-none focus:ring-2 focus:ring-primary-500"
+                        />
+                        <p className="text-[11px] text-surface-400 mt-1">Requires GEMINI_API_KEY to be configured on the backend.</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="flex gap-3 mt-4">
                 <button
@@ -704,7 +780,7 @@ export function PlivoSettingsSection() {
                         className="p-2 text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800 rounded-lg transition-all"
                         title={isOpen ? "Collapse" : "Expand"}
                       >
-                        {isOpen ? "−" : "+"}
+                        {isOpen ? "â" : "+"}
                       </button>
                       <button onClick={() => openEdit(cfg)} title="Edit" className="p-2 text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800 rounded-lg transition-all">
                         <Edit className="w-4 h-4" />
@@ -731,6 +807,24 @@ export function PlivoSettingsSection() {
                           (cfg.autoDialAgents ? "translate-x-5" : "")
                         }
                       />
+                    </button>
+                  </div>
+
+                  <div className="flex items-center justify-between mt-3 pt-3 border-t border-surface-100 dark:border-surface-800">
+                    <span className="text-xs font-bold text-surface-600 dark:text-surface-400">AI agent fallback</span>
+                    <button
+                      onClick={() => toggleAiFallback(cfg, !cfg.aiFallbackEnabled)}
+                      className={
+                        "relative w-11 h-6 rounded-full transition-colors " +
+                        (cfg.aiFallbackEnabled ? "bg-primary-600" : "bg-surface-300 dark:bg-surface-700")
+                      }
+                      title="Toggle AI fallback"
+                    >
+                      <span
+                        className={
+                          "absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform " +
+                          (cfg.aiFallbackEnabled ? "translate-x-5" : "")
+                      }/>
                     </button>
                   </div>
 
@@ -788,20 +882,20 @@ export function PlivoSettingsSection() {
                           </div>
                           <div className="flex justify-between">
                             <span className="text-surface-500">Username</span>
-                            <span className="font-mono text-surface-700 dark:text-surface-200">{cfg.endpointUsername || "—"}</span>
+                            <span className="font-mono text-surface-700 dark:text-surface-200">{cfg.endpointUsername || "â"}</span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-surface-500">Password</span>
-                            <span className="font-mono text-surface-700 dark:text-surface-200">{cfg.endpointPasswordMasked || "—"}</span>
+                            <span className="font-mono text-surface-700 dark:text-surface-200">{cfg.endpointPasswordMasked || "â"}</span>
                           </div>
                           <div className="flex justify-between items-center gap-3">
                             <span className="text-surface-500">SIP URI</span>
-                            <span className="font-mono text-surface-700 dark:text-surface-200 break-all">{sipUri || "—"}</span>
+                            <span className="font-mono text-surface-700 dark:text-surface-200 break-all">{sipUri || "â"}</span>
                           </div>
                           <div className="flex justify-between items-center gap-3">
                             <span className="text-surface-500">App SIP URI</span>
                             <span className="font-mono text-surface-700 dark:text-surface-200 break-all">
-                              {(info && info.applicationSipUri) || (cfg.endpointConfigured ? "sip:<app_id>@app.plivo.com" : "—")}
+                              {(info && info.applicationSipUri) || (cfg.endpointConfigured ? "sip:<app_id>@app.plivo.com" : "â")}
                             </span>
                           </div>
                           <p className="text-[11px] text-surface-400 pt-1">
