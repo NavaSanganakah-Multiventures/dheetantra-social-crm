@@ -12,6 +12,7 @@ import '../screens/call_screen.dart';
 import 'webrtc_service.dart';
 import 'api_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'plivo_voice_service.dart';
 
 class CallKitService {
   static final CallKitService _instance = CallKitService._internal();
@@ -397,6 +398,12 @@ class CallKitService {
     final String email = data['contactEmail']?.toString() ?? '';
     final String lastMessage = data['lastMessage']?.toString() ?? '';
     final String displayName = callerName == 'DheeTantra Call' && callerId != 'Unknown' ? callerId : callerName;
+
+    // Trigger Plivo dynamic endpoint hop in the background so that by the time
+    // the user answers, the correct SIP endpoint is fully registered.
+    if (data['source']?.toString() == 'plivo' && data['plivoConfigId'] != null) {
+      unawaited(PlivoVoiceService().switchAccountBackground(data['plivoConfigId'].toString()));
+    }
 
     // Store in memory in case the extra data is lost on some platforms
     _currentCallId = uuid;
