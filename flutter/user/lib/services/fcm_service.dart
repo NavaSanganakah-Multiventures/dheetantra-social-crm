@@ -122,7 +122,7 @@ class FcmService {
         _defaultTitle(type);
     final body = message.notification?.body ??
         message.data['body'] ??
-        'नया अपडेट प्राप्त हुआ';
+        'New update received';
 
     // Bell badge aur notification screen bhi update karo — websocket band ho toh
     // bhi user ko missed calls/messages ka pata chale.
@@ -243,11 +243,11 @@ class FcmService {
   String _defaultTitle(String type) {
     switch (type) {
       case 'new_message':
-        return 'नया संदेश';
+        return 'New message';
       case 'missed_call':
-        return 'मिस्ड कॉल';
+        return 'Missed call';
       case 'incoming_call':
-        return 'इनकमिंग कॉल';
+        return 'Incoming call';
       default:
         return 'DheeTantra';
     }
@@ -302,7 +302,7 @@ class FcmService {
       // Foreground mein bhi incoming call dikhana chahiye; CallKit native UI
       // sabse reliable hai, aur saath mein notification center mein bhi record.
       _addToNotificationCenter(
-        message.data['callerName'] ?? 'इनकमिंग कॉल',
+        message.data['callerName'] ?? 'Incoming call',
         message.data['callerNumber'] ?? '',
         'call',
         message.data,
@@ -318,7 +318,7 @@ class FcmService {
         _defaultTitle(type);
     final body = message.notification?.body ??
         message.data['body'] ??
-        'नया अपडेट प्राप्त हुआ';
+        'New update received';
 
     // Bell badge aur list hamesha update karo, chahe websocket connected ho ya na ho.
     _addToNotificationCenter(title, body, type, message.data);

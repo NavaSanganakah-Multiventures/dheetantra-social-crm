@@ -47,7 +47,7 @@ class _EmailComposeScreenState extends State<EmailComposeScreen> {
 
     if (to.isEmpty || subject.isEmpty || body.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('कृपया प्राप्तकर्ता, विषय और संदेश भरें')),
+        const SnackBar(content: Text('Please fill in recipient, subject and message')),
       );
       return;
     }
@@ -64,11 +64,11 @@ class _EmailComposeScreenState extends State<EmailComposeScreen> {
     if (!mounted) return;
     if (res['error'] != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('त्रुटि: ${res['error']}')),
+        SnackBar(content: Text('Error: ${res['error']}')),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ईमेल भेजा गया')),
+        const SnackBar(content: Text('Email sent')),
       );
       Navigator.of(context).pop();
     }
@@ -78,7 +78,7 @@ class _EmailComposeScreenState extends State<EmailComposeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Email भेजें'),
+        title: const Text('Send Email'),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -93,7 +93,7 @@ class _EmailComposeScreenState extends State<EmailComposeScreen> {
                       borderRadius: BorderRadius.circular(14),
                     ),
                     child: const Text(
-                      'कोई mailbox कॉन्फ़िगर नहीं। कृपया Dashboard से domain जोड़ें और उसे verify करें।',
+                      'No mailbox configured. Please add and verify a domain from the Dashboard.',
                       style: TextStyle(color: AppColors.warning),
                     ),
                   )
@@ -101,7 +101,7 @@ class _EmailComposeScreenState extends State<EmailComposeScreen> {
                   DropdownButtonFormField<EmailMailbox>(
                     value: _selectedMailbox,
                     dropdownColor: AppColors.surfaceAlt,
-                    decoration: const InputDecoration(labelText: 'From (भेजने वाला पता)'),
+                    decoration: const InputDecoration(labelText: 'From (sender address)'),
                     items: _mailboxes
                         .map((m) => DropdownMenuItem(
                               value: m,
@@ -127,7 +127,7 @@ class _EmailComposeScreenState extends State<EmailComposeScreen> {
                   controller: _subjectController,
                   decoration: const InputDecoration(
                     labelText: 'Subject',
-                    hintText: 'ईमेल का विषय',
+                    hintText: 'Email subject',
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -137,7 +137,7 @@ class _EmailComposeScreenState extends State<EmailComposeScreen> {
                   textCapitalization: TextCapitalization.sentences,
                   decoration: const InputDecoration(
                     labelText: 'Message',
-                    hintText: 'यहाँ लिखें...',
+                    hintText: 'Write here...',
                     alignLabelWithHint: true,
                   ),
                 ),
@@ -150,7 +150,7 @@ class _EmailComposeScreenState extends State<EmailComposeScreen> {
                           height: 20,
                           child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                         )
-                      : const Text('भेजें'),
+                      : const Text('Send'),
                 ),
               ],
             ),

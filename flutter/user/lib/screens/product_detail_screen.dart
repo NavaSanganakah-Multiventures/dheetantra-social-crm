@@ -25,9 +25,9 @@ class ProductDetailScreen extends StatelessWidget {
     );
     if (context.mounted) {
       if (shareRes['error'] != null) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('WhatsApp शेयर विफल: ' + shareRes['error'].toString())));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('WhatsApp share failed: ' + shareRes['error'].toString())));
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('प्रोडक्ट WhatsApp पर भेजा गया')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Product sent on WhatsApp')));
       }
     }
   }
@@ -35,11 +35,11 @@ class ProductDetailScreen extends StatelessWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('प्रोडक्ट हटाएं?'),
-        content: Text(product.name + ' हमेशा के लिए हटा दिया जाएगा।'),
+        title: const Text('Delete product?'),
+        content: Text(product.name + ' will be deleted permanently.'),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('रद्द करें')),
-          TextButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('हटाएं')),
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Delete')),
         ],
       ),
     );
@@ -47,9 +47,9 @@ class ProductDetailScreen extends StatelessWidget {
     final res = await ApiService().deleteProduct(product.id);
     if (context.mounted) {
       if (res['error'] != null) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('त्रुटि: ' + res['error'].toString())));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ' + res['error'].toString())));
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('प्रोडक्ट हटाया गया')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Product deleted')));
         Navigator.of(context).pop();
       }
     }
@@ -68,9 +68,9 @@ class ProductDetailScreen extends StatelessWidget {
     );
     if (context.mounted) {
       if (shareRes['error'] != null) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('शेयर विफल: ' + shareRes['error'].toString())));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Share failed: ' + shareRes['error'].toString())));
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('प्रोडक्ट चैट में भेजा गया')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Product sent in chat')));
       }
     }
   }
@@ -78,7 +78,7 @@ class ProductDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('प्रोडक्ट विवरण')),
+      appBar: AppBar(title: const Text('Product details')),
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
@@ -100,13 +100,13 @@ class ProductDetailScreen extends StatelessWidget {
           FilledButton.icon(
             onPressed: () => _share(context),
             icon: const Icon(Icons.share),
-            label: const Text('चैट में शेयर करें'),
+            label: const Text('Share in chat'),
           ),
           const SizedBox(height: 12),
           FilledButton.icon(
             onPressed: () => _shareOnWhatsApp(context),
             icon: const Icon(Icons.chat_bubble_outline),
-            label: const Text('WhatsApp पर शेयर करें'),
+            label: const Text('Share on WhatsApp'),
           ),
           const SizedBox(height: 12),
           OutlinedButton.icon(
@@ -115,17 +115,17 @@ class ProductDetailScreen extends StatelessWidget {
                 MaterialPageRoute(builder: (_) => ProductFormScreen(catalogId: catalog.id, product: product)),
               );
               if (result != null && result['success'] == true && context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('प्रोडक्ट अपडेट किया गया')));
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Product updated')));
               }
             },
             icon: const Icon(Icons.edit_outlined),
-            label: const Text('संपादित करें'),
+            label: const Text('Edit'),
           ),
           const SizedBox(height: 12),
           OutlinedButton.icon(
             onPressed: () => _deleteProduct(context),
             icon: const Icon(Icons.delete_outline, color: AppColors.danger),
-            label: const Text('हटाएं', style: TextStyle(color: AppColors.danger)),
+            label: const Text('Delete', style: TextStyle(color: AppColors.danger)),
           ),
         ],
       ),
