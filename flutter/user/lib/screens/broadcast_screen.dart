@@ -71,7 +71,7 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
   void _sendBroadcast() async {
     if (_messageController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('कृपया संदेश लिखें')),
+        const SnackBar(content: Text('Please write a message')),
       );
       return;
     }
@@ -88,8 +88,8 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
       SnackBar(
         content: Text(
           result['error'] != null
-              ? 'त्रुटि: ${result['error']}'
-              : 'ब्रॉडकास्ट कतार में भेज दिया गया (${result['total'] ?? 0} प्राप्तकर्ता)',
+              ? 'Error: ${result['error']}'
+              : 'Broadcast queued (${result['total'] ?? 0} recipients)',
         ),
       ),
     );
@@ -119,7 +119,7 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
         children: [
           // ============ HISTORY ============
           if (_history.isNotEmpty) ...[
-            const SectionHeader(title: 'पिछले ब्रॉडकास्ट'),
+            const SectionHeader(title: 'Past broadcasts'),
             const SizedBox(height: 10),
             for (final campaign in _history.take(10)) ...[
               _CampaignCard(campaign: campaign),
@@ -132,15 +132,15 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
           // ============ NEW BROADCAST ============
           Row(
             children: [
-              _StepIndicator(active: true, label: '1', title: 'संदेश'),
+              _StepIndicator(active: true, label: '1', title: 'Message'),
               const Expanded(child: Divider(color: AppColors.border)),
-              _StepIndicator(active: _step >= 1, label: '2', title: 'ऑडियंस'),
+              _StepIndicator(active: _step >= 1, label: '2', title: 'Audience'),
             ],
           ),
           const SizedBox(height: 24),
           if (_step == 0) ...[
             const Text(
-              'संदेश लिखें',
+              'Write message',
               style: TextStyle(
                 color: AppColors.textPrimary,
                 fontSize: 16,
@@ -149,7 +149,7 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
             ),
             const SizedBox(height: 4),
             const Text(
-              'यह संदेश चयनित ऑडियंस को WhatsApp पर भेजा जाएगा।',
+              'This message will be sent to the selected audience on WhatsApp.',
               style: TextStyle(color: AppColors.textMuted, fontSize: 12.5),
             ),
             const SizedBox(height: 14),
@@ -164,7 +164,7 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
                 maxLines: 6,
                 maxLength: 1000,
                 decoration: const InputDecoration(
-                  hintText: 'अपना ब्रॉडकास्ट संदेश यहाँ लिखें...',
+                  hintText: 'Write your broadcast message here...',
                   filled: false,
                   border: InputBorder.none,
                   contentPadding: EdgeInsets.all(16),
@@ -178,7 +178,7 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
                 SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    'व्यक्तिगत संदेशों के लिए नाम जैसे वेरिएबल्स इस वर्जन में समर्थित नहीं हैं।',
+                    'Variables like names for personalized messages are not supported in this version.',
                     style: TextStyle(color: AppColors.textMuted, fontSize: 12),
                   ),
                 ),
@@ -186,7 +186,7 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
             ),
           ] else ...[
             const Text(
-              'ऑडियंस चुनें',
+              'Choose audience',
               style: TextStyle(
                 color: AppColors.textPrimary,
                 fontSize: 16,
@@ -195,14 +195,14 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
             ),
             const SizedBox(height: 4),
             const Text(
-              'ब्रॉडकास्ट किसे भेजना है, चुनें।',
+              'Choose who to send the broadcast to.',
               style: TextStyle(color: AppColors.textMuted, fontSize: 12.5),
             ),
             const SizedBox(height: 14),
             _AudienceOption(
               icon: Icons.people_alt_outlined,
-              title: 'सभी संपर्क',
-              subtitle: '${_waContacts.length} संपर्क',
+              title: 'All contacts',
+              subtitle: '${_waContacts.length} contacts',
               selected: _audience == 'all',
               onTap: () => setState(() {
                 _audience = 'all';
@@ -212,8 +212,8 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
             const SizedBox(height: 10),
             _AudienceOption(
               icon: Icons.bolt_outlined,
-              title: 'लीड्स',
-              subtitle: '$leadsCount लीड्स',
+              title: 'Leads',
+              subtitle: '$leadsCount leads',
               selected: _audience == 'leads',
               onTap: () => setState(() {
                 _audience = 'leads';
@@ -223,8 +223,8 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
             const SizedBox(height: 10),
             _AudienceOption(
               icon: Icons.star_outline_rounded,
-              title: 'ग्राहक',
-              subtitle: '$customersCount ग्राहक',
+              title: 'Customer',
+              subtitle: '$customersCount customers',
               selected: _audience == 'customers',
               onTap: () => setState(() {
                 _audience = 'customers';
@@ -246,17 +246,17 @@ class _BroadcastScreenState extends State<BroadcastScreen> {
             icon: Icon(_step == 1 ? Icons.send_rounded : Icons.arrow_forward_rounded, size: 18),
             label: Text(
               _sending
-                  ? 'भेज रहे हैं...'
+                  ? 'Sending...'
                   : _step == 1
-                      ? 'ब्रॉडकास्ट भेजें ($_audienceCount)'
-                      : 'आगे बढ़ें',
+                      ? 'Send broadcast ($_audienceCount)'
+                      : 'Next',
             ),
           ),
           if (_step > 0) ...[
             const SizedBox(height: 10),
             OutlinedButton(
               onPressed: () => setState(() => _step--),
-              child: const Text('वापस'),
+              child: const Text('Back'),
             ),
           ],
         ],
@@ -283,15 +283,15 @@ class _CampaignCard extends StatelessWidget {
     switch (status) {
       case 'completed':
         statusColor = AppColors.success;
-        statusLabel = 'पूर्ण';
+        statusLabel = 'Completed';
         break;
       case 'failed':
         statusColor = AppColors.danger;
-        statusLabel = 'विफल';
+        statusLabel = 'Failed';
         break;
       default:
         statusColor = AppColors.warning;
-        statusLabel = 'प्रोसेसिंग';
+        statusLabel = 'Processing';
     }
 
     final createdAt = DateTime.tryParse(campaign['created_at'] ?? '')?.toLocal();
@@ -311,7 +311,7 @@ class _CampaignCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  campaign['name'] ?? 'ब्रॉडकास्ट',
+                  campaign['name'] ?? 'Broadcast',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -342,18 +342,18 @@ class _CampaignCard extends StatelessWidget {
           Row(
             children: [
               Text(
-                '$total प्राप्तकर्ता',
+                '$total recipients',
                 style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
               ),
               const SizedBox(width: 12),
               Text(
-                '$sent भेजे गए',
+                '$sent sent',
                 style: const TextStyle(color: AppColors.success, fontSize: 12),
               ),
               if (failed > 0) ...[
                 const SizedBox(width: 12),
                 Text(
-                  '$failed विफल',
+                  '$failed failed',
                   style: const TextStyle(color: AppColors.danger, fontSize: 12),
                 ),
               ],
@@ -378,7 +378,7 @@ class _CampaignCard extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              '$pending बाकी',
+              '$pending pending',
               style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
             ),
           ],
