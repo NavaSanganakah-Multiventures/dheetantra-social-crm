@@ -14,7 +14,7 @@ class IntegrationsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('टूल्स और इंटीग्रेशन्स'),
+        title: const Text('Tools & Integrations'),
       ),
       body: ListView(
         padding: const EdgeInsets.all(20),
@@ -22,8 +22,8 @@ class IntegrationsScreen extends StatelessWidget {
           _ToolCard(
             icon: Icons.message_outlined,
             iconColor: AppColors.whatsapp,
-            title: 'नए नंबर पर WhatsApp भेजें',
-            subtitle: 'संपर्क बनाए बिना सीधे संदेश भेजें',
+            title: 'Send WhatsApp to a new number',
+            subtitle: 'Send a message directly without creating a contact',
             onTap: () {
               Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const SendNewMessageScreen()),
@@ -34,8 +34,8 @@ class IntegrationsScreen extends StatelessWidget {
           _ToolCard(
             icon: Icons.description_outlined,
             iconColor: AppColors.accent,
-            title: 'WhatsApp टेम्प्लेट भेजें',
-            subtitle: 'Meta-approved टेम्प्लेट विशेष नंबर पर',
+            title: 'Send WhatsApp template',
+            subtitle: 'Meta-approved template to a specific number',
             onTap: () {
               Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const SendTemplateScreen()),
@@ -47,7 +47,7 @@ class IntegrationsScreen extends StatelessWidget {
             icon: Icons.phone_in_talk_outlined,
             iconColor: const Color(0xFFF472B6),
             title: 'Twilio Voice',
-            subtitle: 'Workspace Twilio Account और From Numbers manage करें',
+            subtitle: 'Manage Workspace Twilio Account and From Numbers',
             onTap: () {
               Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const TwilioSettingsScreen()),
@@ -59,7 +59,7 @@ class IntegrationsScreen extends StatelessWidget {
             icon: Icons.phone_callback_outlined,
             iconColor: const Color(0xFF34D399),
             title: 'Plivo Voice',
-            subtitle: 'Workspace Plivo Account, From Numbers और Agent Phone manage करें',
+            subtitle: 'Manage Workspace Plivo Account, From Numbers and Agent Phone',
             onTap: () {
               Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const PlivoSettingsScreen()),
@@ -70,8 +70,8 @@ class IntegrationsScreen extends StatelessWidget {
           _ToolCard(
             icon: Icons.email_outlined,
             iconColor: const Color(0xFF60A5FA),
-            title: 'Email भेजें',
-            subtitle: 'Workspace के वेरिफाइड डोमेन से ईमेल भेजें',
+            title: 'Send Email',
+            subtitle: 'Send email from the Workspace's verified domain',
             onTap: () {
               Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const EmailComposeScreen()),
