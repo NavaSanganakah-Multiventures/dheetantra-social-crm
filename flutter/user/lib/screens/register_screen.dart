@@ -62,11 +62,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Future<void> _sendOtp() async {
     FocusScope.of(context).unfocus();
     if (_nameController.text.trim().isEmpty || _emailController.text.trim().isEmpty) {
-      _showMessage('कृपया सभी फ़ील्ड भरें', true);
+      _showMessage('Please fill in all fields', true);
       return;
     }
     if (!_emailRegex.hasMatch(_emailController.text.trim())) {
-      _showMessage('कृपया सही ईमेल पता दर्ज करें', true);
+      _showMessage('Please enter a valid email address', true);
       return;
     }
 
@@ -83,7 +83,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       _showMessage(result['error'], true);
     } else {
       setState(() => _step = 'otp');
-      _showMessage('OTP आपके ईमेल पर भेजा गया', false);
+      _showMessage('OTP sent to your email', false);
       _startResendCooldown();
       Future.delayed(const Duration(milliseconds: 100), () {
         if (mounted) _otpFocusNodes[0].requestFocus();
@@ -95,7 +95,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     FocusScope.of(context).unfocus();
     final otp = _otpControllers.map((c) => c.text).join();
     if (otp.length != 6) {
-      _showMessage('कृपया 6 अंक का OTP दर्ज करें', true);
+      _showMessage('Please enter the 6-digit OTP', true);
       return;
     }
 
@@ -141,7 +141,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('खाता बनाएं')),
+      appBar: AppBar(title: const Text('Create account')),
       body: ResponsiveLayout(
         child: SafeArea(
           child: SingleChildScrollView(
@@ -150,7 +150,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const Text(
-                  'DheeTantra में शामिल हों',
+                  'Join DheeTantra',
                   style: TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 22,
@@ -161,8 +161,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 const SizedBox(height: 6),
                 Text(
                   _step == 'form'
-                      ? 'अपना CRM वर्कस्पेस बनाएं और ग्राहकों से WhatsApp, ईमेल और कॉल के ज़रिए जुड़ें।'
-                      : '${_emailController.text.trim()} पर भेजा गया कोड दर्ज करें',
+                      ? 'Create your CRM workspace and connect with customers via WhatsApp, email and calls.'
+                      : '${_emailController.text.trim()} - enter the code sent here',
                   style: const TextStyle(color: AppColors.textMuted, fontSize: 13, height: 1.5),
                 ),
                 const SizedBox(height: 28),
@@ -171,7 +171,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     controller: _nameController,
                     textCapitalization: TextCapitalization.words,
                     decoration: const InputDecoration(
-                      labelText: 'पूरा नाम',
+                      labelText: 'Full name',
                       prefixIcon: Icon(Icons.person_outline_rounded, color: AppColors.textMuted),
                     ),
                   ),
@@ -180,7 +180,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
                     decoration: const InputDecoration(
-                      labelText: 'ईमेल',
+                      labelText: 'Email',
                       prefixIcon: Icon(Icons.mail_outline_rounded, color: AppColors.textMuted),
                     ),
                   ),
@@ -193,7 +193,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             height: 22,
                             child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
                           )
-                        : const Text('OTP भेजें'),
+                        : const Text('Send OTP'),
                   ),
                 ] else ...[
                   LayoutBuilder(
@@ -238,7 +238,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             height: 22,
                             child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
                           )
-                        : const Text('खाता बनाएं'),
+                        : const Text('Create account'),
                   ),
                   const SizedBox(height: 12),
                   Center(
@@ -249,8 +249,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       style: TextButton.styleFrom(foregroundColor: AppColors.accent),
                       child: Text(
                         _resendCooldown > 0
-                            ? 'दोबारा भेजें ($_resendCooldown सेकंड)'
-                            : 'दोबारा OTP भेजें',
+                            ? 'Resend ($_resendCooldown sec)'
+                            : 'Resend OTP',
                         style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                       ),
                     ),
@@ -282,7 +282,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     const Text(
-                      'पहले से खाता है?',
+                      'Already have an account?',
                       style: TextStyle(color: AppColors.textMuted, fontSize: 13),
                     ),
                     TextButton(
@@ -293,13 +293,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         );
                       },
                       style: TextButton.styleFrom(foregroundColor: AppColors.accent),
-                      child: const Text('लॉगिन करें', style: TextStyle(fontWeight: FontWeight.w700)),
+                      child: const Text('Log in', style: TextStyle(fontWeight: FontWeight.w700)),
                     ),
                   ],
                 ),
                 const SizedBox(height: 20),
                 const Text(
-                  'रजिस्टर करके आप हमारी सेवा की शर्तों और गोपनीयता नीति से सहमत होते हैं।',
+                  'By registering you agree to our terms of service and privacy policy.',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: AppColors.textMuted, fontSize: 11, height: 1.5),
                 ),
