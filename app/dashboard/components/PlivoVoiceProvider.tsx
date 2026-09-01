@@ -355,12 +355,8 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
         const client = clientRef.current;
         if (!client) throw new Error("Plivo softphone not initialized");
         
-        // Explicitly request microphone access before calling
-        try {
-          await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-        } catch (mediaErr) {
-          console.warn("[PlivoWeb] microphone access denied or failed", mediaErr);
-        }
+        // Let Plivo SDK handle microphone access internally (permOnClick: true).
+        // Awaiting getUserMedia here breaks the synchronous click handler in Safari/Chrome.
 
         client.call("sip:" + info.conferenceName + "@phone.plivo.com");
         setActive(info);
