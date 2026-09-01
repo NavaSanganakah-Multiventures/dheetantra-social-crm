@@ -1,4 +1,4 @@
-# DheeTantra - पूरे Project का Bug Audit & Refactor Plan
+# DheeTantra - Full Project Bug Audit & Refactor Plan
 
 ## 📌 Context
 
@@ -12,8 +12,8 @@
 - Integrations: Meta WhatsApp Cloud API, Firebase FCM, Cloudflare TURN, Google GenAI (Gemini)
 
 **Main Source Files Reviewed:**
-- `app/dashboard/page.tsx` (5632 lines — ginormous client component)
-- `src/index.ts` (2889 lines — main worker)
+- `app/dashboard/page.tsx` (5632 lines - ginormous client component)
+- `src/index.ts` (2889 lines - main worker)
 - `src/services/chatbot.ts`
 - `src/routes/meta-oauth.ts`
 - `src/routes/admin.ts`
@@ -28,7 +28,7 @@
 
 ## 🔴 Critical Bugs (Pahle Yeh Fix Karo)
 
-### 1. AI Chatbot — Wrong Gemini Model Name
+### 1. AI Chatbot - Wrong Gemini Model Name
 **File:** `src/services/chatbot.ts:206`
 ```ts
 model: 'gemini-3.5-flash'
@@ -42,7 +42,7 @@ model: 'gemini-3.5-flash'
 await fetch('/api/broadcast', { method: 'POST', body: JSON.stringify({...}) });
 ```
 **Bug:** Header missing. Hono backend me `await c.req.json()` fail ho sakta hai.
-**Same bug in:** `app/login/page.tsx` (line 22, 42) — send-otp & verify-otp.
+**Same bug in:** `app/login/page.tsx` (line 22, 42) - send-otp & verify-otp.
 
 ### 3. WhatsApp WebRTC Call Recording Upload Field Mismatch
 **File:** `lib/hooks/useWhatsAppWebRTC.ts:236`
@@ -54,9 +54,9 @@ formData.append('recording', blob, `call-${call.id}.webm`);
 
 ### 4. Audio Double-Playback / Echo
 **Files:**
-- `app/dashboard/page.tsx:139-149` — creates a separate `new Audio()` and plays `rtcRemoteStream`.
-- `app/dashboard/page.tsx:4507` — `<audio ref={audioRef} autoPlay />` bhi same stream play karti hai.
-**Bug:** Do audio elements ek saath chalengi → echo.
+- `app/dashboard/page.tsx:139-149` - creates a separate `new Audio()` and plays `rtcRemoteStream`.
+- `app/dashboard/page.tsx:4507` - `<audio ref={audioRef} autoPlay />` bhi same stream play karti hai.
+**Bug:** Do audio elements ek saath chalengi -> echo.
 **Fix:** Dashboard wala effect hatao, sirf `ActiveCallManager` me audio rakho.
 
 ### 5. WebRTC Recording Only Records Local Side
@@ -151,10 +151,10 @@ app.post('/api/auth/login', async (c) => c.json({ token: 'jwt_or_api_key', works
 ### 22. `DB異なる schema versions between migration files and schema.sql`
 **Files:** `db_migrations/0001_initial.sql` vs `schema.sql`
 **Differences:**
-- `whatsapp_configs.workspace_id` — migration has `UNIQUE`, schema.sql does not (multi-config support mismatch).
-- `contacts` table — schema.sql has `phone`, `additional_phone`, `email`, `gender`, `is_lead`, etc.; migration me nahi.
-- `conversations` — schema.sql has `phone_number_id`, `customer_last_message_at`; migration partial.
-- `messages` — schema.sql has `message_type`; migration me nahi.
+- `whatsapp_configs.workspace_id` - migration has `UNIQUE`, schema.sql does not (multi-config support mismatch).
+- `contacts` table - schema.sql has `phone`, `additional_phone`, `email`, `gender`, `is_lead`, etc.; migration me nahi.
+- `conversations` - schema.sql has `phone_number_id`, `customer_last_message_at`; migration partial.
+- `messages` - schema.sql has `message_type`; migration me nahi.
 **Impact:** Fresh migration vs admin manual migrate se schema alag alag banega.
 
 ### 23. `cors()` Middleware Runs After Domain Check But Domain Check Skips Localhost
@@ -221,7 +221,7 @@ app.post('/api/auth/login', async (c) => c.json({ token: 'jwt_or_api_key', works
 **File:** `next.config.ts:26-34`
 **Note:** `DISABLE_HMR=true` environment variable se HMR disabled. This is unconventional dev config.
 
-### 37. `public/` Empty — No `firebase-messaging-sw.js`
+### 37. `public/` Empty - No `firebase-messaging-sw.js`
 **File:** `public/*`
 **Bug:** FCM foreground listener hai lekin service worker nahi hai. Background push notifications kaam nahi karenge.
 
@@ -240,10 +240,10 @@ app.post('/api/auth/login', async (c) => c.json({ token: 'jwt_or_api_key', works
 
 ## 🟢 Recommended Implementation Phases
 
-### Phase 1 — Critical Runtime Fixes (Sabse Pehle)
-1. `chatbot.ts` Gemini model name fix → `gemini-1.5-flash` / `gemini-2.0-flash`.
+### Phase 1 - Critical Runtime Fixes (Sabse Pehle)
+1. `chatbot.ts` Gemini model name fix -> `gemini-1.5-flash` / `gemini-2.0-flash`.
 2. Add `Content-Type: application/json` to all POST `fetch` calls in client pages.
-3. Fix WebRTC recording upload field name (`recording` → `file`) ya backend field name update.
+3. Fix WebRTC recording upload field name (`recording` -> `file`) ya backend field name update.
 4. Remove duplicate remote audio playback in Dashboard.
 5. Outgoing Call button disable/remove until real outbound flow implemented.
 6. Disable or implement `ScheduleView` placeholder.
@@ -251,7 +251,7 @@ app.post('/api/auth/login', async (c) => c.json({ token: 'jwt_or_api_key', works
 8. Fix global WebSocket dependencies (`callingEnabled`, `user?.workspace_id`).
 9. Use backend `/api/whatsapp/calls/status` in `CallsView` health indicator.
 
-### Phase 2 — Schema & Wrangler Stability
+### Phase 2 - Schema & Wrangler Stability
 1. Align `schema.sql` and `db_migrations/*.sql`.
 2. Remove `UNIQUE(workspace_id)` from migration if multi-WABA is intended.
 3. Generate a fresh migration file for missing columns.
@@ -259,7 +259,7 @@ app.post('/api/auth/login', async (c) => c.json({ token: 'jwt_or_api_key', works
 5. Update `compatibility_date` to a recent date.
 6. Fix `package.json` dev script: remove `NODE_ENV=production`.
 
-### Phase 3 — Frontend Architecture Refactor
+### Phase 3 - Frontend Architecture Refactor
 1. Split `app/dashboard/page.tsx` into components:
    - `app/dashboard/components/Sidebar.tsx`
    - `app/dashboard/components/TopHeader.tsx`
@@ -279,20 +279,20 @@ app.post('/api/auth/login', async (c) => c.json({ token: 'jwt_or_api_key', works
    - `WorkspaceContext` (workspaceId, configs, refresh)
 3. Create API helper: `lib/api.ts` with common headers and error handling.
 
-### Phase 4 — Type Safety & Backend Cleanup
+### Phase 4 - Type Safety & Backend Cleanup
 1. Replace `any` with shared types.
 2. Make `src/index.ts` type-safe via the separate worker tsconfig.
 3. Move route handlers into per-feature files (`src/routes/whatsapp.ts`, `src/routes/inbox.ts`, `src/routes/calls.ts`, etc.).
 4. Add consistent error logging & metrics.
 
-### Phase 5 — Calling Feature Hardening
+### Phase 5 - Calling Feature Hardening
 1. Reconcile WebRTC status state across client/backend.
 2. Add call timeout if no connection.
 3. Properly record both local + remote audio if legally allowed; else disable recording.
 4. Fix hangup/terminate race conditions.
 5. Add Cloudflare TURN credentials caching.
 
-### Phase 6 — Notifications & Integrations
+### Phase 6 - Notifications & Integrations
 1. Add `public/firebase-messaging-sw.js` for background FCM.
 2. Bind/Register broadcast worker properly or remove unused code.
 3. Implement scheduled posts with workflows or remove placeholder.
