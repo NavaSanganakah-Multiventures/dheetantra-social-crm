@@ -13,7 +13,7 @@ router.post('/api/inbox/conversations/initiate', async (c) => {
 
   const contact = await c.env.DB.prepare('SELECT * FROM contacts WHERE id = ? AND workspace_id = ?')
     .bind(contactId, workspaceId).first<{ platform_contact_id: string }>();
-  if (!contact) return c.json({ error: 'संपर्क नहीं मिला' }, 404);
+  if (!contact) return c.json({ error: 'Contact not found' }, 404);
 
   let finalPhoneNumberId = phone_number_id;
   if (finalPhoneNumberId) {
