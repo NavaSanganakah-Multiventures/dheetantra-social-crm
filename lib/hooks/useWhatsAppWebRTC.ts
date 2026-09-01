@@ -227,7 +227,7 @@ export function useWhatsAppWebRTC() {
 
       // Validate that we have SDP before proceeding
       if (!call.sdp) {
-        throw new Error('SDP (Session Description Protocol) डेटा उपलब्ध नहीं है। कृपया WhatsApp Cloud API की Calling Webhook सेटिंग जांचें।');
+        throw new Error('SDP (Session Description Protocol) data is not available. Please check the Calling Webhook setting in the WhatsApp Cloud API.');
       }
       
       // 1. Fetch Cloudflare TURN/STUN credentials
@@ -259,7 +259,7 @@ export function useWhatsAppWebRTC() {
           setStatus('connected');
           startDurationTimer();
         } else if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
-          setError('कनेक्शन विफल हो गया');
+          setError('Connection failed');
           cleanup();
         }
       };
@@ -287,7 +287,7 @@ export function useWhatsAppWebRTC() {
             }
           };
           pc.addEventListener('icegatheringstatechange', checkState);
-          // Timeout fallback — Meta requires response within 30-60 seconds
+          // Timeout fallback - Meta requires response within 30-60 seconds
           setTimeout(() => {
             pc.removeEventListener('icegatheringstatechange', checkState);
             resolve();
@@ -318,7 +318,7 @@ export function useWhatsAppWebRTC() {
       setStatus('connected');
       startDurationTimer();
 
-      // 8. Start recording (optional — using MediaRecorder)
+      // 8. Start recording (optional - using MediaRecorder)
       try {
         const combinedStream = new MediaStream();
         // Add local audio
@@ -341,7 +341,7 @@ export function useWhatsAppWebRTC() {
 
     } catch (err: any) {
       console.error('[WebRTC] Failed to answer call:', err);
-      setError(err.message || 'कॉल उत्तर देने में विफल');
+      setError(err.message || 'Failed to answer call');
       cleanup();
       throw err;
     }
