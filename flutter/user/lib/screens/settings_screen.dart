@@ -392,7 +392,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _SettingsTile(
                 icon: Icons.settings_applications_outlined,
                 title: 'Choose default Caller ID app',
-                subtitle: 'Open Android's default apps settings',
+                subtitle: 'Open Android\'s default apps settings',
                 trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
                 onTap: _requestCallerIdRole,
               ),
