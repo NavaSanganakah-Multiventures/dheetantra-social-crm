@@ -74,7 +74,7 @@ class _SendTemplateScreenState extends State<SendTemplateScreen> {
     }
     if (recipient.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter the recipient's number')),
+        const SnackBar(content: Text('Please enter the recipient\'s number')),
       );
       return;
     }
