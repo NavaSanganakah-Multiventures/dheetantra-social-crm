@@ -50,6 +50,8 @@ export function PlivoSettingsSection() {
   const [formVoiceBotEnabled, setFormVoiceBotEnabled] = useState(true);
   const [formOfficeHoursStart, setFormOfficeHoursStart] = useState("09:00");
   const [formOfficeHoursEnd, setFormOfficeHoursEnd] = useState("16:00");
+  const [formOfficeHoursAudioUrl, setFormOfficeHoursAudioUrl] = useState("");
+  const [formBusyAudioUrl, setFormBusyAudioUrl] = useState("");
   const [savingConfig, setSavingConfig] = useState(false);
 
   const [newFromNumber, setNewFromNumber] = useState<Record<string, string>>({});
@@ -158,6 +160,25 @@ export function PlivoSettingsSection() {
     }
   };
 
+  const uploadAudio = async (file: File, setter: (url: string) => void) => {
+    if (!file) return;
+    toast("success", "Uploading audio...");
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/media/upload", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Upload failed");
+      setter(data.url);
+      toast("success", "Audio uploaded successfully!");
+    } catch (e: any) {
+      toast("error", e?.message || "Audio upload failed");
+    }
+  };
+
   const openAdd = () => {
     setEditingId(null);
     setFormName("");
@@ -168,6 +189,8 @@ export function PlivoSettingsSection() {
     setFormVoiceBotEnabled(true);
     setFormOfficeHoursStart("09:00");
     setFormOfficeHoursEnd("16:00");
+    setFormOfficeHoursAudioUrl("");
+    setFormBusyAudioUrl("");
     setShowForm(true);
   };
 
@@ -181,6 +204,8 @@ export function PlivoSettingsSection() {
     setFormVoiceBotEnabled(cfg.voiceBotEnabled !== false);
     setFormOfficeHoursStart(cfg.officeHoursStart || "09:00");
     setFormOfficeHoursEnd(cfg.officeHoursEnd || "16:00");
+    setFormOfficeHoursAudioUrl(cfg.officeHoursAudioUrl || "");
+    setFormBusyAudioUrl(cfg.busyAudioUrl || "");
     setShowForm(true);
   };
 
@@ -196,6 +221,8 @@ export function PlivoSettingsSection() {
           voiceBotEnabled: formVoiceBotEnabled,
           officeHoursStart: formOfficeHoursStart,
           officeHoursEnd: formOfficeHoursEnd,
+          officeHoursAudioUrl: formOfficeHoursAudioUrl,
+          busyAudioUrl: formBusyAudioUrl,
         };
         const token = formAuthToken.trim();
         if (token) body.authToken = token;
@@ -225,6 +252,8 @@ export function PlivoSettingsSection() {
             voiceBotEnabled: formVoiceBotEnabled,
             officeHoursStart: formOfficeHoursStart,
             officeHoursEnd: formOfficeHoursEnd,
+            officeHoursAudioUrl: formOfficeHoursAudioUrl,
+            busyAudioUrl: formBusyAudioUrl,
           }),
         });
         const data: any = await res.json();
@@ -563,6 +592,44 @@ export function PlivoSettingsSection() {
                           onChange={(e) => setFormOfficeHoursEnd(e.target.value)}
                           className="w-full px-4 py-2.5 bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 rounded-xl text-sm text-surface-900 dark:text-white outline-none focus:ring-2 focus:ring-primary-500"
                         />
+                      </div>
+                    </div>
+                  )}
+                  
+                  {formVoiceBotEnabled && (
+                    <div className="grid grid-cols-1 gap-4 bg-surface-50 dark:bg-surface-900 p-4 rounded-xl border border-surface-100 dark:border-surface-800 mt-4">
+                      <div>
+                        <label className="text-xs font-bold text-surface-600 dark:text-surface-400 block mb-1">Out of Office Audio MP3 (Optional)</label>
+                        <div className="flex gap-2">
+                          <input
+                            value={formOfficeHoursAudioUrl}
+                            onChange={(e) => setFormOfficeHoursAudioUrl(e.target.value)}
+                            placeholder="https://.../audio.mp3"
+                            className="flex-1 px-4 py-2 bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 rounded-xl text-sm text-surface-900 dark:text-white outline-none focus:ring-2 focus:ring-primary-500"
+                          />
+                          <label className="cursor-pointer px-4 py-2 bg-surface-200 hover:bg-surface-300 dark:bg-surface-800 dark:hover:bg-surface-700 text-surface-700 dark:text-surface-300 text-xs font-bold rounded-xl transition-all flex items-center shrink-0">
+                            Upload
+                            <input type="file" accept="audio/mpeg, audio/mp3, audio/wav" className="hidden" onChange={(e) => { if(e.target.files?.[0]) uploadAudio(e.target.files[0], setFormOfficeHoursAudioUrl) }} />
+                          </label>
+                        </div>
+                        <p className="text-[11px] text-surface-400 mt-1">If provided, this MP3 plays instead of the standard TTS voice when the office is closed.</p>
+                      </div>
+                      
+                      <div>
+                        <label className="text-xs font-bold text-surface-600 dark:text-surface-400 block mb-1">Team Busy Audio MP3 (Optional)</label>
+                        <div className="flex gap-2">
+                          <input
+                            value={formBusyAudioUrl}
+                            onChange={(e) => setFormBusyAudioUrl(e.target.value)}
+                            placeholder="https://.../audio.mp3"
+                            className="flex-1 px-4 py-2 bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 rounded-xl text-sm text-surface-900 dark:text-white outline-none focus:ring-2 focus:ring-primary-500"
+                          />
+                          <label className="cursor-pointer px-4 py-2 bg-surface-200 hover:bg-surface-300 dark:bg-surface-800 dark:hover:bg-surface-700 text-surface-700 dark:text-surface-300 text-xs font-bold rounded-xl transition-all flex items-center shrink-0">
+                            Upload
+                            <input type="file" accept="audio/mpeg, audio/mp3, audio/wav" className="hidden" onChange={(e) => { if(e.target.files?.[0]) uploadAudio(e.target.files[0], setFormBusyAudioUrl) }} />
+                          </label>
+                        </div>
+                        <p className="text-[11px] text-surface-400 mt-1">If provided, this MP3 plays when no agents are online, avoiding TTS fees.</p>
                       </div>
                     </div>
                   )}
