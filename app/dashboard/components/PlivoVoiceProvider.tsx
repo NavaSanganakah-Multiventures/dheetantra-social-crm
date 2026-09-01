@@ -3,7 +3,6 @@
 import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Phone, PhoneOff, Mic, MicOff, Volume2, VolumeX } from "lucide-react";
-import { useToast } from "@/components/ui/Toast";
 
 export interface PlivoCallInfo {
   id: string;
@@ -56,7 +55,6 @@ function isSafeCallId(id: string | null | undefined): id is string {
 }
 
 export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) {
-  const { toast } = useToast();
   const [workspaceId, setWorkspaceId] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
     return localStorage.getItem("workspaceId");
@@ -156,11 +154,16 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
 
         client.on("onLogin", () => {
           setRegistered(true);
+          updateAgentStatus("live");
         });
-        client.on("onLogout", () => setRegistered(false));
+        client.on("onLogout", () => {
+          setRegistered(false);
+          updateAgentStatus("not_live");
+        });
         client.on("onLoginFailed", (cause: any) => {
           console.error("[PlivoWeb] login failed", cause);
           setRegistered(false);
+          updateAgentStatus("not_live");
         });
         client.on("onWebrtcNotSupported", () => {
           console.error("[PlivoWeb] WebRTC not supported in this browser");
@@ -171,23 +174,12 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
         client.on("onMediaConnected", () => {
           setStatus("connected");
           startTimer();
-          try {
-            if (client.audio && client.audio.speakerDevices && typeof client.audio.speakerDevices.set === "function") {
-              client.audio.speakerDevices.set("default");
-            }
-          } catch (e) {
-            console.error("[PlivoWeb] auto-set speaker error", e);
-          }
         });
-        client.on("onCallTerminated", (cause: any) => {
-          console.log("[PlivoWeb] call terminated", cause);
+        client.on("onCallTerminated", () => {
           cleanupCall();
           updateAgentStatus("live");
         });
-        client.on("onCallFailed", (cause: any) => {
-          console.error("[PlivoWeb] call failed", cause);
-          const reason = typeof cause === 'string' ? cause : (cause?.reason || "Unknown error");
-          toast("error", "Call failed: " + reason);
+        client.on("onCallFailed", () => {
           cleanupCall();
           setStatus("error");
           updateAgentStatus("live");
@@ -308,7 +300,7 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
     let cancelled = false;
 
     async function startRing() {
-      if (!incoming || activeRef.current) return;
+      if (!incoming) return;
       try {
         audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
         if (audioCtx.state === 'suspended') {
@@ -354,10 +346,6 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
       try {
         const client = clientRef.current;
         if (!client) throw new Error("Plivo softphone not initialized");
-        
-        // Let Plivo SDK handle microphone access internally (permOnClick: true).
-        // Awaiting getUserMedia here breaks the synchronous click handler in Safari/Chrome.
-
         client.call("sip:" + info.conferenceName + "@phone.plivo.com");
         setActive(info);
         updateAgentStatus("busy");
@@ -507,51 +495,7 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
 
   return (
     <PlivoVoiceContext.Provider value={value}>
-      {/* Plivo SDK relies on these audio elements to play remote and local media in the browser */}
-      <audio id="remoteAudio" autoPlay playsInline />
-      <audio id="localAudio" autoPlay playsInline muted />
-      
       {children}
-
-      <AnimatePresence>
-        {incoming && active && (
-          <div className="fixed bottom-32 right-4 sm:right-6 z-[61] w-72 pointer-events-auto">
-            <motion.div
-              initial={{ x: 100, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              exit={{ x: 100, opacity: 0 }}
-              className="bg-surface-950 border border-surface-800 rounded-2xl p-4 shadow-2xl text-white flex flex-col gap-3 backdrop-blur-xl"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <span className="text-[10px] uppercase text-sky-400 font-bold tracking-widest">Call Waiting</span>
-                  <p className="font-bold text-sm truncate">{incoming.callerName}</p>
-                </div>
-                <div className="w-8 h-8 rounded-full bg-sky-500/20 flex items-center justify-center text-sky-400 font-bold text-xs">
-                  {incoming.callerName?.[0] || "?"}
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={reject}
-                  className="flex-1 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 py-2 rounded-xl text-xs font-bold transition-colors"
-                >
-                  Decline
-                </button>
-                <button
-                  onClick={() => {
-                    hangup();
-                    setTimeout(answer, 500);
-                  }}
-                  className="flex-1 bg-sky-500 hover:bg-sky-600 text-white py-2 rounded-xl text-xs font-bold transition-colors"
-                >
-                  Answer
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
 
       <AnimatePresence>
         {incoming && !active && (

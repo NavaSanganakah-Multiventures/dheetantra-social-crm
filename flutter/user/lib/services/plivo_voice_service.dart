@@ -29,7 +29,6 @@ class PlivoVoiceService implements SipUaHelperListener {
   Call? _call;
   MediaStream? _localStream;
   Completer<bool>? _registrationCompleter;
-  RTCVideoRenderer? _audioRenderer;
 
   bool _initStarted = false;
   bool _isMuted = false;
@@ -45,11 +44,6 @@ class PlivoVoiceService implements SipUaHelperListener {
     if (_initStarted) return;
     _initStarted = true;
     _helper.addSipUaHelperListener(this);
-
-    if (_audioRenderer == null) {
-      _audioRenderer = RTCVideoRenderer();
-      await _audioRenderer!.initialize();
-    }
 
     try {
       await _ensureMicrophonePermissionGranted();
@@ -309,8 +303,6 @@ class PlivoVoiceService implements SipUaHelperListener {
         _isOnCall = true;
         if (state.stream != null) {
           _localStream = state.stream;
-          _audioRenderer?.srcObject = state.stream;
-          Helper.setSpeakerphoneOn(false).catchError((_) {});
         }
         _callStateController.add('connected');
         break;
@@ -350,10 +342,8 @@ class PlivoVoiceService implements SipUaHelperListener {
   void _reset() {
     _call = null;
     _localStream = null;
-    _audioRenderer?.srcObject = null;
     _isMuted = false;
     _speakerOn = false;
     _isOnCall = false;
-    Helper.setSpeakerphoneOn(false).catchError((_) {});
   }
 }
