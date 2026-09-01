@@ -266,6 +266,11 @@ CREATE TABLE IF NOT EXISTS plivo_configs (
   endpoint_password TEXT,
   endpoint_id TEXT,
   endpoint_app_id TEXT,
+  voice_bot_enabled INTEGER NOT NULL DEFAULT 1,
+  office_hours_start TEXT NOT NULL DEFAULT '09:00',
+  office_hours_end TEXT NOT NULL DEFAULT '16:00',
+  office_hours_audio_url TEXT,
+  busy_audio_url TEXT,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
