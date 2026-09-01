@@ -25,7 +25,7 @@ class _SendNewMessageScreenState extends State<SendNewMessageScreen> {
 
     if (name.isEmpty || phone.isEmpty || text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('कृपया नाम, फ़ोन और संदेश भरें')),
+        const SnackBar(content: Text('Please fill in name, phone and message')),
       );
       return;
     }
@@ -41,13 +41,13 @@ class _SendNewMessageScreenState extends State<SendNewMessageScreen> {
     if (!mounted) return;
     if (res['error'] != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('त्रुटि: ${res['error']}')),
+        SnackBar(content: Text('Error: ${res['error']}')),
       );
       return;
     }
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('संदेश भेजा गया')),
+      const SnackBar(content: Text('Message sent')),
     );
 
     final conversationId = res['data']?['conversation_id'] ?? res['conversation_id'];
@@ -73,7 +73,7 @@ class _SendNewMessageScreenState extends State<SendNewMessageScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('नए नंबर पर WhatsApp'),
+        title: const Text('WhatsApp to a new number'),
       ),
       body: ListView(
         padding: const EdgeInsets.all(20),
@@ -82,8 +82,8 @@ class _SendNewMessageScreenState extends State<SendNewMessageScreen> {
             controller: _nameController,
             textCapitalization: TextCapitalization.words,
             decoration: const InputDecoration(
-              labelText: 'संपर्क का नाम',
-              hintText: 'उदा. राहुल कुमार',
+              labelText: 'Contact name',
+              hintText: 'e.g. Rahul Kumar',
             ),
           ),
           const SizedBox(height: 16),
@@ -91,7 +91,7 @@ class _SendNewMessageScreenState extends State<SendNewMessageScreen> {
             controller: _phoneController,
             keyboardType: TextInputType.phone,
             decoration: const InputDecoration(
-              labelText: 'फ़ोन नंबर',
+              labelText: 'Phone number',
               hintText: '+919876543210',
             ),
           ),
@@ -101,8 +101,8 @@ class _SendNewMessageScreenState extends State<SendNewMessageScreen> {
             maxLines: 5,
             textCapitalization: TextCapitalization.sentences,
             decoration: const InputDecoration(
-              labelText: 'संदेश',
-              hintText: 'यहाँ लिखें...',
+              labelText: 'Message',
+              hintText: 'Write here...',
               alignLabelWithHint: true,
             ),
           ),
@@ -115,7 +115,7 @@ class _SendNewMessageScreenState extends State<SendNewMessageScreen> {
                     height: 20,
                     child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                   )
-                : const Text('भेजें'),
+                : const Text('Send'),
           ),
         ],
       ),
