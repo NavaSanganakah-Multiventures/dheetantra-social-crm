@@ -1437,7 +1437,7 @@ router.post('/api/plivo/webhook/app', async (c) => {
   const m = /^sip:([^@]+)@/i.exec(to);
   const conferenceName = m ? m[1] : 'default_room';
   return plivoXmlResponse(
-    `<Response><Conference startConferenceOnEnter="true" endConferenceOnExit="false" beep="false">${escXml(conferenceName)}</Conference></Response>`
+    XML_DECL + `<Response><Conference startConferenceOnEnter="true" endConferenceOnExit="false" beep="false">${escXml(conferenceName)}</Conference></Response>`
   );
 });
 
