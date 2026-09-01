@@ -71,7 +71,7 @@ class IntegrationsScreen extends StatelessWidget {
             icon: Icons.email_outlined,
             iconColor: const Color(0xFF60A5FA),
             title: 'Send Email',
-            subtitle: 'Send email from the Workspace's verified domain',
+            subtitle: 'Send email from the Workspace\'s verified domain',
             onTap: () {
               Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const EmailComposeScreen()),
