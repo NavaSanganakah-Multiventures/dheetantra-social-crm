@@ -158,7 +158,7 @@ router.post('/api/whatsapp/webhook/subscribe', async (c) => {
     ).bind(workspaceId).first<{ waba_id: string; access_token: string }>();
 
     if (!config || !config.waba_id) {
-      return c.json({ error: 'WABA ID नहीं मिला। कृपया पहले WhatsApp Config में WABA ID सेव करें।' }, 400);
+      return c.json({ error: 'WABA ID not found. Please save the WABA ID in WhatsApp Config first.' }, 400);
     }
 
     const subsRes = await fetch(`https://graph.facebook.com/v20.0/${config.waba_id}/subscribed_apps`, {
@@ -173,7 +173,7 @@ router.post('/api/whatsapp/webhook/subscribe', async (c) => {
     console.log(`[Webhook Subscribe] Manual subscription for WABA ${config.waba_id}:`, subsData);
 
     if (subsData.success === true) {
-      return c.json({ success: true, message: 'Webhook fields (messages + calls) सफलतापूर्वक subscribe हो गए!' });
+      return c.json({ success: true, message: 'Webhook fields (messages + calls) subscribed successfully!' });
     } else {
       return c.json({ error: 'Subscription failed', details: subsData }, 400);
     }
@@ -183,7 +183,7 @@ router.post('/api/whatsapp/webhook/subscribe', async (c) => {
   }
 });
 
-// Broadcast Campaign — list campaigns for the workspace
+// Broadcast Campaign - list campaigns for the workspace
 router.get('/api/broadcast', async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
@@ -201,7 +201,7 @@ router.get('/api/broadcast', async (c) => {
   }
 });
 
-// Broadcast Campaign — Create campaign and queue messages.
+// Broadcast Campaign - Create campaign and queue messages.
 // Supports two modes:
 //   1. Template mode: { campaignName, templateName, languageCode, parameters, contactIds, phoneNumberId }
 //   2. Text mode (free-form): { message, audience: 'all'|'leads'|'customers', contactIds?, phoneNumberId? }
@@ -214,7 +214,7 @@ router.post('/api/broadcast', requireRole('owner', 'admin'), async (c) => {
   // Resolve contact IDs for text mode when audience is given instead of explicit IDs
   let resolvedContactIds: string[] = Array.isArray(contactIds) ? contactIds : [];
   if (resolvedContactIds.length === 0 && !templateName && message) {
-    // Text-mode broadcasts go out over WhatsApp only — email contacts have an
+    // Text-mode broadcasts go out over WhatsApp only - email contacts have an
     // email address as platform_contact_id and would fail (or worse) at Meta.
     let where = 'workspace_id = ? AND platform = \'whatsapp\'';
     const binds: any[] = [workspaceId];
@@ -273,7 +273,7 @@ router.post('/api/broadcast', requireRole('owner', 'admin'), async (c) => {
     let queued = 0;
     const queueAvailable = !!c.env.BROADCAST_QUEUE;
     if (!queueAvailable) {
-      console.error('[broadcast] BROADCAST_QUEUE binding not configured — skipping queue');
+      console.error('[broadcast] BROADCAST_QUEUE binding not configured - skipping queue');
     }
     for (let i = 0; i < contacts.length; i += 25) {
       const batch = contacts.slice(i, i + 25);
