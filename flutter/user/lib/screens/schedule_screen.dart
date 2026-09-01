@@ -35,7 +35,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('ब्रॉडकास्ट कैंपेन'),
+        title: const Text('Broadcast campaigns'),
         actions: [
           IconButton(
             onPressed: _loadData,
@@ -66,7 +66,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                '${_campaigns.length} कैंपेन',
+                                '${_campaigns.length} campaigns',
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 16,
@@ -75,7 +75,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                               ),
                               const SizedBox(height: 3),
                               const Text(
-                                'आपके सभी ब्रॉडकास्ट कैंपेन और उनकी स्थिति',
+                                'All your broadcast campaigns and their status',
                                 style: TextStyle(
                                   color: Colors.white70,
                                   fontSize: 12.5,
@@ -88,13 +88,13 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  const SectionHeader(title: 'कैंपेन इतिहास'),
+                  const SectionHeader(title: 'Campaign history'),
                   const SizedBox(height: 12),
                   if (_campaigns.isEmpty)
                     const EmptyState(
                       icon: Icons.campaign_outlined,
-                      title: 'कोई कैंपेन नहीं',
-                      subtitle: 'जब आप ब्रॉडकास्ट भेजेंगे तो कैंपेन यहाँ दिखेंगे।',
+                      title: 'No campaigns',
+                      subtitle: 'Campaigns will appear here when you send broadcasts.',
                     )
                   else
                     for (final campaign in _campaigns) ...[
@@ -126,15 +126,15 @@ class _CampaignTile extends StatelessWidget {
     switch (status) {
       case 'completed':
         statusColor = AppColors.success;
-        statusLabel = 'पूर्ण';
+        statusLabel = 'Completed';
         break;
       case 'failed':
         statusColor = AppColors.danger;
-        statusLabel = 'विफल';
+        statusLabel = 'Failed';
         break;
       default:
         statusColor = AppColors.warning;
-        statusLabel = 'प्रोसेसिंग';
+        statusLabel = 'Processing';
     }
 
     final createdAt = DateTime.tryParse(campaign['created_at'] ?? '')?.toLocal();
@@ -167,7 +167,7 @@ class _CampaignTile extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      campaign['name'] ?? 'ब्रॉडकास्ट',
+                      campaign['name'] ?? 'Broadcast',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -178,7 +178,7 @@ class _CampaignTile extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '$total प्राप्तकर्ता • $sent भेजे गए${failed > 0 ? ' • $failed विफल' : ''}',
+                      '$total recipients • $sent sent${failed > 0 ? ' • $failed failed' : ''}',
                       style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
                     ),
                   ],
@@ -230,7 +230,7 @@ class _CampaignTile extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              '$pending बाकी',
+              '$pending pending',
               style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
             ),
           ],
