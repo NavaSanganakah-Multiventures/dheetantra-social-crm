@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Phone, PhoneOff, Mic, MicOff, Volume2, VolumeX } from "lucide-react";
+import { useToast } from "@/components/ui/Toast";
 
 export interface PlivoCallInfo {
   id: string;
@@ -55,6 +56,7 @@ function isSafeCallId(id: string | null | undefined): id is string {
 }
 
 export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) {
+  const { toast } = useToast();
   const [workspaceId, setWorkspaceId] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
     return localStorage.getItem("workspaceId");
@@ -167,10 +169,14 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
             console.error("[PlivoWeb] auto-set speaker error", e);
           }
         });
-        client.on("onCallTerminated", () => {
+        client.on("onCallTerminated", (cause: any) => {
+          console.log("[PlivoWeb] call terminated", cause);
           cleanupCall();
         });
-        client.on("onCallFailed", () => {
+        client.on("onCallFailed", (cause: any) => {
+          console.error("[PlivoWeb] call failed", cause);
+          const reason = typeof cause === 'string' ? cause : (cause?.reason || "Unknown error");
+          toast("error", "Call failed: " + reason);
           cleanupCall();
           setStatus("error");
         });
@@ -336,6 +342,14 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
       try {
         const client = clientRef.current;
         if (!client) throw new Error("Plivo softphone not initialized");
+        
+        // Explicitly request microphone access before calling
+        try {
+          await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        } catch (mediaErr) {
+          console.warn("[PlivoWeb] microphone access denied or failed", mediaErr);
+        }
+
         client.call("sip:" + info.conferenceName + "@phone.plivo.com");
         setActive(info);
       } catch (err) {
@@ -483,6 +497,10 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
 
   return (
     <PlivoVoiceContext.Provider value={value}>
+      {/* Plivo SDK relies on these audio elements to play remote and local media in the browser */}
+      <audio id="remoteAudio" autoPlay playsInline />
+      <audio id="localAudio" autoPlay playsInline muted />
+      
       {children}
 
       <AnimatePresence>
