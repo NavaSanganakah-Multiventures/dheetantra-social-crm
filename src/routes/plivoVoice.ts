@@ -1156,6 +1156,25 @@ router.post('/api/plivo/webhook/voice', async (c) => {
     const contact = await c.env.DB.prepare('SELECT name FROM contacts WHERE id = ?').bind(contactId).first<{ name: string }>();
     const callerName = contact?.name || from;
 
+    // Office hours check (9 AM to 4 PM IST)
+    const now = new Date();
+    const utcHours = now.getUTCHours();
+    const utcMinutes = now.getUTCMinutes();
+    const istMinutesTotal = utcHours * 60 + utcMinutes + 330; // IST is UTC+5:30
+    const istHours = Math.floor(istMinutesTotal / 60) % 24;
+    
+    if (istHours < 9 || istHours >= 16) {
+      const xml = XML_DECL + '<Response><Speak language="hi-IN">Hamara office time subah 9 baje se sham 4 baje tak hai. Kripya us samay call karein.</Speak><Hangup/></Response>';
+      return plivoXmlResponse(xml, 200);
+    }
+
+    // Agent availability check
+    const liveCountRes = await c.env.DB.prepare("SELECT count(*) as cnt FROM workspace_members WHERE workspace_id = ? AND voice_status = 'live'").bind(config.workspace_id).first<{ cnt: number }>();
+    if (!liveCountRes || liveCountRes.cnt === 0) {
+      const xml = XML_DECL + '<Response><Speak language="hi-IN">Abhi hamari team vyast hai. Kripya thodi der baad call karein.</Speak><Hangup/></Response>';
+      return plivoXmlResponse(xml, 200);
+    }
+
     // Assign an available (live) agent, if any. Fire the agent leg first and
     // only mark them busy once the leg was accepted by Plivo.
     let assignedAgentId: string | null = null;
