@@ -31,6 +31,7 @@ class PlivoVoiceService implements SipUaHelperListener {
   Completer<bool>? _registrationCompleter;
 
   String? _currentConfigId;
+  String? _registrationTargetConfigId; // (नया) kaunsa config abhi register ho raha hai
   List<dynamic> _credentialsList = [];
   bool _initStarted = false;
   bool _isMuted = false;
@@ -70,14 +71,10 @@ class PlivoVoiceService implements SipUaHelperListener {
   /// Backend se endpoint credentials lekar SIP UA ko start/register karta hai.
   /// Concurrent callers (init + outbound join) ek hi attempt par wait karte hain.
   Future<bool> _register({String? targetConfigId}) async {
-    final inflight = _registrationCompleter;
-    if (inflight != null && !inflight.isCompleted) {
-      return _waitRegistration(inflight);
-    }
-
+    // (नया) Credentials list ko refresh rakhte hain — sirf ek baar fetch karke
+    // static nahi rehna. Naya account baad mein add ho toh bhi mil jaaye.
     if (_credentialsList.isEmpty) {
-      final res = await ApiService().getPlivoSipCredentials();
-      _credentialsList = res['credentials'] as List<dynamic>? ?? [];
+      await _refreshCredentials();
     }
 
     if (_credentialsList.isEmpty) {
@@ -87,19 +84,26 @@ class PlivoVoiceService implements SipUaHelperListener {
     }
 
     // Default to the first config if none provided
-    final configToUse = targetConfigId ?? _credentialsList.first['plivoConfigId'] as String;
+    final configToUse = (targetConfigId != null && targetConfigId.isNotEmpty)
+        ? targetConfigId
+        : (_credentialsList.first['plivoConfigId']?.toString() ?? '');
 
+    // Already registered to this config
     if (_helper.registered && _currentConfigId == configToUse) {
-       return true; // Already registered to this config
+      return true;
     }
 
-    final creds = _credentialsList.firstWhere(
-      (c) => c['plivoConfigId'] == configToUse, 
-      orElse: () => null
-    );
+    var creds = _findCreds(configToUse);
+    if (creds == null) {
+      // List purani ho sakti hai (account baad mein add/change hua) — refresh
+      // karke ek baar dobara dhoondo.
+      await _refreshCredentials();
+      creds = _findCreds(configToUse);
+    }
 
     if (creds == null) {
       debugPrint('[PlivoVoice] SIP endpoint credentials not found for $configToUse');
+      _callStateController.add('error: Plivo softphone endpoint not configured');
       return false;
     }
 
@@ -109,6 +113,18 @@ class PlivoVoiceService implements SipUaHelperListener {
       debugPrint('[PlivoVoice] SIP endpoint credentials not configured');
       _callStateController.add('error: Plivo softphone endpoint not configured');
       return false;
+    }
+
+    // (नया) Agar koi DOOSRA account abhi register ho raha hai toh pehle usse
+    // settle hone do. Pehle waale bug mein hum ussi in-flight attempt ka result
+    // lete the, isliye alag account par switch hota hi nahi tha (static reh
+    // jaata tha).
+    final inflight = _registrationCompleter;
+    if (inflight != null && !inflight.isCompleted) {
+      if (_registrationTargetConfigId == configToUse) {
+        return _waitRegistration(inflight);
+      }
+      await _waitRegistration(inflight);
     }
 
     if (_helper.registered || _helper.connected) {
@@ -121,7 +137,7 @@ class PlivoVoiceService implements SipUaHelperListener {
     final port = (creds['port']?.toString()) ?? _sipPort;
     final sipUri = (creds['sipUri']?.toString()) ?? 'sip:$username@$server';
     debugPrint('[PlivoVoice] registering SIP URI: $sipUri (TCP, $server:$port) for config $configToUse');
-    
+
     final settings = UaSettings()
       ..transportType = TransportType.TCP
       ..host = server
@@ -140,6 +156,7 @@ class PlivoVoiceService implements SipUaHelperListener {
 
     final completer = Completer<bool>();
     _registrationCompleter = completer;
+    _registrationTargetConfigId = configToUse;
 
     try {
       await _helper.start(settings);
@@ -147,10 +164,31 @@ class PlivoVoiceService implements SipUaHelperListener {
     } catch (e) {
       debugPrint('[PlivoVoice] SIP start error: $e');
       if (!completer.isCompleted) completer.complete(false);
+      if (identical(_registrationCompleter, completer)) {
+        _registrationCompleter = null;
+        _registrationTargetConfigId = null;
+      }
       return false;
     }
 
     return _waitRegistration(completer);
+  }
+
+  Future<void> _refreshCredentials() async {
+    try {
+      final res = await ApiService().getPlivoSipCredentials();
+      _credentialsList = res['credentials'] as List<dynamic>? ?? [];
+    } catch (e) {
+      debugPrint('[PlivoVoice] refresh SIP credentials error: $e');
+    }
+  }
+
+  dynamic _findCreds(String configId) {
+    if (configId.isEmpty) return null;
+    for (final c in _credentialsList) {
+      if (c['plivoConfigId']?.toString() == configId) return c;
+    }
+    return null;
   }
 
   Future<void> switchAccountBackground(String configId) async {
@@ -175,6 +213,7 @@ class PlivoVoiceService implements SipUaHelperListener {
     } finally {
       if (identical(_registrationCompleter, completer)) {
         _registrationCompleter = null;
+        _registrationTargetConfigId = null;
       }
       // Allow future retries (e.g. network came back, credentials linked later).
       _initStarted = false;
