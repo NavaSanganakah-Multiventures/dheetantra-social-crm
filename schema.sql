@@ -271,6 +271,9 @@ CREATE TABLE IF NOT EXISTS plivo_configs (
   office_hours_end TEXT NOT NULL DEFAULT '16:00',
   office_hours_audio_url TEXT,
   busy_audio_url TEXT,
+  ai_fallback_enabled INTEGER NOT NULL DEFAULT 0,
+  ai_instructions TEXT,
+  ai_voice_model TEXT NOT NULL DEFAULT 'models/gemini-2.0-flash-exp',
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
