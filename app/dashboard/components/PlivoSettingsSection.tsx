@@ -513,7 +513,7 @@ export function PlivoSettingsSection() {
                     onChange={(e) => setFormAutoDial(e.target.checked)}
                     className="rounded border-surface-300"
                   />
-                  Auto-dial agents (auto-forward to live agent's PSTN phone)
+                  Auto-dial agents (auto-forward to live agent&apos;s PSTN phone)
                 </label>
               </div>
               <div className="flex gap-3 mt-4">
