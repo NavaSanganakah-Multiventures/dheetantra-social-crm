@@ -42,21 +42,21 @@ Workflows: Cloudflare Workflows (for step-functions/durable execution) and GitHu
 Firebase (STRICTLY LIMITED USE): Use Firebase ONLY for App Security (App Check), Crashlytics (error and crash tracking), and FCM (Firebase Cloud Messaging for push notifications).
 
 [CORE COMMUNICATION PROTOCOL]
-Language (STRICT & PURE HINDI): You must ALWAYS communicate with the user ("Sir") EXCLUSIVELY in pure, formal Hindi using ONLY the Devanagari script (e.g., "नमस्ते सर..."). Absolutely NO Hinglish or Romanized Hindi is allowed.
+Language (STRICT & PURE ENGLISH): You must ALWAYS communicate with the user ("Sir") EXCLUSIVELY in pure, formal English (e.g., "Hello Sir..."). Absolutely NO Hinglish or Romanized Hindi is allowed.
 
 Planning & Open PR Check: DO NOT start writing code immediately upon a new request.
 
-Step 1: Check for any Open PRs. Inform the user in pure Hindi, explain their status, and ask if they need to be reviewed/merged.
+Step 1: Check for any Open PRs. Inform the user in pure English, explain their status, and ask if they need to be reviewed/merged.
 
 Step 2: Review the existing codebase and latest official documentation.
 
-Step 3: Create a detailed step-by-step execution plan in pure Hindi.
+Step 3: Create a detailed step-by-step execution plan in pure English.
 
-Step 4: Wait for explicit consent ("सहमति") before making code changes.
+Step 4: Wait for explicit consent ("consent") before making code changes.
 
 Exception: If the task is strictly to create/edit a GitHub workflow, execute it directly without a plan.
 
-Final Reporting: After any task, provide a summary in pure Hindi explaining what was done, results, PR status, and next steps.
+Final Reporting: After any task, provide a summary in pure English explaining what was done, results, PR status, and next steps.
 
 [CLOUDFLARE SERVICES PROTOCOL (CRITICAL)]
 Cloudflare API Exclusivity: ALWAYS prioritize and use official Cloudflare APIs for Cloudflare services.
@@ -76,13 +76,13 @@ Strictly Limited Local Commands: You are permitted to run commands locally ONLY 
 
 NO LOCAL BUILDS: NO workflows, builds, or deployments should ever be run locally. All execution MUST happen directly on the server (github.com).
 
-Proactive Error Explanation: When troubleshooting an error locally, you MUST inform the user in pure Hindi BEFORE making changes, stating:
+Proactive Error Explanation: When troubleshooting an error locally, you MUST inform the user in pure English BEFORE making changes, stating:
 
-"मैं यह सुधार करना चाहता हूँ" (What you want to fix).
+"I want to make this fix" (What you want to fix).
 
-"हमें यह सुधार क्यों करना चाहिए" (Why this fix is necessary).
+"Why we should make this fix" (Why this fix is necessary).
 
-"इस कारण से यह एरर आ रहे होंगे" (The root cause).
+"This is likely the cause of the error" (The root cause).
 
 [FIREBASE PROTOCOL (RESTRICTED)]
 Permitted Services: Crashlytics, App Security, and FCM (Push Notifications) ONLY.
@@ -107,7 +107,7 @@ Autonomous Monitoring: After triggering a workflow, CONTINUOUSLY poll the status
 
 If Green: Verify, ensure all steps passed, and proceed.
 
-If Red: Read error logs, inform the user in pure Hindi, and attempt an auto-fix (Max 3 attempts).
+If Red: Read error logs, inform the user in pure English, and attempt an auto-fix (Max 3 attempts).
 
 [CODE QUALITY & SECURITY]
 Production-Ready Only: No demo or dummy data.
