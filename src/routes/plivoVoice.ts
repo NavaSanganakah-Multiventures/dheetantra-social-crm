@@ -1195,7 +1195,7 @@ router.post('/api/plivo/webhook/voice', async (c) => {
         const officeTimeText = `Hamara office time ${startAMPM} ${startDisplay} baje se ${endAMPM} ${endDisplay} baje tak hai. Kripya us samay call karein.`;
 
         const xml = config.office_hours_audio_url
-          ? XML_DECL + `<Response><PreAnswer><Play>${config.office_hours_audio_url}</Play></PreAnswer><Hangup/></Response>`
+          ? XML_DECL + `<Response><PreAnswer><Play>${escXml(config.office_hours_audio_url)}</Play></PreAnswer><Hangup/></Response>`
           : XML_DECL + `<Response><PreAnswer><Speak language="hi-IN" voice="Polly.Aditi">Namaste, main Arya hoon. ${officeTimeText}</Speak></PreAnswer><Hangup/></Response>`;
         return plivoXmlResponse(xml, 200);
       }
@@ -1204,7 +1204,7 @@ router.post('/api/plivo/webhook/voice', async (c) => {
       const liveCountRes = await c.env.DB.prepare("SELECT count(*) as cnt FROM workspace_members WHERE workspace_id = ? AND voice_status = 'live'").bind(config.workspace_id).first<{ cnt: number }>();
       if (!liveCountRes || liveCountRes.cnt === 0) {
         const xml = config.busy_audio_url
-          ? XML_DECL + `<Response><PreAnswer><Play>${config.busy_audio_url}</Play></PreAnswer><Hangup/></Response>`
+          ? XML_DECL + `<Response><PreAnswer><Play>${escXml(config.busy_audio_url)}</Play></PreAnswer><Hangup/></Response>`
           : XML_DECL + '<Response><PreAnswer><Speak language="hi-IN" voice="Polly.Aditi">Namaste, main Arya hoon. Abhi hamari team vyast hai. Kripya thodi der baad call karein.</Speak></PreAnswer><Hangup/></Response>';
         return plivoXmlResponse(xml, 200);
       }

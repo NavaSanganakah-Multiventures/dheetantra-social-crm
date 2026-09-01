@@ -52,6 +52,7 @@ export function PlivoSettingsSection() {
   const [formOfficeHoursEnd, setFormOfficeHoursEnd] = useState("16:00");
   const [formOfficeHoursAudioUrl, setFormOfficeHoursAudioUrl] = useState("");
   const [formBusyAudioUrl, setFormBusyAudioUrl] = useState("");
+  const [isUploadingAudio, setIsUploadingAudio] = useState(false);
   const [savingConfig, setSavingConfig] = useState(false);
 
   const [newFromNumber, setNewFromNumber] = useState<Record<string, string>>({});
@@ -160,8 +161,11 @@ export function PlivoSettingsSection() {
     }
   };
 
-  const uploadAudio = async (file: File, setter: (url: string) => void) => {
+  const uploadAudio = async (e: React.ChangeEvent<HTMLInputElement>, setter: (url: string) => void) => {
+    const file = e.target.files?.[0];
     if (!file) return;
+    if (isUploadingAudio) return;
+    setIsUploadingAudio(true);
     toast("success", "Uploading audio...");
     try {
       const formData = new FormData();
@@ -174,8 +178,11 @@ export function PlivoSettingsSection() {
       if (!res.ok) throw new Error(data.error || "Upload failed");
       setter(data.url);
       toast("success", "Audio uploaded successfully!");
-    } catch (e: any) {
-      toast("error", e?.message || "Audio upload failed");
+    } catch (err: any) {
+      toast("error", err?.message || "Audio upload failed");
+    } finally {
+      setIsUploadingAudio(false);
+      e.target.value = "";
     }
   };
 
@@ -609,7 +616,7 @@ export function PlivoSettingsSection() {
                           />
                           <label className="cursor-pointer px-4 py-2 bg-surface-200 hover:bg-surface-300 dark:bg-surface-800 dark:hover:bg-surface-700 text-surface-700 dark:text-surface-300 text-xs font-bold rounded-xl transition-all flex items-center shrink-0">
                             Upload
-                            <input type="file" accept="audio/mpeg, audio/mp3, audio/wav" className="hidden" onChange={(e) => { if(e.target.files?.[0]) uploadAudio(e.target.files[0], setFormOfficeHoursAudioUrl) }} />
+                            <input type="file" accept="audio/mpeg, audio/mp3, audio/wav" className="hidden" disabled={isUploadingAudio} onChange={(e) => uploadAudio(e, setFormOfficeHoursAudioUrl)} />
                           </label>
                         </div>
                         <p className="text-[11px] text-surface-400 mt-1">If provided, this MP3 plays instead of the standard TTS voice when the office is closed.</p>
@@ -626,7 +633,7 @@ export function PlivoSettingsSection() {
                           />
                           <label className="cursor-pointer px-4 py-2 bg-surface-200 hover:bg-surface-300 dark:bg-surface-800 dark:hover:bg-surface-700 text-surface-700 dark:text-surface-300 text-xs font-bold rounded-xl transition-all flex items-center shrink-0">
                             Upload
-                            <input type="file" accept="audio/mpeg, audio/mp3, audio/wav" className="hidden" onChange={(e) => { if(e.target.files?.[0]) uploadAudio(e.target.files[0], setFormBusyAudioUrl) }} />
+                            <input type="file" accept="audio/mpeg, audio/mp3, audio/wav" className="hidden" disabled={isUploadingAudio} onChange={(e) => uploadAudio(e, setFormBusyAudioUrl)} />
                           </label>
                         </div>
                         <p className="text-[11px] text-surface-400 mt-1">If provided, this MP3 plays when no agents are online, avoiding TTS fees.</p>
