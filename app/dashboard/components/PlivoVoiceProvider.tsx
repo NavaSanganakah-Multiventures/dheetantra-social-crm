@@ -274,6 +274,11 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
           try {
             const data = JSON.parse(event.data);
             if (data.type === "plivo_incoming_call") {
+              if (data.aiAgent) {
+                // AI voice agent is answering via Audio Stream — do not ring the softphone.
+                console.log("[PlivoWeb] AI agent answering call " + data.callId);
+                return;
+              }
               if (data.plivoConfigId) {
                 switchPlivoAccount(data.plivoConfigId);
               }
