@@ -9,11 +9,10 @@ import 'api_service.dart';
 
 /// Plivo softphone wrapper (SIP over TCP) for the DheeTantra user app.
 ///
-/// Jab Plivo account ka "auto-forward to live agent" toggle OFF hota hai, tab
-/// inbound caller Plivo conference me hold par rehta hai aur agent ki app
-/// (FCM + CallKit ke through) ring hoti hai. Accept hone par CallScreen is
-/// service ko conference name deta hai aur ye registered SIP endpoint se
-/// outbound call karke usi conference me join ho jata hai.
+/// Ab koi conference/PSTN forwarding nahi hai. Inbound PSTN caller seedha
+/// registered SIP endpoint par ring hota hai (Plivo <Dial><User> se), aur
+/// outbound calls app khud direct SIP URI dial karti hai. Instant
+/// logout/login (switchAccountBackground) se sahi account register hota hai.
 class PlivoVoiceService implements SipUaHelperListener {
   static final PlivoVoiceService _instance = PlivoVoiceService._internal();
   factory PlivoVoiceService() => _instance;
@@ -27,6 +26,7 @@ class PlivoVoiceService implements SipUaHelperListener {
   Stream<String> get onCallState => _callStateController.stream;
 
   Call? _call;
+  Call? _pendingIncomingCall; // (नया) inbound SIP INVITE yahan store hota hai
   MediaStream? _localStream;
   Completer<bool>? _registrationCompleter;
 
@@ -261,6 +261,119 @@ class PlivoVoiceService implements SipUaHelperListener {
     }
   }
 
+  /// Direct SIP outbound dial (server se mila dialUri seedha dial karo).
+  Future<bool> callNumberDirect(String sipTarget, {String? plivoConfigId}) async {
+    final target = (sipTarget ?? '').trim();
+    if (target.isEmpty) {
+      debugPrint('[PlivoVoice] callNumberDirect: empty SIP target');
+      return false;
+    }
+
+    try {
+      if (!_helper.registered || (plivoConfigId != null && _currentConfigId != plivoConfigId)) {
+        final registered = await _register(targetConfigId: plivoConfigId);
+        if (!registered) {
+          return false;
+        }
+      }
+
+      _callStateController.add('connecting');
+
+      if (!await _ensureMicrophonePermissionGranted()) {
+        _callStateController.add('error: Microphone permission required');
+        return false;
+      }
+
+      final mediaStream = await navigator.mediaDevices.getUserMedia({
+        'audio': true,
+        'video': false,
+      });
+      _localStream = mediaStream;
+
+      final connected = await _waitUntilConnected(timeout: const Duration(seconds: 8));
+      if (!connected) {
+        _callStateController.add('error: SIP UA not connected');
+        _reset();
+        return false;
+      }
+
+      var ok = await _helper.call(target, voiceOnly: true, mediaStream: mediaStream);
+      if (ok != true) {
+        debugPrint('[PlivoVoice] initial direct dial failed, reconnecting...');
+        final registered = await _register(targetConfigId: plivoConfigId);
+        if (registered) {
+          await _waitUntilConnected(timeout: const Duration(seconds: 8));
+          ok = await _helper.call(target, voiceOnly: true, mediaStream: mediaStream);
+        }
+      }
+      if (ok != true) {
+        _callStateController.add('error: SIP call failed');
+        _reset();
+        return false;
+      }
+      return true;
+    } catch (e) {
+      debugPrint('[PlivoVoice] callNumberDirect error: $e');
+      _callStateController.add('error: $e');
+      _reset();
+      return false;
+    }
+  }
+
+  /// Inbound SIP INVITE (Plivo ke <Dial><User> se aayi) ko answer karta hai.
+  Future<bool> answerIncomingCall({String? plivoConfigId}) async {
+    try {
+      if (!_helper.registered || (plivoConfigId != null && _currentConfigId != plivoConfigId)) {
+        final registered = await _register(targetConfigId: plivoConfigId);
+        if (!registered) {
+          return false;
+        }
+      }
+
+      _callStateController.add('connecting');
+
+      // Plivo ka <Wait length="3"/> ke baad INVITE aata hai; usko wait karo.
+      final call = await _waitForIncomingCall(timeout: const Duration(seconds: 10));
+      if (call == null) {
+        _callStateController.add('error: Incoming SIP call not found');
+        return false;
+      }
+
+      if (!await _ensureMicrophonePermissionGranted()) {
+        _callStateController.add('error: Microphone permission required');
+        return false;
+      }
+
+      final mediaStream = await navigator.mediaDevices.getUserMedia({
+        'audio': true,
+        'video': false,
+      });
+      _localStream = mediaStream;
+
+      await call.answer(_helper.buildCallOptions(true), mediaStream: mediaStream);
+      _isOnCall = true;
+      return true;
+    } catch (e) {
+      debugPrint('[PlivoVoice] answerIncomingCall error: $e');
+      _callStateController.add('error: $e');
+      _reset();
+      return false;
+    }
+  }
+
+  Future<Call?> _waitForIncomingCall({required Duration timeout}) async {
+    final deadline = DateTime.now().add(timeout);
+    while (DateTime.now().isBefore(deadline)) {
+      final pending = _pendingIncomingCall;
+      if (pending != null) {
+        _pendingIncomingCall = null;
+        return pending;
+      }
+      await Future.delayed(const Duration(milliseconds: 150));
+    }
+    return _pendingIncomingCall;
+  }
+
   Future<void> hangUp() async {
     try {
       _call?.hangup();
@@ -325,6 +438,15 @@ class PlivoVoiceService implements SipUaHelperListener {
   @override
   void callStateChanged(Call call, CallState state) {
     _call = call;
+
+    // Direct SIP inbound: INVITE ko store karo taaki answerIncomingCall use kar sake.
+    if (call.direction == Direction.incoming &&
+        state.state == CallStateEnum.CALL_INITIATION) {
+      _pendingIncomingCall = call;
+      _callStateController.add('connecting');
+      return;
+    }
+
     switch (state.state) {
       case CallStateEnum.CALL_INITIATION:
       case CallStateEnum.CONNECTING:
