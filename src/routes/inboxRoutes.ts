@@ -13,7 +13,7 @@ router.post('/api/inbox/conversations/initiate', async (c) => {
 
   const contact = await c.env.DB.prepare('SELECT * FROM contacts WHERE id = ? AND workspace_id = ?')
     .bind(contactId, workspaceId).first<{ platform_contact_id: string }>();
-  if (!contact) return c.json({ error: 'संपर्क नहीं मिला' }, 404);
+  if (!contact) return c.json({ error: 'Contact not found' }, 404);
 
   let finalPhoneNumberId = phone_number_id;
   if (finalPhoneNumberId) {
@@ -119,9 +119,9 @@ router.get('/api/inbox/messages/:conversationId', async (c) => {
 
   // Fetch the NEWEST messages first (DESC), then reverse so the client gets a
   // chronological thread. This guarantees the latest messages are always
-  // present — the old ASC+OFFSET 0 query returned the OLDEST 100 rows, so
+  // present - the old ASC+OFFSET 0 query returned the OLDEST 100 rows, so
   // long conversations appeared truncated. `rowid` is SQLite's monotonic
-  // insertion order — deterministic, no ties (created_at is second-precision
+  // insertion order - deterministic, no ties (created_at is second-precision
   // and mixed-format, so it can never order messages reliably).
   const { limit, offset } = pagination(c, 500);
   const { results } = await c.env.DB.prepare(
