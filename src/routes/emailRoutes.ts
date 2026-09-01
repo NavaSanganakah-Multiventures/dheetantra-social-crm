@@ -186,7 +186,7 @@ router.post('/api/domains/:id/verify', async (c) => {
   const { checkDomain } = await import('../services/emailService');
   // Full verification runs several Cloudflare calls and can take 5-15s.
   // Run it SYNCHRONOUSLY and return the FRESH status so the UI never shows a
-  // stale (pending) row after the user presses "जांचें". Previously the check
+  // stale (pending) row after the user presses "Check". Previously the check
   // ran in the background (waitUntil) while the response returned the OLD row,
   // so a verified/active domain kept displaying "Pending Verification".
   let verifyError: any = null;
@@ -215,7 +215,7 @@ router.post('/api/domains/:id/verify', async (c) => {
       success: true,
       domain: parsed,
       pending: true,
-      message: 'Cloudflare अभी nameserver verify कर रहा है। बदलाव के बाद active होने में कुछ मिनट से कुछ घंटे लग सकते हैं — 10-15 मिनट बाद फिर जांचें।',
+      message: 'Cloudflare is still verifying the nameservers. It may take a few minutes to a few hours to become active after the change - check again after 10-15 minutes.',
     });
   }
   return c.json({ success: true, domain: parsed });
