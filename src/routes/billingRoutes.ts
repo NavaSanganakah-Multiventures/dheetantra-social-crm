@@ -47,7 +47,7 @@ router.post('/api/billing/subscribe', async (c) => {
   const existing = await getWorkspaceSubscription(c.env, workspaceId);
   if (existing) {
     return c.json({
-      error: 'आपके workspace पर पहले से एक active subscription है। पहले उसे cancel करें या dashboard में देखें।',
+      error: 'Your workspace already has an active subscription. Cancel it first or check the dashboard.',
       cancelExisting: true,
       existing: { subscription_id: existing.id, status: existing.status },
     }, 400);
