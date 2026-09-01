@@ -25,7 +25,7 @@ export interface PlivoContact {
 interface PlivoVoiceContextValue {
   incoming: PlivoCallInfo | null;
   active: PlivoCallInfo | null;
-  status: "idle" | "connecting" | "connected" | "ended" | "error";
+  status: "idle" | "connecting" | "connected" | "incoming" | "ended" | "error";
   registered: boolean;
   isMuted: boolean;
   speakerOn: boolean;
