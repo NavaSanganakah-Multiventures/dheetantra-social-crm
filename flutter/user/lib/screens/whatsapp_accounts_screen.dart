@@ -19,9 +19,9 @@ class _WhatsAppAccountsScreenState extends State<WhatsAppAccountsScreen> {
   String _userRole = 'member';
 
   static const _replyModes = [
-    ('manual', 'मैनुअल'),
-    ('ai', 'AI बॉट'),
-    ('rule_based', 'रूल बेस्ड'),
+    ('manual', 'Manual'),
+    ('ai', 'AI Bot'),
+    ('rule_based', 'Rule based'),
   ];
 
   @override
@@ -57,9 +57,9 @@ class _WhatsAppAccountsScreenState extends State<WhatsAppAccountsScreen> {
     final res = await ApiService().saveWhatsAppConfig(map);
     if (!mounted) return;
     if (res['error'] != null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('त्रुटि: ${res['error']}')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${res['error']}')));
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('सहेजा गया')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Saved')));
       _loadData();
     }
   }
@@ -68,17 +68,17 @@ class _WhatsAppAccountsScreenState extends State<WhatsAppAccountsScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('WhatsApp खाता हटाएं'),
-        content: const Text('क्या आप वाकई इस खाते को हटाना चाहते हैं?'),
+        title: const Text('Delete WhatsApp account'),
+        content: const Text('Are you sure you want to delete this account?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('रद्द करें'),
+            child: const Text('Cancel'),
           ),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(true),
             style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
-            child: const Text('हटाएं'),
+            child: const Text('Delete'),
           ),
         ],
       ),
@@ -89,7 +89,7 @@ class _WhatsAppAccountsScreenState extends State<WhatsAppAccountsScreen> {
     setState(() => _saving = false);
     if (!mounted) return;
     if (res['error'] != null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('त्रुटि: ${res['error']}')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${res['error']}')));
     } else {
       _loadData();
     }
@@ -132,7 +132,7 @@ class _WhatsAppAccountsScreenState extends State<WhatsAppAccountsScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      isEdit ? 'WhatsApp खाता संपादित करें' : 'नया WhatsApp खाता',
+                      isEdit ? 'Edit WhatsApp account' : 'New WhatsApp account',
                       style: const TextStyle(
                         color: AppColors.textPrimary,
                         fontSize: 18,
@@ -153,14 +153,14 @@ class _WhatsAppAccountsScreenState extends State<WhatsAppAccountsScreen> {
                 const SizedBox(height: 12),
                 TextField(
                   controller: wabaController,
-                  decoration: const InputDecoration(labelText: 'WABA ID (वैकल्पिक)'),
+                  decoration: const InputDecoration(labelText: 'WABA ID (optional)'),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: tokenController,
                   obscureText: true,
                   decoration: InputDecoration(
-                    labelText: 'Permanent Access Token${isEdit ? ' (खाली छोड़ें तो पुराना रहेगा)' : ''}',
+                    labelText: 'Permanent Access Token${isEdit ? ' (leave blank to keep the current one)' : ''}',
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -172,7 +172,7 @@ class _WhatsAppAccountsScreenState extends State<WhatsAppAccountsScreen> {
                 DropdownButtonFormField<String>(
                   value: replyMode,
                   dropdownColor: AppColors.surfaceAlt,
-                  decoration: const InputDecoration(labelText: 'ऑटो-रिप्लाई मोड'),
+                  decoration: const InputDecoration(labelText: 'Auto-reply mode'),
                   items: _replyModes
                       .map((m) => DropdownMenuItem(value: m.$1, child: Text(m.$2)))
                       .toList(),
@@ -181,7 +181,7 @@ class _WhatsAppAccountsScreenState extends State<WhatsAppAccountsScreen> {
                 const SizedBox(height: 12),
                 TextField(
                   controller: aboutController,
-                  decoration: const InputDecoration(labelText: 'About (व्यवसाय)'),
+                  decoration: const InputDecoration(labelText: 'About (business)'),
                 ),
                 const SizedBox(height: 12),
                 TextField(
@@ -222,7 +222,7 @@ class _WhatsAppAccountsScreenState extends State<WhatsAppAccountsScreen> {
                           );
                           setState(() => _saving = false);
                         },
-                  child: Text(isEdit ? 'अपडेट करें' : 'जोड़ें'),
+                  child: Text(isEdit ? 'Update' : 'Add'),
                 ),
                 const SizedBox(height: 24),
               ],
@@ -237,7 +237,7 @@ class _WhatsAppAccountsScreenState extends State<WhatsAppAccountsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('WhatsApp अकाउंट्स'),
+        title: const Text('WhatsApp Accounts'),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -249,8 +249,8 @@ class _WhatsAppAccountsScreenState extends State<WhatsAppAccountsScreen> {
                   if (_configs.isEmpty)
                     const EmptyState(
                       icon: Icons.phone_android_outlined,
-                      title: 'कोई WhatsApp खाता नहीं',
-                      subtitle: 'कृपया अपना Meta WhatsApp Business खाता जोड़ें।',
+                      title: 'No WhatsApp accounts',
+                      subtitle: 'Please add your Meta WhatsApp Business account.',
                     )
                   else
                     Column(
@@ -273,7 +273,7 @@ class _WhatsAppAccountsScreenState extends State<WhatsAppAccountsScreen> {
           ? FloatingActionButton.extended(
               onPressed: _saving ? null : () => _showForm(),
               icon: const Icon(Icons.add_rounded),
-              label: const Text('खाता जोड़ें'),
+              label: const Text('Add account'),
             )
           : null,
     );
@@ -346,8 +346,8 @@ class _ConfigCard extends StatelessWidget {
                     if (value == 'delete') onDelete();
                   },
                   itemBuilder: (_) => [
-                    const PopupMenuItem(value: 'edit', child: Text('संपादित करें')),
-                    const PopupMenuItem(value: 'delete', child: Text('हटाएं')),
+                    const PopupMenuItem(value: 'edit', child: Text('Edit')),
+                    const PopupMenuItem(value: 'delete', child: Text('Delete')),
                   ],
                 ),
             ],
@@ -365,13 +365,13 @@ class _ConfigCard extends StatelessWidget {
           Row(
             children: [
               _Badge(
-                label: config.callingEnabled ? 'कॉलिंग चालू' : 'कॉलिंग बंद',
+                label: config.callingEnabled ? 'Calling on' : 'Calling off',
                 color: config.callingEnabled ? AppColors.success : AppColors.danger,
               ),
               const SizedBox(width: 8),
               if (config.wabaId != null && config.wabaId!.isNotEmpty)
                 const _Badge(
-                  label: 'WABA जुड़ा',
+                  label: 'WABA connected',
                   color: AppColors.accent,
                 ),
             ],
