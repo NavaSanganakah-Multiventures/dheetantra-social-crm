@@ -417,7 +417,7 @@ export async function onboardDomain(env: any, row: any) {
       // keep it 'failed' so checkDomain retries the routing steps.
       let routingReady = true;
       try {
-        // Idempotent: onboarding runs repeatedly (admin approve + "जांचें" +
+        // Idempotent: onboarding runs repeatedly (admin approve + "Check" +
         // maintenance cron). Cloudflare returns "already enabled/exists"
         // errors when the state is already correct — those are NOT failures.
         await enableEmailRouting(env, zoneId, creds).catch((e: any) => {

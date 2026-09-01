@@ -14,7 +14,7 @@ interface I18nContextValue {
 const I18nContext = createContext<I18nContextValue | null>(null);
 
 const STORAGE_KEY = 'dheetantra-lang';
-const DEFAULT_LANG: Lang = 'hi';
+const DEFAULT_LANG: Lang = 'en';
 
 const listeners = new Set<() => void>();
 
@@ -79,17 +79,6 @@ export function LangSwitcher({ className = '' }: { className?: string }) {
       role="group"
       aria-label="Language"
     >
-      <button
-        type="button"
-        onClick={() => setLang('hi')}
-        className={`px-3 py-1.5 rounded-full transition-all ${
-          lang === 'hi'
-            ? 'bg-primary-600 text-white shadow'
-            : 'text-surface-600 dark:text-surface-300 hover:text-surface-900 dark:hover:text-white'
-        }`}
-      >
-        हिंदी
-      </button>
       <button
         type="button"
         onClick={() => setLang('en')}

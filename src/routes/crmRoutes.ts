@@ -483,8 +483,8 @@ router.post('/api/crm/contacts', async (c) => {
     lead_value
   } = body;
 
-  if (!name) return c.json({ error: 'नाम आवश्यक है (Name is required)' }, 400);
-  if (!phone) return c.json({ error: 'फ़ोन नंबर आवश्यक है (Phone is required)' }, 400);
+  if (!name) return c.json({ error: 'Name is required' }, 400);
+  if (!phone) return c.json({ error: 'Phone is required' }, 400);
   if (String(name).length > 200) return c.json({ error: 'Name is too long (max 200 characters)' }, 400);
   if (notes && String(notes).length > 5000) return c.json({ error: 'Notes are too long (max 5000 characters)' }, 400);
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email))) {
@@ -499,7 +499,7 @@ router.post('/api/crm/contacts', async (c) => {
   ).bind(workspaceId, platformContactId).first();
 
   if (existing) {
-    return c.json({ error: 'इस फ़ोन नंबर वाला संपर्क पहले से मौजूद है।' }, 400);
+    return c.json({ error: 'A contact with this phone number already exists.' }, 400);
   }
 
   const id = crypto.randomUUID();
@@ -556,15 +556,15 @@ router.put('/api/crm/contacts/:contactId', async (c) => {
     lead_value
   } = body;
 
-  if (!name) return c.json({ error: 'नाम आवश्यक है' }, 400);
-  if (!phone) return c.json({ error: 'फ़ोन नंबर आवश्यक है' }, 400);
+  if (!name) return c.json({ error: 'Name is required' }, 400);
+  if (!phone) return c.json({ error: 'Phone is required' }, 400);
 
   const platformContactId = phone.replace(/[^0-9]/g, '');
 
   const existing = await c.env.DB.prepare(
     'SELECT id FROM contacts WHERE id = ? AND workspace_id = ?'
   ).bind(contactId, workspaceId).first();
-  if (!existing) return c.json({ error: 'संपर्क नहीं मिला' }, 404);
+  if (!existing) return c.json({ error: 'Contact not found' }, 404);
 
   await c.env.DB.prepare(`
     UPDATE contacts SET
@@ -614,7 +614,7 @@ router.delete('/api/crm/contacts/:contactId', async (c) => {
   const existing = await c.env.DB.prepare(
     'SELECT id FROM contacts WHERE id = ? AND workspace_id = ?'
   ).bind(contactId, workspaceId).first();
-  if (!existing) return c.json({ error: 'संपर्क नहीं मिला' }, 404);
+  if (!existing) return c.json({ error: 'Contact not found' }, 404);
 
   // Delete conversations and messages associated with this contact
   const convs = await c.env.DB.prepare('SELECT id FROM conversations WHERE contact_id = ?').bind(contactId).all<{ id: string }>();
