@@ -46,12 +46,12 @@ Rebuild WhatsApp broadcast system with: contact selection from contacts list (ch
 ```
 
 ### Step 3: State variables
-- `broadcastContacts: any[]` — all contacts loaded
-- `selectedContactIds: Set<string>` — checkbox selections
-- `selectedTemplate: any` — chosen template
-- `templateParams: string[]` — dynamic parameter values
+- `broadcastContacts: any[]` - all contacts loaded
+- `selectedContactIds: Set<string>` - checkbox selections
+- `selectedTemplate: any` - chosen template
+- `templateParams: string[]` - dynamic parameter values
 - `broadcastCampaignName: string`
-- `sending: boolean` — broadcast in progress
+- `sending: boolean` - broadcast in progress
 - `broadcastProgress: { total, sent, failed, pending } | null`
 
 ### Step 4: Contact selection
@@ -84,7 +84,7 @@ Body: {
 
 ## 2. Frontend: Inline Template Picker in InboxView (`app/dashboard/page.tsx`)
 
-**Current:** When `isTemplateRequired` is true, message input is disabled with a banner saying "Template Message भेजें" but NO way to actually send a template from the inbox.
+**Current:** When `isTemplateRequired` is true, message input is disabled with a banner saying "Send Template Message" but NO way to actually send a template from the inbox.
 
 **New: Inline template picker (lines ~1843-1847)**
 
@@ -103,24 +103,24 @@ Body: {
 │ {{1}}: [input]  {{2}}: [input]       │
 │ [Send Template Message]              │
 ├──────────────────────────────────────┤
-│ [📎] [संदेश टाइप करें...]    [➤]  │
+│ [📎] [Type a message...]    [>]  │
 └──────────────────────────────────────┘
 ```
 
 ### State additions to InboxView:
-- `inboxTemplates: any[]` — loaded on mount
+- `inboxTemplates: any[]` - loaded on mount
 - `selectedInboxTemplate: any`
 - `inboxTemplateParams: string[]`
 
 ### Handler:
-- `handleSendInboxTemplate()` — calls `POST /api/whatsapp/templates/send` (already exists)
+- `handleSendInboxTemplate()` - calls `POST /api/whatsapp/templates/send` (already exists)
 - After send, fetch conversations to refresh window status
 
 ---
 
 ## 3. Backend: POST `/api/broadcast` (Full Implementation)
 
-**Current:** `src/index.ts:2649` — returns `{ success: true }` without doing anything.
+**Current:** `src/index.ts:2649` - returns `{ success: true }` without doing anything.
 
 **New implementation:**
 
@@ -200,8 +200,8 @@ app.get('/api/broadcast/:campaignId/progress', authMiddleware, async (c) => {
 
 ## 7. Validation Steps
 
-1. `npx tsc --noEmit` — 0 errors
-2. `npm run build` — successful
+1. `npx tsc --noEmit` - 0 errors
+2. `npm run build` - successful
 3. Manual test: Create broadcast with 2-3 contacts, verify campaign created in D1
 4. Verify queue worker processes messages
 5. Verify progress polling works end-to-end
@@ -212,6 +212,6 @@ app.get('/api/broadcast/:campaignId/progress', authMiddleware, async (c) => {
 
 ## 8. Risks
 
-- **Cloudflare Queue binding** — must be configured in `wrangler.toml` or broadcast won't work
-- **Meta API rate limits** — queue worker processes sequentially, may need batching for large lists
-- **Template parameters** — all contacts get the same parameter values (no per-contact personalization in this version)
+- **Cloudflare Queue binding** - must be configured in `wrangler.toml` or broadcast won't work
+- **Meta API rate limits** - queue worker processes sequentially, may need batching for large lists
+- **Template parameters** - all contacts get the same parameter values (no per-contact personalization in this version)
