@@ -280,7 +280,7 @@ export class PlivoAudioBridge extends DurableObject {
       this.sendToRole('plivo', {
         event: 'playAudio',
         media: {
-          contentType: this.mediaFormat.contentType,
+          contentType: this.mediaFormat.contentType.split(';')[0],
           sampleRate: this.mediaFormat.sampleRate,
           payload: data.payload,
         },
