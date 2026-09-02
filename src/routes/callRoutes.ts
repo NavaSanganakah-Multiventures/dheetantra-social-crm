@@ -261,7 +261,7 @@ router.post('/api/whatsapp/calls/:id/answer', async (c) => {
   const url = `https://graph.facebook.com/v20.0/${phoneNumberId}/calls`;
   const headers = { 'Authorization': `Bearer ${config.access_token}`, 'Content-Type': 'application/json' };
 
-  // Step 1: pre_accept ÃÂ¢ÃÂÃÂ signal readiness and establish media connection
+  // Step 1: pre_accept - signal readiness and establish media connection
   const preAcceptRes = await fetch(url, {
     method: 'POST',
     headers,
@@ -274,7 +274,7 @@ router.post('/api/whatsapp/calls/:id/answer', async (c) => {
   const preAcceptData: any = await preAcceptRes.json();
   console.log('[Calling] pre_accept response:', JSON.stringify(preAcceptData));
 
-  // Step 2: accept ÃÂ¢ÃÂÃÂ formally answer the call
+  // Step 2: accept - formally answer the call
   const acceptRes = await fetch(url, {
     method: 'POST',
     headers,
@@ -407,7 +407,7 @@ router.post('/api/whatsapp/calls/:id/reject', async (c) => {
   console.log('[Calling] reject response:', JSON.stringify(data));
 
   // Busy-rejected calls ka status preserve karo (app-side busy guard bhi isi
-  // route par aata hai) ÃÂ¢ÃÂÃÂ warna 'busy' record 'declined' se overwrite ho jayega.
+  // route par aata hai) - warna 'busy' record 'declined' se overwrite ho jayega.
   await c.env.DB.prepare("UPDATE calls SET status = 'declined' WHERE id = ? AND workspace_id = ? AND status != 'busy'")
     .bind(callId, workspaceId).run();
 
@@ -439,7 +439,7 @@ router.post('/api/whatsapp/calls/recordings', async (c) => {
   }
 });
 
-// TOGGLE calling configuration ÃÂ¢ÃÂÃÂ syncs with Meta Graph API
+// TOGGLE calling configuration - syncs with Meta Graph API
 router.post('/api/whatsapp/calls/toggle', async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
@@ -581,7 +581,7 @@ router.get('/api/whatsapp/calls/config', async (c) => {
   return c.json({ calling_enabled: config ? config.calling_enabled === 1 : true });
 });
 
-// GET calling status from Meta API ÃÂ¢ÃÂÃÂ verify calling is actually enabled on Meta's side
+// GET calling status from Meta API - verify calling is actually enabled on Meta's side
 router.get('/api/whatsapp/calls/status', async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
@@ -1051,10 +1051,10 @@ router.post('/api/calls/:id/decline', async (c) => {
     await markAgentDeclined(c.env, callId, user.id);
     const allDeclined = await checkAllAgentsDeclined(c.env, callId, workspaceId, call.source || 'whatsapp');
     if (!allDeclined) {
-      // Other agents are still ringing Ã¢ÂÂ do NOT tear down the caller.
-      return c.json({ success: true, message: 'Declined Ã¢ÂÂ other agents still ringing', allDeclined: false });
+      // Other agents are still ringing - do NOT tear down the caller.
+      return c.json({ success: true, message: 'Declined - other agents still ringing', allDeclined: false });
     }
-    // All agents declined Ã¢ÂÂ fall through to provider-specific teardown below.
+    // All agents declined - fall through to provider-specific teardown below.
   }
 
   try {
