@@ -57,7 +57,7 @@ export function TwilioVoiceProvider({ children }: { children: React.ReactNode })
   useEffect(() => {
     fetch('/api/users/me')
       .then(res => res.json())
-      .then(data => {
+      .then((data: any) => {
         if (data && data.user) setCurrentUserId(data.user.id);
       })
       .catch(console.error);
@@ -334,7 +334,7 @@ export function TwilioVoiceProvider({ children }: { children: React.ReactNode })
           headers: { "x-workspace-id": workspaceId, "Content-Type": "application/json" },
           body: JSON.stringify({ source: "twilio" }),
         });
-        const data = await res.json();
+        const data = (await res.json()) as any;
         
         if (data.allDeclined) {
           if (callRef.current && typeof callRef.current.reject === "function") {

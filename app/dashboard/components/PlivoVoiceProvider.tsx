@@ -65,7 +65,7 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
   useEffect(() => {
     fetch('/api/users/me')
       .then(res => res.json())
-      .then(data => {
+      .then((data: any) => {
         if (data && data.user) setCurrentUserId(data.user.id);
       })
       .catch(console.error);
@@ -498,7 +498,7 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
           headers: { "x-workspace-id": workspaceId, "Content-Type": "application/json" },
           body: JSON.stringify({ source: "plivo" }),
         });
-        const data = await res.json();
+        const data = (await res.json()) as any;
         
         // Only tear down the call globally if ALL agents have declined
         if (data.allDeclined) {
