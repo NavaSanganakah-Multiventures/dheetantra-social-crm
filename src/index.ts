@@ -185,7 +185,9 @@ export class ChatDurableObject extends DurableObject {
 }
 
 export class PlivoAudioBridge extends DurableObject {
-  private mediaFormat = { contentType: 'audio/x-l16;rate=16000', sampleRate: 16000 };
+  private mediaFormat = { contentType: 'audio/x-mulaw;rate=8000', sampleRate: 8000 };
+  private streamStart: { callId?: string; streamId?: string; contentType: string; sampleRate: number } | null = null;
+  private loaded = false;
 
   constructor(state: any, env: Env) {
     super(state, env);
@@ -238,15 +240,45 @@ export class PlivoAudioBridge extends DurableObject {
     }
   }
 
+  private async ensureLoaded() {
+    if (this.loaded) return;
+    this.loaded = true;
+    try {
+      const stored = await this.ctx.storage.get('plivoStream');
+      if (stored) {
+        this.mediaFormat = (stored && stored.mediaFormat) || this.mediaFormat;
+        this.streamStart = (stored && stored.streamStart) || this.streamStart;
+      }
+    } catch {}
+  }
+
+  private async persist() {
+    try {
+      await this.ctx.storage.put('plivoStream', { mediaFormat: this.mediaFormat, streamStart: this.streamStart });
+    } catch {}
+  }
+
   async handlePlivoMessage(ws: WebSocket, data: any) {
+    await this.ensureLoaded();
     if (data.event === 'start') {
       const start = data.start || {};
-      const enc = String(start.mediaFormat?.encoding || 'L16').toUpperCase();
-      const sampleRate = Number(start.mediaFormat?.sampleRate || 16000);
-      this.mediaFormat = {
-        contentType: enc === 'L16' ? `audio/x-l16;rate=${sampleRate}` : `audio/${enc.toLowerCase()};rate=${sampleRate}`,
-        sampleRate,
+      // Plivo "start" event mediaFormat.encoding poora MIME bhejta hai
+      // (jaise "audio/x-mulaw" / "audio/x-l16"). Purana code sirf "L16"
+      // expect karta tha aur 'audio/' + encoding karke "audio/audio/x-mulaw"
+      // jaisa galat contentType bhej deta tha. Ab robust parsing:
+      let enc = String(start.mediaFormat && start.mediaFormat.encoding || 'audio/x-mulaw');
+      if (!enc.startsWith('audio/')) {
+        enc = 'audio/x-' + enc.toLowerCase().replace(/^x-/, '');
+      }
+      const sampleRate = Number((start.mediaFormat && start.mediaFormat.sampleRate) || 8000);
+      this.mediaFormat = { contentType: `${enc};rate=${sampleRate}`, sampleRate: sampleRate };
+      this.streamStart = {
+        callId: start.callId,
+        streamId: start.streamId,
+        contentType: this.mediaFormat.contentType,
+        sampleRate: this.mediaFormat.sampleRate,
       };
+      await this.persist();
       this.broadcastToRole('agent', {
         type: 'stream_started',
         callId: start.callId,
@@ -276,10 +308,25 @@ export class PlivoAudioBridge extends DurableObject {
   }
 
   async handleAgentMessage(ws: WebSocket, data: any) {
+    await this.ensureLoaded();
+
+    // Agent late-join handshake: agent connect hote hi 'ready' bhejta hai.
+    // Agar Plivo 'start' pehle aa chuka hai (inbound), toh stored start
+    // dobara 'stream_started' ke roop mein bhej do — agent ko negotiated
+    // mu-law/8000 format mil jaata hai aur recorder/player usi par chale.
+    if (data.type === 'ready') {
+      if (this.streamStart) {
+        try { ws.send(JSON.stringify({ type: 'stream_started', ...this.streamStart })); } catch {}
+      }
+      return;
+    }
+
     if (data.type === 'media' && data.payload) {
       this.sendToRole('plivo', {
         event: 'playAudio',
         media: {
+          // Plivo playAudio: contentType stream ke contentType se match
+          // karna chahiye (docs: ';rate=' hatakar, jaise "audio/x-mulaw").
           contentType: this.mediaFormat.contentType.split(';')[0],
           sampleRate: this.mediaFormat.sampleRate,
           payload: data.payload,
