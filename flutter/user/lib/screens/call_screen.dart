@@ -238,6 +238,19 @@ class _CallScreenState extends State<CallScreen> {
 
   Future<void> _startAnswer() async {
     if (_isPlivo) {
+      // Simultaneous ring: claim this call for THIS agent first. If another
+      // agent already answered, the server returns alreadyAnswered=true and
+      // we must NOT join the conference.
+      final claimCallId = widget.callData['id']?.toString() ??
+          widget.callData['callId']?.toString() ?? '';
+      if (claimCallId.isNotEmpty) {
+        final claim = await ApiService().claimCallAnswer(claimCallId, source: 'plivo');
+        if (claim['alreadyAnswered'] == true) {
+          debugPrint('[CallScreen] Plivo call already answered by another agent — not joining');
+          if (mounted) setState(() => _status = 'error: Call answered by another agent');
+          return;
+        }
+      }
       debugPrint('[CallScreen] joining Plivo conference');
       final conferenceName = widget.callData['conferenceName']?.toString() ??
           widget.callData['id']?.toString() ??
@@ -262,6 +275,17 @@ class _CallScreenState extends State<CallScreen> {
       return;
     }
     if (_isTwilio) {
+      // Simultaneous ring: claim this call for THIS agent first.
+      final claimCallId = widget.callData['id']?.toString() ??
+          widget.callData['callId']?.toString() ?? '';
+      if (claimCallId.isNotEmpty) {
+        final claim = await ApiService().claimCallAnswer(claimCallId, source: 'twilio');
+        if (claim['alreadyAnswered'] == true) {
+          debugPrint('[CallScreen] Twilio call already answered by another agent — not joining');
+          if (mounted) setState(() => _status = 'error: Call answered by another agent');
+          return;
+        }
+      }
       debugPrint('[CallScreen] joining Twilio conference');
       final conferenceName = widget.callData['conferenceName']?.toString() ??
           widget.callData['id']?.toString() ??
@@ -295,7 +319,7 @@ class _CallScreenState extends State<CallScreen> {
           TextButton(
             onPressed: () {
               Navigator.of(ctx).pop();
-              // Sirf dialog band karein â CallScreen ko pop na karein. Call
+              // Sirf dialog band karein Ã¢ÂÂ CallScreen ko pop na karein. Call
               // pehle se place ho chuki hai; user ko error dikhe aur wo khud
               // hangup kar sake (warna UI flash hokar gayab ho jata hai).
               if (mounted) {
