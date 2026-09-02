@@ -1322,7 +1322,17 @@ router.post('/api/plivo/webhook/status', async (c) => {
 
     // Conference callbackUrl events (inbound caller leg).
     if (conferenceAction) {
-      if (conferenceAction === 'enter' && call.status !== 'in_progress' && call.status !== 'ended') {
+      // The call is only truly "in progress" once an agent actually joins the
+      // conference. Plivo fires ConferenceAction="start" the moment a member
+      // with startConferenceOnEnter="true" enters (the agent's softphone / PSTN
+      // leg). The inbound caller is placed in the waiting room with
+      // startConferenceOnEnter="false", so they fire an "enter" event almost
+      // immediately. Treating that "enter" as "in_progress" made the dashboard
+      // believe the call was already answered ~2s after it arrived and dismiss
+      // the ringing overlay — even though no agent had picked up and the caller
+      // was still on hold. Gate the transition on "start" instead so the
+      // website keeps ringing until a real agent answers.
+      if (conferenceAction === 'start' && call.status !== 'in_progress' && call.status !== 'ended') {
         await c.env.DB.prepare("UPDATE calls SET status = 'in_progress', external_call_id = COALESCE(?, external_call_id) WHERE id = ?")
           .bind(callUuid || null, call.id).run();
         await broadcastToWorkspace(c.env, call.workspace_id, { type: 'call_status_updated', call_id: call.id, status: 'in_progress', duration: 0, source: 'plivo' });
