@@ -77,13 +77,13 @@ router.post('/api/voice/agent-phone', async (c) => {
 // Per-agent call routing endpoints (simultaneous ring + per-agent decline).
 //
 // These are called by the Flutter app when an agent reacts to an incoming
-// call ring (accept or decline). They are provider-agnostic — the same
+// call ring (accept or decline). They are provider-agnostic - the same
 // endpoint works for WhatsApp, Plivo and Twilio calls because the ringing
 // tracking lives in call_ringing_agents keyed by (call_id, user_id).
 // ---------------------------------------------------------------------------
 
 /**
- * Agent DECLINES a call — only THEIR ring stops.
+ * Agent DECLINES a call - only THEIR ring stops.
  *
  * The call is NOT torn down. Other agents keep ringing. If this was the last
  * ringing agent, the call is marked 'missed' and the caller is released.
@@ -106,7 +106,7 @@ router.post('/api/voice/call/:callId/decline', async (c) => {
   ).bind(callId, workspaceId).first<{ id: string; status: string; source: string; answered_by_user_id: string | null }>();
   if (!call) return c.json({ error: 'Call not found' }, 404);
 
-  // If the call was already answered, there is nothing to decline — just
+  // If the call was already answered, there is nothing to decline - just
   // tell the client it's done so the local ring UI is dismissed.
   if (call.answered_by_user_id) {
     return c.json({ success: true, alreadyAnswered: true });
@@ -114,7 +114,7 @@ router.post('/api/voice/call/:callId/decline', async (c) => {
 
   await markAgentDeclined(c.env, callId, user.id);
 
-  // Check if everyone declined — if so, end the call.
+  // Check if everyone declined - if so, end the call.
   const callSource = source || call.source || 'whatsapp';
   const allDeclined = await checkAllAgentsDeclined(c.env, callId, workspaceId, callSource);
 
@@ -122,7 +122,7 @@ router.post('/api/voice/call/:callId/decline', async (c) => {
 });
 
 /**
- * Agent ANSWERS / claims a call — atomically becomes the answering agent.
+ * Agent ANSWERS / claims a call - atomically becomes the answering agent.
  *
  * The first agent to call this wins (answered_by_user_id IS NULL guard).
  * Subsequent callers get alreadyAnswered: true and should dismiss their ring.
@@ -146,7 +146,7 @@ router.post('/api/voice/call/:callId/answer', async (c) => {
   ).bind(callId, workspaceId).first<{ id: string; status: string; source: string; answered_by_user_id: string | null }>();
   if (!call) return c.json({ error: 'Call not found' }, 404);
 
-  // Already answered by someone else — let the client dismiss its ring.
+  // Already answered by someone else - let the client dismiss its ring.
   if (call.answered_by_user_id && call.answered_by_user_id !== user.id) {
     return c.json({ success: true, alreadyAnswered: true, answeredBy: call.answered_by_user_id });
   }
