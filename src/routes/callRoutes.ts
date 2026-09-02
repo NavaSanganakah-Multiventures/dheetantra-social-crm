@@ -261,7 +261,7 @@ router.post('/api/whatsapp/calls/:id/answer', async (c) => {
   const url = `https://graph.facebook.com/v20.0/${phoneNumberId}/calls`;
   const headers = { 'Authorization': `Bearer ${config.access_token}`, 'Content-Type': 'application/json' };
 
-  // Step 1: pre_accept â signal readiness and establish media connection
+  // Step 1: pre_accept Ã¢ÂÂ signal readiness and establish media connection
   const preAcceptRes = await fetch(url, {
     method: 'POST',
     headers,
@@ -274,7 +274,7 @@ router.post('/api/whatsapp/calls/:id/answer', async (c) => {
   const preAcceptData: any = await preAcceptRes.json();
   console.log('[Calling] pre_accept response:', JSON.stringify(preAcceptData));
 
-  // Step 2: accept â formally answer the call
+  // Step 2: accept Ã¢ÂÂ formally answer the call
   const acceptRes = await fetch(url, {
     method: 'POST',
     headers,
@@ -406,7 +406,7 @@ router.post('/api/whatsapp/calls/:id/reject', async (c) => {
   console.log('[Calling] reject response:', JSON.stringify(data));
 
   // Busy-rejected calls ka status preserve karo (app-side busy guard bhi isi
-  // route par aata hai) â warna 'busy' record 'declined' se overwrite ho jayega.
+  // route par aata hai) Ã¢ÂÂ warna 'busy' record 'declined' se overwrite ho jayega.
   await c.env.DB.prepare("UPDATE calls SET status = 'declined' WHERE id = ? AND workspace_id = ? AND status != 'busy'")
     .bind(callId, workspaceId).run();
 
@@ -438,7 +438,7 @@ router.post('/api/whatsapp/calls/recordings', async (c) => {
   }
 });
 
-// TOGGLE calling configuration â syncs with Meta Graph API
+// TOGGLE calling configuration Ã¢ÂÂ syncs with Meta Graph API
 router.post('/api/whatsapp/calls/toggle', async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
@@ -580,7 +580,7 @@ router.get('/api/whatsapp/calls/config', async (c) => {
   return c.json({ calling_enabled: config ? config.calling_enabled === 1 : true });
 });
 
-// GET calling status from Meta API â verify calling is actually enabled on Meta's side
+// GET calling status from Meta API Ã¢ÂÂ verify calling is actually enabled on Meta's side
 router.get('/api/whatsapp/calls/status', async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
@@ -1050,10 +1050,10 @@ router.post('/api/calls/:id/decline', async (c) => {
     await markAgentDeclined(c.env, callId, user.id);
     const allDeclined = await checkAllAgentsDeclined(c.env, callId, workspaceId, call.source || 'whatsapp');
     if (!allDeclined) {
-      // Other agents are still ringing — do NOT tear down the caller.
-      return c.json({ success: true, message: 'Declined — other agents still ringing', allDeclined: false });
+      // Other agents are still ringing â do NOT tear down the caller.
+      return c.json({ success: true, message: 'Declined â other agents still ringing', allDeclined: false });
     }
-    // All agents declined — fall through to provider-specific teardown below.
+    // All agents declined â fall through to provider-specific teardown below.
   }
 
   try {
@@ -1149,10 +1149,11 @@ router.post('/api/calls/:id/hangup', async (c) => {
   // Restore the answering agent to 'live' and clean up ringing tracking.
   const hungCall = await c.env.DB.prepare('SELECT answered_by_user_id FROM calls WHERE id = ?')
     .bind(callId).first<{ answered_by_user_id: string | null }>();
-  if (hungCall?.answered_by_user_id) {
+  const answeredBy = hungCall?.answered_by_user_id || null;
+  if (answeredBy) {
     c.executionCtx.waitUntil((async () => {
-      await restoreAgentStatus(c.env, workspaceId, hungCall.answered_by_user_id);
-      await cleanupCallRinging(c.env, callId, workspaceId, hungCall.answered_by_user_id);
+      await restoreAgentStatus(c.env, workspaceId, answeredBy);
+      await cleanupCallRinging(c.env, callId, workspaceId, answeredBy);
     })());
   }
 
