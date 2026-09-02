@@ -231,7 +231,7 @@ router.post('/api/whatsapp/calls/:id/answer', async (c) => {
   const url = `https://graph.facebook.com/v20.0/${phoneNumberId}/calls`;
   const headers = { 'Authorization': `Bearer ${config.access_token}`, 'Content-Type': 'application/json' };
 
-  // Step 1: pre_accept — signal readiness and establish media connection
+  // Step 1: pre_accept â signal readiness and establish media connection
   const preAcceptRes = await fetch(url, {
     method: 'POST',
     headers,
@@ -243,8 +243,13 @@ router.post('/api/whatsapp/calls/:id/answer', async (c) => {
   });
   const preAcceptData: any = await preAcceptRes.json();
   console.log('[Calling] pre_accept response:', JSON.stringify(preAcceptData));
+  if (!preAcceptRes.ok) {
+    await c.env.DB.prepare("UPDATE calls SET status = 'failed', hangup_cause = ? WHERE id = ? AND workspace_id = ?")
+      .bind('pre_accept: ' + (preAcceptData?.error?.message || `Meta HTTP ${preAcceptRes.status}`), callId, workspaceId).run();
+    return c.json({ success: false, error: preAcceptData?.error?.message || `pre_accept failed (HTTP ${preAcceptRes.status})`, stage: 'pre_accept', meta: preAcceptData }, 502);
+  }
 
-  // Step 2: accept — formally answer the call
+  // Step 2: accept â formally answer the call
   const acceptRes = await fetch(url, {
     method: 'POST',
     headers,
@@ -257,6 +262,11 @@ router.post('/api/whatsapp/calls/:id/answer', async (c) => {
   });
   const acceptData: any = await acceptRes.json();
   console.log('[Calling] accept response:', JSON.stringify(acceptData));
+  if (!acceptRes.ok) {
+    await c.env.DB.prepare("UPDATE calls SET status = 'failed', hangup_cause = ? WHERE id = ? AND workspace_id = ?")
+      .bind('accept: ' + (acceptData?.error?.message || `Meta HTTP ${acceptRes.status}`), callId, workspaceId).run();
+    return c.json({ success: false, error: acceptData?.error?.message || `accept failed (HTTP ${acceptRes.status})`, stage: 'accept', meta: acceptData }, 502);
+  }
 
   await c.env.DB.prepare('UPDATE calls SET status = ? WHERE id = ? AND workspace_id = ?')
     .bind('in_progress', callId, workspaceId).run();
@@ -361,7 +371,7 @@ router.post('/api/whatsapp/calls/:id/reject', async (c) => {
   console.log('[Calling] reject response:', JSON.stringify(data));
 
   // Busy-rejected calls ka status preserve karo (app-side busy guard bhi isi
-  // route par aata hai) — warna 'busy' record 'declined' se overwrite ho jayega.
+  // route par aata hai) â warna 'busy' record 'declined' se overwrite ho jayega.
   await c.env.DB.prepare("UPDATE calls SET status = 'declined' WHERE id = ? AND workspace_id = ? AND status != 'busy'")
     .bind(callId, workspaceId).run();
 
@@ -393,7 +403,7 @@ router.post('/api/whatsapp/calls/recordings', async (c) => {
   }
 });
 
-// TOGGLE calling configuration — syncs with Meta Graph API
+// TOGGLE calling configuration â syncs with Meta Graph API
 router.post('/api/whatsapp/calls/toggle', async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
@@ -535,7 +545,7 @@ router.get('/api/whatsapp/calls/config', async (c) => {
   return c.json({ calling_enabled: config ? config.calling_enabled === 1 : true });
 });
 
-// GET calling status from Meta API — verify calling is actually enabled on Meta's side
+// GET calling status from Meta API â verify calling is actually enabled on Meta's side
 router.get('/api/whatsapp/calls/status', async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
