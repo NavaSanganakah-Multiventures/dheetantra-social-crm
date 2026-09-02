@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { Env } from '../types';
 import { sqliteNow, requireRole } from '../shared';
 import { normalizeE164 } from '../utils/phoneUtils';
+import { trackRingingAgents, restoreAgentStatus, cleanupCallRinging } from '../services/callRouting';
 
 
 
@@ -537,10 +538,14 @@ router.post('/api/twilio/webhook/voice', async (c) => {
     c.executionCtx.waitUntil(
       (async () => {
         try {
-          const members = await c.env.DB.prepare('SELECT user_id FROM workspace_members WHERE workspace_id = ?')
+          const members = await c.env.DB.prepare("SELECT user_id FROM workspace_members WHERE workspace_id = ? AND voice_status = 'live'")
             .bind(config.workspace_id).all<{ user_id: string }>();
-          if (!members.results || members.results.length === 0) return;
+          if (!members.results || members.results.length === 0) {
+            console.warn('[Twilio Webhook] No live agents in workspace ' + config.workspace_id);
+            return;
+          }
           const userIds = members.results.map((m) => m.user_id);
+          await trackRingingAgents(c.env, callId, config.workspace_id, userIds, 'twilio');
           const placeholders = userIds.map(() => '?').join(',');
           const tokens = await c.env.DB.prepare('SELECT token FROM fcm_tokens WHERE user_id IN (' + placeholders + ')')
             .bind(...userIds).all<{ token: string }>();
@@ -635,6 +640,15 @@ router.post('/api/twilio/webhook/status', async (c) => {
       await c.env.DB.prepare(
         "UPDATE calls SET status = ?, duration = ?, ended_at = ? WHERE id = ? AND workspace_id = ?"
       ).bind(status, duration, sqliteNow(), call.id, call.workspace_id).run();
+      const completedCall = await c.env.DB.prepare('SELECT answered_by_user_id, assigned_user_id FROM calls WHERE id = ?')
+        .bind(call.id).first<{ answered_by_user_id: string | null; assigned_user_id: string | null }>();
+      const agentId = completedCall?.answered_by_user_id || completedCall?.assigned_user_id || null;
+      if (agentId) {
+        c.executionCtx.waitUntil((async () => {
+          await restoreAgentStatus(c.env, call.workspace_id, agentId);
+          await cleanupCallRinging(c.env, call.id, call.workspace_id, agentId);
+        })());
+      }
     } else {
       await c.env.DB.prepare(
         'UPDATE calls SET status = COALESCE(?, status) WHERE id = ? AND workspace_id = ?'
@@ -711,4 +725,15 @@ export default router;
 
 export async function teardownTwilioCall(env: any, call: any, status: string) {
   await env.DB.prepare('UPDATE calls SET status = ? WHERE id = ?').bind(status, call.id).run();
+
+  // Restore the answering agent to 'live' and clean up ringing tracking.
+  const agentId = call.answered_by_user_id || call.assigned_user_id || null;
+  if (agentId) {
+    try {
+      await restoreAgentStatus(env, call.workspace_id, agentId);
+      await cleanupCallRinging(env, call.id, call.workspace_id, agentId);
+    } catch (e) {
+      console.error('[Twilio] teardown restore error:', e);
+    }
+  }
 }
