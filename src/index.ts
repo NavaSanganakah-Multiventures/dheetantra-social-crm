@@ -18,6 +18,7 @@ import callRoutes from './routes/callRoutes';
 import twilioVoice from './routes/twilioVoice';
 import plivoVoice from './routes/plivoVoice';
 import voiceAgentRoutes from './routes/voiceAgentRoutes';
+import { trackRingingAgents, restoreAgentStatus, cleanupCallRinging } from './services/callRouting';
 import miscRoutes from './routes/miscRoutes';
 import billingRoutes from './routes/billingRoutes';
 import catalogRoutes from './routes/catalogRoutes';
@@ -766,10 +767,14 @@ app.post('/api/whatsapp/webhook', async (c) => {
                   c.executionCtx.waitUntil(
                     (async () => {
                       try {
-                        const members = await c.env.DB.prepare('SELECT user_id FROM workspace_members WHERE workspace_id = ?')
+                        const members = await c.env.DB.prepare("SELECT user_id FROM workspace_members WHERE workspace_id = ? AND voice_status = 'live'")
                           .bind(config.workspace_id).all<{ user_id: string }>();
-                        if (!members.results || members.results.length === 0) return;
+                        if (!members.results || members.results.length === 0) {
+                          console.warn('[Calling] No live agents in workspace ' + config.workspace_id + ' - incoming call push skipped');
+                          return;
+                        }
                         const userIds = members.results.map(m => m.user_id);
+                        await trackRingingAgents(c.env, callId, config.workspace_id, userIds, 'whatsapp');
                         const placeholders = userIds.map(() => '?').join(',');
                         const tokens = await c.env.DB.prepare(`SELECT token FROM fcm_tokens WHERE user_id IN (${placeholders})`)
                           .bind(...userIds).all<{ token: string }>();
@@ -879,6 +884,17 @@ app.post('/api/whatsapp/webhook', async (c) => {
                 await c.env.DB.prepare('UPDATE calls SET status = ?, duration = ?, hangup_cause = ? WHERE id = ?')
                   .bind(finalStatus, duration, hangupCause, existingCall?.id || callId).run();
 
+                if (existingCall && (finalStatus === 'ended' || finalStatus === 'missed')) {
+                  const answeredRow = await c.env.DB.prepare('SELECT answered_by_user_id FROM calls WHERE id = ?')
+                    .bind(existingCall.id).first<{ answered_by_user_id: string | null }>();
+                  if (answeredRow?.answered_by_user_id) {
+                    c.executionCtx.waitUntil((async () => {
+                      await restoreAgentStatus(c.env, config.workspace_id, answeredRow.answered_by_user_id);
+                      await cleanupCallRinging(c.env, existingCall.id, config.workspace_id, answeredRow.answered_by_user_id);
+                    })());
+                  }
+                }
+
                 try {
                   const globalDoId = c.env.CHAT_DO.idFromName(`global-${config.workspace_id}`);
                   const globalDo = c.env.CHAT_DO.get(globalDoId);
@@ -898,7 +914,7 @@ app.post('/api/whatsapp/webhook', async (c) => {
                   c.executionCtx.waitUntil(
                     (async () => {
                       try {
-                        const members = await c.env.DB.prepare('SELECT user_id FROM workspace_members WHERE workspace_id = ?')
+                        const members = await c.env.DB.prepare("SELECT user_id FROM workspace_members WHERE workspace_id = ? AND voice_status = 'live'")
                           .bind(config.workspace_id).all<{ user_id: string }>();
                         if (members.results && members.results.length > 0) {
                           const userIds = members.results.map(m => m.user_id);
@@ -1009,7 +1025,7 @@ app.post('/api/whatsapp/webhook', async (c) => {
                       } catch (e) {
                         console.error('[Webhook] Conversation lookup for push failed:', e);
                       }
-                      const members = await c.env.DB.prepare('SELECT user_id FROM workspace_members WHERE workspace_id = ?').bind(config.workspace_id).all<{ user_id: string }>();
+                      const members = await c.env.DB.prepare("SELECT user_id FROM workspace_members WHERE workspace_id = ? AND voice_status = 'live'").bind(config.workspace_id).all<{ user_id: string }>();
                         console.log('[Webhook] workspace_members count: ' + (members.results?.length ?? 0));
                       if (members.results && members.results.length > 0) {
                         const userIds = members.results.map(m => m.user_id);
