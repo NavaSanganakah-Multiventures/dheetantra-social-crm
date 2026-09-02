@@ -12,15 +12,21 @@ import 'api_service.dart';
 
 /// Plivo Audio Stream wrapper for the DheeTantra user app.
 ///
-/// Ab koi conference/PSTN forwarding nahi hai. Inbound/Outbound Plivo calls
-/// ka media seedha backend ke WebSocket bridge par jaata hai. SIP endpoint
-/// aur softphone register karne ki zaroorat nahi. Instant logout/login
-/// concept legacy tarah banaaye rakhte hain lekin SIP account switch ab
-/// Audio Stream ke saath kaam nahi karta.
+/// Bidirectional mu-law 8kHz stream (Plivo recommended: native telephony,
+/// lowest latency, no transcoding, byte-order agnostic).
+///   - Plivo <-> DO relay <-> App, sab kuch audio/x-mulaw;rate=8000.
+///   - Recorder: PCM16@8000 -> mu-law bytes (encode) -> base64.
+///   - Player:   base64 -> mu-law bytes -> PCM16@8000 (decode) -> sink.
+///   - Recorder sirf 'stream_started' (ya pehle inbound media) ke baad start
+///     hota hai, taaki Plivo stream ready hone se pehle mic waste na ho aur
+///     acoustic echo kam ho. Connect pe {'type':'ready'} bhejte hain jisse
+///     DO late-join par stored start dobara bhej de.
 class PlivoVoiceService {
   static final PlivoVoiceService _instance = PlivoVoiceService._internal();
   factory PlivoVoiceService() => _instance;
   PlivoVoiceService._internal();
+
+  static const int _sampleRate = 8000;
 
   final _callStateController = StreamController<String>.broadcast();
   Stream<String> get onCallState => _callStateController.stream;
@@ -41,8 +47,60 @@ class PlivoVoiceService {
   String? _currentCallId;
 
   bool get isMuted => _isMuted;
-  bool get isSpeakerOn => _speakerOn;
+  bool get isSpeakerOn => _isSpeakerOn;
   bool get isOnCall => _isOnCall;
+
+  // ---------- G.711 mu-law <-> 16-bit linear PCM ----------
+  static const int _bias = 0x84;
+  static const int _clip = 32635;
+
+  static int _linearToMulaw(int pcm) {
+    int sign = (pcm >> 8) & 0x80;
+    int magnitude = pcm < 0 ? -pcm : pcm;
+    if (magnitude > _clip) magnitude = _clip;
+    magnitude += _bias;
+    int exponent = 7;
+    int mask = 0x4000;
+    while ((magnitude & mask) == 0 && exponent > 0) {
+      exponent--;
+      mask >>= 1;
+    }
+    int mantissa = (magnitude >> (exponent + 3)) & 0x0F;
+    int mulaw = ~(sign | (exponent << 4) | mantissa);
+    return mulaw & 0xFF;
+  }
+
+  static int _mulawToLinear(int u) {
+    u = ~u & 0xFF;
+    int t = ((u & 0x0F) << 3) + _bias;
+    t <<= (u & 0x70) >> 4;
+    return ((u & 0x80) == 0) ? (t - _bias) : (_bias - t);
+  }
+
+  /// PCM16 little-endian (signed) chunk -> mu-law bytes.
+  static Uint8List _pcm16ToMulaw(Uint8List pcm) {
+    final int frames = pcm.length ~/ 2;
+    final out = Uint8List(frames);
+    for (int i = 0; i < frames; i++) {
+      int lo = pcm[2 * i] & 0xFF;
+      int hi = pcm[2 * i + 1] & 0xFF;
+      int s = (hi << 8) | lo;
+      if ((s & 0x8000) != 0) s -= 0x10000; // sign-extend
+      out[i] = _linearToMulaw(s);
+    }
+    return out;
+  }
+
+  /// mu-law bytes -> PCM16 little-endian bytes.
+  static Uint8List _mulawToPcm16(Uint8List mulaw) {
+    final out = Uint8List(mulaw.length * 2);
+    for (int i = 0; i < mulaw.length; i++) {
+      int lin = _mulawToLinear(mulaw[i] & 0xFF);
+      out[2 * i] = lin & 0xFF;
+      out[2 * i + 1] = (lin >> 8) & 0xFF;
+    }
+    return out;
+  }
 
   /// App start/login ke baad ek baar call karein: sirf mic permission check.
   Future<void> init() async {
@@ -63,7 +121,6 @@ class PlivoVoiceService {
   }
 
   /// Legacy SIP endpoint switch (ab Audio Stream mein no-op).
-  /// CallKit trigger ko intact rakhta hai, lekin media bridge change nahi hota.
   Future<void> switchAccountBackground(String configId) async {
     debugPrint('[PlivoVoice] switchAccountBackground noop for stream $configId');
   }
@@ -122,7 +179,11 @@ class PlivoVoiceService {
         }
       });
 
-      await _initAudioDevices();
+      // Player turant start (caller sun sake). Recorder 'stream_started' ke
+      // baad start hoga. DO ko 'ready' bhej do taaki late-join par stored
+      // start dobara mil jaaye.
+      await _initPlayer();
+      _sendReady();
       return true;
     } catch (e) {
       debugPrint('[PlivoVoice] connectAudioStream error: $e');
@@ -132,7 +193,16 @@ class PlivoVoiceService {
     }
   }
 
-  Future<void> _initAudioDevices() async {
+  void _sendReady() {
+    try {
+      _audioChannel?.sink.add(jsonEncode({'type': 'ready'}));
+    } catch (e) {
+      debugPrint('[PlivoVoice] ready send error: $e');
+    }
+  }
+
+  Future<void> _initPlayer() async {
+    if (_playerStarted) return;
     final session = await AudioSession.instance;
     await session.configure(const AudioSessionConfiguration(
       avAudioSessionCategory: AVAudioSessionCategory.playAndRecord,
@@ -155,20 +225,23 @@ class PlivoVoiceService {
       codec: Codec.pcm16,
       interleaved: true,
       numChannels: 1,
-      sampleRate: 16000,
+      sampleRate: _sampleRate,
       bufferSize: 8192,
     );
     _playerStarted = true;
+  }
 
+  Future<void> _startRecorder() async {
+    if (_recorderStarted) return;
     _recorder = FlutterSoundRecorder();
     await _recorder!.openRecorder();
     _micController = StreamController<Uint8List>();
     await _recorder!.startRecorder(
       codec: Codec.pcm16,
       toStream: _micController!.sink,
-      sampleRate: 16000,
+      sampleRate: _sampleRate,
       numChannels: 1,
-      bufferSize: 4096,
+      bufferSize: 2048,
       enableEchoCancellation: true,
       enableNoiseSuppression: true,
     );
@@ -177,7 +250,8 @@ class PlivoVoiceService {
     _micController!.stream.listen((chunk) {
       if (_isMuted || chunk.isEmpty) return;
       try {
-        final b64 = base64Encode(chunk);
+        final mulaw = _pcm16ToMulaw(chunk);
+        final b64 = base64Encode(mulaw);
         _audioChannel?.sink.add(jsonEncode({'type': 'media', 'payload': b64}));
       } catch (e) {
         debugPrint('[PlivoVoice] mic send error: $e');
@@ -195,9 +269,14 @@ class PlivoVoiceService {
       if (type == 'stream_started') {
         _isOnCall = true;
         _callStateController.add('connected');
+        // Plivo stream ready -> ab mic chalu karo.
+        _startRecorder();
       } else if (type == 'media') {
         final payload = data['payload']?.toString();
         if (payload == null || payload.isEmpty) return;
+        // Safety: agar stream_started miss ho gaya ho, pehle media par bhi
+        // recorder start kar lo.
+        if (!_recorderStarted) _startRecorder();
         _playMedia(payload);
       } else if (type == 'stream_ended') {
         _callStateController.add('ended');
@@ -219,10 +298,10 @@ class PlivoVoiceService {
       while (normalized.length % 4 != 0) {
         normalized += '=';
       }
-      final bytes = base64Decode(normalized);
-      if (bytes.isEmpty) return;
-
-      _player!.uint8ListSink?.add(bytes);
+      final mulaw = base64Decode(normalized);
+      if (mulaw.isEmpty) return;
+      final pcm = _mulawToPcm16(mulaw);
+      _player!.uint8ListSink?.add(pcm);
     } catch (e) {
       debugPrint('[PlivoVoice] play media error: $e');
     }
