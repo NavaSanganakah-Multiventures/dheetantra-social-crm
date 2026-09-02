@@ -246,7 +246,7 @@ class _CallScreenState extends State<CallScreen> {
       if (claimCallId.isNotEmpty) {
         final claim = await ApiService().claimCallAnswer(claimCallId, source: 'plivo');
         if (claim['alreadyAnswered'] == true) {
-          debugPrint('[CallScreen] Plivo call already answered by another agent â not joining');
+          debugPrint('[CallScreen] Plivo call already answered by another agent - not joining');
           if (mounted) setState(() => _status = 'error: Call answered by another agent');
           return;
         }
@@ -281,7 +281,7 @@ class _CallScreenState extends State<CallScreen> {
       if (claimCallId.isNotEmpty) {
         final claim = await ApiService().claimCallAnswer(claimCallId, source: 'twilio');
         if (claim['alreadyAnswered'] == true) {
-          debugPrint('[CallScreen] Twilio call already answered by another agent â not joining');
+          debugPrint('[CallScreen] Twilio call already answered by another agent - not joining');
           if (mounted) setState(() => _status = 'error: Call answered by another agent');
           return;
         }
