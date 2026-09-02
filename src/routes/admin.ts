@@ -360,7 +360,7 @@ admin.post('/workspaces/:id/members', async (c) => {
   try {
     const workspaceId = c.req.param('id');
     const { email, role = 'member', name } = await c.req.json();
-    if (!email) return c.json({ error: 'Email is required' }, 400);
+    if (!email || typeof email !== 'string') return c.json({ error: 'Email must be a valid string' }, 400);
     if (!['owner', 'admin', 'member'].includes(role)) {
       return c.json({ error: 'Invalid role. Use owner, admin, or member' }, 400);
     }
@@ -409,10 +409,7 @@ admin.put('/workspaces/:id/members/:userId', async (c) => {
       .bind(workspaceId, targetUserId).first();
     if (!target) return c.json({ error: 'Member not found' }, 404);
 
-    if (role === 'owner') {
-      await c.env.DB.prepare("UPDATE workspace_members SET role = 'admin' WHERE workspace_id = ? AND role = 'owner'")
-        .bind(workspaceId).run();
-    } else if (target.role === 'owner') {
+    if (role !== 'owner' && target.role === 'owner') {
       const ownerCount: any = await c.env.DB.prepare(
         'SELECT COUNT(*) as count FROM workspace_members WHERE workspace_id = ? AND role = ?'
       ).bind(workspaceId, 'owner').first();
@@ -652,7 +649,7 @@ admin.get('/kv', async (c) => {
       } else if (keyName.startsWith('OTP:')) {
         val = '[Verification Code Data]';
       } else {
-        val = 'â¢â¢â¢â¢â¢â¢â¢â¢';
+        val = '********';
       }
 
       keysWithValues.push({
@@ -960,7 +957,7 @@ admin.post('/domains/:id/unsuspend', async (c) => {
  * and no keys are skipped. The client keeps calling with the returned `cursor`
  * until `done: true`.
  *
- * Live session/OTP keys (`SESSION:` / `OTP:` prefixes) are never copied â
+ * Live session/OTP keys (`SESSION:` / `OTP:` prefixes) are never copied -
  * they hold per-user auth state and must not leak into another namespace.
  *
  * Body: { sourceNamespaceId, destNamespaceId, cursor? }
