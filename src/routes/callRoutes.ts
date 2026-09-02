@@ -898,8 +898,9 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
 }
 
 async function summarizeWithGemini(audioBytes: ArrayBuffer, mimeType: string, env: Env): Promise<string | null> {
-  const key = await env.SECRETS_KV.get('GEMINI_API_KEY');
+  let key = await env.SECRETS_KV.get('GEMINI_API_KEY');
   if (!key) return null;
+  key = key.trim().replace(/^"|"$/g, '');
 
   const prompt = `You are a CRM assistant. Summarize this phone call in the same language as the audio.
 Include:

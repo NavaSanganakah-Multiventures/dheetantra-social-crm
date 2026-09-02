@@ -36,10 +36,11 @@ router.get('/api/ai/gemini-stream/:workspaceId', async (c) => {
   }
 
   // 2. Fetch Secure API Key from KV
-  const geminiKey = await c.env.SECRETS_KV.get('GEMINI_API_KEY');
+  let geminiKey = await c.env.SECRETS_KV.get('GEMINI_API_KEY');
   if (!geminiKey) {
     return c.text('Gemini API key not configured', 500);
   }
+  geminiKey = geminiKey.trim().replace(/^"|"$/g, '');
 
   // 3. Connect to Gemini Live API
   const geminiUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=${geminiKey}`;

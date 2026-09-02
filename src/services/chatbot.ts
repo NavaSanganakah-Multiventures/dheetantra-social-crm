@@ -236,12 +236,13 @@ export async function handleIncomingMessage(
       }
     } else {
       // Default to Gemini
-      const geminiKey = await env.SECRETS_KV.get('GEMINI_API_KEY');
-      if (!geminiKey) {
+      const rawKey = await env.SECRETS_KV.get('GEMINI_API_KEY');
+      if (!rawKey) {
         replyText = "Sorry, our AI service is temporarily unavailable. Our team will assist you shortly.";
       } else {
         try {
-          const ai = new GoogleGenAI({ apiKey: geminiKey });
+          const geminiKey = rawKey.trim().replace(/^"|"$/g, '');
+          const ai = new GoogleGenAI({ apiKey: geminiKey, httpOptions: { fetch: fetch } });
           const aiResponse = await ai.models.generateContent({
               model: 'gemini-2.0-flash',
               contents: `You are a helpful customer support AI for Dhitantra.
