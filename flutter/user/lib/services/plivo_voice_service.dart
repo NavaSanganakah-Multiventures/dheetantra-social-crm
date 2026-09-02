@@ -139,7 +139,7 @@ class PlivoVoiceService {
       interleaved: true,
       numChannels: 1,
       sampleRate: 16000,
-      bufferSize: 2048,
+      bufferSize: 8192,
     );
     _playerStarted = true;
 
@@ -151,7 +151,7 @@ class PlivoVoiceService {
       toStream: _micController!.sink,
       sampleRate: 16000,
       numChannels: 1,
-      bufferSize: 1024,
+      bufferSize: 4096,
       enableEchoCancellation: true,
       enableNoiseSuppression: true,
     );
