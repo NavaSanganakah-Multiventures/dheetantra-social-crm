@@ -20,7 +20,7 @@ class PlivoVoiceService implements SipUaHelperListener {
   PlivoVoiceService._internal();
 
   static const String _domain = 'phone.plivo.com';
-  static const String _sipPort = '5060';
+  static const String _sipPort = '7443';
 
   final SIPUAHelper _helper = SIPUAHelper();
   final _callStateController = StreamController<String>.broadcast();
@@ -166,10 +166,12 @@ class PlivoVoiceService implements SipUaHelperListener {
     final server = (creds['server']?.toString()) ?? _domain;
     final port = (creds['port']?.toString()) ?? _sipPort;
     final sipUri = (creds['sipUri']?.toString()) ?? 'sip:$username@$server';
-    debugPrint('[PlivoVoice] registering SIP URI: $sipUri (TCP, $server:$port) for config $configToUse');
+    final webSocketUrl = (creds['webSocketUrl']?.toString()) ?? 'wss://$server:$port';
+    debugPrint('[PlivoVoice] registering SIP URI: $sipUri (WSS, $webSocketUrl) for config $configToUse');
     
     final settings = UaSettings()
-      ..transportType = TransportType.TCP
+      ..transportType = TransportType.WS
+      ..webSocketUrl = webSocketUrl
       ..host = server
       ..port = port
       ..uri = sipUri
