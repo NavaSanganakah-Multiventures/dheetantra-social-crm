@@ -145,7 +145,7 @@ class PlivoVoiceService {
         contentType: AndroidAudioContentType.speech,
         flags: AndroidAudioFlags.none,
       ),
-      androidAudioFocus: AndroidAudioFocus.gain,
+      androidAudioFocusGainType: AndroidAudioFocusGainType.gain,
       androidWillPauseWhenDucked: true,
     ));
 
