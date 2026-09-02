@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_sound/flutter_sound.dart';
+import 'package:audio_session/audio_session.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
@@ -132,6 +133,22 @@ class PlivoVoiceService {
   }
 
   Future<void> _initAudioDevices() async {
+    final session = await AudioSession.instance;
+    await session.configure(const AudioSessionConfiguration(
+      avAudioSessionCategory: AVAudioSessionCategory.playAndRecord,
+      avAudioSessionCategoryOptions: AVAudioSessionCategoryOptions.allowBluetooth | AVAudioSessionCategoryOptions.defaultToSpeaker,
+      avAudioSessionMode: AVAudioSessionMode.voiceChat,
+      avAudioSessionRouteSharingPolicy: AVAudioSessionRouteSharingPolicy.defaultPolicy,
+      avAudioSessionSetActiveOptions: AVAudioSessionSetActiveOptions.none,
+      androidAudioAttributes: AndroidAudioAttributes(
+        usage: AndroidAudioUsage.voiceCommunication,
+        contentType: AndroidAudioContentType.speech,
+        flags: AndroidAudioFlags.none,
+      ),
+      androidAudioFocus: AndroidAudioFocus.gain,
+      androidWillPauseWhenDucked: true,
+    ));
+
     _player = FlutterSoundPlayer();
     await _player!.openPlayer();
     await _player!.startPlayerFromStream(
