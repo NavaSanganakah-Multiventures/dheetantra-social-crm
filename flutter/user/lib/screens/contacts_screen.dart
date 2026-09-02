@@ -497,7 +497,7 @@ class _ContactDetailScreenState extends State<_ContactDetailScreen> {
         'id': res['callId'],
         'source': 'plivo',
         'direction': 'outgoing',
-        'dialUri': res['dialUri'],
+        'streamUrl': res['streamUrl'],
         'plivoConfigId': res['plivoConfigId'],
         'callerName': contact.name,
         'callerNumber': contact.phone,

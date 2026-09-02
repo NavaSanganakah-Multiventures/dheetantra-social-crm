@@ -5,6 +5,7 @@ export interface Env {
   SECRETS_KV: KVNamespace;
   MEDIA_BUCKET: R2Bucket;
   CHAT_DO: DurableObjectNamespace;
+  PLIVO_AUDIO_DO: DurableObjectNamespace;
   AUTOMATION_WORKFLOW: any;
   NOTIFICATION_QUEUE: Queue<any>;
   BROADCAST_QUEUE: Queue<any>;

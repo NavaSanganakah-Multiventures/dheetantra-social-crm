@@ -231,28 +231,27 @@ class _CallScreenState extends State<CallScreen> {
 
   Future<void> _startAnswer() async {
     if (_isPlivo) {
-      final dialUri = widget.callData['dialUri']?.toString();
-      final plivoConfigId = widget.callData['plivoConfigId']?.toString();
-      final bool ok;
-      if (dialUri != null && dialUri.isNotEmpty) {
-        // Outbound: server ne dialUri diya hai, ise seedha endpoint se dial karo.
-        debugPrint('[CallScreen] direct SIP outbound: $dialUri');
-        ok = await PlivoVoiceService().callNumberDirect(dialUri,
-            plivoConfigId: plivoConfigId);
-      } else {
-        // Inbound: Plivo ke <Dial><User> se aaya SIP INVITE answer karo.
-        debugPrint('[CallScreen] answering incoming direct SIP call');
-        ok = await PlivoVoiceService().answerIncomingCall(
-            plivoConfigId: plivoConfigId);
+      final streamUrl = widget.callData['streamUrl']?.toString();
+      final callId = widget.callData['id']?.toString() ?? widget.callData['callId']?.toString() ?? '';
+      if (streamUrl == null || streamUrl.isEmpty) {
+        debugPrint('[CallScreen] missing streamUrl for Plivo call');
+        if (mounted && !_status.startsWith('error:')) {
+          setState(() => _status = 'error: Missing stream URL');
+        }
+        unawaited(ApiService().hangupPlivoCall(callId));
+        return;
       }
+      debugPrint('[CallScreen] connecting Plivo audio stream: $streamUrl');
+      final ok = await PlivoVoiceService().connectAudioStream(
+        callId: callId,
+        streamUrl: streamUrl,
+      );
       if (!ok && mounted) {
-        // Service ne specific error already stream par bheja hai.
         if (!_status.startsWith('error:')) {
           setState(() => _status = 'error: Failed to connect Plivo call');
         }
-        // Local SIP state release + backend calls row cleanup.
         unawaited(PlivoVoiceService().hangUp());
-        unawaited(ApiService().hangupPlivoCall(widget.callData['id']?.toString() ?? ''));
+        unawaited(ApiService().hangupPlivoCall(callId));
       }
       return;
     }

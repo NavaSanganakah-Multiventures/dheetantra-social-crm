@@ -9,8 +9,7 @@ export interface PlivoCallInfo {
   from: string;
   callerName: string;
   phone?: string;
-  dialUri?: string;
-  sipTarget?: string;
+  streamUrl?: string;
   workspaceId: string;
   plivoConfigId?: string;
   direction: "incoming" | "outgoing";
@@ -53,7 +52,25 @@ function formatDuration(seconds: number) {
 // Plivo call IDs are server-generated UUIDs (crypto.randomUUID()). Validate
 // before interpolating into a request URL to satisfy CodeQL SSRF checks.
 function isSafeCallId(id: string | null | undefined): id is string {
-  return !!id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+  return !!id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+}
+
+function base64ToUint8Array(base64: string): Uint8Array {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
 }
 
 export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) {
@@ -80,6 +97,12 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
   const currentConfigIdRef = useRef<string | null>(null);
   const registeredRef = useRef<boolean>(false);
   const incomingCallUUIDRef = useRef<string | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const audioWsRef = useRef<WebSocket | null>(null);
+  const processorRef = useRef<ScriptProcessorNode | null>(null);
+  const micStreamRef = useRef<MediaStream | null>(null);
+  const nextPlayTimeRef = useRef<number>(0);
+  const micMutedRef = useRef<boolean>(false);
 
   useEffect(() => {
     registeredRef.current = registered;
@@ -281,7 +304,7 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
                 id: data.callId,
                 from: data.from,
                 callerName: data.callerName || data.from,
-                sipTarget: data.sipTarget,
+                streamUrl: data.streamUrl,
                 workspaceId: wsId,
                 plivoConfigId: data.plivoConfigId,
                 direction: "incoming",
@@ -386,55 +409,143 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
     };
   }, [incoming?.id]);
 
-  // Direct SIP dial (outbound): server ab sirf dialUri deta hai; use endpoint se dial karo.
-  const connectDirectSip = useCallback(
-    async (sipUri: string, plivoConfigId?: string) => {
-      setStatus("connecting");
+  // Audio Stream utilities: WebSocket bridge + WebAudio pipeline.
+  const closeAudioStream = useCallback(() => {
+    try {
+      if (processorRef.current) {
+        processorRef.current.disconnect();
+        processorRef.current = null;
+      }
+      if (micStreamRef.current) {
+        micStreamRef.current.getTracks().forEach((t) => t.stop());
+        micStreamRef.current = null;
+      }
+      if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
+        audioCtxRef.current.close();
+        audioCtxRef.current = null;
+      }
+      if (audioWsRef.current) {
+        audioWsRef.current.close();
+        audioWsRef.current = null;
+      }
+      nextPlayTimeRef.current = 0;
+      micMutedRef.current = false;
+    } catch (e) {
+      console.error('[PlivoWeb] close audio stream error', e);
+    }
+  }, []);
+
+  const connectAudioStream = useCallback(
+    async (callId: string, streamUrl: string) => {
+      if (!streamUrl) return;
+      closeAudioStream();
+      setStatus('connecting');
       try {
-        const client = clientRef.current;
-        if (!client) throw new Error("Plivo softphone not initialized");
+        const AudioCtor = window.AudioContext || (window as any).webkitAudioContext;
+        const audioCtx = new AudioCtor({ sampleRate: 16000 });
+        audioCtxRef.current = audioCtx;
+        nextPlayTimeRef.current = audioCtx.currentTime + 0.05;
 
-        if (plivoConfigId) {
-          switchPlivoAccount(plivoConfigId);
-        }
+        const ws = new WebSocket(streamUrl);
+        audioWsRef.current = ws;
 
-        const checkAndDial = () => {
-          if (registeredRef.current) {
-            client.call(sipUri);
-          } else {
-            setTimeout(checkAndDial, 200);
+        ws.onopen = () => {
+          console.log('[PlivoWeb] audio stream connected', callId);
+        };
+
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data.type === 'stream_started') {
+              setStatus('connected');
+              startTimer();
+            } else if (data.type === 'media') {
+              const payload = data.payload;
+              if (!payload || !audioCtxRef.current) return;
+              const bytes = base64ToUint8Array(payload);
+              const int16 = new Int16Array(bytes.buffer, bytes.byteOffset, bytes.length / 2);
+              const float32 = new Float32Array(int16.length);
+              for (let i = 0; i < int16.length; i++) {
+                float32[i] = int16[i] / 32768;
+              }
+              const buffer = audioCtxRef.current.createBuffer(1, float32.length, 16000);
+              buffer.copyToChannel(float32, 0);
+              const source = audioCtxRef.current.createBufferSource();
+              source.buffer = buffer;
+              source.connect(audioCtxRef.current.destination);
+              const t = Math.max(nextPlayTimeRef.current, audioCtxRef.current.currentTime);
+              source.start(t);
+              nextPlayTimeRef.current = t + buffer.duration;
+            } else if (data.type === 'stream_ended') {
+              closeAudioStream();
+              cleanupCall();
+            }
+          } catch (e) {
+            console.error('[PlivoWeb] audio stream message error', e);
           }
         };
-        checkAndDial();
-      } catch (e: any) {
-        console.error("[PlivoWeb] direct SIP dial error", e);
-        setStatus("error");
+
+        ws.onclose = () => {
+          closeAudioStream();
+          cleanupCall();
+        };
+
+        ws.onerror = (e) => {
+          console.error('[PlivoWeb] audio stream error', e);
+          setStatus('error');
+          closeAudioStream();
+          cleanupCall();
+        };
+
+        const mediaStream = await navigator.mediaDevices.getUserMedia({
+          audio: { sampleRate: 16000, channelCount: 1, echoCancellation: true, noiseSuppression: true },
+        });
+        micStreamRef.current = mediaStream;
+
+        const source = audioCtx.createMediaStreamSource(mediaStream);
+        const processor = audioCtx.createScriptProcessor(1024, 1, 1);
+        processorRef.current = processor;
+
+        processor.onaudioprocess = (e) => {
+          if (
+            micMutedRef.current ||
+            !audioWsRef.current ||
+            audioWsRef.current.readyState !== WebSocket.OPEN
+          ) {
+            return;
+          }
+          const input = e.inputBuffer.getChannelData(0);
+          const int16 = new Int16Array(input.length);
+          for (let i = 0; i < input.length; i++) {
+            int16[i] = Math.max(-32768, Math.min(32767, Math.round(input[i] * 32768)));
+          }
+          const bytes = new Uint8Array(int16.buffer);
+          const b64 = arrayBufferToBase64(bytes.buffer);
+          audioWsRef.current.send(JSON.stringify({ type: 'media', payload: b64 }));
+        };
+
+        source.connect(processor);
+        processor.connect(audioCtx.destination);
+      } catch (e) {
+        console.error('[PlivoWeb] connect audio stream error', e);
+        setStatus('error');
+        closeAudioStream();
         cleanupCall();
       }
     },
-    [cleanupCall, switchPlivoAccount]
+    [cleanupCall, closeAudioStream, startTimer]
   );
-
-  // Inbound: Plivo <Wait length="3"/> ke baad INVITE bhejta hai; callUUID tak wait karo.
-  const waitForIncoming = useCallback(async (ms = 8000): Promise<string | null> => {
-    const deadline = Date.now() + ms;
-    while (Date.now() < deadline) {
-      if (incomingCallUUIDRef.current) return incomingCallUUIDRef.current;
-      await new Promise((r) => setTimeout(r, 150));
-    }
-    return null;
-  }, []);
 
   const startCall = useCallback(
     async (contact: PlivoContact, opts?: { fromNumber?: string; plivoConfigId?: string }) => {
-      if (!workspaceId) throw new Error("No workspace selected");
-      setStatus("connecting");
+      if (!workspaceId) throw new Error('No workspace selected');
+      setStatus('connecting');
       try {
-        const res = await fetch("/api/plivo/call", {
-          method: "POST",
+        const res = await fetch('/api/plivo/call', {
+          method: 'POST',
           headers: {
-            "Content-Type": "application/json",
-            "x-workspace-id": workspaceId,
+            'Content-Type': 'application/json',
+            'x-workspace-id': workspaceId,
           },
           body: JSON.stringify({
             to: contact.phone,
@@ -445,122 +556,90 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
         });
         const data: any = await res.json();
         if (!data.success) {
-          throw new Error(data.error || "Failed to create Plivo call");
+          throw new Error(data.error || 'Failed to create Plivo call');
+        }
+        if (!data.streamUrl) {
+          throw new Error('Server did not return an audio stream URL');
         }
         const info: PlivoCallInfo = {
           id: data.callId,
           from: contact.phone,
           callerName: contact.name || contact.phone,
           phone: contact.phone,
-          dialUri: data.dialUri,
+          streamUrl: data.streamUrl,
           workspaceId,
           plivoConfigId: data.plivoConfigId ?? opts?.plivoConfigId,
-          direction: "outgoing",
+          direction: 'outgoing',
         };
-        await connectDirectSip(data.dialUri, data.plivoConfigId ?? opts?.plivoConfigId);
+        await connectAudioStream(data.callId, data.streamUrl);
         setActive(info);
-        updateAgentStatus("busy");
+        updateAgentStatus('busy');
       } catch (err: any) {
-        console.error("[PlivoWeb] startCall error", err);
+        console.error('[PlivoWeb] startCall error', err);
         cleanupCall();
-        setStatus("error");
+        setStatus('error');
         throw err;
       }
     },
-    [workspaceId, connectDirectSip, cleanupCall, updateAgentStatus]
+    [workspaceId, connectAudioStream, cleanupCall, updateAgentStatus]
   );
 
   const answer = useCallback(async () => {
     if (!incoming) return;
-    if (!clientRef.current) {
-      console.warn("[PlivoWeb] cannot answer: softphone not registered");
+    if (!incoming.streamUrl) {
+      console.warn('[PlivoWeb] cannot answer: missing stream URL');
+      setStatus('error');
       return;
     }
-    const uuid = await waitForIncoming();
-    if (!uuid) {
-      setStatus("error");
-      return;
-    }
-    clientRef.current.answer(uuid);
+    await connectAudioStream(incoming.id, incoming.streamUrl);
     setActive({ ...incoming });
     setIncoming(null);
-    updateAgentStatus("busy");
-  }, [incoming, waitForIncoming, updateAgentStatus]);
+    updateAgentStatus('busy');
+  }, [incoming, connectAudioStream, updateAgentStatus]);
 
   const reject = useCallback(async () => {
     const callId = incoming?.id;
-    const uuid = incomingCallUUIDRef.current;
-    if (uuid && clientRef.current) {
-      try {
-        clientRef.current.reject(uuid);
-      } catch (e) {
-        console.error("[PlivoWeb] reject error", e);
-      }
-    }
     setIncoming(null);
-    setStatus("idle");
-    updateAgentStatus("live");
+    setStatus('idle');
+    updateAgentStatus('live');
     if (isSafeCallId(callId) && workspaceId) {
       try {
         await fetch(`/api/plivo/call/${encodeURIComponent(callId)}/decline`, {
-          method: "POST",
-          headers: { "x-workspace-id": workspaceId },
+          method: 'POST',
+          headers: { 'x-workspace-id': workspaceId },
         });
       } catch (e) {
-        console.error("[PlivoWeb] reject error", e);
+        console.error('[PlivoWeb] reject error', e);
       }
     }
   }, [incoming, workspaceId, updateAgentStatus]);
 
   const hangup = useCallback(async () => {
     const callId = active?.id;
-    try {
-      if (clientRef.current) clientRef.current.hangup();
-    } catch (e) {
-      console.error("[PlivoWeb] hangup error", e);
-    }
+    closeAudioStream();
     cleanupCall();
     if (isSafeCallId(callId) && workspaceId) {
       try {
         await fetch(`/api/plivo/call/${encodeURIComponent(callId)}/hangup`, {
-          method: "POST",
-          headers: { "x-workspace-id": workspaceId },
+          method: 'POST',
+          headers: { 'x-workspace-id': workspaceId },
         });
       } catch (e) {
-        console.error("[PlivoWeb] backend hangup error", e);
+        console.error('[PlivoWeb] backend hangup error', e);
       }
     }
-  }, [active, workspaceId, cleanupCall]);
+  }, [active, workspaceId, cleanupCall, closeAudioStream]);
 
   const toggleMute = useCallback(() => {
-    const client = clientRef.current;
-    if (!client) return;
     const next = !isMuted;
-    try {
-      if (next) client.mute();
-      else client.unmute();
-      setIsMuted(next);
-    } catch (e) {
-      console.error("[PlivoWeb] mute error", e);
-    }
+    micMutedRef.current = next;
+    setIsMuted(next);
   }, [isMuted]);
 
   const toggleSpeaker = useCallback(() => {
-    const client = clientRef.current;
-    try {
-      const speaker = client?.audio?.speakerDevices;
-      if (speaker) {
-        if (!speakerOn) {
-          if (typeof speaker.set === "function") speaker.set("default");
-        } else {
-          if (typeof speaker.reset === "function") speaker.reset();
-        }
-      }
-    } catch (e) {
-      console.error("[PlivoWeb] speaker error", e);
-    }
+    // Browser mein speaker/earpiece selection limited hoti hai; UI state update karte hain.
     setSpeakerOn((s) => !s);
-  }, [speakerOn]);
+  }, []);
 
   const value: PlivoVoiceContextValue = {
     incoming,

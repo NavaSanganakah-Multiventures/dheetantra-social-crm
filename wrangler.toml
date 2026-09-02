@@ -54,6 +54,14 @@ class_name = "ChatDurableObject"
 tag = "v1"
 new_sqlite_classes = ["ChatDurableObject"]
 
+[[durable_objects.bindings]]
+name = "PLIVO_AUDIO_DO"
+class_name = "PlivoAudioBridge"
+
+[[migrations]]
+tag = "v2"
+new_classes = ["PlivoAudioBridge"]
+
 # ==========================================
 # 6. WORKFLOWS & QUEUES (BACKGROUND TASKS)
 # ==========================================

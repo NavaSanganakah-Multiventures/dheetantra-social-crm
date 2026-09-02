@@ -1,63 +1,56 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter_webrtc/flutter_webrtc.dart';
+import 'package:flutter_sound/flutter_sound.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:sip_ua/sip_ua.dart';
+import 'package:web_socket_channel/web_socket_channel.dart';
 
 import 'api_service.dart';
 
-/// Plivo softphone wrapper (SIP over TCP) for the DheeTantra user app.
+/// Plivo Audio Stream wrapper for the DheeTantra user app.
 ///
-/// Ab koi conference/PSTN forwarding nahi hai. Inbound PSTN caller seedha
-/// registered SIP endpoint par ring hota hai (Plivo <Dial><User> se), aur
-/// outbound calls app khud direct SIP URI dial karti hai. Instant
-/// logout/login (switchAccountBackground) se sahi account register hota hai.
-class PlivoVoiceService implements SipUaHelperListener {
+/// Ab koi conference/PSTN forwarding nahi hai. Inbound/Outbound Plivo calls
+/// ka media seedha backend ke WebSocket bridge par jaata hai. SIP endpoint
+/// aur softphone register karne ki zaroorat nahi. Instant logout/login
+/// concept legacy tarah banaaye rakhte hain lekin SIP account switch ab
+/// Audio Stream ke saath kaam nahi karta.
+class PlivoVoiceService {
   static final PlivoVoiceService _instance = PlivoVoiceService._internal();
   factory PlivoVoiceService() => _instance;
   PlivoVoiceService._internal();
 
-  static const String _domain = 'phone.plivo.com';
-  static const String _sipPort = '5060';
-
-  final SIPUAHelper _helper = SIPUAHelper();
   final _callStateController = StreamController<String>.broadcast();
   Stream<String> get onCallState => _callStateController.stream;
 
-  Call? _call;
-  Call? _pendingIncomingCall; // (नया) inbound SIP INVITE yahan store hota hai
-  MediaStream? _localStream;
-  Completer<bool>? _registrationCompleter;
+  FlutterSoundRecorder? _recorder;
+  FlutterSoundPlayer? _player;
+  WebSocketChannel? _audioChannel;
+  StreamController<Uint8List>? _micController;
+  Timer? _heartbeatTimer;
 
-  String? _currentConfigId;
-  String? _registrationTargetConfigId; // (नया) kaunsa config abhi register ho raha hai
-  List<dynamic> _credentialsList = [];
-  bool _initStarted = false;
+  bool _recorderStarted = false;
+  bool _playerStarted = false;
   bool _isMuted = false;
   bool _speakerOn = false;
   bool _isOnCall = false;
+  bool _initStarted = false;
+
+  String? _currentCallId;
 
   bool get isMuted => _isMuted;
   bool get isSpeakerOn => _speakerOn;
   bool get isOnCall => _isOnCall;
 
-  /// App start/login ke baad ek baar call karein: SIP UA start + register.
+  /// App start/login ke baad ek baar call karein: sirf mic permission check.
   Future<void> init() async {
     if (_initStarted) return;
     _initStarted = true;
-    _helper.addSipUaHelperListener(this);
-
     try {
       await _ensureMicrophonePermissionGranted();
     } catch (e) {
       debugPrint('[PlivoVoice] mic permission error: $e');
-    }
-
-    try {
-      await _register();
-    } catch (e) {
-      debugPrint('[PlivoVoice] initial SIP registration error: $e');
     }
   }
 
@@ -68,481 +61,213 @@ class PlivoVoiceService implements SipUaHelperListener {
     return result.isGranted;
   }
 
-  /// Backend se endpoint credentials lekar SIP UA ko start/register karta hai.
-  /// Concurrent callers (init + outbound join) ek hi attempt par wait karte hain.
-  Future<bool> _register({String? targetConfigId}) async {
-    // (नया) Credentials list ko refresh rakhte hain — sirf ek baar fetch karke
-    // static nahi rehna. Naya account baad mein add ho toh bhi mil jaaye.
-    if (_credentialsList.isEmpty) {
-      await _refreshCredentials();
-    }
-
-    if (_credentialsList.isEmpty) {
-      debugPrint('[PlivoVoice] SIP endpoint credentials not configured');
-      _callStateController.add('error: Plivo softphone endpoint not configured');
-      return false;
-    }
-
-    // Default to the first config if none provided
-    final configToUse = (targetConfigId != null && targetConfigId.isNotEmpty)
-        ? targetConfigId
-        : (_credentialsList.first['plivoConfigId']?.toString() ?? '');
-
-    // Already registered to this config
-    if (_helper.registered && _currentConfigId == configToUse) {
-      return true;
-    }
-
-    var creds = _findCreds(configToUse);
-    if (creds == null) {
-      // List purani ho sakti hai (account baad mein add/change hua) — refresh
-      // karke ek baar dobara dhoondo.
-      await _refreshCredentials();
-      creds = _findCreds(configToUse);
-    }
-
-    if (creds == null) {
-      debugPrint('[PlivoVoice] SIP endpoint credentials not found for $configToUse');
-      _callStateController.add('error: Plivo softphone endpoint not configured');
-      return false;
-    }
-
-    final username = creds['username'] as String?;
-    final password = creds['password'] as String?;
-    if (username == null || username.isEmpty || password == null || password.isEmpty) {
-      debugPrint('[PlivoVoice] SIP endpoint credentials not configured');
-      _callStateController.add('error: Plivo softphone endpoint not configured');
-      return false;
-    }
-
-    // (नया) Agar koi DOOSRA account abhi register ho raha hai toh pehle usse
-    // settle hone do. Pehle waale bug mein hum ussi in-flight attempt ka result
-    // lete the, isliye alag account par switch hota hi nahi tha (static reh
-    // jaata tha).
-    final inflight = _registrationCompleter;
-    if (inflight != null && !inflight.isCompleted) {
-      if (_registrationTargetConfigId == configToUse) {
-        return _waitRegistration(inflight);
-      }
-      await _waitRegistration(inflight);
-    }
-
-    if (_helper.registered || _helper.connected) {
-      debugPrint('[PlivoVoice] Stopping current SIP UA to switch accounts');
-      _helper.stop();
-      await Future.delayed(const Duration(milliseconds: 300));
-    }
-
-    final server = (creds['server']?.toString()) ?? _domain;
-    final port = (creds['port']?.toString()) ?? _sipPort;
-    final sipUri = (creds['sipUri']?.toString()) ?? 'sip:$username@$server';
-    debugPrint('[PlivoVoice] registering SIP URI: $sipUri (TCP, $server:$port) for config $configToUse');
-
-    final settings = UaSettings()
-      ..transportType = TransportType.TCP
-      ..host = server
-      ..port = port
-      ..uri = sipUri
-      ..authorizationUser = username
-      ..password = password
-      ..displayName = creds['displayName'] as String? ?? 'DheeTantra'
-      ..userAgent = 'DheeTantra-SIP/1.0'
-      ..register = true
-      ..dtmfMode = DtmfMode.RFC2833
-      ..iceServers = [
-        {'urls': 'stun:stun.plivo.com:3478'},
-        {'urls': 'stun:stun.l.google.com:19302'},
-      ];
-
-    final completer = Completer<bool>();
-    _registrationCompleter = completer;
-    _registrationTargetConfigId = configToUse;
-
-    try {
-      await _helper.start(settings);
-      _currentConfigId = configToUse;
-    } catch (e) {
-      debugPrint('[PlivoVoice] SIP start error: $e');
-      if (!completer.isCompleted) completer.complete(false);
-      if (identical(_registrationCompleter, completer)) {
-        _registrationCompleter = null;
-        _registrationTargetConfigId = null;
-      }
-      return false;
-    }
-
-    return _waitRegistration(completer);
-  }
-
-  Future<void> _refreshCredentials() async {
-    try {
-      final res = await ApiService().getPlivoSipCredentials();
-      _credentialsList = res['credentials'] as List<dynamic>? ?? [];
-    } catch (e) {
-      debugPrint('[PlivoVoice] refresh SIP credentials error: $e');
-    }
-  }
-
-  dynamic _findCreds(String configId) {
-    if (configId.isEmpty) return null;
-    for (final c in _credentialsList) {
-      if (c['plivoConfigId']?.toString() == configId) return c;
-    }
-    return null;
-  }
-
+  /// Legacy SIP endpoint switch (ab Audio Stream mein no-op).
+  /// CallKit trigger ko intact rakhta hai, lekin media bridge change nahi hota.
   Future<void> switchAccountBackground(String configId) async {
-    if (_currentConfigId == configId && _helper.registered) return;
-    await _register(targetConfigId: configId);
+    debugPrint('[PlivoVoice] switchAccountBackground noop for stream $configId');
   }
 
-  /// Registration attempt ka result wait karta hai (timeout ke saath). Fail
-  /// hone par specific error stream par bhejta hai taaki CallScreen sahi wajah
-  /// dikha sake.
-  Future<bool> _waitRegistration(Completer<bool> completer) async {
-    try {
-      final ok = await completer.future.timeout(const Duration(seconds: 15));
-      if (!ok) {
-        _callStateController.add('error: SIP registration failed');
-      }
-      return ok;
-    } on TimeoutException {
-      debugPrint('[PlivoVoice] SIP registration timed out');
-      _callStateController.add('error: SIP registration failed');
-      return false;
-    } finally {
-      if (identical(_registrationCompleter, completer)) {
-        _registrationCompleter = null;
-        _registrationTargetConfigId = null;
-      }
-      // Allow future retries (e.g. network came back, credentials linked later).
-      _initStarted = false;
-    }
-  }
-
-  /// TCP/WebSocket transport register hone ke baad connected hone tak wait
-  /// karta hai, kyunki sip_ua ka call() sirf connected state mein jaata hai.
-  Future<bool> _waitUntilConnected({required Duration timeout}) async {
-    final deadline = DateTime.now().add(timeout);
-    while (DateTime.now().isBefore(deadline)) {
-      if (_helper.registered && _helper.connected) return true;
-      await Future.delayed(const Duration(milliseconds: 200));
-    }
-    debugPrint('[PlivoVoice] timeout waiting for SIP connection (registered=${_helper.registered}, connected=${_helper.connected})');
-    return _helper.registered && _helper.connected;
-  }
-
-  /// Conference join karne ke liye SIP outbound call. Dest = conference name
-  /// as a SIP URI on phone.plivo.com; backend ka /api/plivo/webhook/app usi
-  /// naam ke Plivo conference me dial karke bridge kar deta hai.
-  Future<bool> joinConference(String conferenceName, {String? plivoConfigId}) async {
-    final name = (conferenceName ?? '').trim();
-    if (name.isEmpty) {
-      debugPrint('[PlivoVoice] joinConference: empty conference name');
+  /// Backend di hui streamUrl se WebSocket audio bridge connect karo.
+  Future<bool> connectAudioStream({
+    required String callId,
+    required String streamUrl,
+    String? sessionId,
+  }) async {
+    if (callId.isEmpty || streamUrl.isEmpty) {
+      _callStateController.add('error: Missing stream URL');
       return false;
     }
 
-    try {
-      if (!_helper.registered || (plivoConfigId != null && _currentConfigId != plivoConfigId)) {
-        final registered = await _register(targetConfigId: plivoConfigId);
-        if (!registered) {
-          // _register() ne specific error already stream par bheja hai.
-          return false;
-        }
-      }
+    await _disconnect();
 
+    if (!await _ensureMicrophonePermissionGranted()) {
+      _callStateController.add('error: Microphone permission required');
+      return false;
+    }
+
+    _currentCallId = callId;
+
+    try {
+      final sid = sessionId ?? await ApiService().fetchSessionToken();
+      if (sid == null || sid.isEmpty) {
+        _callStateController.add('error: Session not available');
+        await _disconnect();
+        return false;
+      }
+      final uri = Uri.parse(streamUrl).replace(queryParameters: {'sid': sid});
+      _audioChannel = WebSocketChannel.connect(uri);
       _callStateController.add('connecting');
 
-      // Mic permission is required before WebRTC can capture audio. Query it
-      // again here because the user may have denied it earlier.
-      if (!await _ensureMicrophonePermissionGranted()) {
-        _callStateController.add('error: Microphone permission required');
-        return false;
-      }
+      _audioChannel!.stream.listen(
+        (message) => _handleMessage(message, callId),
+        onDone: () {
+          if (_currentCallId == callId) {
+            _callStateController.add('ended');
+            _disconnect();
+          }
+        },
+        onError: (e) {
+          debugPrint('[PlivoVoice] audio stream error: $e');
+          _callStateController.add('error: Audio stream error');
+          _disconnect();
+        },
+      );
 
-      final mediaStream = await navigator.mediaDevices.getUserMedia({
-        'audio': true,
-        'video': false,
-      });
-      _localStream = mediaStream;
-
-      // sip_ua may report registered before the TCP/WebSocket transport is
-      // fully connected. Wait briefly so the INVITE doesn't fail immediately.
-      final connected = await _waitUntilConnected(timeout: const Duration(seconds: 8));
-      if (!connected) {
-        _callStateController.add('error: SIP UA not connected');
-        _reset();
-        return false;
-      }
-
-      final dest = 'sip:$name@$_domain';
-      var ok = await _helper.call(dest, voiceOnly: true, mediaStream: mediaStream);
-      if (ok != true) {
-        // One reconnect attempt: re-register and try again.
-        debugPrint('[PlivoVoice] initial call attempt failed, reconnecting...');
-        final registered = await _register(targetConfigId: plivoConfigId);
-        if (registered) {
-          await _waitUntilConnected(timeout: const Duration(seconds: 8));
-          ok = await _helper.call(dest, voiceOnly: true, mediaStream: mediaStream);
+      _heartbeatTimer = Timer.periodic(const Duration(seconds: 25), (_) {
+        try {
+          _audioChannel?.sink.add(jsonEncode({'type': 'ping'}));
+        } catch (e) {
+          debugPrint('[PlivoVoice] heartbeat error: $e');
         }
-      }
-      if (ok != true) {
-        _callStateController.add('error: SIP call failed');
-        _reset();
-        return false;
-      }
+      });
+
+      await _initAudioDevices();
       return true;
     } catch (e) {
-      debugPrint('[PlivoVoice] joinConference error: $e');
+      debugPrint('[PlivoVoice] connectAudioStream error: $e');
       _callStateController.add('error: $e');
-      _reset();
+      _disconnect();
       return false;
     }
   }
 
-  /// Direct SIP outbound dial (server se mila dialUri seedha dial karo).
-  Future<bool> callNumberDirect(String sipTarget, {String? plivoConfigId}) async {
-    final target = (sipTarget ?? '').trim();
-    if (target.isEmpty) {
-      debugPrint('[PlivoVoice] callNumberDirect: empty SIP target');
-      return false;
-    }
+  Future<void> _initAudioDevices() async {
+    _player = FlutterSoundPlayer();
+    await _player!.openPlayer();
+    await _player!.startPlayerFromStream(
+      codec: Codec.pcm16,
+      interleaved: true,
+      numChannels: 1,
+      sampleRate: 16000,
+      bufferSize: 8192,
+    );
+    _playerStarted = true;
 
+    _recorder = FlutterSoundRecorder();
+    await _recorder!.openRecorder();
+    _micController = StreamController<Uint8List>();
+    await _recorder!.startRecorder(
+      codec: Codec.pcm16,
+      toStream: _micController!.sink,
+      sampleRate: 16000,
+      numChannels: 1,
+      bufferSize: 4096,
+      enableEchoCancellation: true,
+      enableNoiseSuppression: true,
+    );
+    _recorderStarted = true;
+
+    _micController!.stream.listen((chunk) {
+      if (_isMuted || chunk.isEmpty) return;
+      try {
+        final b64 = base64Encode(chunk);
+        _audioChannel?.sink.add(jsonEncode({'type': 'media', 'payload': b64}));
+      } catch (e) {
+        debugPrint('[PlivoVoice] mic send error: $e');
+      }
+    });
+  }
+
+  void _handleMessage(dynamic message, String callId) {
     try {
-      if (!_helper.registered || (plivoConfigId != null && _currentConfigId != plivoConfigId)) {
-        final registered = await _register(targetConfigId: plivoConfigId);
-        if (!registered) {
-          return false;
-        }
-      }
+      final text = message is String ? message : utf8.decode(message);
+      final data = jsonDecode(text);
+      if (data is! Map<String, dynamic>) return;
 
-      _callStateController.add('connecting');
-
-      if (!await _ensureMicrophonePermissionGranted()) {
-        _callStateController.add('error: Microphone permission required');
-        return false;
+      final type = data['type']?.toString();
+      if (type == 'stream_started') {
+        _isOnCall = true;
+        _callStateController.add('connected');
+      } else if (type == 'media') {
+        final payload = data['payload']?.toString();
+        if (payload == null || payload.isEmpty) return;
+        _playMedia(payload);
+      } else if (type == 'stream_ended') {
+        _callStateController.add('ended');
+        _disconnect();
+      } else if (type == 'dtmf') {
+        // Local confirmation ke liye.
+      } else if (type == 'pong') {
+        // ignore
       }
-
-      final mediaStream = await navigator.mediaDevices.getUserMedia({
-        'audio': true,
-        'video': false,
-      });
-      _localStream = mediaStream;
-
-      final connected = await _waitUntilConnected(timeout: const Duration(seconds: 8));
-      if (!connected) {
-        _callStateController.add('error: SIP UA not connected');
-        _reset();
-        return false;
-      }
-
-      var ok = await _helper.call(target, voiceOnly: true, mediaStream: mediaStream);
-      if (ok != true) {
-        debugPrint('[PlivoVoice] initial direct dial failed, reconnecting...');
-        final registered = await _register(targetConfigId: plivoConfigId);
-        if (registered) {
-          await _waitUntilConnected(timeout: const Duration(seconds: 8));
-          ok = await _helper.call(target, voiceOnly: true, mediaStream: mediaStream);
-        }
-      }
-      if (ok != true) {
-        _callStateController.add('error: SIP call failed');
-        _reset();
-        return false;
-      }
-      return true;
     } catch (e) {
-      debugPrint('[PlivoVoice] callNumberDirect error: $e');
-      _callStateController.add('error: $e');
-      _reset();
-      return false;
+      debugPrint('[PlivoVoice] message handle error: $e');
     }
   }
 
-  /// Inbound SIP INVITE (Plivo ke <Dial><User> se aayi) ko answer karta hai.
-  Future<bool> answerIncomingCall({String? plivoConfigId}) async {
+  void _playMedia(String base64Payload) {
+    if (_player == null || !_playerStarted) return;
     try {
-      if (!_helper.registered || (plivoConfigId != null && _currentConfigId != plivoConfigId)) {
-        final registered = await _register(targetConfigId: plivoConfigId);
-        if (!registered) {
-          return false;
-        }
-      }
-
-      _callStateController.add('connecting');
-
-      // Plivo ka <Wait length="3"/> ke baad INVITE aata hai; usko wait karo.
-      final call = await _waitForIncomingCall(timeout: const Duration(seconds: 10));
-      if (call == null) {
-        _callStateController.add('error: Incoming SIP call not found');
-        return false;
-      }
-
-      if (!await _ensureMicrophonePermissionGranted()) {
-        _callStateController.add('error: Microphone permission required');
-        return false;
-      }
-
-      final mediaStream = await navigator.mediaDevices.getUserMedia({
-        'audio': true,
-        'video': false,
-      });
-      _localStream = mediaStream;
-
-      call.answer(_helper.buildCallOptions(true), mediaStream: mediaStream);
-      _isOnCall = true;
-      return true;
+      final bytes = base64Decode(base64Payload);
+      if (bytes.isEmpty) return;
+      _player!.uint8ListSink?.add(bytes);
     } catch (e) {
-      debugPrint('[PlivoVoice] answerIncomingCall error: $e');
-      _callStateController.add('error: $e');
-      _reset();
-      return false;
+      debugPrint('[PlivoVoice] play media error: $e');
     }
   }
 
-  Future<Call?> _waitForIncomingCall({required Duration timeout}) async {
-    final deadline = DateTime.now().add(timeout);
-    while (DateTime.now().isBefore(deadline)) {
-      final pending = _pendingIncomingCall;
-      if (pending != null) {
-        _pendingIncomingCall = null;
-        return pending;
-      }
-      await Future.delayed(const Duration(milliseconds: 150));
+  /// DTMF digits bridge par bhejo.
+  Future<void> sendDtmf(String digits) async {
+    if (digits.isEmpty) return;
+    try {
+      _audioChannel?.sink.add(jsonEncode({'type': 'dtmf', 'digits': digits}));
+    } catch (e) {
+      debugPrint('[PlivoVoice] dtmf send error: $e');
     }
-    return _pendingIncomingCall;
   }
 
+  /// Call end karo: bridge ko 'end' bhejo aur local audio band karo.
   Future<void> hangUp() async {
     try {
-      _call?.hangup();
+      _audioChannel?.sink.add(jsonEncode({'type': 'end'}));
     } catch (e) {
-      debugPrint('[PlivoVoice] hangup error: $e');
+      debugPrint('[PlivoVoice] hangup send error: $e');
     }
-    _reset();
+    await _disconnect();
     _callStateController.add('ended');
   }
 
+  /// hangUp ka alias.
+  Future<void> endCall() async => hangUp();
+
   Future<void> toggleMute() async {
     _isMuted = !_isMuted;
-    try {
-      if (_call != null) {
-        if (_isMuted) {
-          _call!.mute(true, false);
-        } else {
-          _call!.unmute(true, false);
-        }
-      }
-    } catch (e) {
-      debugPrint('[PlivoVoice] toggleMute error: $e');
-    }
+    _callStateController.add(_isMuted ? 'muted' : 'unmuted');
   }
 
   Future<void> toggleSpeaker() async {
     _speakerOn = !_speakerOn;
-    try {
-      final tracks = _localStream?.getAudioTracks() ?? [];
-      if (tracks.isNotEmpty) {
-        tracks.first.enableSpeakerphone(_speakerOn);
-      }
-    } catch (e) {
-      debugPrint('[PlivoVoice] toggleSpeaker error: $e');
-    }
+    // Mobile speaker/earpiece routing OS level par hoti hai; UI state update karte hain.
+    _callStateController.add(_speakerOn ? 'speaker_on' : 'speaker_off');
   }
 
-  @override
-  void registrationStateChanged(RegistrationState state) {
-    debugPrint('[PlivoVoice] registration state: ${state.state}' +
-        (state.cause != null ? ' (cause: ${state.cause})' : ''));
-    final completer = _registrationCompleter;
-    if (completer == null || completer.isCompleted) return;
-    if (state.state == RegistrationStateEnum.REGISTERED) {
-      completer.complete(true);
-    } else if (state.state == RegistrationStateEnum.REGISTRATION_FAILED) {
-      completer.complete(false);
+  Future<void> _disconnect() async {
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = null;
+
+    if (_recorderStarted && _recorder != null) {
+      try { await _recorder!.stopRecorder(); } catch (_) {}
+      _recorderStarted = false;
     }
-  }
-
-  @override
-  void transportStateChanged(TransportState state) {
-    debugPrint('[PlivoVoice] transport state: ${state.state}');
-    final completer = _registrationCompleter;
-    if (completer == null || completer.isCompleted) return;
-    if (state.state == TransportStateEnum.DISCONNECTED) {
-      debugPrint('[PlivoVoice] transport disconnected before register response');
-      completer.complete(false);
-    }
-  }
-
-  @override
-  void callStateChanged(Call call, CallState state) {
-    _call = call;
-
-    // Direct SIP inbound: INVITE ko store karo taaki answerIncomingCall use kar sake.
-    if (call.direction == Direction.incoming &&
-        state.state == CallStateEnum.CALL_INITIATION) {
-      _pendingIncomingCall = call;
-      _callStateController.add('connecting');
-      return;
+    if (_playerStarted && _player != null) {
+      try { await _player!.stopPlayer(); } catch (_) {}
+      _playerStarted = false;
     }
 
-    switch (state.state) {
-      case CallStateEnum.CALL_INITIATION:
-      case CallStateEnum.CONNECTING:
-        _callStateController.add('connecting');
-        break;
-      case CallStateEnum.PROGRESS:
-        _callStateController.add('ringing');
-        break;
-      case CallStateEnum.ACCEPTED:
-      case CallStateEnum.CONFIRMED:
-        _isOnCall = true;
-        break;
-      case CallStateEnum.STREAM:
-        _isOnCall = true;
-        if (state.stream != null) {
-          _localStream = state.stream;
-        }
-        _callStateController.add('connected');
-        break;
-      case CallStateEnum.MUTED:
-        _isMuted = true;
-        break;
-      case CallStateEnum.UNMUTED:
-        _isMuted = false;
-        break;
-      case CallStateEnum.ENDED:
-        _reset();
-        _callStateController.add('ended');
-        break;
-      case CallStateEnum.FAILED:
-        // A failed SIP leg is NOT a normal call end. Emitting 'ended' here
-        // made CallScreen pop instantly on registration/dial failures.
-        _reset();
-        final cause = state.cause?.toString();
-        _callStateController.add(cause != null && cause.isNotEmpty
-            ? 'error: Plivo SIP call failed: $cause'
-            : 'error: Plivo SIP call failed');
-        break;
-      default:
-        break;
-    }
-  }
+    await _micController?.close();
+    _micController = null;
 
-  @override
-  void onNewMessage(SIPMessageRequest msg) {}
+    try { await _recorder?.closeRecorder(); } catch (_) {}
+    try { await _player?.closePlayer(); } catch (_) {}
+    _recorder = null;
+    _player = null;
 
-  @override
-  void onNewNotify(Notify ntf) {}
+    try { await _audioChannel?.sink.close(); } catch (_) {}
+    _audioChannel = null;
 
-  @override
-  void onNewReinvite(ReInvite event) {}
-
-  void _reset() {
-    _call = null;
-    _localStream = null;
+    _currentCallId = null;
+    _isOnCall = false;
     _isMuted = false;
     _speakerOn = false;
-    _isOnCall = false;
   }
 }
