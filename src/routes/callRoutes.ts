@@ -113,6 +113,18 @@ router.post('/api/whatsapp/calls/outbound', async (c) => {
 
   const finalPhoneNumberId = phoneNumberId || config.phone_number_id;
 
+  // Clean up globally stale calls older than 30 minutes
+  await c.env.DB.prepare(
+    "UPDATE calls SET status = 'ended' WHERE workspace_id = ? AND source = 'whatsapp' AND status IN ('dialing','ringing','in_progress') AND (julianday('now') - julianday(created_at)) * 24 * 60 > 30"
+  ).bind(workspaceId).run();
+
+  // If the current user is initiating a new call, any of their previous active calls are definitely stuck/abandoned
+  if (user?.id) {
+    await c.env.DB.prepare(
+      "UPDATE calls SET status = 'ended' WHERE workspace_id = ? AND assigned_user_id = ? AND source = 'whatsapp' AND status IN ('dialing','ringing','in_progress')"
+    ).bind(workspaceId, user.id).run();
+  }
+
   // Busy guard: only one active WhatsApp call per workspace at a time
   const activeCall = await c.env.DB.prepare(
     "SELECT id FROM calls WHERE workspace_id = ? AND source = 'whatsapp' AND status IN ('dialing','ringing','in_progress') LIMIT 1"
