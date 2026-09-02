@@ -319,7 +319,7 @@ class _PlivoSettingsScreenState extends State<PlivoSettingsScreen> {
     if (res['success'] == true) {
       _snack(force ? 'SIP Endpoint re-linked' : 'SIP Endpoint linked');
       await _load();
-      // Naya endpoint link hone ke baad SIP turant register ho jaye â bina
+      // Naya endpoint link hone ke baad SIP turant register ho jaye Ã¢ÂÂ bina
       // app restart kiye. plivoConfigId pass karke usi account ko register karo.
       PlivoVoiceService().refreshAccounts(plivoConfigId: configId);
     } else {
@@ -568,7 +568,7 @@ class _PlivoSettingsScreenState extends State<PlivoSettingsScreen> {
                   ),
                   Expanded(
                     child: SelectableText(
-                      _showSipPassword ? password : 'Ã¢ÂÂ¢Ã¢ÂÂ¢Ã¢ÂÂ¢Ã¢ÂÂ¢Ã¢ÂÂ¢Ã¢ÂÂ¢Ã¢ÂÂ¢Ã¢ÂÂ¢Ã¢ÂÂ¢Ã¢ÂÂ¢Ã¢ÂÂ¢Ã¢ÂÂ¢',
+                      _showSipPassword ? password : '••••••••••••',
                       style: const TextStyle(
                         color: AppColors.textPrimary,
                         fontSize: 13,
@@ -618,12 +618,12 @@ class _PlivoSettingsScreenState extends State<PlivoSettingsScreen> {
                   ),
                   SizedBox(height: 4),
                   Text(
-                    'Ã¢ÂÂ¢ Account type: SIP\n'
-                    'Ã¢ÂÂ¢ Username / Auth ID: the Username above\n'
-                    'Ã¢ÂÂ¢ Password: the Password above\n'
-                    'Ã¢ÂÂ¢ Domain / Host: phone.plivo.com\n'
-                    'Ã¢ÂÂ¢ Transport: UDP (port 5060) - TCP (port 5060) also works\n'
-                    'Ã¢ÂÂ¢ Note: do not register the app softphone and Zoiper on the same endpoint at the same time - use one device at a time.',
+                    '• Account type: SIP\n'
+                    '• Username / Auth ID: the Username above\n'
+                    '• Password: the Password above\n'
+                    '• Domain / Host: phone.plivo.com\n'
+                    '• Transport: UDP (port 5060) - TCP (port 5060) also works\n'
+                    '• Note: do not register the app softphone and Zoiper on the same endpoint at the same time - use one device at a time.',
                     style: TextStyle(color: AppColors.textMuted, fontSize: 12, height: 1.5),
                   ),
                 ],
