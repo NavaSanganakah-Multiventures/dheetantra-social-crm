@@ -246,7 +246,7 @@ class _CallScreenState extends State<CallScreen> {
       if (claimCallId.isNotEmpty) {
         final claim = await ApiService().claimCallAnswer(claimCallId, source: 'plivo');
         if (claim['alreadyAnswered'] == true) {
-          debugPrint('[CallScreen] Plivo call already answered by another agent — not joining');
+          debugPrint('[CallScreen] Plivo call already answered by another agent â not joining');
           if (mounted) setState(() => _status = 'error: Call answered by another agent');
           return;
         }
@@ -281,7 +281,7 @@ class _CallScreenState extends State<CallScreen> {
       if (claimCallId.isNotEmpty) {
         final claim = await ApiService().claimCallAnswer(claimCallId, source: 'twilio');
         if (claim['alreadyAnswered'] == true) {
-          debugPrint('[CallScreen] Twilio call already answered by another agent — not joining');
+          debugPrint('[CallScreen] Twilio call already answered by another agent â not joining');
           if (mounted) setState(() => _status = 'error: Call answered by another agent');
           return;
         }
@@ -319,7 +319,7 @@ class _CallScreenState extends State<CallScreen> {
           TextButton(
             onPressed: () {
               Navigator.of(ctx).pop();
-              // Sirf dialog band karein Ã¢ÂÂ CallScreen ko pop na karein. Call
+              // Sirf dialog band karein - CallScreen ko pop na karein. Call
               // pehle se place ho chuki hai; user ko error dikhe aur wo khud
               // hangup kar sake (warna UI flash hokar gayab ho jata hai).
               if (mounted) {
