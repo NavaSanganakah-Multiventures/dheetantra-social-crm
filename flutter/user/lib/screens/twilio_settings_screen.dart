@@ -256,6 +256,7 @@ class _TwilioSettingsScreenState extends State<TwilioSettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text('Twilio Voice Settings'),
       ),

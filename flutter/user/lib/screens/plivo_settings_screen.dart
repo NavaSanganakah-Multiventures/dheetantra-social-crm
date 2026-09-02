@@ -349,6 +349,7 @@ class _PlivoSettingsScreenState extends State<PlivoSettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text('Plivo Voice Settings'),
       ),

@@ -143,8 +143,8 @@ class WebSocketService with WidgetsBindingObserver {
       // flips the flag via onDone/onError.
       if (_wasConnected) {
         // Ye reconnect hai (pehle connected tha, disconnect hua, ab wapas).
-        debugPrint('WS reconnect detected; refresh trigger bhej rahe hain');
-        DataRefreshService().trigger(RefreshReason.websocketReconnected);
+        debugPrint('WS reconnect detected; refresh trigger disabled');
+        // DataRefreshService().trigger(RefreshReason.websocketReconnected);
       }
       _wasConnected = true;
       _connectionController.add(true);

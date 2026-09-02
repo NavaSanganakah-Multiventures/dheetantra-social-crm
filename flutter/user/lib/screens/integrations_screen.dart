@@ -13,6 +13,7 @@ class IntegrationsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text('Tools & Integrations'),
       ),
@@ -25,7 +26,7 @@ class IntegrationsScreen extends StatelessWidget {
             title: 'Send WhatsApp to a new number',
             subtitle: 'Send a message directly without creating a contact',
             onTap: () {
-              Navigator.of(context).push(
+              Navigator.of(context).pushReplacement(
                 MaterialPageRoute(builder: (_) => const SendNewMessageScreen()),
               );
             },
@@ -37,7 +38,7 @@ class IntegrationsScreen extends StatelessWidget {
             title: 'Send WhatsApp template',
             subtitle: 'Meta-approved template to a specific number',
             onTap: () {
-              Navigator.of(context).push(
+              Navigator.of(context).pushReplacement(
                 MaterialPageRoute(builder: (_) => const SendTemplateScreen()),
               );
             },
@@ -49,7 +50,7 @@ class IntegrationsScreen extends StatelessWidget {
             title: 'Twilio Voice',
             subtitle: 'Manage Workspace Twilio Account and From Numbers',
             onTap: () {
-              Navigator.of(context).push(
+              Navigator.of(context).pushReplacement(
                 MaterialPageRoute(builder: (_) => const TwilioSettingsScreen()),
               );
             },
@@ -61,7 +62,7 @@ class IntegrationsScreen extends StatelessWidget {
             title: 'Plivo Voice',
             subtitle: 'Manage Workspace Plivo Account, From Numbers and Agent Phone',
             onTap: () {
-              Navigator.of(context).push(
+              Navigator.of(context).pushReplacement(
                 MaterialPageRoute(builder: (_) => const PlivoSettingsScreen()),
               );
             },
@@ -73,7 +74,7 @@ class IntegrationsScreen extends StatelessWidget {
             title: 'Send Email',
             subtitle: 'Send email from the Workspace\'s verified domain',
             onTap: () {
-              Navigator.of(context).push(
+              Navigator.of(context).pushReplacement(
                 MaterialPageRoute(builder: (_) => const EmailComposeScreen()),
               );
             },

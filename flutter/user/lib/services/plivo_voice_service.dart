@@ -95,7 +95,10 @@ class PlivoVoiceService {
         await _disconnect();
         return false;
       }
-      final uri = Uri.parse(streamUrl).replace(queryParameters: {'sid': sid});
+      final originalUri = Uri.parse(streamUrl);
+      final newParams = Map<String, String>.from(originalUri.queryParameters);
+      newParams['sid'] = sid;
+      final uri = originalUri.replace(queryParameters: newParams);
       _audioChannel = WebSocketChannel.connect(uri);
       _callStateController.add('connecting');
 

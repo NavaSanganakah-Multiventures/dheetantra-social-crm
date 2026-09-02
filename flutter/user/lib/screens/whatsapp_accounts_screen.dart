@@ -236,6 +236,7 @@ class _WhatsAppAccountsScreenState extends State<WhatsAppAccountsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text('WhatsApp Accounts'),
       ),
