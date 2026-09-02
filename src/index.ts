@@ -61,7 +61,7 @@ function constantTimeEqual(a: string, b: string): boolean {
   return diff === 0;
 }
 
-export class ChatDurableObject extends DurableObject {
+export class ChatDurableObjectV2 extends DurableObject {
   constructor(state: any, env: Env) {
     super(state, env);
   }

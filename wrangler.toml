@@ -47,12 +47,16 @@ preview_bucket_name = "dhitantra-media-preview"
 # ==========================================
 [[durable_objects.bindings]]
 name = "CHAT_DO"
-class_name = "ChatDurableObject"
+class_name = "ChatDurableObjectV2"
 
 # Using SQLite storage backend natively in Durable Objects
 [[migrations]]
 tag = "v1"
-new_sqlite_classes = ["ChatDurableObject"]
+new_classes = ["ChatDurableObject"]
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["ChatDurableObjectV2"]
 
 # ==========================================
 # 6. WORKFLOWS & QUEUES (BACKGROUND TASKS)
