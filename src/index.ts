@@ -244,10 +244,10 @@ export class PlivoAudioBridge extends DurableObject {
     if (this.loaded) return;
     this.loaded = true;
     try {
-      const stored = await this.ctx.storage.get('plivoStream');
+      const stored = (await this.ctx.storage.get('plivoStream')) as any;
       if (stored) {
-        this.mediaFormat = (stored && stored.mediaFormat) || this.mediaFormat;
-        this.streamStart = (stored && stored.streamStart) || this.streamStart;
+        this.mediaFormat = stored.mediaFormat || this.mediaFormat;
+        this.streamStart = stored.streamStart || this.streamStart;
       }
     } catch {}
   }
@@ -312,7 +312,7 @@ export class PlivoAudioBridge extends DurableObject {
 
     // Agent late-join handshake: agent connect hote hi 'ready' bhejta hai.
     // Agar Plivo 'start' pehle aa chuka hai (inbound), toh stored start
-    // dobara 'stream_started' ke roop mein bhej do — agent ko negotiated
+    // dobara 'stream_started' ke roop mein bhej do â agent ko negotiated
     // mu-law/8000 format mil jaata hai aur recorder/player usi par chale.
     if (data.type === 'ready') {
       if (this.streamStart) {
