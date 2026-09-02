@@ -11,7 +11,7 @@ async function getGemini(env: Env): Promise<GoogleGenAI | null> {
   const rawKey = await env.SECRETS_KV.get('GEMINI_API_KEY');
   if (!rawKey) return null;
   const key = rawKey.trim().replace(/^"|"$/g, '');
-  return new GoogleGenAI({ apiKey: key, httpOptions: { fetch: fetch } });
+  return new GoogleGenAI({ apiKey: key, httpOptions: { fetch: fetch } as any });
 }
 
 interface ClassifyInput {

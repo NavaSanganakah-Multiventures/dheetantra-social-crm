@@ -242,7 +242,7 @@ export async function handleIncomingMessage(
       } else {
         try {
           const geminiKey = rawKey.trim().replace(/^"|"$/g, '');
-          const ai = new GoogleGenAI({ apiKey: geminiKey, httpOptions: { fetch: fetch } });
+          const ai = new GoogleGenAI({ apiKey: geminiKey, httpOptions: { fetch: fetch } as any });
           const aiResponse = await ai.models.generateContent({
               model: 'gemini-2.0-flash',
               contents: `You are a helpful customer support AI for Dhitantra.
