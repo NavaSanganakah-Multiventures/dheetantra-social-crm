@@ -87,7 +87,7 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
     activeRef.current = active;
   }, [active]);
 
-  const switchPlivoAccount = useCallback((newConfigId: string) => {
+  const switchPlivoAccount = useCallback(async (newConfigId: string) => {
     if (!newConfigId) return;
     if (currentConfigIdRef.current === newConfigId) return;
     
@@ -98,10 +98,14 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
       console.log(`[PlivoWeb] Switching SIP endpoint to config: ${newConfigId}`);
       try {
         clientRef.current.logout();
-        clientRef.current.login(creds.username, creds.password);
         currentConfigIdRef.current = newConfigId;
         registeredRef.current = false;
         setRegistered(false);
+        
+        // Wait a short duration to let the SDK cleanly destroy the previous SIP session.
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        clientRef.current.login(creds.username, creds.password);
       } catch (e) {
         console.error("[PlivoWeb] Error switching SIP endpoint", e);
       }
