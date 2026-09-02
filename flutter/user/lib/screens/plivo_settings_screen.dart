@@ -319,7 +319,7 @@ class _PlivoSettingsScreenState extends State<PlivoSettingsScreen> {
     if (res['success'] == true) {
       _snack(force ? 'SIP Endpoint re-linked' : 'SIP Endpoint linked');
       await _load();
-      // Naya endpoint link hone ke baad SIP turant register ho jaye Ã¢ÂÂ bina
+      // Naya endpoint link hone ke baad SIP turant register ho jaye — bina
       // app restart kiye. plivoConfigId pass karke usi account ko register karo.
       PlivoVoiceService().refreshAccounts(plivoConfigId: configId);
     } else {
