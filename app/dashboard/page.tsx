@@ -644,7 +644,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                         body: JSON.stringify({ source: 'whatsapp' })
                       });
                       if (res.ok) {
-                        const data = await res.json();
+                        const data = (await res.json()) as any;
                         // If all agents declined, tear down the call globally
                         if (data.allDeclined) {
                           if (incomingCall.phoneNumberId) {

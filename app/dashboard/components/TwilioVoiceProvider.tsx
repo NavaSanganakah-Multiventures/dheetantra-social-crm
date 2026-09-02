@@ -344,7 +344,7 @@ export function TwilioVoiceProvider({ children }: { children: React.ReactNode })
         });
         
         if (res.ok) {
-          const data = await res.json();
+          const data = (await res.json()) as any;
           // Backend handles allDeclined logic
         } else {
           console.error("[TwilioWeb] decline api returned non-OK", res.status);

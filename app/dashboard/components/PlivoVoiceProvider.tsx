@@ -500,7 +500,7 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
         });
         
         if (res.ok) {
-          const data = await res.json();
+          const data = (await res.json()) as any;
           // Only tear down the call globally if ALL agents have declined
           if (data.allDeclined) {
             await fetch(`/api/plivo/call/${encodeURIComponent(callId)}/decline`, {
