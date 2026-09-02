@@ -309,6 +309,157 @@ admin.delete('/workspaces/:id', async (c) => {
     return c.json({ error: err.message }, 500);
   }
 });
+// ==========================================
+// ADMIN WORKSPACE MEMBER MANAGEMENT
+// Allows system administrators to add, update and remove members
+// for any workspace without being a member of that workspace.
+// ==========================================
+
+// Helper: find or create a pending user by email (for admin invites)
+async function findOrCreateUserByEmail(env: any, email: string, name?: string) {
+  if (!env.DB) return null;
+  const normalized = email.toLowerCase().trim();
+  const existing: any = await env.DB.prepare('SELECT id FROM users WHERE email = ?').bind(normalized).first();
+  if (existing) return { id: existing.id, created: false };
+
+  const id = crypto.randomUUID();
+  await env.DB.prepare('INSERT INTO users (id, email, name, is_registered) VALUES (?, ?, ?, ?)')
+    .bind(id, normalized, name || normalized.split('@')[0], 0)
+    .run();
+  return { id, created: true };
+}
+
+// GET workspace members
+admin.get('/workspaces/:id/members', async (c) => {
+  const isAdmin = await verifyAdmin(c);
+  if (!isAdmin) return c.json({ error: 'Unauthorized' }, 403);
+  if (!c.env.DB) return c.json({ error: 'Database not connected' }, 500);
+
+  try {
+    const workspaceId = c.req.param('id');
+    const { results } = await c.env.DB.prepare(
+      'SELECT u.id, u.email, u.name, wm.role, wm.joined_at ' +
+      'FROM workspace_members wm ' +
+      'JOIN users u ON wm.user_id = u.id ' +
+      'WHERE wm.workspace_id = ? ' +
+      "ORDER BY CASE wm.role WHEN 'owner' THEN 1 WHEN 'admin' THEN 2 ELSE 3 END, u.name")
+      .bind(workspaceId).all();
+    return c.json({ members: results || [] });
+  } catch (err: any) {
+    console.error('Admin: failed to list workspace members:', err);
+    return c.json({ error: err.message || 'Failed to list members' }, 500);
+  }
+});
+
+// ADD a member to workspace (create pending user if needed)
+admin.post('/workspaces/:id/members', async (c) => {
+  const isAdmin = await verifyAdmin(c);
+  if (!isAdmin) return c.json({ error: 'Unauthorized' }, 403);
+  if (!c.env.DB) return c.json({ error: 'Database not connected' }, 500);
+
+  try {
+    const workspaceId = c.req.param('id');
+    const { email, role = 'member', name } = await c.req.json();
+    if (!email || typeof email !== 'string') return c.json({ error: 'Email must be a valid string' }, 400);
+    if (!['owner', 'admin', 'member'].includes(role)) {
+      return c.json({ error: 'Invalid role. Use owner, admin, or member' }, 400);
+    }
+
+    const workspace: any = await c.env.DB.prepare('SELECT id FROM workspaces WHERE id = ?').bind(workspaceId).first();
+    if (!workspace) return c.json({ error: 'Workspace not found' }, 404);
+
+    const userResult = await findOrCreateUserByEmail(c.env, email, name);
+    if (!userResult) return c.json({ error: 'Database not connected' }, 500);
+
+    const existing: any = await c.env.DB.prepare('SELECT role FROM workspace_members WHERE workspace_id = ? AND user_id = ?')
+      .bind(workspaceId, userResult.id).first();
+    if (existing) {
+      return c.json({ error: 'User is already a member of this workspace' }, 400);
+    }
+
+    await c.env.DB.prepare('INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (?, ?, ?)')
+      .bind(workspaceId, userResult.id, role).run();
+
+    return c.json({
+      success: true,
+      createdUser: userResult.created,
+      member: { id: userResult.id, email: email.toLowerCase().trim(), role }
+    });
+  } catch (err: any) {
+    console.error('Admin: failed to add workspace member:', err);
+    return c.json({ error: err.message || 'Failed to add member' }, 500);
+  }
+});
+
+// UPDATE member role
+admin.put('/workspaces/:id/members/:userId', async (c) => {
+  const isAdmin = await verifyAdmin(c);
+  if (!isAdmin) return c.json({ error: 'Unauthorized' }, 403);
+  if (!c.env.DB) return c.json({ error: 'Database not connected' }, 500);
+
+  try {
+    const workspaceId = c.req.param('id');
+    const targetUserId = c.req.param('userId');
+    const { role } = await c.req.json();
+    if (!['owner', 'admin', 'member'].includes(role)) {
+      return c.json({ error: 'Invalid role' }, 400);
+    }
+
+    const target: any = await c.env.DB.prepare('SELECT role FROM workspace_members WHERE workspace_id = ? AND user_id = ?')
+      .bind(workspaceId, targetUserId).first();
+    if (!target) return c.json({ error: 'Member not found' }, 404);
+
+    if (role !== 'owner' && target.role === 'owner') {
+      const ownerCount: any = await c.env.DB.prepare(
+        'SELECT COUNT(*) as count FROM workspace_members WHERE workspace_id = ? AND role = ?'
+      ).bind(workspaceId, 'owner').first();
+      if ((ownerCount?.count || 0) <= 1) {
+        return c.json({ error: 'Cannot demote the last owner. Assign another owner first.' }, 400);
+      }
+    }
+
+    await c.env.DB.prepare('UPDATE workspace_members SET role = ? WHERE workspace_id = ? AND user_id = ?')
+      .bind(role, workspaceId, targetUserId).run();
+
+    return c.json({ success: true });
+  } catch (err: any) {
+    console.error('Admin: failed to update workspace member role:', err);
+    return c.json({ error: err.message || 'Failed to update role' }, 500);
+  }
+});
+
+// REMOVE member from workspace
+admin.delete('/workspaces/:id/members/:userId', async (c) => {
+  const isAdmin = await verifyAdmin(c);
+  if (!isAdmin) return c.json({ error: 'Unauthorized' }, 403);
+  if (!c.env.DB) return c.json({ error: 'Database not connected' }, 500);
+
+  try {
+    const workspaceId = c.req.param('id');
+    const targetUserId = c.req.param('userId');
+
+    const target: any = await c.env.DB.prepare('SELECT role FROM workspace_members WHERE workspace_id = ? AND user_id = ?')
+      .bind(workspaceId, targetUserId).first();
+    if (!target) return c.json({ error: 'Member not found' }, 404);
+
+    if (target.role === 'owner') {
+      const ownerCount: any = await c.env.DB.prepare(
+        'SELECT COUNT(*) as count FROM workspace_members WHERE workspace_id = ? AND role = ?'
+      ).bind(workspaceId, 'owner').first();
+      if ((ownerCount?.count || 0) <= 1) {
+        return c.json({ error: 'Cannot remove the last owner. Transfer ownership first.' }, 400);
+      }
+    }
+
+    await c.env.DB.prepare('DELETE FROM workspace_members WHERE workspace_id = ? AND user_id = ?')
+      .bind(workspaceId, targetUserId).run();
+
+    return c.json({ success: true });
+  } catch (err: any) {
+    console.error('Admin: failed to remove workspace member:', err);
+    return c.json({ error: err.message || 'Failed to remove member' }, 500);
+  }
+});
 
 // GET plans list
 admin.get('/plans', async (c) => {
@@ -498,7 +649,7 @@ admin.get('/kv', async (c) => {
       } else if (keyName.startsWith('OTP:')) {
         val = '[Verification Code Data]';
       } else {
-        val = '••••••••';
+        val = '********';
       }
 
       keysWithValues.push({
@@ -806,7 +957,7 @@ admin.post('/domains/:id/unsuspend', async (c) => {
  * and no keys are skipped. The client keeps calling with the returned `cursor`
  * until `done: true`.
  *
- * Live session/OTP keys (`SESSION:` / `OTP:` prefixes) are never copied —
+ * Live session/OTP keys (`SESSION:` / `OTP:` prefixes) are never copied -
  * they hold per-user auth state and must not leak into another namespace.
  *
  * Body: { sourceNamespaceId, destNamespaceId, cursor? }
