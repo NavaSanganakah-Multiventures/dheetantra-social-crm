@@ -173,6 +173,12 @@ class TwilioVoiceService {
 
       // TwiML app ke voice URL mein "To" body param conference name ke roop me
       // milega, jisse backend same conference mein join kar sakega.
+      
+      // iOS AudioSession lock-screen answer delay workaround
+      if (!kIsWeb && Platform.isIOS) {
+        await Future.delayed(const Duration(milliseconds: 500));
+      }
+      
       final ok = await _voice.call.connect(extraOptions: {'To': conferenceName});
 
       if (ok != true) {

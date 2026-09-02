@@ -257,6 +257,9 @@ class CallKitService {
     _homeShellReady = true;
   }
 
+  /// Returns true if there is an accepted call waiting to be routed.
+  bool get hasPendingAcceptCall => _pendingAcceptCall != null;
+
   /// Returns any call accepted while the app was not yet initialized/navigated
   /// to HomeShell. The caller must then route to [CallScreen] and answer the
   /// WebRTC call. Returns null after the first read.

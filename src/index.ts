@@ -217,6 +217,8 @@ export class PlivoAudioBridge extends DurableObject {
     const text = typeof message === 'string' ? message : new TextDecoder().decode(message);
     try {
       const data = JSON.parse(text);
+      if (!data || typeof data !== 'object') return;
+
       const tags = this.ctx.getTags(ws) || [];
       const role = tags.find((t) => t.startsWith('role:'))?.slice(5) || '';
 
@@ -232,6 +234,7 @@ export class PlivoAudioBridge extends DurableObject {
       }
     } catch (e) {
       console.error('[PlivoAudio] message error:', e);
+      try { ws.close(1011, 'Invalid message payload'); } catch {}
     }
   }
 

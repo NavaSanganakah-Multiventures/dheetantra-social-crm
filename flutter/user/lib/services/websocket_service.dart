@@ -37,7 +37,7 @@ class WebSocketService with WidgetsBindingObserver {
   /// No inbound traffic (including pongs) for this long = dead network path.
   static const _staleTimeout = Duration(seconds: 75);
   /// Backgrounded longer than this -> force a fresh connection on resume.
-  static const _resumeThreshold = Duration(seconds: 60);
+  static const _resumeThreshold = Duration(seconds: 10);
 
   WebSocketChannel? _channel;
   StreamSubscription? _sub;

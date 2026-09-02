@@ -198,7 +198,11 @@ class PlivoVoiceService {
   void _playMedia(String base64Payload) {
     if (_player == null || !_playerStarted) return;
     try {
-      final bytes = base64Decode(base64Payload);
+      String normalized = base64Payload;
+      while (normalized.length % 4 != 0) {
+        normalized += '=';
+      }
+      final bytes = base64Decode(normalized);
       if (bytes.isEmpty) return;
       _player!.uint8ListSink?.add(bytes);
     } catch (e) {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../services/api_service.dart';
+import '../services/callkit_service.dart';
 import '../theme/app_theme.dart';
 import 'home_shell.dart';
 import 'login_screen.dart';
@@ -20,7 +21,9 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _checkAuth() async {
-    await Future.delayed(const Duration(milliseconds: 1200));
+    if (!CallKitService().hasPendingAcceptCall) {
+      await Future.delayed(const Duration(milliseconds: 1200));
+    }
     if (!mounted) return;
 
     final api = ApiService();

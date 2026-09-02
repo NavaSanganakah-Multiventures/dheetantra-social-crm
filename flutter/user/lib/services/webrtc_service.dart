@@ -79,8 +79,17 @@ class WebRTCService {
       // aur itna wait sirf mic access ke liye hai.
       int attempts = 0;
       while (WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed && attempts < 50) {
+        if (_endEmitted) {
+          debugPrint('[WebRTC] Call ended while waiting for app to resume');
+          return;
+        }
         await Future.delayed(const Duration(milliseconds: 100));
         attempts++;
+      }
+
+      if (_endEmitted) {
+        debugPrint('[WebRTC] Call ended before acquiring microphone');
+        return;
       }
 
       if (!await ensureMicrophonePermission()) {
