@@ -897,7 +897,7 @@ router.post('/api/calls/:id/recording', async (c) => {
 
 // Play/download a call recording.
 router.get('/api/calls/:id/recording', async (c) => {
-  const workspaceId = c.req.header('x-workspace-id');
+  const workspaceId = c.req.header('x-workspace-id') || c.req.query('workspaceId');
   const callId = c.req.param('id');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 

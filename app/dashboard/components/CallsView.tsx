@@ -21,6 +21,7 @@ export function CallsView({
   const { toast } = useToast();
   const twilioVoice = useTwilioVoice();
   const plivoVoice = usePlivoVoice();
+  const activeWorkspaceId = typeof window !== 'undefined' ? localStorage.getItem('workspaceId') : '';
   const [calls, setCalls] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [callingEnabled, setCallingEnabled] = useState(true);
@@ -493,7 +494,7 @@ export function CallsView({
                               className="h-8 w-40"
                               style={{ minWidth: '160px' }}
                             >
-                              <source src={`/api/calls/${call.id}/recording`} type="audio/mpeg" />
+                              <source src={`/api/calls/${call.id}/recording?workspaceId=${activeWorkspaceId}`} />
                             </audio>
                           </div>
                         ) : (

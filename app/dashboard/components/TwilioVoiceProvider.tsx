@@ -329,21 +329,25 @@ export function TwilioVoiceProvider({ children }: { children: React.ReactNode })
     setIncoming(null);
     if (callId && workspaceId) {
       try {
+        if (callRef.current && typeof callRef.current.reject === "function") {
+          try {
+            callRef.current.reject();
+          } catch (e) {
+            console.error("[TwilioWeb] reject error", e);
+          }
+        }
+
         const res = await fetch(`/api/voice/call/${encodeURIComponent(callId)}/decline`, {
           method: "POST",
           headers: { "x-workspace-id": workspaceId, "Content-Type": "application/json" },
           body: JSON.stringify({ source: "twilio" }),
         });
-        const data = (await res.json()) as any;
         
-        if (data.allDeclined) {
-          if (callRef.current && typeof callRef.current.reject === "function") {
-            try {
-              callRef.current.reject();
-            } catch (e) {
-              console.error("[TwilioWeb] reject error", e);
-            }
-          }
+        if (res.ok) {
+          const data = await res.json();
+          // Backend handles allDeclined logic
+        } else {
+          console.error("[TwilioWeb] decline api returned non-OK", res.status);
         }
       } catch (e) {
         console.error("[TwilioWeb] reject api error", e);

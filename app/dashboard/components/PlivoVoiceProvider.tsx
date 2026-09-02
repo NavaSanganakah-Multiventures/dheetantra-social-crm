@@ -498,17 +498,30 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
           headers: { "x-workspace-id": workspaceId, "Content-Type": "application/json" },
           body: JSON.stringify({ source: "plivo" }),
         });
-        const data = (await res.json()) as any;
         
-        // Only tear down the call globally if ALL agents have declined
-        if (data.allDeclined) {
-          await fetch(`/api/plivo/call/${encodeURIComponent(callId)}/decline`, {
-            method: "POST",
-            headers: { "x-workspace-id": workspaceId },
-          });
+        if (res.ok) {
+          const data = await res.json();
+          // Only tear down the call globally if ALL agents have declined
+          if (data.allDeclined) {
+            await fetch(`/api/plivo/call/${encodeURIComponent(callId)}/decline`, {
+              method: "POST",
+              headers: { "x-workspace-id": workspaceId },
+            });
+          }
+        } else {
+          console.error("[PlivoWeb] decline api returned non-OK", res.status);
         }
       } catch (e) {
-        console.error("[PlivoWeb] reject error", e);
+        console.error("[PlivoWeb] reject api error", e);
+      }
+      
+      // Also reject locally on Plivo client so it stops ringing
+      if (clientRef.current) {
+        try {
+          clientRef.current.reject();
+        } catch (e) {
+          console.error("[PlivoWeb] local reject error", e);
+        }
       }
     }
   }, [incoming, workspaceId]);

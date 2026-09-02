@@ -643,31 +643,36 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                         },
                         body: JSON.stringify({ source: 'whatsapp' })
                       });
-                      const data = (await res.json()) as any;
-
-                      // If all agents declined, tear down the call globally
-                      if (data.allDeclined) {
-                        if (incomingCall.phoneNumberId) {
-                          await fetch(`/api/whatsapp/calls/${encodeURIComponent(incomingCall.id)}/reject`, {
+                      if (res.ok) {
+                        const data = await res.json();
+                        // If all agents declined, tear down the call globally
+                        if (data.allDeclined) {
+                          if (incomingCall.phoneNumberId) {
+                            await fetch(`/api/whatsapp/calls/${encodeURIComponent(incomingCall.id)}/reject`, {
+                              method: 'POST',
+                              headers: {
+                                'Content-Type': 'application/json',
+                                'x-workspace-id': incomingCall.workspace_id
+                              },
+                              body: JSON.stringify({ phoneNumberId: incomingCall.phoneNumberId })
+                            });
+                          }
+                          // Local DB status update
+                          await fetch(`/api/whatsapp/calls/${encodeURIComponent(incomingCall.id)}/status`, {
                             method: 'POST',
                             headers: {
                               'Content-Type': 'application/json',
                               'x-workspace-id': incomingCall.workspace_id
                             },
-                            body: JSON.stringify({ phoneNumberId: incomingCall.phoneNumberId })
+                            body: JSON.stringify({ status: 'declined' })
                           });
                         }
-                        // Local DB status update
-                        await fetch(`/api/whatsapp/calls/${encodeURIComponent(incomingCall.id)}/status`, {
-                          method: 'POST',
-                          headers: {
-                            'Content-Type': 'application/json',
-                            'x-workspace-id': incomingCall.workspace_id
-                          },
-                          body: JSON.stringify({ status: 'declined' })
-                        });
+                      } else {
+                        console.error("[WhatsApp Web] decline api returned non-OK", res.status);
                       }
-                    } catch(e) {}
+                    } catch(e) {
+                      console.error("[WhatsApp Web] decline api error", e);
+                    }
                     setIncomingCall(null);
                   }}
                   className="flex-1 bg-rose-500 hover:bg-rose-600 text-white py-3.5 rounded-2xl text-xs font-bold transition-all shadow-lg shadow-rose-500/20 active:scale-95 flex items-center justify-center gap-2"

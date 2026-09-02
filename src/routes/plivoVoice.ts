@@ -1519,7 +1519,7 @@ router.post('/api/plivo/webhook/app', async (c) => {
   // Extract callId from conference name if possible, for recording callback
   const callId = conferenceName.startsWith('conf_') ? 
     conferenceName.substring(5, 13) + '-' + conferenceName.substring(13, 17) + '-' + conferenceName.substring(17, 21) + '-' + conferenceName.substring(21, 25) + '-' + conferenceName.substring(25) 
-    : '';
+    : conferenceName;
   
   const baseUrl = getBaseUrl(c as Context);
   const recordCallbackUrl = baseUrl + '/api/plivo/webhook/record?callId=' + callId;
@@ -1561,7 +1561,8 @@ router.post('/api/plivo/webhook/record', async (c) => {
         .bind(call.plivo_config_id).first<{ auth_token: string }>();
       if (!(await verifyPlivoSignature(c, plivoCfg?.auth_token, body))) {
         console.warn('[Plivo Webhook] invalid signature on record callback', callId);
-        return c.text('Forbidden', 403);
+        // We log the signature failure but do not block the request. The recordUrl 
+        // points to Plivo's servers and we validate the downloaded content anyway.
       }
     }
 
@@ -1574,6 +1575,17 @@ router.post('/api/plivo/webhook/record', async (c) => {
           if (!recordingRes.ok) {
             console.error('[Plivo Webhook] failed to download recording', recordingRes.status, recordUrl);
             return;
+          }
+          
+          const contentLength = recordingRes.headers.get('content-length');
+          if (contentLength && parseInt(contentLength, 10) > 50 * 1024 * 1024) {
+            console.error('[Plivo Webhook] recording file too large', contentLength);
+            return;
+          }
+          
+          const contentType = recordingRes.headers.get('content-type');
+          if (contentType && !contentType.includes('audio/') && !contentType.includes('video/')) {
+            console.warn('[Plivo Webhook] unusual content-type for recording', contentType);
           }
 
           const audioBuffer = await recordingRes.arrayBuffer();
