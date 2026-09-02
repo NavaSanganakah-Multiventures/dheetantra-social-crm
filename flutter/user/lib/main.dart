@@ -38,7 +38,7 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   if (type == 'incoming_call' || type == 'twilio_incoming_call') {
     await CallKitService().showIncomingCall(message.data);
   } else if (type == 'call_answered') {
-    // Kisi aur agent ne answer kar liya — is device ki CallKit ring band karo.
+    // Kisi aur agent ne answer kar liya - is device ki CallKit ring band karo.
     final callId = message.data['callId']?.toString() ?? '';
     if (callId.isNotEmpty) {
       await CallKitService().dismissCallRing(callId);
