@@ -278,6 +278,7 @@ export class PlivoAudioBridge extends DurableObject {
         event: 'playAudio',
         media: {
           contentType: this.mediaFormat.contentType,
+          sampleRate: this.mediaFormat.sampleRate,
           payload: data.payload,
         },
       });
