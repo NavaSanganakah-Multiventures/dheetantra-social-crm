@@ -160,13 +160,7 @@ class PlivoVoiceService {
     _micController!.stream.listen((chunk) {
       if (_isMuted || chunk.isEmpty) return;
       try {
-        // Swap Little-Endian (FlutterSound) to Big-Endian (Plivo)
-        final swapped = Uint8List(chunk.length);
-        for (int i = 0; i < chunk.length - 1; i += 2) {
-          swapped[i] = chunk[i + 1];
-          swapped[i + 1] = chunk[i];
-        }
-        final b64 = base64Encode(swapped);
+        final b64 = base64Encode(chunk);
         _audioChannel?.sink.add(jsonEncode({'type': 'media', 'payload': b64}));
       } catch (e) {
         debugPrint('[PlivoVoice] mic send error: $e');
@@ -211,14 +205,7 @@ class PlivoVoiceService {
       final bytes = base64Decode(normalized);
       if (bytes.isEmpty) return;
 
-      // Swap Big-Endian (Plivo) to Little-Endian (FlutterSound)
-      final swapped = Uint8List(bytes.length);
-      for (int i = 0; i < bytes.length - 1; i += 2) {
-        swapped[i] = bytes[i + 1];
-        swapped[i + 1] = bytes[i];
-      }
-
-      _player!.uint8ListSink?.add(swapped);
+      _player!.uint8ListSink?.add(bytes);
     } catch (e) {
       debugPrint('[PlivoVoice] play media error: $e');
     }
