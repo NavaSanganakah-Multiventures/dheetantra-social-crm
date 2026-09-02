@@ -456,7 +456,7 @@ async function pushIncomingCallToAgents(env: Env, c: any, workspaceId: string, c
         // Only available (live) agents should receive an in-app CallKit ring.
         // For the informational PSTN-forward notification (auto-dial ON) we keep
         // the existing all-members behavior (the dialed agent is already busy).
-        // Only available (live) agents should ever receive a ring push â even in
+        // Only available (live) agents should ever receive a ring push - even in
         // auto-forward (PSTN) mode the informational push goes to live agents only.
         const members = await env.DB.prepare("SELECT user_id FROM workspace_members WHERE workspace_id = ? AND voice_status = 'live'")
           .bind(workspaceId).all<{ user_id: string }>();
@@ -1236,7 +1236,7 @@ router.post('/api/plivo/webhook/voice', async (c) => {
     // Honor the per-account "auto-forward to live agent" toggle. When OFF, no
     // outbound PSTN leg is dialed (no Plivo forwarding charge); the caller waits
     // in the conference and agents can answer in the app (Phase 2).
-    // Dial ALL available (live) agents simultaneously â first to answer wins.
+    // Dial ALL available (live) agents simultaneously - first to answer wins.
     // The agent who answers claims the call in the outbound webhook (leg=agent).
     const liveAgents = config.auto_dial_agents === 1 ? await pickAllAvailableAgents(c.env.DB, config.workspace_id) : [];
     if (liveAgents.length > 0) {
@@ -1354,7 +1354,7 @@ router.post('/api/plivo/webhook/status', async (c) => {
       // startConferenceOnEnter="false", so they fire an "enter" event almost
       // immediately. Treating that "enter" as "in_progress" made the dashboard
       // believe the call was already answered ~2s after it arrived and dismiss
-      // the ringing overlay Ã¢ÂÂ even though no agent had picked up and the caller
+      // the ringing overlay ÃÂ¢ÃÂÃÂ even though no agent had picked up and the caller
       // was still on hold. Gate the transition on "start" instead so the
       // website keeps ringing until a real agent answers.
       if (conferenceAction === 'start' && call.status !== 'in_progress' && call.status !== 'ended') {
@@ -1451,7 +1451,7 @@ router.post('/api/plivo/webhook/outbound', async (c) => {
         const existingCall = await c.env.DB.prepare('SELECT answered_by_user_id FROM calls WHERE id = ?')
           .bind(callId).first<{ answered_by_user_id: string | null }>();
         if (existingCall?.answered_by_user_id && existingCall.answered_by_user_id !== userId) {
-          console.log('[Plivo Webhook] call already answered by another agent — hanging up leg');
+          console.log('[Plivo Webhook] call already answered by another agent â hanging up leg');
           return plivoXmlResponse(XML_DECL + '<Response><Hangup/></Response>', 200);
         }
         if (userId && callConfig?.workspace_id && !existingCall?.answered_by_user_id) {
