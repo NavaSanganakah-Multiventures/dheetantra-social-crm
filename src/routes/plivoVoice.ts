@@ -1354,7 +1354,7 @@ router.post('/api/plivo/webhook/status', async (c) => {
       // startConferenceOnEnter="false", so they fire an "enter" event almost
       // immediately. Treating that "enter" as "in_progress" made the dashboard
       // believe the call was already answered ~2s after it arrived and dismiss
-      // the ringing overlay ÃÂ¢ÃÂÃÂ even though no agent had picked up and the caller
+      // the ringing overlay - even though no agent had picked up and the caller
       // was still on hold. Gate the transition on "start" instead so the
       // website keeps ringing until a real agent answers.
       if (conferenceAction === 'start' && call.status !== 'in_progress' && call.status !== 'ended') {
@@ -1451,7 +1451,7 @@ router.post('/api/plivo/webhook/outbound', async (c) => {
         const existingCall = await c.env.DB.prepare('SELECT answered_by_user_id FROM calls WHERE id = ?')
           .bind(callId).first<{ answered_by_user_id: string | null }>();
         if (existingCall?.answered_by_user_id && existingCall.answered_by_user_id !== userId) {
-          console.log('[Plivo Webhook] call already answered by another agent â hanging up leg');
+          console.log('[Plivo Webhook] call already answered by another agent - hanging up leg');
           return plivoXmlResponse(XML_DECL + '<Response><Hangup/></Response>', 200);
         }
         if (userId && callConfig?.workspace_id && !existingCall?.answered_by_user_id) {
