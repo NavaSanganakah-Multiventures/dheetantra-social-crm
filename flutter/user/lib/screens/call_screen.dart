@@ -242,7 +242,13 @@ class _CallScreenState extends State<CallScreen> {
       final conferenceName = widget.callData['conferenceName']?.toString() ??
           widget.callData['id']?.toString() ??
           widget.callData['callId']?.toString() ?? '';
-      final ok = await PlivoVoiceService().joinConference(conferenceName);
+      // plivoConfigId pass karo taaki sahi Plivo account ke registered SIP
+      // endpoint se call place ho (multi-account auto-switch). Push payload
+      // mein plivoConfigId backend bhejta hai; iske bina galat account use
+      // ho sakta tha.
+      final plivoConfigId = widget.callData['plivoConfigId']?.toString();
+      final ok = await PlivoVoiceService()
+          .joinConference(conferenceName, plivoConfigId: plivoConfigId);
       if (!ok && mounted) {
         // joinConference() already emitted a specific error (e.g. SIP
         // registration failure); do not override it with a generic message.
@@ -289,7 +295,7 @@ class _CallScreenState extends State<CallScreen> {
           TextButton(
             onPressed: () {
               Navigator.of(ctx).pop();
-              // Sirf dialog band karein — CallScreen ko pop na karein. Call
+              // Sirf dialog band karein â CallScreen ko pop na karein. Call
               // pehle se place ho chuki hai; user ko error dikhe aur wo khud
               // hangup kar sake (warna UI flash hokar gayab ho jata hai).
               if (mounted) {

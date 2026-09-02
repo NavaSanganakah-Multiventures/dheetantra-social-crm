@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../services/api_service.dart';
+import '../services/plivo_voice_service.dart';
 import '../theme/app_theme.dart';
 
 class PlivoSettingsScreen extends StatefulWidget {
@@ -33,10 +34,18 @@ class _PlivoSettingsScreenState extends State<PlivoSettingsScreen> {
     final configs = await ApiService().getPlivoConfigs();
     final agents = await ApiService().getVoiceAgents();
 
+    // Backend /api/plivo/sip-credentials { credentials: [ {username, ...}, ... ] }
+    // return karta hai (array), top-level 'username' nahi hota. Pehle galat field
+    // (sip['username']) padhne ki wajah se ye card HAMESHA "SIP endpoint not
+    // linked yet" dikhata tha - chahe endpoint link ho chuka ho. Ab array ka
+    // pehla credential use karte hain (multi-account mein created_at asc order).
     Map<String, dynamic>? sipCreds;
     try {
       final sip = await ApiService().getPlivoSipCredentials();
-      if ((sip['username']?.toString() ?? '').isNotEmpty) sipCreds = sip;
+      final credsList = sip['credentials'];
+      if (credsList is List && credsList.isNotEmpty) {
+        sipCreds = Map<String, dynamic>.from(credsList.first as Map);
+      }
     } catch (_) {
       sipCreds = null;
     }
@@ -310,6 +319,9 @@ class _PlivoSettingsScreenState extends State<PlivoSettingsScreen> {
     if (res['success'] == true) {
       _snack(force ? 'SIP Endpoint re-linked' : 'SIP Endpoint linked');
       await _load();
+      // Naya endpoint link hone ke baad SIP turant register ho jaye — bina
+      // app restart kiye. plivoConfigId pass karke usi account ko register karo.
+      PlivoVoiceService().refreshAccounts(plivoConfigId: configId);
     } else {
       _snack('Error: ${res['error']}');
     }
