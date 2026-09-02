@@ -1300,13 +1300,14 @@ router.post('/api/plivo/webhook/voice', async (c) => {
 
     const baseUrl = getBaseUrl(c as Context);
     const statusCallbackUrl = baseUrl + '/api/plivo/webhook/status?callId=' + callId + '&leg=inbound';
+    const recordCallbackUrl = baseUrl + '/api/plivo/webhook/record?callId=' + callId;
 
     // Caller waits in the conference waiting room. If an agent was dialed, the
     // agent leg (startConferenceOnEnter="true") starts the conference when they
     // answer. If no agent, the caller simply hears hold music until they hang up.
     const xml = XML_DECL +
       '<Response>' +
-      '<Conference startConferenceOnEnter="false" endConferenceOnExit="true" waitSound="' + escXml(HOLD_MUSIC_URL) + '" callbackUrl="' + escXml(statusCallbackUrl) + '" callbackMethod="POST">' + escXml(conferenceName) + '</Conference>' +
+      '<Conference startConferenceOnEnter="false" endConferenceOnExit="true" waitSound="' + escXml(HOLD_MUSIC_URL) + '" callbackUrl="' + escXml(statusCallbackUrl) + '" callbackMethod="POST" record="true" recordFileFormat="mp3" recordCallbackUrl="' + escXml(recordCallbackUrl) + '" recordCallbackMethod="POST">' + escXml(conferenceName) + '</Conference>' +
       '</Response>';
     return plivoXmlResponse(xml, 200);
   } catch (e: any) {
@@ -1482,9 +1483,10 @@ router.post('/api/plivo/webhook/outbound', async (c) => {
     if (waiting) {
       const baseUrl = getBaseUrl(c as Context);
       const statusCallbackUrl = baseUrl + '/api/plivo/webhook/status?callId=' + callId + '&leg=customer';
+      const recordCallbackUrlWaiting = baseUrl + '/api/plivo/webhook/record?callId=' + callId;
       const xml = XML_DECL +
         '<Response>' +
-        '<Conference startConferenceOnEnter="false" endConferenceOnExit="true" waitSound="' + escXml(HOLD_MUSIC_URL) + '" callbackUrl="' + escXml(statusCallbackUrl) + '" callbackMethod="POST">' + escXml(conferenceName) + '</Conference>' +
+        '<Conference startConferenceOnEnter="false" endConferenceOnExit="true" waitSound="' + escXml(HOLD_MUSIC_URL) + '" callbackUrl="' + escXml(statusCallbackUrl) + '" callbackMethod="POST" record="true" recordFileFormat="mp3" recordCallbackUrl="' + escXml(recordCallbackUrlWaiting) + '" recordCallbackMethod="POST">' + escXml(conferenceName) + '</Conference>' +
         '</Response>';
       return plivoXmlResponse(xml, 200);
     }
@@ -1514,6 +1516,91 @@ router.post('/api/plivo/webhook/app', async (c) => {
   return plivoXmlResponse(
     XML_DECL + `<Response><Conference startConferenceOnEnter="true" endConferenceOnExit="false" beep="false">${escXml(conferenceName)}</Conference></Response>`
   );
+});
+
+// ---------------------------------------------------------------
+// Recording callback: Plivo fires this when a conference recording is ready.
+// Download the MP3, upload to R2, and persist the URL on the call row.
+// ---------------------------------------------------------------
+router.post('/api/plivo/webhook/record', async (c) => {
+  try {
+    const body = await parseWebhookBody(c);
+    const callId = c.req.query('callId') || '';
+    const recordUrl = body.RecordUrl || body.record_url || '';
+    const recordingDuration = parseInt(body.RecordingDuration || body.recording_duration || '0', 10);
+
+    console.log('[Plivo Webhook] record callback', { callId, recordUrl: recordUrl ? '***' : '(empty)', recordingDuration });
+
+    if (!callId || !recordUrl) {
+      return c.text('OK', 200);
+    }
+
+    // Validate the call exists and get its plivo config for signature verification
+    const call = await c.env.DB.prepare(
+      'SELECT c.id, c.workspace_id, c.plivo_config_id FROM calls c WHERE c.id = ?'
+    ).bind(callId).first<{ id: string; workspace_id: string; plivo_config_id: string | null }>();
+    if (!call) {
+      console.warn('[Plivo Webhook] record callback for unknown callId:', callId);
+      return c.text('OK', 200);
+    }
+
+    // Verify Plivo signature
+    if (call.plivo_config_id) {
+      const plivoCfg = await c.env.DB.prepare('SELECT auth_token FROM plivo_configs WHERE id = ?')
+        .bind(call.plivo_config_id).first<{ auth_token: string }>();
+      if (!(await verifyPlivoSignature(c, plivoCfg?.auth_token, body))) {
+        console.warn('[Plivo Webhook] invalid signature on record callback', callId);
+        return c.text('Forbidden', 403);
+      }
+    }
+
+    // Download and upload in the background so we return 200 quickly to Plivo
+    c.executionCtx.waitUntil(
+      (async () => {
+        try {
+          // Download the recording from Plivo
+          const recordingRes = await fetch(recordUrl);
+          if (!recordingRes.ok) {
+            console.error('[Plivo Webhook] failed to download recording', recordingRes.status, recordUrl);
+            return;
+          }
+
+          const audioBuffer = await recordingRes.arrayBuffer();
+          if (audioBuffer.byteLength === 0) {
+            console.warn('[Plivo Webhook] recording file is empty, skipping upload', callId);
+            return;
+          }
+
+          // Upload to R2
+          const r2Key = `recordings/${callId}.mp3`;
+          await c.env.MEDIA_BUCKET.put(r2Key, audioBuffer, {
+            httpMetadata: {
+              contentType: 'audio/mpeg',
+            },
+            customMetadata: {
+              callId,
+              workspaceId: call.workspace_id,
+              duration: String(recordingDuration),
+            },
+          });
+
+          // Update the call record with the R2 key
+          await c.env.DB.prepare(
+            'UPDATE calls SET recording_url = ? WHERE id = ?'
+          ).bind(r2Key, callId).run();
+
+          console.log('[Plivo Webhook] recording saved to R2 and DB updated', { callId, r2Key, size: audioBuffer.byteLength });
+        } catch (bgErr) {
+          console.error('[Plivo Webhook] background recording upload failed:', bgErr);
+        }
+      })()
+    );
+
+    return c.text('OK', 200);
+  } catch (e: any) {
+    console.error('[Plivo Webhook] record error:', e);
+    return c.text('OK', 200);
+  }
 });
 
 // Fallback URL for all Plivo webhooks. When a primary handler fails, explicitly
