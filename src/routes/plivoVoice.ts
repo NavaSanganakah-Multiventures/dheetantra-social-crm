@@ -1458,6 +1458,11 @@ router.post('/api/plivo/webhook/outbound', async (c) => {
           const claimed = await claimCallAnswer(c.env, callId, callConfig.workspace_id, userId);
           if (claimed) {
             c.executionCtx.waitUntil(notifyCallAnswered(c.env, callConfig.workspace_id, callId, userId, 'plivo'));
+          } else {
+            // Another agent won the answer race between our read and claim.
+            // Hangup this leg so the caller never hears two agents at once.
+            console.log('[Plivo Webhook] lost answer race - hanging up leg');
+            return plivoXmlResponse(XML_DECL + '<Response><Hangup/></Response>', 200);
           }
         }
       }
