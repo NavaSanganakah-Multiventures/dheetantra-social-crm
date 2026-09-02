@@ -185,7 +185,7 @@ export class ChatDurableObject extends DurableObject {
 }
 
 export class PlivoAudioBridge extends DurableObject {
-  private mediaFormat = { contentType: 'audio/x-l16', sampleRate: 16000 };
+  private mediaFormat = { contentType: 'audio/x-l16;rate=16000', sampleRate: 16000 };
 
   constructor(state: any, env: Env) {
     super(state, env);
@@ -241,7 +241,7 @@ export class PlivoAudioBridge extends DurableObject {
       const enc = String(start.mediaFormat?.encoding || 'L16').toUpperCase();
       const sampleRate = Number(start.mediaFormat?.sampleRate || 16000);
       this.mediaFormat = {
-        contentType: enc === 'L16' ? 'audio/x-l16' : 'audio/' + enc.toLowerCase(),
+        contentType: enc === 'L16' ? `audio/x-l16;rate=${sampleRate}` : `audio/${enc.toLowerCase()};rate=${sampleRate}`,
         sampleRate,
       };
       this.broadcastToRole('agent', {
@@ -278,7 +278,6 @@ export class PlivoAudioBridge extends DurableObject {
         event: 'playAudio',
         media: {
           contentType: this.mediaFormat.contentType,
-          sampleRate: this.mediaFormat.sampleRate,
           payload: data.payload,
         },
       });
