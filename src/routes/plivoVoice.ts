@@ -2,6 +2,7 @@ import { Hono, Context } from 'hono';
 import { Env } from '../types';
 import { sqliteNow, requireRole } from '../shared';
 import { normalizeE164 } from '../utils/phoneUtils';
+import { trackRingingAgents, claimCallAnswer, notifyCallAnswered, cleanupCallRinging } from '../services/callRouting';
 
 // ---------------------------------------------------------------------------
 // Plivo voice provider (PSTN bridge). Mirrors twilioVoice.ts but talks to the
@@ -184,6 +185,13 @@ async function pickAvailableAgent(db: D1Database, workspaceId: string) {
   return db.prepare(
     "SELECT wm.user_id, u.phone FROM workspace_members wm JOIN users u ON u.id = wm.user_id WHERE wm.workspace_id = ? AND wm.voice_status = 'live' AND u.phone IS NOT NULL AND TRIM(u.phone) != '' ORDER BY wm.voice_status_updated_at ASC LIMIT 1"
   ).bind(workspaceId).first<{ user_id: string; phone: string }>();
+}
+
+async function pickAllAvailableAgents(db: D1Database, workspaceId: string) {
+  const { results } = await db.prepare(
+    "SELECT wm.user_id, u.phone FROM workspace_members wm JOIN users u ON u.id = wm.user_id WHERE wm.workspace_id = ? AND wm.voice_status = 'live' AND u.phone IS NOT NULL AND TRIM(u.phone) != '' ORDER BY wm.voice_status_updated_at ASC"
+  ).bind(workspaceId).all<{ user_id: string; phone: string }>();
+  return results || [];
 }
 
 async function createPlivoCall(config: { auth_id: string; auth_token: string }, payload: Record<string, string>): Promise<{ ok: boolean; requestUuid?: string; message?: string; error?: string; status?: number }> {
@@ -424,11 +432,13 @@ async function broadcastToWorkspace(env: Env, workspaceId: string, payload: any)
 
 // Restore a busy agent to live and tear down the Plivo conference (the
 // conference DELETE disconnects every remaining member, e.g. the agent leg).
-async function cleanupPlivoCall(env: Env, call: { id: string; workspace_id: string; plivo_config_id?: string | null; assigned_user_id?: string | null }) {
-  if (call.assigned_user_id) {
+async function cleanupPlivoCall(env: Env, call: { id: string; workspace_id: string; plivo_config_id?: string | null; assigned_user_id?: string | null; answered_by_user_id?: string | null }) {
+  const agentId = call.answered_by_user_id || call.assigned_user_id || null;
+  if (agentId) {
     await env.DB.prepare(
       "UPDATE workspace_members SET voice_status = 'live', voice_status_updated_at = ? WHERE workspace_id = ? AND user_id = ? AND voice_status = 'busy'"
-    ).bind(sqliteNow(), call.workspace_id, call.assigned_user_id).run();
+    ).bind(sqliteNow(), call.workspace_id, agentId).run();
+    await cleanupCallRinging(env, call.id, call.workspace_id, agentId);
   }
   if (call.plivo_config_id) {
     const cfg = await env.DB.prepare('SELECT auth_id, auth_token FROM plivo_configs WHERE id = ?')
@@ -446,10 +456,14 @@ async function pushIncomingCallToAgents(env: Env, c: any, workspaceId: string, c
         // Only available (live) agents should receive an in-app CallKit ring.
         // For the informational PSTN-forward notification (auto-dial ON) we keep
         // the existing all-members behavior (the dialed agent is already busy).
-        const liveOnly = answerInApp ? " AND voice_status = 'live'" : '';
-        const members = await env.DB.prepare('SELECT user_id FROM workspace_members WHERE workspace_id = ?' + liveOnly)
+        // Only available (live) agents should ever receive a ring push — even in
+        // auto-forward (PSTN) mode the informational push goes to live agents only.
+        const members = await env.DB.prepare("SELECT user_id FROM workspace_members WHERE workspace_id = ? AND voice_status = 'live'")
           .bind(workspaceId).all<{ user_id: string }>();
         if (!members.results || members.results.length === 0) return;
+        const liveUserIds = members.results.map((m) => m.user_id);
+        // Track which live agents are ringing for this call (enables per-agent decline).
+        await trackRingingAgents(env, callId, workspaceId, liveUserIds, 'plivo');
 
         // Notify the Web Dashboard via WebSocket so the agent can answer
         if (answerInApp) {
@@ -1086,10 +1100,12 @@ export async function teardownPlivoCall(
   await env.DB.prepare('UPDATE calls SET status = ?, ended_at = ? WHERE id = ?')
     .bind(finalStatus, sqliteNow(), call.id).run();
 
-  if (call.assigned_user_id) {
+  const agentId = (call as any).answered_by_user_id || call.assigned_user_id || null;
+  if (agentId) {
     await env.DB.prepare(
       "UPDATE workspace_members SET voice_status = 'live', voice_status_updated_at = ? WHERE workspace_id = ? AND user_id = ? AND voice_status = 'busy'"
-    ).bind(sqliteNow(), call.workspace_id, call.assigned_user_id).run();
+    ).bind(sqliteNow(), call.workspace_id, agentId).run();
+    await cleanupCallRinging(env, call.workspace_id, call.id, agentId);
   }
 
   await broadcastToWorkspace(env, call.workspace_id, {
@@ -1220,35 +1236,44 @@ router.post('/api/plivo/webhook/voice', async (c) => {
     // Honor the per-account "auto-forward to live agent" toggle. When OFF, no
     // outbound PSTN leg is dialed (no Plivo forwarding charge); the caller waits
     // in the conference and agents can answer in the app (Phase 2).
-    const agent = config.auto_dial_agents === 1 ? await pickAvailableAgent(c.env.DB, config.workspace_id) : null;
-    if (agent) {
+    // Dial ALL available (live) agents simultaneously — first to answer wins.
+    // The agent who answers claims the call in the outbound webhook (leg=agent).
+    const liveAgents = config.auto_dial_agents === 1 ? await pickAllAvailableAgents(c.env.DB, config.workspace_id) : [];
+    if (liveAgents.length > 0) {
       const baseUrl = getBaseUrl(c as Context);
-      const agentAnswerUrl = baseUrl + '/api/plivo/webhook/outbound?callId=' + callId + '&conferenceName=' + encodeURIComponent(conferenceName) + '&leg=agent';
       const agentFallbackUrl = baseUrl + '/api/plivo/webhook/fallback';
       const agentHangupUrl = baseUrl + '/api/plivo/webhook/status?callId=' + callId + '&leg=agent';
 
-      const res = await createPlivoCall(
-        { auth_id: config.auth_id, auth_token: config.auth_token },
-        {
-          to: normalizeE164(agent.phone),
-          from: normalizeE164(config.from_number),
-          answer_url: agentAnswerUrl,
-          answer_method: 'POST',
-          hangup_url: agentHangupUrl,
-          hangup_method: 'POST',
-          fallback_url: agentFallbackUrl,
-          fallback_method: 'POST',
-        }
+      const dialResults = await Promise.allSettled(
+        liveAgents.map(agent =>
+          createPlivoCall(
+            { auth_id: config.auth_id, auth_token: config.auth_token },
+            {
+              to: normalizeE164(agent.phone),
+              from: normalizeE164(config.from_number),
+              // userId in the answer URL lets the outbound webhook know which
+              // agent answered so it can claim the call for that agent.
+              answer_url: baseUrl + '/api/plivo/webhook/outbound?callId=' + callId + '&conferenceName=' + encodeURIComponent(conferenceName) + '&leg=agent&userId=' + agent.user_id,
+              answer_method: 'POST',
+              hangup_url: agentHangupUrl,
+              hangup_method: 'POST',
+              fallback_url: agentFallbackUrl,
+              fallback_method: 'POST',
+            }
+          )
+        )
       );
 
-      if (res.ok) {
-        assignedAgentId = agent.user_id;
-        await c.env.DB.prepare(
-          "UPDATE workspace_members SET voice_status = 'busy', voice_status_updated_at = ? WHERE workspace_id = ? AND user_id = ? AND voice_status = 'live'"
-        ).bind(sqliteNow(), config.workspace_id, agent.user_id).run();
-        await c.env.DB.prepare('UPDATE calls SET assigned_user_id = ? WHERE id = ?').bind(agent.user_id, callId).run();
-      } else {
-        console.error('[Plivo Webhook] failed to dial agent leg, leaving caller on hold:', res.error);
+      // Track all successfully-dialed agents as ringing.
+      const dialedUserIds = liveAgents
+        .filter((_, i) => dialResults[i].status === 'fulfilled' && (dialResults[i] as any).value?.ok)
+        .map((a) => a.user_id);
+      if (dialedUserIds.length > 0) {
+        await trackRingingAgents(c.env, callId, config.workspace_id, dialedUserIds, 'plivo');
+      }
+
+      if (!dialResults.some((r) => r.status === 'fulfilled' && (r as any).value?.ok)) {
+        console.error('[Plivo Webhook] failed to dial any agent leg, leaving caller on hold');
       }
     }
 
@@ -1329,7 +1354,7 @@ router.post('/api/plivo/webhook/status', async (c) => {
       // startConferenceOnEnter="false", so they fire an "enter" event almost
       // immediately. Treating that "enter" as "in_progress" made the dashboard
       // believe the call was already answered ~2s after it arrived and dismiss
-      // the ringing overlay — even though no agent had picked up and the caller
+      // the ringing overlay â even though no agent had picked up and the caller
       // was still on hold. Gate the transition on "start" instead so the
       // website keeps ringing until a real agent answers.
       if (conferenceAction === 'start' && call.status !== 'in_progress' && call.status !== 'ended') {
