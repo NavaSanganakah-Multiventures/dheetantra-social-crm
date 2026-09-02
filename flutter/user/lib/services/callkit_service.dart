@@ -157,7 +157,7 @@ class CallKitService {
       }
     });
 
-    // Another agent answered the call — dismiss this device's ring so it
+    // Another agent answered the call â dismiss this device's ring so it
     // stops ringing (simultaneous ring: first to answer wins).
     WebSocketService().onCallAnswered.listen((data) {
       final callId = data['callId']?.toString() ?? '';
@@ -166,7 +166,7 @@ class CallKitService {
       // Only dismiss if this device is ringing for this call and hasn't
       // accepted it (i.e. a different agent won the race).
       if (_activeCalls.containsKey(callId) && !_handledAcceptIds.contains(callId)) {
-        debugPrint('CALLKIT: call $callId answered by $answeredBy — dismissing ring');
+        debugPrint('CALLKIT: call $callId answered by $answeredBy â dismissing ring');
         _activeCalls.remove(callId);
         if (_currentCallId == callId) _currentCallId = null;
         FlutterCallkitIncoming.endCall(callId).then((_) {}, onError: (Object e) {
@@ -498,6 +498,18 @@ class CallKitService {
     );
 
     await FlutterCallkitIncoming.showCallkitIncoming(params);
+  }
+
+  /// Dismisses the CallKit ring for a specific call (used when another agent
+  /// answers a simultaneously-ringing call). Only stops this device's ring.
+  Future<void> dismissCallRing(String callId) async {
+    try {
+      if (_currentCallId == callId) _currentCallId = null;
+      _activeCalls.remove(callId);
+      await FlutterCallkitIncoming.endCall(callId);
+    } catch (e) {
+      debugPrint('CALLKIT dismissCallRing($callId) error: $e');
+    }
   }
 
   Future<void> endAllCalls() async {
