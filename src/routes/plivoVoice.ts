@@ -87,7 +87,6 @@ async function buildPlivoStreamXml(c: any, authToken: string, callId: string): P
   const token = await plivoStreamToken(authToken, callId);
   const wsUrl = getWsBaseUrl(c as Context) + '/plivo/audio/' + callId + '?token=' + encodeURIComponent(token);
   return XML_DECL + '<Response>' +
-    '<Speak>Kripya line par bane rahen, hum aapki call connect kar rahe hain.</Speak>' +
     '<Stream bidirectional="true" keepCallAlive="true" contentType="audio/x-l16;rate=16000" statusCallbackUrl="' + escXml(statusCallbackUrl) + '" statusCallbackMethod="POST">' +
     escXml(wsUrl) + '</Stream><Hangup/></Response>';
 }
