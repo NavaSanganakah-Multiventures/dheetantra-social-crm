@@ -12,6 +12,13 @@ export interface WhatsAppCallEvent {
 
 type CallStatus = 'idle' | 'requesting' | 'ringing' | 'connecting' | 'connected' | 'ended' | 'error';
 
+// ICE gathering must reach "complete" before we ship the SDP, because Meta's
+// WhatsApp Calling API does NOT support trickle ICE — the full SDP with every
+// candidate (incl. TURN relay) must arrive in one shot. Relay candidates can
+// take 3–6s to gather, so the previous 5s ceiling cut them off and produced
+// one-way audio for peers behind carrier/symmetric NAT.
+const ICE_GATHER_TIMEOUT_MS = 8000;
+
 export function useWhatsAppWebRTC() {
   const [status, setStatus] = useState<CallStatus>('idle');
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
@@ -71,6 +78,29 @@ export function useWhatsAppWebRTC() {
         { urls: 'stun:stun.l.google.com:19302' }
       ];
     }
+  }, []);
+
+  // Wait for ICE candidate gathering to complete (non-trickle ICE). Resolves
+  // as soon as gathering completes, or after ICE_GATHER_TIMEOUT_MS as a
+  // last-resort fallback so the SDP is not held forever.
+  const waitForIceGathering = useCallback((pc: RTCPeerConnection): Promise<void> => {
+    return new Promise<void>((resolve) => {
+      if (pc.iceGatheringState === 'complete') {
+        resolve();
+        return;
+      }
+      const checkState = () => {
+        if (pc.iceGatheringState === 'complete') {
+          pc.removeEventListener('icegatheringstatechange', checkState);
+          resolve();
+        }
+      };
+      pc.addEventListener('icegatheringstatechange', checkState);
+      setTimeout(() => {
+        pc.removeEventListener('icegatheringstatechange', checkState);
+        resolve();
+      }, ICE_GATHER_TIMEOUT_MS);
+    });
   }, []);
 
   // Start call duration timer
@@ -155,23 +185,9 @@ export function useWhatsAppWebRTC() {
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
 
-      await new Promise<void>((resolve) => {
-        if (pc.iceGatheringState === 'complete') {
-          resolve();
-        } else {
-          const checkState = () => {
-            if (pc.iceGatheringState === 'complete') {
-              pc.removeEventListener('icegatheringstatechange', checkState);
-              resolve();
-            }
-          };
-          pc.addEventListener('icegatheringstatechange', checkState);
-          setTimeout(() => {
-            pc.removeEventListener('icegatheringstatechange', checkState);
-            resolve();
-          }, 5000);
-        }
-      });
+      // Wait for ALL ICE candidates (host + srflx + relay) to be gathered so
+      // the offer Meta receives is complete (no trickle ICE support).
+      await waitForIceGathering(pc);
 
       const finalSdp = pc.localDescription?.sdp;
       const outboundBody: Record<string, any> = {
@@ -205,7 +221,7 @@ export function useWhatsAppWebRTC() {
       cleanup();
       throw err;
     }
-  }, [cleanup, fetchIceServers, startDurationTimer, startRecording]);
+  }, [cleanup, fetchIceServers, waitForIceGathering, startDurationTimer, startRecording]);
 
   // Accept the remote answer SDP for an outbound call
   const acceptAnswer = useCallback(async ({ sdp, sdpType }: { sdp: string; sdpType?: string }) => {
@@ -275,25 +291,9 @@ export function useWhatsAppWebRTC() {
       const answerSdp = await pc.createAnswer();
       await pc.setLocalDescription(answerSdp);
 
-      // 6. Wait for ICE gathering to complete
-      await new Promise<void>((resolve) => {
-        if (pc.iceGatheringState === 'complete') {
-          resolve();
-        } else {
-          const checkState = () => {
-            if (pc.iceGatheringState === 'complete') {
-              pc.removeEventListener('icegatheringstatechange', checkState);
-              resolve();
-            }
-          };
-          pc.addEventListener('icegatheringstatechange', checkState);
-          // Timeout fallback — Meta requires response within 30-60 seconds
-          setTimeout(() => {
-            pc.removeEventListener('icegatheringstatechange', checkState);
-            resolve();
-          }, 5000);
-        }
-      });
+      // 6. Wait for ICE gathering to complete so the answer carries every
+      // candidate (incl. TURN relay). Meta needs the full SDP in one shot.
+      await waitForIceGathering(pc);
 
       const finalSdp = pc.localDescription?.sdp;
 
@@ -315,8 +315,11 @@ export function useWhatsAppWebRTC() {
         throw new Error('Backend failed to accept call');
       }
 
-      setStatus('connected');
-      startDurationTimer();
+      // Do NOT optimistically mark the call connected here. The real
+      // "connected" transition fires from pc.onconnectionstatechange once the
+      // media path is established. Marking it connected prematurely masks ICE
+      // failures (the exact "stuck on connecting" symptom). The status stays
+      // "connecting" until the peer connection actually connects — or errors.
 
       // 8. Start recording (optional — using MediaRecorder)
       try {
@@ -345,7 +348,7 @@ export function useWhatsAppWebRTC() {
       cleanup();
       throw err;
     }
-  }, [cleanup, fetchIceServers, startDurationTimer]);
+  }, [cleanup, fetchIceServers, waitForIceGathering, startDurationTimer]);
 
   // Hangup active call
   const hangup = useCallback(async (call: WhatsAppCallEvent) => {
