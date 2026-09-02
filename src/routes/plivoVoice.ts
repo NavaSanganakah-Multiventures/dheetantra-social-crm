@@ -1493,9 +1493,11 @@ router.post('/api/plivo/webhook/outbound', async (c) => {
 
     // The customer leg ends the conference when it leaves; agent legs do not.
     const endConferenceOnExit = leg === 'customer' ? 'true' : 'false';
+    const baseUrl = getBaseUrl(c as Context);
+    const recordCallbackUrlBridge = baseUrl + '/api/plivo/webhook/record?callId=' + callId;
     const xml = XML_DECL +
       '<Response>' +
-      '<Conference startConferenceOnEnter="true" endConferenceOnExit="' + endConferenceOnExit + '">' + escXml(conferenceName) + '</Conference>' +
+      '<Conference startConferenceOnEnter="true" endConferenceOnExit="' + endConferenceOnExit + '" record="true" recordFileFormat="mp3" recordCallbackUrl="' + escXml(recordCallbackUrlBridge) + '" recordCallbackMethod="POST">' + escXml(conferenceName) + '</Conference>' +
       '</Response>';
     return plivoXmlResponse(xml, 200);
   } catch (e: any) {
@@ -1513,8 +1515,17 @@ router.post('/api/plivo/webhook/app', async (c) => {
   const to = (body.To || body.to || '').toString();
   const m = /^sip:([^@]+)@/i.exec(to);
   const conferenceName = m ? m[1] : 'default_room';
+  
+  // Extract callId from conference name if possible, for recording callback
+  const callId = conferenceName.startsWith('conf_') ? 
+    conferenceName.substring(5, 13) + '-' + conferenceName.substring(13, 17) + '-' + conferenceName.substring(17, 21) + '-' + conferenceName.substring(21, 25) + '-' + conferenceName.substring(25) 
+    : '';
+  
+  const baseUrl = getBaseUrl(c as Context);
+  const recordCallbackUrl = baseUrl + '/api/plivo/webhook/record?callId=' + callId;
+  
   return plivoXmlResponse(
-    XML_DECL + `<Response><Conference startConferenceOnEnter="true" endConferenceOnExit="false" beep="false">${escXml(conferenceName)}</Conference></Response>`
+    XML_DECL + `<Response><Conference startConferenceOnEnter="true" endConferenceOnExit="false" beep="false" record="true" recordFileFormat="mp3" recordCallbackUrl="${escXml(recordCallbackUrl)}" recordCallbackMethod="POST">${escXml(conferenceName)}</Conference></Response>`
   );
 });
 
