@@ -13,6 +13,7 @@ import 'webrtc_service.dart';
 import 'api_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'plivo_voice_service.dart';
+import 'websocket_service.dart';
 
 class CallKitService {
   static final CallKitService _instance = CallKitService._internal();
@@ -75,11 +76,10 @@ class CallKitService {
     final source = data['source']?.toString() ?? '';
     final callId = data['id']?.toString() ?? uuid;
     try {
-      if (source == 'whatsapp' || source == 'gsm') {
-        await WebRTCService().rejectCall(Map<String, dynamic>.from(data));
-      } else {
-        await ApiService().declineCall(callId);
-      }
+      // Per-agent decline: only THIS agent's ring stops. Other agents keep
+      // ringing. The server only tears down the caller if ALL ringing agents
+      // have declined or timed out.
+      await ApiService().declineCallAgent(callId, source: source);
     } catch (e) {
       debugPrint('CALLKIT: decline by source error: $e');
     }
@@ -136,7 +136,7 @@ class CallKitService {
           final data = Map<String, dynamic>.from(callData);
           if (data['source']?.toString() == 'plivo') {
             final id = data['id']?.toString() ?? params.id;
-            unawaited(ApiService().declineCall(id));
+            unawaited(ApiService().declineCallAgent(id, source: 'plivo'));
           }
         }
       } else if (event is CallEventActionCallTimeout) {
@@ -151,9 +151,27 @@ class CallKitService {
           final data = Map<String, dynamic>.from(callData);
           if (data['source']?.toString() == 'plivo') {
             final id = data['id']?.toString() ?? event.id;
-            unawaited(ApiService().declineCall(id));
+            unawaited(ApiService().declineCallAgent(id, source: 'plivo'));
           }
         }
+      }
+    });
+
+    // Another agent answered the call - dismiss this device's ring so it
+    // stops ringing (simultaneous ring: first to answer wins).
+    WebSocketService().onCallAnswered.listen((data) {
+      final callId = data['callId']?.toString() ?? '';
+      final answeredBy = data['answeredByUserId']?.toString() ?? '';
+      if (callId.isEmpty) return;
+      // Only dismiss if this device is ringing for this call and hasn't
+      // accepted it (i.e. a different agent won the race).
+      if (_activeCalls.containsKey(callId) && !_handledAcceptIds.contains(callId)) {
+        debugPrint('CALLKIT: call $callId answered by $answeredBy - dismissing ring');
+        _activeCalls.remove(callId);
+        if (_currentCallId == callId) _currentCallId = null;
+        FlutterCallkitIncoming.endCall(callId).then((_) {}, onError: (Object e) {
+          debugPrint('CALLKIT endCall($callId) on call_answered error: $e');
+        });
       }
     });
 
@@ -480,6 +498,18 @@ class CallKitService {
     );
 
     await FlutterCallkitIncoming.showCallkitIncoming(params);
+  }
+
+  /// Dismisses the CallKit ring for a specific call (used when another agent
+  /// answers a simultaneously-ringing call). Only stops this device's ring.
+  Future<void> dismissCallRing(String callId) async {
+    try {
+      if (_currentCallId == callId) _currentCallId = null;
+      _activeCalls.remove(callId);
+      await FlutterCallkitIncoming.endCall(callId);
+    } catch (e) {
+      debugPrint('CALLKIT dismissCallRing($callId) error: $e');
+    }
   }
 
   Future<void> endAllCalls() async {

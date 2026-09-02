@@ -210,6 +210,7 @@ CREATE TABLE IF NOT EXISTS calls (
   plivo_config_id TEXT,
   whatsapp_config_id TEXT,
   assigned_user_id TEXT,
+  answered_by_user_id TEXT,
   external_call_id TEXT,
   sdp TEXT,
   sdp_type TEXT,
@@ -219,6 +220,21 @@ CREATE TABLE IF NOT EXISTS calls (
 );
 
 CREATE INDEX IF NOT EXISTS idx_calls_source ON calls(source);
+
+CREATE TABLE IF NOT EXISTS call_ringing_agents (
+  call_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  workspace_id TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'ringing',
+  device_source TEXT DEFAULT '',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (call_id, user_id),
+  FOREIGN KEY (call_id) REFERENCES calls(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_call_ringing_agents_workspace ON call_ringing_agents(workspace_id);
+CREATE INDEX IF NOT EXISTS idx_call_ringing_agents_status ON call_ringing_agents(status);
 
 CREATE TABLE IF NOT EXISTS twilio_configs (
   id TEXT PRIMARY KEY,

@@ -69,6 +69,10 @@ class WebSocketService with WidgetsBindingObserver {
   final _callStatusController = StreamController<Map<String, dynamic>>.broadcast();
   Stream<Map<String, dynamic>> get onCallStatusUpdated => _callStatusController.stream;
 
+  final _callAnsweredController = StreamController<Map<String, dynamic>>.broadcast();
+  /// Emits when another agent answers a call - so this device can stop ringing.
+  Stream<Map<String, dynamic>> get onCallAnswered => _callAnsweredController.stream;
+
   final _newMessageController = StreamController<Map<String, dynamic>>.broadcast();
   Stream<Map<String, dynamic>> get onNewMessage => _newMessageController.stream;
 
@@ -234,6 +238,9 @@ class WebSocketService with WidgetsBindingObserver {
         case 'plivo_incoming_call':
           // Plivo incoming calls ring on the agent's PSTN phone. There is no
           // in-app WebRTC/SDK audio in the MVP, so intentionally do nothing here.
+          break;
+        case 'call_answered':
+          _callAnsweredController.add(data);
           break;
         case 'call_status_updated':
           _callStatusController.add(data);
