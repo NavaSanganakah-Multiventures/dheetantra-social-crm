@@ -429,7 +429,7 @@ app.post('/api/whatsapp/webhook', async (c) => {
       const signature = c.req.header('x-hub-signature-256') || '';
       const expected = 'sha256=' + await hmacSha256Hex(appSecret, rawBody);
       if (!constantTimeEqual(signature, expected)) {
-        console.warn('[WhatsApp] Webhook signature mismatch  ignoring event', {
+        console.warn('[WhatsApp] Webhook signature mismatch - ignoring event', {
           secretLength: appSecret.length,
           signatureLength: signature.length,
           expectedLength: expected.length,
