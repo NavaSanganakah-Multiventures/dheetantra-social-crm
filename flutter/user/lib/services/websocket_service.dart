@@ -70,7 +70,7 @@ class WebSocketService with WidgetsBindingObserver {
   Stream<Map<String, dynamic>> get onCallStatusUpdated => _callStatusController.stream;
 
   final _callAnsweredController = StreamController<Map<String, dynamic>>.broadcast();
-  /// Emits when another agent answers a call — so this device can stop ringing.
+  /// Emits when another agent answers a call - so this device can stop ringing.
   Stream<Map<String, dynamic>> get onCallAnswered => _callAnsweredController.stream;
 
   final _newMessageController = StreamController<Map<String, dynamic>>.broadcast();
