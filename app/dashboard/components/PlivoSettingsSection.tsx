@@ -25,6 +25,9 @@ interface PlivoConfig {
   endpointConfigured: boolean;
   endpointUsername?: string;
   endpointPasswordMasked?: string;
+  voiceBotEnabled?: boolean;
+  voiceBotInstructions?: string;
+  voiceBotGreeting?: string;
   fromNumbers?: any[];
 }
 
@@ -48,6 +51,8 @@ export function PlivoSettingsSection() {
   const [formFromNumbers, setFormFromNumbers] = useState("");
   const [formAutoDial, setFormAutoDial] = useState(false);
   const [formVoiceBotEnabled, setFormVoiceBotEnabled] = useState(true);
+  const [formVoiceBotInstructions, setFormVoiceBotInstructions] = useState("");
+  const [formVoiceBotGreeting, setFormVoiceBotGreeting] = useState("");
   const [formOfficeHoursStart, setFormOfficeHoursStart] = useState("09:00");
   const [formOfficeHoursEnd, setFormOfficeHoursEnd] = useState("16:00");
   const [formOfficeHoursAudioUrl, setFormOfficeHoursAudioUrl] = useState("");
@@ -194,6 +199,8 @@ export function PlivoSettingsSection() {
     setFormFromNumbers("");
     setFormAutoDial(false);
     setFormVoiceBotEnabled(true);
+    setFormVoiceBotInstructions("");
+    setFormVoiceBotGreeting("");
     setFormOfficeHoursStart("09:00");
     setFormOfficeHoursEnd("16:00");
     setFormOfficeHoursAudioUrl("");
@@ -209,6 +216,8 @@ export function PlivoSettingsSection() {
     setFormFromNumbers((cfg.fromNumbers || []).map((n: any) => n.fromNumber).join(", "));
     setFormAutoDial(!!cfg.autoDialAgents);
     setFormVoiceBotEnabled(cfg.voiceBotEnabled !== false);
+    setFormVoiceBotInstructions(cfg.voiceBotInstructions || "");
+    setFormVoiceBotGreeting(cfg.voiceBotGreeting || "");
     setFormOfficeHoursStart(cfg.officeHoursStart || "09:00");
     setFormOfficeHoursEnd(cfg.officeHoursEnd || "16:00");
     setFormOfficeHoursAudioUrl(cfg.officeHoursAudioUrl || "");
@@ -226,6 +235,8 @@ export function PlivoSettingsSection() {
           name: formName.trim() || "My Plivo Account",
           autoDialAgents: formAutoDial,
           voiceBotEnabled: formVoiceBotEnabled,
+          voiceBotInstructions: formVoiceBotInstructions,
+          voiceBotGreeting: formVoiceBotGreeting,
           officeHoursStart: formOfficeHoursStart,
           officeHoursEnd: formOfficeHoursEnd,
           officeHoursAudioUrl: formOfficeHoursAudioUrl,
@@ -257,6 +268,8 @@ export function PlivoSettingsSection() {
             fromNumbers,
             autoDialAgents: formAutoDial,
             voiceBotEnabled: formVoiceBotEnabled,
+            voiceBotInstructions: formVoiceBotInstructions,
+            voiceBotGreeting: formVoiceBotGreeting,
             officeHoursStart: formOfficeHoursStart,
             officeHoursEnd: formOfficeHoursEnd,
             officeHoursAudioUrl: formOfficeHoursAudioUrl,
@@ -542,7 +555,7 @@ export function PlivoSettingsSection() {
                     value={formAuthToken}
                     onChange={(e) => setFormAuthToken(e.target.value)}
                     type="password"
-                    placeholder={editingId ? "•••••••• (leave blank)" : "Auth Token"}
+                    placeholder={editingId ? "........ (leave blank)" : "Auth Token"}
                     className="w-full px-4 py-2.5 bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-700 rounded-xl text-sm text-surface-900 dark:text-white outline-none focus:ring-2 focus:ring-primary-500"
                   />
                 </div>
@@ -564,11 +577,12 @@ export function PlivoSettingsSection() {
                     onChange={(e) => setFormAutoDial(e.target.checked)}
                     className="rounded border-surface-300"
                   />
-                  Auto-dial agents (auto-forward to live agent&apos;s PSTN phone)
+                  Auto-dial agents (forward to live agent&apos;s PSTN phone - extra per-minute cost)
                 </label>
                 
                 <div className="md:col-span-2 pt-4 border-t border-surface-100 dark:border-surface-800">
-                  <h5 className="font-bold text-sm text-surface-800 dark:text-surface-200 mb-3">Voice Bot (Automated Greetings)</h5>
+                  <h5 className="font-bold text-sm text-surface-800 dark:text-surface-200 mb-1">AI Voice Bot (answers calls automatically)</h5>
+                  <p className="text-xs text-surface-500 mb-3">When enabled, the AI assistant &quot;Arya&quot; answers incoming calls and talks to the caller directly (lowest cost - no agent PSTN leg). Leave off to ring human agents instead.</p>
                   
                   <label className="flex items-center gap-2 text-sm text-surface-700 dark:text-surface-300 mb-4">
                     <input
@@ -577,11 +591,37 @@ export function PlivoSettingsSection() {
                       onChange={(e) => setFormVoiceBotEnabled(e.target.checked)}
                       className="rounded border-surface-300"
                     />
-                    Enable automated &apos;Arya&apos; voice assistant (plays custom out-of-office & busy messages)
+                    Enable AI Voice Bot &quot;Arya&quot; (uses Gemini Live; requires GEMINI_API_KEY in secrets)
                   </label>
                   
                   {formVoiceBotEnabled && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-surface-50 dark:bg-surface-900 p-4 rounded-xl border border-surface-100 dark:border-surface-800">
+                    <div className="grid grid-cols-1 gap-4 bg-surface-50 dark:bg-surface-900 p-4 rounded-xl border border-surface-100 dark:border-surface-800">
+                      <div>
+                        <label className="text-xs font-bold text-surface-600 dark:text-surface-400 block mb-1">Voice Bot Instructions (system prompt)</label>
+                        <textarea
+                          value={formVoiceBotInstructions}
+                          onChange={(e) => setFormVoiceBotInstructions(e.target.value)}
+                          rows={4}
+                          placeholder="You are Arya, a friendly receptionist... Keep replies short and speak in the caller's language (default Hindi)."
+                          className="w-full px-4 py-2.5 bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 rounded-xl text-sm text-surface-900 dark:text-white outline-none focus:ring-2 focus:ring-primary-500 resize-y"
+                        />
+                        <p className="text-[11px] text-surface-400 mt-1">Tells the AI how to behave. Leave blank for the built-in Arya persona.</p>
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-surface-600 dark:text-surface-400 block mb-1">Opening Greeting (played before AI starts)</label>
+                        <input
+                          value={formVoiceBotGreeting}
+                          onChange={(e) => setFormVoiceBotGreeting(e.target.value)}
+                          placeholder="Namaste, main Arya hoon. Aapse baat karke khushi hui..."
+                          className="w-full px-4 py-2.5 bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 rounded-xl text-sm text-surface-900 dark:text-white outline-none focus:ring-2 focus:ring-primary-500"
+                        />
+                        <p className="text-[11px] text-surface-400 mt-1">Short <code>&lt;Speak&gt;</code> line played while the AI connects. Leave blank for the default greeting.</p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {formVoiceBotEnabled && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-surface-50 dark:bg-surface-900 p-4 rounded-xl border border-surface-100 dark:border-surface-800 mt-4">
                       <div>
                         <label className="text-xs font-bold text-surface-600 dark:text-surface-400 block mb-1">Office Start Time (HH:MM)</label>
                         <input
@@ -600,6 +640,7 @@ export function PlivoSettingsSection() {
                           className="w-full px-4 py-2.5 bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 rounded-xl text-sm text-surface-900 dark:text-white outline-none focus:ring-2 focus:ring-primary-500"
                         />
                       </div>
+                      <p className="text-[11px] text-surface-400 md:col-span-2">Outside these hours (IST), the bot plays an out-of-office message and hangs up instead of answering.</p>
                     </div>
                   )}
                   
@@ -636,7 +677,7 @@ export function PlivoSettingsSection() {
                             <input type="file" accept="audio/mpeg, audio/mp3, audio/wav" className="hidden" disabled={isUploadingAudio} onChange={(e) => uploadAudio(e, setFormBusyAudioUrl)} />
                           </label>
                         </div>
-                        <p className="text-[11px] text-surface-400 mt-1">If provided, this MP3 plays when no agents are online, avoiding TTS fees.</p>
+                        <p className="text-[11px] text-surface-400 mt-1">Played when the voice bot is off and no agents are online (avoids TTS fees).</p>
                       </div>
                     </div>
                   )}
@@ -694,6 +735,11 @@ export function PlivoSettingsSection() {
                             SIP LINKED
                           </span>
                         )}
+                        {cfg.voiceBotEnabled && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">
+                            AI BOT
+                          </span>
+                        )}
                       </div>
                       <p className="text-xs text-surface-500 mt-1 font-mono">Auth ID: {cfg.authId}</p>
                       <p className="text-xs text-surface-400 font-mono">Auth Token: {cfg.authTokenMasked}</p>
@@ -704,7 +750,7 @@ export function PlivoSettingsSection() {
                         className="p-2 text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800 rounded-lg transition-all"
                         title={isOpen ? "Collapse" : "Expand"}
                       >
-                        {isOpen ? "−" : "+"}
+                        {isOpen ? "-" : "+"}
                       </button>
                       <button onClick={() => openEdit(cfg)} title="Edit" className="p-2 text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800 rounded-lg transition-all">
                         <Edit className="w-4 h-4" />
@@ -788,20 +834,20 @@ export function PlivoSettingsSection() {
                           </div>
                           <div className="flex justify-between">
                             <span className="text-surface-500">Username</span>
-                            <span className="font-mono text-surface-700 dark:text-surface-200">{cfg.endpointUsername || "—"}</span>
+                            <span className="font-mono text-surface-700 dark:text-surface-200">{cfg.endpointUsername || "-"}</span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-surface-500">Password</span>
-                            <span className="font-mono text-surface-700 dark:text-surface-200">{cfg.endpointPasswordMasked || "—"}</span>
+                            <span className="font-mono text-surface-700 dark:text-surface-200">{cfg.endpointPasswordMasked || "-"}</span>
                           </div>
                           <div className="flex justify-between items-center gap-3">
                             <span className="text-surface-500">SIP URI</span>
-                            <span className="font-mono text-surface-700 dark:text-surface-200 break-all">{sipUri || "—"}</span>
+                            <span className="font-mono text-surface-700 dark:text-surface-200 break-all">{sipUri || "-"}</span>
                           </div>
                           <div className="flex justify-between items-center gap-3">
                             <span className="text-surface-500">App SIP URI</span>
                             <span className="font-mono text-surface-700 dark:text-surface-200 break-all">
-                              {(info && info.applicationSipUri) || (cfg.endpointConfigured ? "sip:<app_id>@app.plivo.com" : "—")}
+                              {(info && info.applicationSipUri) || (cfg.endpointConfigured ? "sip:<app_id>@app.plivo.com" : "-")}
                             </span>
                           </div>
                           <p className="text-[11px] text-surface-400 pt-1">
