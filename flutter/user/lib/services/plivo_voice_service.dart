@@ -67,6 +67,48 @@ class PlivoVoiceService implements SipUaHelperListener {
     return result.isGranted;
   }
 
+  /// Backend se SIP credentials fresh laata hai. Agar [targetConfigId] diya ho
+  /// aur wo pehle se cache mein mil jaye toh re-fetch skip kar deta hai (latency
+  /// bachat). Cache khali ho ya target missing ho toh fetch karta hai (ek retry
+  /// ke saath). True return karta hai agar credentials available hain.
+  Future<bool> _ensureCredentialsFor(String? targetConfigId) async {
+    if (_credentialsList.isNotEmpty && targetConfigId != null) {
+      final hasTarget =
+          _credentialsList.any((c) => c['plivoConfigId'] == targetConfigId);
+      if (hasTarget) return true;
+    }
+    for (int attempt = 0; attempt < 2; attempt++) {
+      try {
+        final res = await ApiService().getPlivoSipCredentials();
+        final creds = res['credentials'];
+        if (creds is List) {
+          _credentialsList = creds;
+          break;
+        }
+        // Backend error response (e.g. {error: ...}) — credentials nahi mile.
+        debugPrint('[PlivoVoice] sip-credentials response: ' + res.toString());
+        return false;
+      } catch (e) {
+        debugPrint('[PlivoVoice] sip-credentials fetch error (attempt ' +
+            (attempt + 1).toString() + '): ' + e.toString());
+        if (attempt == 0) {
+          await Future.delayed(const Duration(seconds: 1));
+        }
+      }
+    }
+    if (_credentialsList.isEmpty) return false;
+    if (targetConfigId == null) return true;
+    return _credentialsList.any((c) => c['plivoConfigId'] == targetConfigId);
+  }
+
+  /// Naya Plivo account link karne ke baad settings screen se call karein
+  /// taaki naya endpoint turant register ho jaye (app restart nahi chahiye).
+  /// Cache clear karke target (ya default) config register karta hai.
+  Future<void> refreshAccounts({String? plivoConfigId}) async {
+    _credentialsList = [];
+    await _register(targetConfigId: plivoConfigId);
+  }
+
   /// Backend se endpoint credentials lekar SIP UA ko start/register karta hai.
   /// Concurrent callers (init + outbound join) ek hi attempt par wait karte hain.
   Future<bool> _register({String? targetConfigId}) async {
@@ -75,9 +117,13 @@ class PlivoVoiceService implements SipUaHelperListener {
       return _waitRegistration(inflight);
     }
 
-    if (_credentialsList.isEmpty) {
-      final res = await ApiService().getPlivoSipCredentials();
-      _credentialsList = res['credentials'] as List<dynamic>? ?? [];
+    // Credentials hamesha fresh chahiye — naya account link hone par pehle
+    // cache stale ho jata tha aur SIP kabhi register nahi hota tha bina app
+    // restart ke. Agar target config cache mein nahi mila (ya cache khali hai)
+    // toh backend se dobara laate hain (ek retry ke saath).
+    if (!await _ensureCredentialsFor(targetConfigId)) {
+      _callStateController.add('error: Plivo softphone endpoint not configured');
+      return false;
     }
 
     if (_credentialsList.isEmpty) {
