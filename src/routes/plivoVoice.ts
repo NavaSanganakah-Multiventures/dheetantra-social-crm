@@ -87,7 +87,7 @@ async function buildPlivoStreamXml(c: any, authToken: string, callId: string): P
   const token = await plivoStreamToken(authToken, callId);
   const wsUrl = getWsBaseUrl(c as Context) + '/plivo/audio/' + callId + '?token=' + encodeURIComponent(token);
   return XML_DECL + '<Response>' +
-    '<Stream bidirectional="true" keepCallAlive="true" contentType="audio/x-l16;rate=16000" statusCallbackUrl="' + escXml(statusCallbackUrl) + '" statusCallbackMethod="POST">' +
+    '<Stream bidirectional="true" keepCallAlive="true" contentType="audio/x-mulaw;rate=8000" statusCallbackUrl="' + escXml(statusCallbackUrl) + '" statusCallbackMethod="POST">' +
     escXml(wsUrl) + '</Stream><Hangup/></Response>';
 }
 
@@ -1185,7 +1185,7 @@ router.post('/api/plivo/webhook/voice', async (c) => {
 });
 
 
-// Answer URL for outbound Plivo Make Call API — customer leg ko Audio Stream mein daalo.
+// Answer URL for outbound Plivo Make Call API â customer leg ko Audio Stream mein daalo.
 router.post('/api/plivo/webhook/answer', async (c) => {
   try {
     const body = await parseWebhookBody(c);
@@ -1291,7 +1291,7 @@ router.post('/api/plivo/webhook/status', async (c) => {
       return plivoXmlResponse(XML_DECL + '<Response/>', 200);
     }
 
-    // (नया) Direct <Dial> events. callbackUrl => DialAction (answer/connected/hangup);
+    // (à¤¨à¤¯à¤¾) Direct <Dial> events. callbackUrl => DialAction (answer/connected/hangup);
     // action URL => DialStatus (completed/busy/failed/cancel/timeout/no-answer).
     const dialDuration = parseInt(body.DialBLegBillDuration || body.DialBLegDuration || body.BillDuration || '0', 10) || 0;
 
@@ -1434,7 +1434,7 @@ router.post('/api/plivo/webhook/app', async (c) => {
 
   const dest = e164FromTo(to);
 
-  // Case 1: customer PSTN dial (E.164) — dialing row match karke CallUUID update karo.
+  // Case 1: customer PSTN dial (E.164) â dialing row match karke CallUUID update karo.
   if (/^\+\d{7,15}$/.test(dest)) {
     if (!cfg) {
       console.warn('[Plivo Webhook] no config matched for endpoint From user, hanging up');
