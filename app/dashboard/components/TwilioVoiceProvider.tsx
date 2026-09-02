@@ -52,6 +52,16 @@ export function TwilioVoiceProvider({ children }: { children: React.ReactNode })
     if (typeof window === 'undefined') return null;
     return localStorage.getItem('workspaceId');
   });
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch('/api/users/me')
+      .then(res => res.json())
+      .then((data: any) => {
+        if (data && data.user) setCurrentUserId(data.user.id);
+      })
+      .catch(console.error);
+  }, []);
   const [token, setToken] = useState<string | null>(null);
   const [incoming, setIncoming] = useState<TwilioCallInfo | null>(null);
   const [active, setActive] = useState<TwilioCallInfo | null>(null);
@@ -66,6 +76,11 @@ export function TwilioVoiceProvider({ children }: { children: React.ReactNode })
   const reconnectRef = useRef<any>(null);
   const timerRef = useRef<any>(null);
   const activeRef = useRef(active);
+  const currentUserIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    currentUserIdRef.current = currentUserId;
+  }, [currentUserId]);
 
   useEffect(() => {
     activeRef.current = active;
@@ -171,6 +186,11 @@ export function TwilioVoiceProvider({ children }: { children: React.ReactNode })
                 workspaceId: wsId,
                 direction: "incoming",
               });
+            } else if (data.type === "call_answered" && data.source === "twilio") {
+              if (data.answeredByUserId !== currentUserIdRef.current) {
+                // Someone else answered
+                setIncoming((prev) => (prev && prev.id === data.callId ? null : prev));
+              }
             } else if (data.type === "call_status_updated" && data.source === "twilio") {
               if (
                 data.status === "ended" ||
@@ -304,16 +324,32 @@ export function TwilioVoiceProvider({ children }: { children: React.ReactNode })
     }
   }, [incoming, connectConference]);
 
-  const reject = useCallback(() => {
-    if (callRef.current && typeof callRef.current.reject === "function") {
+  const reject = useCallback(async () => {
+    const callId = incoming?.id;
+    setIncoming(null);
+    if (callId && workspaceId) {
       try {
-        callRef.current.reject();
+        const res = await fetch(`/api/voice/call/${encodeURIComponent(callId)}/decline`, {
+          method: "POST",
+          headers: { "x-workspace-id": workspaceId, "Content-Type": "application/json" },
+          body: JSON.stringify({ source: "twilio" }),
+        });
+        const data = (await res.json()) as any;
+        
+        if (data.allDeclined) {
+          if (callRef.current && typeof callRef.current.reject === "function") {
+            try {
+              callRef.current.reject();
+            } catch (e) {
+              console.error("[TwilioWeb] reject error", e);
+            }
+          }
+        }
       } catch (e) {
-        console.error("[TwilioWeb] reject error", e);
+        console.error("[TwilioWeb] reject api error", e);
       }
     }
-    setIncoming(null);
-  }, []);
+  }, [incoming, workspaceId]);
 
   const hangup = useCallback(() => {
     if (callRef.current && typeof callRef.current.disconnect === "function") {
