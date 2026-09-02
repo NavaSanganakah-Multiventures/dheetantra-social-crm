@@ -476,6 +476,11 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
               const t = Math.max(nextPlayTimeRef.current, audioCtxRef.current.currentTime);
               source.start(t);
               nextPlayTimeRef.current = t + buffer.duration;
+              // Jitter buffer bloat na ho: agar queue 250 ms se zyada ho toh catch-up.
+              const MAX_LATENCY = 0.25;
+              if (nextPlayTimeRef.current - audioCtxRef.current.currentTime > MAX_LATENCY) {
+                nextPlayTimeRef.current = audioCtxRef.current.currentTime + 0.05;
+              }
             } else if (data.type === 'stream_ended') {
               closeAudioStream();
               cleanupCall();
@@ -525,7 +530,12 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
         };
 
         source.connect(processor);
-        processor.connect(audioCtx.destination);
+        // Mic processor ka output speakers pe nahi bhejna (echo + extra buffering).
+        // Process activate rakhne ke liye gain 0 se destination connect karte hain.
+        const zeroGain = audioCtx.createGain();
+        zeroGain.gain.value = 0;
+        processor.connect(zeroGain);
+        zeroGain.connect(audioCtx.destination);
       } catch (e) {
         console.error('[PlivoWeb] connect audio stream error', e);
         setStatus('error');
