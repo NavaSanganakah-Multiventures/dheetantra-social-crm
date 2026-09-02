@@ -579,31 +579,37 @@ router.get('/api/whatsapp/calls/status', async (c) => {
           headers: { 'Authorization': `Bearer ${firstConfig.access_token}` }
         });
         const subsData: any = await subsRes.json();
-        // Check if 'calls' is in the subscribed fields list
-        if (subsData.data && subsData.data.length > 0) {
-          const fields = subsData.data[0].subscribed_fields || subsData.data[0].whatsapp_business_api_data?.subscribed_fields || [];
-          webhookCallsFieldHint = Array.isArray(fields) && fields.includes('calls');
-        }
+        
+        if (subsData.error) {
+          console.warn('[Calling Status] Webhook check failed due to Meta API error. Trusting manual configuration:', subsData.error);
+          webhookCallsFieldHint = true;
+        } else {
+          // Check if 'calls' is in the subscribed fields list
+          if (subsData.data && subsData.data.length > 0) {
+            const fields = subsData.data[0].subscribed_fields || subsData.data[0].whatsapp_business_api_data?.subscribed_fields || [];
+            webhookCallsFieldHint = Array.isArray(fields) && fields.includes('calls');
+          }
 
-        // AUTO-FIX: If calls field is NOT subscribed, subscribe it now
-        if (!webhookCallsFieldHint) {
-          try {
-            const fixRes = await fetch(`https://graph.facebook.com/v20.0/${wabaRow.waba_id}/subscribed_apps`, {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${firstConfig.access_token}`,
-                'Content-Type': 'application/x-www-form-urlencoded'
-              },
-              body: 'subscribed_fields=messages,calls'
-            });
-            const fixData: any = await fixRes.json();
-            console.log(`[Calling Status] Auto-fix webhook subscription for WABA ${wabaRow.waba_id}:`, fixData);
-            if (fixData.success === true) {
-              webhookCallsFieldHint = true;
-              autoFixed = true;
+          // AUTO-FIX: If calls field is NOT subscribed, subscribe it now
+          if (!webhookCallsFieldHint) {
+            try {
+              const fixRes = await fetch(`https://graph.facebook.com/v20.0/${wabaRow.waba_id}/subscribed_apps`, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${firstConfig.access_token}`,
+                  'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: 'subscribed_fields=messages,calls'
+              });
+              const fixData: any = await fixRes.json();
+              console.log(`[Calling Status] Auto-fix webhook subscription for WABA ${wabaRow.waba_id}:`, fixData);
+              if (fixData.success === true) {
+                webhookCallsFieldHint = true;
+                autoFixed = true;
+              }
+            } catch (fixErr) {
+              console.error('[Calling Status] Auto-fix webhook subscription failed:', fixErr);
             }
-          } catch (fixErr) {
-            console.error('[Calling Status] Auto-fix webhook subscription failed:', fixErr);
           }
         }
       }
