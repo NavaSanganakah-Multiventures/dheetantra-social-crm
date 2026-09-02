@@ -887,10 +887,11 @@ app.post('/api/whatsapp/webhook', async (c) => {
                 if (existingCall && (finalStatus === 'ended' || finalStatus === 'missed')) {
                   const answeredRow = await c.env.DB.prepare('SELECT answered_by_user_id FROM calls WHERE id = ?')
                     .bind(existingCall.id).first<{ answered_by_user_id: string | null }>();
-                  if (answeredRow?.answered_by_user_id) {
+                  const answeredBy = answeredRow?.answered_by_user_id || null;
+                  if (answeredBy) {
                     c.executionCtx.waitUntil((async () => {
-                      await restoreAgentStatus(c.env, config.workspace_id, answeredRow.answered_by_user_id);
-                      await cleanupCallRinging(c.env, existingCall.id, config.workspace_id, answeredRow.answered_by_user_id);
+                      await restoreAgentStatus(c.env, config.workspace_id, answeredBy);
+                      await cleanupCallRinging(c.env, existingCall.id, config.workspace_id, answeredBy);
                     })());
                   }
                 }
