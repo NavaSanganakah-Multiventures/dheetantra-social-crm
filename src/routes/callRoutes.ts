@@ -4,6 +4,7 @@ import { requireRole, pagination, sqliteNow } from '../shared';
 import { formatForWhatsApp } from '../utils/phoneUtils';
 import { teardownPlivoCall } from './plivoVoice';
 import { teardownTwilioCall } from './twilioVoice';
+import { claimCallAnswer, notifyCallAnswered, restoreAgentStatus, cleanupCallRinging, markAgentDeclined, checkAllAgentsDeclined } from '../services/callRouting';
 
 const router = new Hono<{ Bindings: Env }>();
 
@@ -229,6 +230,23 @@ router.post('/api/whatsapp/calls/:id/answer', async (c) => {
   const callId = c.req.param('id');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
 
+  const user = (c as any).get('user') as any;
+
+  // --- Agent availability routing: claim the call atomically ---
+  // The first agent to reach this endpoint wins. Later callers get
+  // alreadyAnswered=true and the Flutter app dismisses their ring.
+  if (user && user.id) {
+    const callRow = await c.env.DB.prepare('SELECT answered_by_user_id FROM calls WHERE id = ? AND workspace_id = ?')
+      .bind(callId, workspaceId).first<{ answered_by_user_id: string | null }>();
+    if (callRow && callRow.answered_by_user_id && callRow.answered_by_user_id !== user.id) {
+      return c.json({ success: true, alreadyAnswered: true });
+    }
+    if (callRow && !callRow.answered_by_user_id) {
+      const claimed = await claimCallAnswer(c.env, callId, workspaceId, user.id);
+      if (!claimed) return c.json({ success: true, alreadyAnswered: true });
+    }
+  }
+
   const { sdp, phoneNumberId } = await c.req.json();
 
   // Find config by phoneNumberId first, then fallback to workspace
@@ -243,7 +261,7 @@ router.post('/api/whatsapp/calls/:id/answer', async (c) => {
   const url = `https://graph.facebook.com/v20.0/${phoneNumberId}/calls`;
   const headers = { 'Authorization': `Bearer ${config.access_token}`, 'Content-Type': 'application/json' };
 
-  // Step 1: pre_accept — signal readiness and establish media connection
+  // Step 1: pre_accept â signal readiness and establish media connection
   const preAcceptRes = await fetch(url, {
     method: 'POST',
     headers,
@@ -256,7 +274,7 @@ router.post('/api/whatsapp/calls/:id/answer', async (c) => {
   const preAcceptData: any = await preAcceptRes.json();
   console.log('[Calling] pre_accept response:', JSON.stringify(preAcceptData));
 
-  // Step 2: accept — formally answer the call
+  // Step 2: accept â formally answer the call
   const acceptRes = await fetch(url, {
     method: 'POST',
     headers,
@@ -272,6 +290,11 @@ router.post('/api/whatsapp/calls/:id/answer', async (c) => {
 
   await c.env.DB.prepare('UPDATE calls SET status = ? WHERE id = ? AND workspace_id = ?')
     .bind('in_progress', callId, workspaceId).run();
+
+  // Notify all other agents that this call was answered so their rings stop.
+  if (user && user.id) {
+    c.executionCtx.waitUntil(notifyCallAnswered(c.env, workspaceId, callId, user.id, 'whatsapp'));
+  }
 
   return c.json({ success: true, preAccept: preAcceptData, accept: acceptData });
 });
@@ -339,6 +362,16 @@ router.post('/api/whatsapp/calls/:id/terminate', async (c) => {
   await c.env.DB.prepare('UPDATE calls SET status = ? WHERE id = ? AND workspace_id = ?')
     .bind('ended', callId, workspaceId).run();
 
+  // Restore the answering agent to 'live' and clean up ringing tracking.
+  const endedCall = await c.env.DB.prepare('SELECT answered_by_user_id FROM calls WHERE id = ?')
+    .bind(callId).first<{ answered_by_user_id: string | null }>();
+  if (endedCall?.answered_by_user_id) {
+    c.executionCtx.waitUntil((async () => {
+      await restoreAgentStatus(c.env, workspaceId, endedCall.answered_by_user_id);
+      await cleanupCallRinging(c.env, callId, workspaceId, endedCall.answered_by_user_id);
+    })());
+  }
+
   return c.json({ success: true, data });
 });
 
@@ -373,7 +406,7 @@ router.post('/api/whatsapp/calls/:id/reject', async (c) => {
   console.log('[Calling] reject response:', JSON.stringify(data));
 
   // Busy-rejected calls ka status preserve karo (app-side busy guard bhi isi
-  // route par aata hai) — warna 'busy' record 'declined' se overwrite ho jayega.
+  // route par aata hai) â warna 'busy' record 'declined' se overwrite ho jayega.
   await c.env.DB.prepare("UPDATE calls SET status = 'declined' WHERE id = ? AND workspace_id = ? AND status != 'busy'")
     .bind(callId, workspaceId).run();
 
@@ -405,7 +438,7 @@ router.post('/api/whatsapp/calls/recordings', async (c) => {
   }
 });
 
-// TOGGLE calling configuration — syncs with Meta Graph API
+// TOGGLE calling configuration â syncs with Meta Graph API
 router.post('/api/whatsapp/calls/toggle', async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
@@ -547,7 +580,7 @@ router.get('/api/whatsapp/calls/config', async (c) => {
   return c.json({ calling_enabled: config ? config.calling_enabled === 1 : true });
 });
 
-// GET calling status from Meta API — verify calling is actually enabled on Meta's side
+// GET calling status from Meta API â verify calling is actually enabled on Meta's side
 router.get('/api/whatsapp/calls/status', async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
@@ -1004,10 +1037,24 @@ router.post('/api/calls/:id/decline', async (c) => {
   const workspaceId = c.req.header('x-workspace-id');
   const callId = c.req.param('id');
   if (!workspaceId) return c.json({ error: 'Workspace ID required' }, 400);
+  const user = (c as any).get('user') as any;
 
   const call = await c.env.DB.prepare('SELECT * FROM calls WHERE id = ? AND workspace_id = ?')
-    .bind(callId, workspaceId).first<{ source: string; id: string; workspace_id: string; plivo_config_id?: string; external_call_id?: string; assigned_user_id?: string }>();
+    .bind(callId, workspaceId).first<{ source: string; id: string; workspace_id: string; status: string; answered_by_user_id?: string | null; plivo_config_id?: string; external_call_id?: string; assigned_user_id?: string }>();
   if (!call) return c.json({ error: 'Call not found' }, 404);
+
+  // --- Per-agent decline (call not yet answered) ---
+  // Only this agent's ring stops. Other agents keep ringing. The call is
+  // torn down for everyone ONLY when no ringing agents remain.
+  if (user && user.id && !call.answered_by_user_id && (call.status === 'ringing' || call.status === 'dialing')) {
+    await markAgentDeclined(c.env, callId, user.id);
+    const allDeclined = await checkAllAgentsDeclined(c.env, callId, workspaceId, call.source || 'whatsapp');
+    if (!allDeclined) {
+      // Other agents are still ringing — do NOT tear down the caller.
+      return c.json({ success: true, message: 'Declined — other agents still ringing', allDeclined: false });
+    }
+    // All agents declined — fall through to provider-specific teardown below.
+  }
 
   try {
     if (call.source === 'plivo') {
@@ -1098,6 +1145,17 @@ router.post('/api/calls/:id/hangup', async (c) => {
 
   // Fallback
   await c.env.DB.prepare("UPDATE calls SET status = 'ended' WHERE id = ? AND workspace_id = ?").bind(callId, workspaceId).run();
+
+  // Restore the answering agent to 'live' and clean up ringing tracking.
+  const hungCall = await c.env.DB.prepare('SELECT answered_by_user_id FROM calls WHERE id = ?')
+    .bind(callId).first<{ answered_by_user_id: string | null }>();
+  if (hungCall?.answered_by_user_id) {
+    c.executionCtx.waitUntil((async () => {
+      await restoreAgentStatus(c.env, workspaceId, hungCall.answered_by_user_id);
+      await cleanupCallRinging(c.env, callId, workspaceId, hungCall.answered_by_user_id);
+    })());
+  }
+
   return c.json({ success: true, message: 'Call marked as ended' });
 });
 
