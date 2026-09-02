@@ -546,6 +546,28 @@ class ApiService {
     }
   }
 
+  /// Per-agent decline: only THIS agent's ring stops, others keep ringing.
+  /// Calls the new /api/voice/call/:callId/decline endpoint.
+  Future<Map<String, dynamic>> declineCallAgent(String callId, {String source = ''}) async {
+    try {
+      final res = await _dio.post('/api/voice/call/$callId/decline', data: {'source': source});
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  /// Claim the call for this agent (first to call wins). Called by the app
+  /// when an agent accepts an incoming call, before joining the conference.
+  Future<Map<String, dynamic>> claimCallAnswer(String callId, {String source = ''}) async {
+    try {
+      final res = await _dio.post('/api/voice/call/$callId/answer', data: {'source': source});
+      return res.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      return _handleError(e);
+    }
+  }
+
   // ========== PLIVO WORKSPACE CONFIG ==========
 
   Future<List<dynamic>> getPlivoConfigs() async {

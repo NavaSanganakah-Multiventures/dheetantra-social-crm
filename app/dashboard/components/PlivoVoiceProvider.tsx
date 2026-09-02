@@ -60,6 +60,16 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
     if (typeof window === "undefined") return null;
     return localStorage.getItem("workspaceId");
   });
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch('/api/users/me')
+      .then(res => res.json())
+      .then((data: any) => {
+        if (data && data.user) setCurrentUserId(data.user.id);
+      })
+      .catch(console.error);
+  }, []);
   const [registered, setRegistered] = useState(false);
   const [incoming, setIncoming] = useState<PlivoCallInfo | null>(null);
   const [active, setActive] = useState<PlivoCallInfo | null>(null);
@@ -74,6 +84,11 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
   const reconnectRef = useRef<any>(null);
   const timerRef = useRef<any>(null);
   const activeRef = useRef<PlivoCallInfo | null>(null);
+  const currentUserIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    currentUserIdRef.current = currentUserId;
+  }, [currentUserId]);
 
   const credentialsRef = useRef<any[]>([]);
   const currentConfigIdRef = useRef<string | null>(null);
@@ -87,7 +102,7 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
     activeRef.current = active;
   }, [active]);
 
-  const switchPlivoAccount = useCallback((newConfigId: string) => {
+  const switchPlivoAccount = useCallback(async (newConfigId: string) => {
     if (!newConfigId) return;
     if (currentConfigIdRef.current === newConfigId) return;
     
@@ -98,10 +113,14 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
       console.log(`[PlivoWeb] Switching SIP endpoint to config: ${newConfigId}`);
       try {
         clientRef.current.logout();
-        clientRef.current.login(creds.username, creds.password);
         currentConfigIdRef.current = newConfigId;
         registeredRef.current = false;
         setRegistered(false);
+        
+        // Wait a short duration to let the SDK cleanly destroy the previous SIP session.
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        clientRef.current.login(creds.username, creds.password);
       } catch (e) {
         console.error("[PlivoWeb] Error switching SIP endpoint", e);
       }
@@ -276,6 +295,12 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
                 plivoConfigId: data.plivoConfigId,
                 direction: "incoming",
               });
+            } else if (data.type === "call_answered" && data.source === "plivo") {
+              const callId = data.call_id || data.callId;
+              if (data.answeredByUserId !== currentUserIdRef.current) {
+                // Someone else answered
+                setIncoming((prev) => (prev && prev.id === callId ? null : prev));
+              }
             } else if (data.type === "call_status_updated" && data.source === "plivo") {
               const callId = data.call_id || data.callId;
               // Clear the overlay if the call is answered elsewhere (e.g. PSTN auto-dial).
@@ -468,12 +493,35 @@ export function PlivoVoiceProvider({ children }: { children: React.ReactNode }) 
     setIncoming(null);
     if (isSafeCallId(callId) && workspaceId) {
       try {
-        await fetch(`/api/plivo/call/${encodeURIComponent(callId)}/decline`, {
+        const res = await fetch(`/api/voice/call/${encodeURIComponent(callId)}/decline`, {
           method: "POST",
-          headers: { "x-workspace-id": workspaceId },
+          headers: { "x-workspace-id": workspaceId, "Content-Type": "application/json" },
+          body: JSON.stringify({ source: "plivo" }),
         });
+        
+        if (res.ok) {
+          const data = (await res.json()) as any;
+          // Only tear down the call globally if ALL agents have declined
+          if (data.allDeclined) {
+            await fetch(`/api/plivo/call/${encodeURIComponent(callId)}/decline`, {
+              method: "POST",
+              headers: { "x-workspace-id": workspaceId },
+            });
+          }
+        } else {
+          console.error("[PlivoWeb] decline api returned non-OK", res.status);
+        }
       } catch (e) {
-        console.error("[PlivoWeb] reject error", e);
+        console.error("[PlivoWeb] reject api error", e);
+      }
+      
+      // Also reject locally on Plivo client so it stops ringing
+      if (clientRef.current) {
+        try {
+          clientRef.current.reject();
+        } catch (e) {
+          console.error("[PlivoWeb] local reject error", e);
+        }
       }
     }
   }, [incoming, workspaceId]);

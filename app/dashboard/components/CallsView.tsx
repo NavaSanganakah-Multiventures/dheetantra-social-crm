@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { MessageSquare, Settings, Search, Phone, X, Check } from 'lucide-react';
+import { MessageSquare, Settings, Search, Phone, X, Check, Volume2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useToast } from '@/components/ui/Toast';
 import { formatUserDateTime } from '../lib/dates';
@@ -21,6 +21,7 @@ export function CallsView({
   const { toast } = useToast();
   const twilioVoice = useTwilioVoice();
   const plivoVoice = usePlivoVoice();
+  const activeWorkspaceId = typeof window !== 'undefined' ? localStorage.getItem('workspaceId') : '';
   const [calls, setCalls] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [callingEnabled, setCallingEnabled] = useState(true);
@@ -438,6 +439,7 @@ export function CallsView({
                   <th className="px-6 py-3">Status</th>
                   <th className="px-6 py-3">Call date & time</th>
                   <th className="px-6 py-3">Duration</th>
+                  <th className="px-6 py-3">Recording</th>
                   <th className="px-6 py-3 text-right">Action</th>
                 </tr>
               </thead>
@@ -492,6 +494,23 @@ export function CallsView({
                       <td className="px-6 py-4 text-surface-500 dark:text-surface-400">{dateStr}</td>
                       <td className="px-6 py-4 font-mono text-[11px] text-surface-600 dark:text-surface-400">
                         {completedStatuses.includes(call.status) ? `${Math.floor((call.duration || 0) / 60)}m ${(call.duration || 0) % 60}s` : '-'}
+                      </td>
+                      <td className="px-6 py-4">
+                        {call.recording_url ? (
+                          <div className="flex items-center gap-2">
+                            <Volume2 className="w-3.5 h-3.5 text-primary-500 shrink-0" />
+                            <audio
+                              controls
+                              preload="none"
+                              className="h-8 w-40"
+                              style={{ minWidth: '160px' }}
+                            >
+                              <source src={`/api/calls/${call.id}/recording?workspaceId=${activeWorkspaceId}`} />
+                            </audio>
+                          </div>
+                        ) : (
+                          <span className="text-[10px] text-surface-400">-</span>
+                        )}
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
