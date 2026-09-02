@@ -69,7 +69,7 @@ class FcmService {
       debugPrint('Local notifications init failed: $e');
     }
 
-    // Foreground messages Ã¢ÂÂ local notification (system tray already shows
+    // Foreground messages -> local notification (system tray already shows
     // background/terminated messages from the notification payload).
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       _handleForegroundMessage(message);
@@ -312,10 +312,10 @@ class FcmService {
     }
 
     if (type == 'call_answered') {
-      // Kisi aur agent ne call answer kar li â is device ki ring band karo.
+      // Kisi aur agent ne call answer kar li - is device ki ring band karo.
       final callId = message.data['callId']?.toString() ?? '';
       if (callId.isNotEmpty) {
-        debugPrint('FCM: call_answered for $callId â dismissing ring');
+        debugPrint('FCM: call_answered for $callId - dismissing ring');
         unawaited(CallKitService().dismissCallRing(callId));
       }
       return;
