@@ -8,8 +8,10 @@ export type AiLabel = typeof AI_LABELS[number];
 const MODEL = 'gemini-2.0-flash';
 
 async function getGemini(env: Env): Promise<GoogleGenAI | null> {
-  const key = await env.SECRETS_KV.get('GEMINI_API_KEY');
-  return key ? new GoogleGenAI({ apiKey: key }) : null;
+  const rawKey = await env.SECRETS_KV.get('GEMINI_API_KEY');
+  if (!rawKey) return null;
+  const key = rawKey.trim().replace(/^"|"$/g, '');
+  return new GoogleGenAI({ apiKey: key, httpOptions: { fetch: fetch } });
 }
 
 interface ClassifyInput {
@@ -95,7 +97,7 @@ export async function suggestReply(
   env: Env,
   workspaceId: string,
   conversationId: string
-): Promise<{ suggestion: string; failed: boolean }> {
+): Promise<{ suggestion: string; failed: boolean; error?: string }> {
   try {
     const conv: any = await env.DB.prepare(
       `SELECT c.id, c.platform, ct.name AS contact_name,
@@ -131,8 +133,8 @@ Return ONLY the reply text.`;
     const aiResponse = await gemini.models.generateContent({ model: MODEL, contents: prompt });
     const suggestion = (aiResponse.text || '').trim();
     return { suggestion, failed: !suggestion };
-  } catch (e) {
+  } catch (e: any) {
     console.error('[InboxAI] suggest error:', e);
-    return { suggestion: '', failed: true };
+    return { suggestion: '', failed: true, error: e.message || String(e) };
   }
 }

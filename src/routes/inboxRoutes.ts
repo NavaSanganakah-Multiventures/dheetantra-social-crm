@@ -156,7 +156,7 @@ router.post('/api/inbox/ai/suggest', async (c) => {
   const { suggestReply } = await import('../services/inboxAI');
   const result = await suggestReply(c.env, workspaceId, conversationId);
   if (result.failed) {
-    return c.json({ error: 'AI suggestion failed. Check GEMINI_API_KEY in KV.' }, 502);
+    return c.json({ error: `AI suggestion failed. ${result.error || 'Check GEMINI_API_KEY in KV.'}` }, 502);
   }
   return c.json({ success: true, suggestion: result.suggestion });
 });
