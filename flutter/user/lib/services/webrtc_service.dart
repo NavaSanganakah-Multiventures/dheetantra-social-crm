@@ -67,6 +67,43 @@ class WebRTCService {
     }
   }
 
+  /// Wait until ICE candidate gathering completes (or a safety timeout).
+  ///
+  /// Meta's WhatsApp Calling API does NOT support trickle ICE — the entire
+  /// SDP (with ALL candidates, including TURN relay candidates) must be sent
+  /// in a single shot. Earlier we waited a FIXED 2 seconds, which is too
+  /// short: relay candidates typically need 3–6s to gather. An SDP shipped
+  /// with missing relay candidates leaves two mobile peers behind
+  /// carrier-grade / symmetric NAT with no usable candidate pair — exactly
+  /// the symptom "connecting… sirf ek taraf aawaz aati hai" (one-way audio,
+  /// call never fully connects).
+  ///
+  /// Poll the gathering state (flutter_webrtc exposes `iceGatheringState`)
+  /// and resolve as soon as it reaches `complete`, with an 8s ceiling.
+  Future<void> _waitForIceGathering(
+      {Duration timeout = const Duration(seconds: 8)}) async {
+    final pc = _peerConnection;
+    if (pc == null) return;
+    final deadline = DateTime.now().add(timeout);
+    while (DateTime.now().isBefore(deadline)) {
+      try {
+        final state = pc.iceGatheringState;
+        if (state == RTCIceGatheringState.RTCIceGatheringStateComplete) {
+          break;
+        }
+      } catch (e) {
+        debugPrint('[WebRTC] iceGatheringState poll error: $e');
+        break;
+      }
+      await Future.delayed(const Duration(milliseconds: 200));
+    }
+    if (pc.iceGatheringState != RTCIceGatheringState.RTCIceGatheringStateComplete) {
+      debugPrint('[WebRTC] ICE gathering timed out after ${timeout.inSeconds}s '
+          '(state=${pc.iceGatheringState}) — sending SDP with whatever '
+          'candidates are available');
+    }
+  }
+
   Future<void> answerCall(Map<String, dynamic> callData) async {
     debugPrint('[WebRTC] answerCall started for call id: ${callData['id']}');
     try {
@@ -160,8 +197,11 @@ class WebRTCService {
       final answer = await _peerConnection!.createAnswer();
       await _peerConnection!.setLocalDescription(answer);
 
-      // Wait a bit for ICE candidates to gather
-      await Future.delayed(const Duration(seconds: 2));
+      // Wait for ICE candidate gathering to COMPLETE (host + srflx + relay).
+      // Meta needs the full SDP with ALL candidates in one shot (no trickle),
+      // so a short fixed delay that ships an incomplete answer is the root
+      // cause of one-way audio for peers behind carrier/symmetric NAT.
+      await _waitForIceGathering();
       final finalSdp = await _peerConnection!.getLocalDescription();
 
       if (finalSdp != null) {
@@ -245,8 +285,9 @@ class WebRTCService {
       final offer = await _peerConnection!.createOffer();
       await _peerConnection!.setLocalDescription(offer);
 
-      // Wait for ICE gathering so the full offer reaches the backend.
-      await Future.delayed(const Duration(seconds: 2));
+      // Wait for ICE gathering to COMPLETE so the offer carries every
+      // candidate (incl. TURN relay) — see _waitForIceGathering().
+      await _waitForIceGathering();
       final finalOffer = await _peerConnection!.getLocalDescription();
       final offerSdp = finalOffer?.sdp;
       if (offerSdp == null || offerSdp.isEmpty) {
