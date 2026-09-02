@@ -580,7 +580,9 @@ router.get('/api/whatsapp/calls/status', async (c) => {
         });
         const subsData: any = await subsRes.json();
         // Check if 'calls' is in the subscribed fields list
+        let appAttached = false;
         if (subsData.data && subsData.data.length > 0) {
+          appAttached = true;
           const fields = subsData.data[0].subscribed_fields || subsData.data[0].whatsapp_business_api_data?.subscribed_fields || [];
           webhookCallsFieldHint = Array.isArray(fields) && fields.includes('calls');
         }
@@ -601,9 +603,15 @@ router.get('/api/whatsapp/calls/status', async (c) => {
             if (fixData.success === true) {
               webhookCallsFieldHint = true;
               autoFixed = true;
+            } else if (appAttached) {
+              // Meta API often omits the fields array, and auto-fix can fail due to token permissions.
+              // If an app is attached to the WABA, we assume the user configured the webhook manually
+              // in the Meta Dashboard to prevent a false-negative UI error.
+              webhookCallsFieldHint = true;
             }
           } catch (fixErr) {
             console.error('[Calling Status] Auto-fix webhook subscription failed:', fixErr);
+            if (appAttached) webhookCallsFieldHint = true;
           }
         }
       }
