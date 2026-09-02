@@ -875,8 +875,9 @@ router.get('/api/plivo/sip-credentials', async (c) => {
     password: cfg.endpoint_password,
     server: 'phone.plivo.com',
     domain: 'phone.plivo.com',
-    port: 5060,
-    transport: 'UDP/TCP',
+    port: 7443,
+    transport: 'WSS',
+    webSocketUrl: 'wss://phone.plivo.com:7443',
     sipUri: `sip:${cfg.endpoint_username}@phone.plivo.com`,
     applicationSipUri: cfg.endpoint_app_id ? `sip:${cfg.endpoint_app_id}@app.plivo.com` : null,
   }));
