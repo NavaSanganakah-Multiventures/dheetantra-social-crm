@@ -178,8 +178,8 @@ async function getAccessToken(env: any): Promise<string> {
  * @param title    Notification title
  * @param body     Notification body
  * @param data     Optional string-key/value data payload (deep-link metadata)
- * @param options  Optional delivery tuning (TTL, category, sound). For calls
- *                 use `category: 'call'` and `ttlSeconds: 0` so the device
+ * @param options  Optional delivery tuning (TTL, sound, data-only). For calls
+ *                 use `ttlSeconds: 0` and `dataOnly: true` so the device
  *                 wakes instantly even on aggressive OEM battery savers.
  */
 export async function sendPushNotification(
@@ -235,10 +235,6 @@ export async function sendPushNotification(
           android: {
             priority: 'HIGH',
             ...(ttl ? { ttl } : {}),
-            // 'call' category helps OEMs/battery savers prioritise wake-up for
-            // incoming call pushes (Android 14+ also treats call-category FCM
-            // specially), so the background isolate wakes to show CallKit ring.
-            ...(options?.category ? { category: options.category } : {}),
           },
           apns: {
             headers: ttl ? { 'apns-priority': '10' } : undefined,
