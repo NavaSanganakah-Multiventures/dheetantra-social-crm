@@ -153,7 +153,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
     if (!wId) return;
     fetch('/api/calls?limit=5', { headers: { 'x-workspace-id': wId } })
       .then(r => r.json())
-      .then(data => {
+      .then((data: any) => {
         if (data.calls) {
           const activeIncoming = data.calls.find((c: any) => c.status === 'ringing' && c.direction === 'incoming' && c.source === 'whatsapp');
           if (activeIncoming && activeIncoming.sdp) {
@@ -654,7 +654,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                   Incoming Call
                 </span>
                 <span className="inline-block px-2 py-1 bg-amber-500/10 text-amber-500 text-[10px] font-semibold rounded-md border border-amber-500/20">
-                  ⚠️ Please answer within 30 seconds
+                  â ï¸ Please answer within 30 seconds
                 </span>
               </div>
 
@@ -824,8 +824,8 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                 <div className="flex gap-2 mt-2">
                   <span className="text-[10px] text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-full">
                     {callsFieldStatus === 'not_subscribed'
-                      ? '⚠️ WhatsApp Cloud API does not have the "calls" field subscribed - call may not connect'
-                      : '⚡ WebRTC SDP not available - only missed call can be shown'}
+                      ? 'â ï¸ WhatsApp Cloud API does not have the "calls" field subscribed - call may not connect'
+                      : 'â¡ WebRTC SDP not available - only missed call can be shown'}
                   </span>
                 </div>
               </div>
