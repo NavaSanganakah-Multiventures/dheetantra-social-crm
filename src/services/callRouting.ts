@@ -153,7 +153,7 @@ export async function pushCallAnsweredToAgents(
 
     const { sendPushNotification } = await import('../../lib/fcm');
     const CHUNK = 25;
-    const targets = tokens.results.slice(-45);
+    const targets = tokens.results;
     for (let start = 0; start < targets.length; start += CHUNK) {
       const chunk = targets.slice(start, start + CHUNK);
       await Promise.allSettled(
