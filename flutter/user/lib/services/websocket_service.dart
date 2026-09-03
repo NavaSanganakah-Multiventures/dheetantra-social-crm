@@ -236,8 +236,23 @@ class WebSocketService with WidgetsBindingObserver {
           });
           break;
         case 'plivo_incoming_call':
-          // Plivo incoming calls ring on the agent's PSTN phone. There is no
-          // in-app WebRTC/SDK audio in the MVP, so intentionally do nothing here.
+          // Plivo softphone mode (auto-forward OFF / answerInApp=true): caller
+          // conference mein hold par hai aur agent ki app in-app ring + UI
+          // dikhani chahiye. Isi tarah Twilio/WhatsApp events bhi aate hain.
+          // Auto-forward ON (answerInApp=false) mein agent ka PSTN phone natively
+          // bajta hai - yahan silence rahne se double-ring nahi hoti.
+          if (data['answerInApp'] == true) {
+            _incomingCallController.add({
+              'id': data['callId'],
+              'source': 'plivo',
+              'conferenceName': data['conferenceName'],
+              'plivoConfigId': data['plivoConfigId'],
+              'contact_name': data['callerName'] ?? data['from'] ?? 'Unknown',
+              'phone': data['from'] ?? '',
+              'direction': 'incoming',
+              'status': 'ringing',
+            });
+          }
           break;
         case 'call_answered':
           _callAnsweredController.add(data);
