@@ -793,9 +793,9 @@ export async function teardownTwilioCall(env: any, call: any, status: string) {
   // caller ringing/on hold in the conference until Twilio's own timeout.
   if (call.external_call_id && call.twilio_config_id) {
     try {
-      const cfg = await env.DB.prepare(
+      const cfg = (await env.DB.prepare(
         'SELECT account_sid, auth_token FROM twilio_configs WHERE id = ?'
-      ).bind(call.twilio_config_id).first<{ account_sid: string; auth_token: string }>();
+      ).bind(call.twilio_config_id).first()) as { account_sid: string; auth_token: string } | null;
       if (cfg?.account_sid && cfg?.auth_token) {
         await fetch(`https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(cfg.account_sid)}/Calls/${encodeURIComponent(call.external_call_id)}.json`, {
           method: 'POST',
