@@ -298,9 +298,13 @@ class FcmService {
 
     final type = message.data['type'] ?? '';
 
-    if (type == 'incoming_call') {
+    if (type == 'incoming_call' || type == 'twilio_incoming_call') {
       // Foreground mein bhi incoming call dikhana chahiye; CallKit native UI
       // sabse reliable hai, aur saath mein notification center mein bhi record.
+      // 'twilio_incoming_call' bhi wahi CallKit ring path use kare (background
+      // handler ke saath consistency). Plivo auto-forward ON ('plivo_incoming_call')
+      // yahan nahi aata - wo native PSTN phone bajti hai, double-ring na ho isliye
+      // neeche normal notification path par chalta hai.
       _addToNotificationCenter(
         message.data['callerName'] ?? 'Incoming call',
         message.data['callerNumber'] ?? '',
