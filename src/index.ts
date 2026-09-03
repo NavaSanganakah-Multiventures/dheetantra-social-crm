@@ -737,6 +737,34 @@ app.post('/api/whatsapp/webhook', async (c) => {
                     console.log(`[Calling] Call ${callId} marked busy - no ring, no push`);
                     continue;
                   }
+
+                  // All agents busy/offline check: agar koi live agent nahi hai toh
+                  // caller ko busy tone mile (Meta reject), ring/push skip ho.
+                  const liveMembers = await c.env.DB.prepare(
+                    "SELECT user_id FROM workspace_members WHERE workspace_id = ? AND voice_status = 'live'"
+                  ).bind(config.workspace_id).all<{ user_id: string }>();
+
+                  if (!liveMembers.results || liveMembers.results.length === 0) {
+                    console.log(`[Calling] [SKIP] No live agents (all busy/offline) - auto-rejecting call ${callId} from ${callerNumber}`);
+                    try {
+                      const rejectUrl = `https://graph.facebook.com/v20.0/${phoneNumberId}/calls`;
+                      await fetch(rejectUrl, {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${config.access_token}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          messaging_product: 'whatsapp',
+                          call_id: callId,
+                          action: 'reject'
+                        })
+                      });
+                    } catch (e) {
+                      console.error('[Calling] No-live-agent auto-reject to Meta failed:', e);
+                    }
+                    await c.env.DB.prepare('UPDATE calls SET status = ?, hangup_cause = ? WHERE id = ?')
+                      .bind('busy', 'busy', callId).run();
+                    console.log(`[Calling] Call ${callId} marked busy (no live agents) - no ring, no push`);
+                    continue;
+                  }
                 }
 
                 // Broadcast to frontend via Durable Object for Human Answering
