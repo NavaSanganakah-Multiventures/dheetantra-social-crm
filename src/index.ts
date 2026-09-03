@@ -416,12 +416,9 @@ async function downloadMediaToR2(env: Env, phoneNumberId: string, mediaUrl: stri
 app.post('/api/whatsapp/webhook', async (c) => {
   try {
     // Meta signs webhook deliveries with the app secret (x-hub-signature-256).
-    // Verification is enforced whenever WHATSAPP_APP_SECRET is present in
-    // SECRETS_KV. If the secret is NOT configured we FAIL OPEN (accept the
-    // event) with a loud error log - a hard 503 here silently kills every
-    // incoming message (no DB save, no realtime broadcast, no push), which is
-    // worse than accepting unverified webhooks until the operator sets the
-    // secret. Set WHATSAPP_APP_SECRET to restore strict verification.
+    // Verification is mandatory: if WHATSAPP_APP_SECRET is not configured we
+    // fail closed (503) so unverified events cannot create messages/calls or
+    // trigger pushes until the operator sets the secret in SECRETS_KV.
     const appSecretRaw = await c.env.SECRETS_KV?.get('WHATSAPP_APP_SECRET');
     const appSecret = appSecretRaw?.trim();
     const rawBody = await c.req.text();
@@ -441,7 +438,11 @@ app.post('/api/whatsapp/webhook', async (c) => {
         }, 403);
       }
     } else {
-      console.error('[WhatsApp] WHATSAPP_APP_SECRET missing in SECRETS_KV - accepting webhook WITHOUT signature verification. Add WHATSAPP_APP_SECRET (Meta App Secret) to SECRETS_KV to enable verification.');
+      console.error('[WhatsApp] WHATSAPP_APP_SECRET missing in SECRETS_KV - rejecting webhook because signature verification is unavailable.');
+      return c.json({
+        error: 'WhatsApp signature verification is not configured',
+        detail: 'Set WHATSAPP_APP_SECRET (Meta App Secret) in SECRETS_KV to accept webhooks.'
+      }, 503);
     }
     const body = rawBody ? JSON.parse(rawBody) : {};
     // Log only metadata, never the full body (it may contain PII, tokens and
@@ -786,11 +787,7 @@ app.post('/api/whatsapp/webhook', async (c) => {
                         }
 
                         const CHUNK = 25;
-                        const MAX_TOTAL_SENDS = 45;
-                        const targets = tokens.results.slice(-MAX_TOTAL_SENDS);
-                        if (tokens.results.length > MAX_TOTAL_SENDS) {
-                          console.warn(`[Calling] Incoming-call push truncated: ${tokens.results.length} tokens, sending to ${MAX_TOTAL_SENDS}`);
-                        }
+                        const targets = tokens.results;
 
                         // Build rich caller context (email + last message) so a locked or
                         // killed phone can still show name, number, email and last message.
@@ -891,9 +888,13 @@ app.post('/api/whatsapp/webhook', async (c) => {
                   if (answeredBy) {
                     c.executionCtx.waitUntil((async () => {
                       await restoreAgentStatus(c.env, config.workspace_id, answeredBy);
-                      await cleanupCallRinging(c.env, existingCall.id, config.workspace_id, answeredBy);
                     })());
                   }
+                  // Always clear ringing-agent rows - missed/unanswered calls have
+                  // no answeredBy but can still leave stale 'ringing' rows behind.
+                  c.executionCtx.waitUntil((async () => {
+                    await cleanupCallRinging(c.env, existingCall.id, config.workspace_id, answeredBy);
+                  })());
                 }
 
                 try {
@@ -925,15 +926,8 @@ app.post('/api/whatsapp/webhook', async (c) => {
 
                           const { sendPushNotification } = await import('../lib/fcm');
                           if (tokens.results && tokens.results.length > 0) {
-                            // Bound the fan-out: subrequest/wall-time limits are
-                            // cumulative per invocation, so cap the TOTAL sends
-                            // (not just concurrency) and chunk them.
                             const CHUNK = 25;
-                            const MAX_TOTAL_SENDS = 45;
-                            const targets = tokens.results.slice(-MAX_TOTAL_SENDS);
-                            if (tokens.results.length > MAX_TOTAL_SENDS) {
-                              console.warn(`[Calling] Missed-call push truncated: ${tokens.results.length} tokens, sending to ${MAX_TOTAL_SENDS}`);
-                            }
+                            const targets = tokens.results;
                             for (let start = 0; start < targets.length; start += CHUNK) {
                               const chunk = targets.slice(start, start + CHUNK);
                               const sends = await Promise.allSettled(
@@ -1040,15 +1034,8 @@ app.post('/api/whatsapp/webhook', async (c) => {
                         const bodyPreview = messageText.length > 100 ? messageText.substring(0, 97) + '...' : messageText;
 
                         if (tokens.results && tokens.results.length > 0) {
-                          // Bound the fan-out: subrequest/wall-time limits are
-                          // cumulative per invocation, so cap the TOTAL sends
-                          // (not just concurrency) and chunk them.
                           const CHUNK = 25;
-                          const MAX_TOTAL_SENDS = 45;
-                          const targets = tokens.results.slice(-MAX_TOTAL_SENDS);
-                          if (tokens.results.length > MAX_TOTAL_SENDS) {
-                            console.warn(`[Webhook] New-message push truncated: ${tokens.results.length} tokens, sending to ${MAX_TOTAL_SENDS}`);
-                          }
+                          const targets = tokens.results;
                           console.log(`[Webhook] Sending new-message push to ${targets.length} token(s) for workspace ${config.workspace_id}`);
                           for (let start = 0; start < targets.length; start += CHUNK) {
                             const chunk = targets.slice(start, start + CHUNK);
