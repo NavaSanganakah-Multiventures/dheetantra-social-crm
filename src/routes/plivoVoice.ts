@@ -1105,7 +1105,7 @@ export async function teardownPlivoCall(
     await env.DB.prepare(
       "UPDATE workspace_members SET voice_status = 'live', voice_status_updated_at = ? WHERE workspace_id = ? AND user_id = ? AND voice_status = 'busy'"
     ).bind(sqliteNow(), call.workspace_id, agentId).run();
-    await cleanupCallRinging(env, call.workspace_id, call.id, agentId);
+    await cleanupCallRinging(env, call.id, call.workspace_id, agentId);
   }
 
   await broadcastToWorkspace(env, call.workspace_id, {
