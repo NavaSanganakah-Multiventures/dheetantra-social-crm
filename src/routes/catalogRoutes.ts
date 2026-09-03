@@ -504,8 +504,20 @@ router.post('/api/catalogs/whatsapp/send', requireRole('owner', 'admin', 'member
       content = product.name;
       mediaPayload.product_id = product.id;
       mediaPayload.product_name = product.name;
-      payload.type = 'product';
-      payload.product = { catalog_id: metaCatalogId, product_retailer_id: product.retailer_id };
+      payload.type = 'interactive';
+      payload.interactive = {
+        type: 'product',
+        action: {
+          catalog_id: metaCatalogId,
+          product_retailer_id: product.retailer_id,
+        },
+        body: {
+          text: body || product.description || product.name || 'Check out this product!',
+        },
+      };
+      if (footer && String(footer).trim()) {
+        payload.interactive.footer = { text: footer };
+      }
     } else {
       const catalog = await c.env.DB.prepare(
         'SELECT id, name FROM catalogs WHERE id = ? AND workspace_id = ?'
@@ -526,20 +538,18 @@ router.post('/api/catalogs/whatsapp/send', requireRole('owner', 'admin', 'member
       mediaPayload.footer = footer;
       mediaPayload.section_title = sectionTitle;
 
-      payload.type = 'multi_product';
-      payload.multi_product = {
-        catalog_id: metaCatalogId,
+      payload.type = 'interactive';
+      payload.interactive = {
+        type: 'product_list',
+        header: { type: 'text', text: header || catalog.name },
         body: { text: body || `Check out ${catalog.name}!` },
         action: {
           catalog_id: metaCatalogId,
           sections: [{ title: sectionTitle || 'Products', product_items: items.slice(0, 30) }],
         },
       };
-      if (header && String(header).trim()) {
-        payload.multi_product.header = { type: 'text', text: header };
-      }
       if (footer && String(footer).trim()) {
-        payload.multi_product.footer = { text: footer };
+        payload.interactive.footer = { text: footer };
       }
     }
 
