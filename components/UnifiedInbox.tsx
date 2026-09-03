@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Search, Send, Sparkles, Inbox, MessageCircle, Mail, Instagram, Facebook, X, RefreshCw, Bot, AlertTriangle, ChevronDown, Check, Loader2, Phone } from 'lucide-react';
 
 // ---------------------------------------------------------------
@@ -401,15 +401,17 @@ export default function UnifiedInbox({
   }, [messages, activeConv?.id]);
 
   // ---------- Client-side filtering ----------
-  const filtered = conversations
-    .filter(c => (platform === 'all' ? true : c.platform === platform))
-    .filter(c => (statusFilter === 'all' ? true : (c.status || 'open') === statusFilter))
-    .filter(c => (aiFilter === 'all' ? true : c.ai_label === aiFilter))
-    .filter(c => {
-      if (!search.trim()) return true;
-      const q = search.toLowerCase();
-      return (c.contact_name || '').toLowerCase().includes(q) || (c.phone || '').toLowerCase().includes(q);
-    });
+  const filtered = useMemo(() => {
+    return conversations
+      .filter(c => (platform === 'all' ? true : c.platform === platform))
+      .filter(c => (statusFilter === 'all' ? true : (c.status || 'open') === statusFilter))
+      .filter(c => (aiFilter === 'all' ? true : c.ai_label === aiFilter))
+      .filter(c => {
+        if (!search.trim()) return true;
+        const q = search.toLowerCase();
+        return (c.contact_name || '').toLowerCase().includes(q) || (c.phone || '').toLowerCase().includes(q);
+      });
+  }, [conversations, platform, statusFilter, aiFilter, search]);
 
   const counts = useCallback((p: Platform) => {
     if (p === 'all') return conversations.length;
