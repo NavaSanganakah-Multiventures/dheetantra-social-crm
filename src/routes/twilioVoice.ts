@@ -38,6 +38,59 @@ function base64UrlBuffer(buffer: ArrayBuffer): string {
   return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
+function base64Standard(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let str = '';
+  for (let i = 0; i < bytes.length; i++) str += String.fromCharCode(bytes[i]);
+  return btoa(str);
+}
+
+function constantTimeEqual(a: string, b: string): boolean {
+  const aLen = a.length;
+  const bLen = b.length;
+  let mismatch = aLen === bLen ? 0 : 1;
+  const max = Math.max(aLen, bLen);
+  for (let i = 0; i < max; i++) {
+    const ac = i < aLen ? a.charCodeAt(i) : 0;
+    const bc = i < bLen ? b.charCodeAt(i) : 0;
+    mismatch |= ac ^ bc;
+  }
+  return mismatch === 0;
+}
+
+async function verifyTwilioSignature(c: any, authToken: string | undefined, params: Record<string, string>): Promise<boolean> {
+  if (!authToken) return false;
+  const signature = c.req.header('X-Twilio-Signature') || '';
+  if (!signature) return false;
+
+  let url = c.req.url;
+  try {
+    const u = new URL(url);
+    // Twilio drops the port (and any userinfo) for voice callbacks over HTTPS.
+    if (u.protocol === 'https:' && u.port) u.port = '';
+    u.username = '';
+    u.password = '';
+    url = u.toString();
+  } catch { /* keep the raw url */ }
+
+  // Sort POST params alphabetically (Unix-style case-sensitive) and append
+  // name+value with no delimiter, exactly like Twilio's helper libraries.
+  const keys = Object.keys(params).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+  for (const k of keys) {
+    url += k + (params[k] ?? '');
+  }
+
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(authToken),
+    { name: 'HMAC', hash: 'SHA-1' },
+    false,
+    ['sign']
+  );
+  const mac = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(url));
+  return constantTimeEqual(signature, base64Standard(mac));
+}
+
 async function hmacSha256(secret: string, input: string): Promise<ArrayBuffer> {
   const key = await crypto.subtle.importKey(
     'raw',
@@ -494,12 +547,18 @@ router.post('/api/twilio/webhook/voice', async (c) => {
     }
 
     const config = await c.env.DB.prepare(
-      'SELECT tc.id AS twilio_config_id, tc.workspace_id, tc.account_sid, tfn.id AS from_number_id FROM twilio_configs tc JOIN twilio_from_numbers tfn ON tc.id = tfn.twilio_config_id WHERE tfn.from_number = ? AND tc.is_active = 1 LIMIT 1'
-    ).bind(to).first<{ twilio_config_id: string; workspace_id: string; account_sid: string; from_number_id: string }>();
+      'SELECT tc.id AS twilio_config_id, tc.workspace_id, tc.account_sid, tc.auth_token, tfn.id AS from_number_id FROM twilio_configs tc JOIN twilio_from_numbers tfn ON tc.id = tfn.twilio_config_id WHERE tfn.from_number = ? AND tc.is_active = 1 LIMIT 1'
+    ).bind(to).first<{ twilio_config_id: string; workspace_id: string; account_sid: string; auth_token: string; from_number_id: string }>();
 
     if (!config) {
       console.warn('[Twilio Webhook] no workspace config for dialed number', to);
       return twimlResponse('<?xml version="1.0" encoding="UTF-8"?><Response><Reject/></Response>', 200);
+    }
+
+    // Reject forged webhooks before creating any call record or ringing agents.
+    if (!(await verifyTwilioSignature(c, config.auth_token, body))) {
+      console.warn('[Twilio Webhook] invalid signature for voice call', to);
+      return twimlResponse('<?xml version="1.0" encoding="UTF-8"?><Response><Reject/></Response>', 403);
     }
 
     const callId = crypto.randomUUID();
@@ -553,9 +612,8 @@ router.post('/api/twilio/webhook/voice', async (c) => {
           const { sendPushNotification } = await import('../../lib/fcm');
           if (!tokens.results || tokens.results.length === 0) return;
 
-          const MAX_TOTAL = 45;
           const CHUNK = 25;
-          const targets = tokens.results.slice(-MAX_TOTAL);
+          const targets = tokens.results;
           console.log('[Twilio Webhook] sending incoming-call push to ' + targets.length + ' token(s)');
 
           for (let start = 0; start < targets.length; start += CHUNK) {
@@ -631,9 +689,16 @@ router.post('/api/twilio/webhook/status', async (c) => {
     };
     const status = statusMap[rawStatus] || rawStatus;
 
-    const call = await c.env.DB.prepare('SELECT id, workspace_id FROM calls WHERE external_call_id = ?').bind(callSid).first<{ id: string; workspace_id: string }>();
+    const call = await c.env.DB.prepare(
+      'SELECT c.id, c.workspace_id, tc.auth_token FROM calls c LEFT JOIN twilio_configs tc ON tc.id = c.twilio_config_id WHERE c.external_call_id = ?'
+    ).bind(callSid).first<{ id: string; workspace_id: string; auth_token: string | null }>();
     if (!call) {
       return c.text('OK', 200);
+    }
+
+    if (!(await verifyTwilioSignature(c, call.auth_token || undefined, body))) {
+      console.warn('[Twilio Webhook] invalid signature on status webhook', callSid);
+      return c.text('Forbidden', 403);
     }
 
     if (rawStatus === 'completed') {
@@ -724,7 +789,29 @@ router.post('/api/twilio/webhook/fallback', async (c) => {
 export default router;
 
 export async function teardownTwilioCall(env: any, call: any, status: string) {
-  await env.DB.prepare('UPDATE calls SET status = ? WHERE id = ?').bind(status, call.id).run();
+  // Actually end the Twilio customer leg. A DB-only update would leave the
+  // caller ringing/on hold in the conference until Twilio's own timeout.
+  if (call.external_call_id && call.twilio_config_id) {
+    try {
+      const cfg = (await env.DB.prepare(
+        'SELECT account_sid, auth_token FROM twilio_configs WHERE id = ?'
+      ).bind(call.twilio_config_id).first()) as { account_sid: string; auth_token: string } | null;
+      if (cfg?.account_sid && cfg?.auth_token) {
+        await fetch(`https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(cfg.account_sid)}/Calls/${encodeURIComponent(call.external_call_id)}.json`, {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Basic ' + btoa(cfg.account_sid + ':' + cfg.auth_token),
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: new URLSearchParams({ Status: 'completed' }).toString(),
+        });
+      }
+    } catch (e) {
+      console.error('[Twilio] teardown call error:', e);
+    }
+  }
+
+  await env.DB.prepare('UPDATE calls SET status = ?, ended_at = ? WHERE id = ?').bind(status, sqliteNow(), call.id).run();
 
   // Restore the answering agent to 'live' and clean up ringing tracking.
   const agentId = call.answered_by_user_id || call.assigned_user_id || null;

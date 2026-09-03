@@ -486,9 +486,8 @@ async function pushIncomingCallToAgents(env: Env, c: any, workspaceId: string, c
         const { sendPushNotification } = await import('../../lib/fcm');
         if (!tokens.results || tokens.results.length === 0) return;
 
-        const MAX_TOTAL = 45;
         const CHUNK = 25;
-        const targets = tokens.results.slice(-MAX_TOTAL);
+        const targets = tokens.results;
         for (let start = 0; start < targets.length; start += CHUNK) {
           const chunk = targets.slice(start, start + CHUNK);
           const sends = await Promise.allSettled(
@@ -1105,7 +1104,7 @@ export async function teardownPlivoCall(
     await env.DB.prepare(
       "UPDATE workspace_members SET voice_status = 'live', voice_status_updated_at = ? WHERE workspace_id = ? AND user_id = ? AND voice_status = 'busy'"
     ).bind(sqliteNow(), call.workspace_id, agentId).run();
-    await cleanupCallRinging(env, call.workspace_id, call.id, agentId);
+    await cleanupCallRinging(env, call.id, call.workspace_id, agentId);
   }
 
   await broadcastToWorkspace(env, call.workspace_id, {
