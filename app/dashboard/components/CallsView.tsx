@@ -116,7 +116,18 @@ export function CallsView({
 
   useEffect(() => {
     fetchCallsAndConfigs();
+    // SIP configs are deprecated
   }, [fetchCallsAndConfigs]);
+
+  // Listen for global real-time status updates broadcasted by page.tsx
+  useEffect(() => {
+    const handleStatusUpdate = (e: any) => {
+      const { id, status, duration } = e.detail;
+      setCalls(prev => prev.map(c => c.id === id ? { ...c, status, duration: duration !== undefined ? duration : c.duration } : c));
+    };
+    window.addEventListener('global_call_status_updated', handleStatusUpdate);
+    return () => window.removeEventListener('global_call_status_updated', handleStatusUpdate);
+  }, []);
 
   const toggleCalling = async () => {
     const wId = localStorage.getItem('workspaceId');

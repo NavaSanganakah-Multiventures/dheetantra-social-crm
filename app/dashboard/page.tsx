@@ -147,6 +147,32 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
   // Call timeout ref for auto-dismiss after 30s
   const callTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Recover missed ringing calls on page reload
+  useEffect(() => {
+    const wId = user?.workspace_id || localStorage.getItem('workspaceId');
+    if (!wId) return;
+    fetch('/api/calls?limit=5', { headers: { 'x-workspace-id': wId } })
+      .then(r => r.json())
+      .then(data => {
+        if (data.calls) {
+          const activeIncoming = data.calls.find((c: any) => c.status === 'ringing' && c.direction === 'incoming' && c.source === 'whatsapp');
+          if (activeIncoming && activeIncoming.sdp) {
+             setIncomingCall({
+                id: activeIncoming.id,
+                from: activeIncoming.caller_number || activeIncoming.phone,
+                contact_name: activeIncoming.contact_name || activeIncoming.phone,
+                phone: activeIncoming.phone,
+                status: 'ringing',
+                direction: 'incoming',
+                sdp: activeIncoming.sdp,
+                phoneNumberId: activeIncoming.phone_number_id,
+                workspace_id: activeIncoming.workspace_id
+             });
+          }
+        }
+      }).catch(() => {});
+  }, [user?.workspace_id]);
+
   // Auto-dismiss incoming call after 30 seconds (Meta timeout)
   useEffect(() => {
     if (incomingCall && incomingCall.status === 'ringing') {
@@ -344,7 +370,13 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
             } else if (data.type === 'call_status_updated' || data.type === 'whatsapp_call_terminated') {
               const callIdToUpdate = data.call_id || data.callId;
               const newStatus = data.status || 'ended';
+              const duration = data.duration;
               
+              // Dispatch to CallsView table so the UI list updates instantly
+              window.dispatchEvent(new CustomEvent('global_call_status_updated', { 
+                detail: { id: callIdToUpdate, status: newStatus, duration } 
+              }));
+
               if (data.type === 'whatsapp_call_terminated') {
                  handleRemoteHangup();
                  // Instant cut
@@ -600,7 +632,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
       <AnimatePresence>
         {/* 1. Incoming Call Alert */}
         {incomingCall && incomingCall.status === 'ringing' && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-fade-in">
+          <motion.div key={`incoming-call-overlay-${incomingCall.id}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-fade-in">
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -740,7 +772,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
                 </button>
               </div>
             </motion.div>
-          </div>
+          </motion.div>
         )}
 
         {/* 2. Active/Outgoing Call Widget */}
