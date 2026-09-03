@@ -235,6 +235,10 @@ export async function sendPushNotification(
           android: {
             priority: 'HIGH',
             ...(ttl ? { ttl } : {}),
+            // 'call' category helps OEMs/battery savers prioritise wake-up for
+            // incoming call pushes (Android 14+ also treats call-category FCM
+            // specially), so the background isolate wakes to show CallKit ring.
+            ...(options?.category ? { category: options.category } : {}),
           },
           apns: {
             headers: ttl ? { 'apns-priority': '10' } : undefined,
