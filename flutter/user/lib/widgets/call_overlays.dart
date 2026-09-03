@@ -39,14 +39,12 @@ class _GlobalCallOverlayState extends State<GlobalCallOverlay> {
     WebSocketService().connect();
 
     _wsIncomingSub = WebSocketService().onIncomingCall.listen((callData) async {
-      // Twilio/Plivo incoming calls are surfaced via FCM + CallKit; skip the
-      // in-app overlay so the caller isn't left hanging because the overlay
-      // only knows how to reject WhatsApp WebRTC calls.
-      if (callData['source']?.toString() == 'twilio' ||
-          callData['source']?.toString() == 'plivo' ||
-          callData['source']?.toString() == 'whatsapp') {
-        return;
-      }
+      // WhatsApp, Twilio aur Plivo - teeno sources ke incoming calls ab isi
+      // in-app overlay se ring + UI dikhayenge. Pehle ye sab skip karke sirf
+      // FCM/CallKit par rely karte the, isliye foreground mein ring nahi bajti
+      // thi jab FCM delay/missing hota tha. Neeche duplicate-guard
+      // (CallKitService.hasCall) ensure karta hai ki background/killed path ka
+      // CallKit aur foreground path ka overlay double-ring na karein.
       // Outgoing calls we start ourselves also come back over the same channel
       // (callRoutes broadcasts `incoming_call` to every socket) â never show
       // an "incoming" overlay for a call this device initiated.
