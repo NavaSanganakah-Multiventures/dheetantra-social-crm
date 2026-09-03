@@ -386,9 +386,14 @@ class CallKitService {
 
     // Duplicate guard: agar ye call pehle se dikh rahi hai (WebSocket overlay
     // ya plugin ke through) toh dubara se show mat karo - warna double ring +
-    // double UI hota hai aur user call attend nahi kar paata.
-    if (uuid != 'unknown-call-id' && _activeCalls.containsKey(uuid)) {
-      debugPrint('CALLKIT: call $uuid already showing, skipping duplicate');
+    // double UI hota hai aur user call attend nahi kar paata. Saath hi agar
+    // in-app overlay ne pehle hi accept kar liya hai (_appAnsweredIds /
+    // _handledAcceptIds) toh delayed FCM push dobara ring na dikhaye.
+    if (uuid != 'unknown-call-id' &&
+        (_activeCalls.containsKey(uuid) ||
+         _handledAcceptIds.contains(uuid) ||
+         _appAnsweredIds.contains(uuid))) {
+      debugPrint('CALLKIT: call $uuid already showing/answered, skipping duplicate');
       return;
     }
 
