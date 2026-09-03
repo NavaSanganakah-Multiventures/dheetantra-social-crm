@@ -1218,15 +1218,23 @@ router.post('/api/plivo/webhook/voice', async (c) => {
           : XML_DECL + `<Response><PreAnswer><Speak language="hi-IN" voice="Polly.Aditi">Namaste, main Arya hoon. ${officeTimeText}</Speak></PreAnswer><Hangup/></Response>`;
         return plivoXmlResponse(xml, 200);
       }
+    }
 
-      // Agent availability check
-      const liveCountRes = await c.env.DB.prepare("SELECT count(*) as cnt FROM workspace_members WHERE workspace_id = ? AND voice_status = 'live'").bind(config.workspace_id).first<{ cnt: number }>();
-      if (!liveCountRes || liveCountRes.cnt === 0) {
-        const xml = config.busy_audio_url
-          ? XML_DECL + `<Response><PreAnswer><Play>${escXml(config.busy_audio_url)}</Play></PreAnswer><Hangup/></Response>`
-          : XML_DECL + '<Response><PreAnswer><Speak language="hi-IN" voice="Polly.Aditi">Namaste, main Arya hoon. Abhi hamari team vyast hai. Kripya thodi der baad call karein.</Speak></PreAnswer><Hangup/></Response>';
-        return plivoXmlResponse(xml, 200);
-      }
+    // Agent availability check — always enforced, independent of voice_bot_enabled.
+    // If nobody can actually receive the call (all agents busy/offline), play the
+    // busy tone so the customer knows everyone is busy instead of waiting on hold.
+    const liveAgents = config.auto_dial_agents === 1 ? await pickAllAvailableAgents(c.env.DB, config.workspace_id) : [];
+    let hasReachableAgent = liveAgents.length > 0;
+    if (config.auto_dial_agents !== 1) {
+      const live = await c.env.DB.prepare("SELECT user_id FROM workspace_members WHERE workspace_id = ? AND voice_status = 'live'")
+        .bind(config.workspace_id).all<{ user_id: string }>();
+      hasReachableAgent = (live.results || []).length > 0;
+    }
+    if (!hasReachableAgent) {
+      const xml = config.busy_audio_url
+        ? XML_DECL + `<Response><PreAnswer><Play>${escXml(config.busy_audio_url)}</Play></PreAnswer><Hangup/></Response>`
+        : XML_DECL + '<Response><PreAnswer><Speak language="hi-IN" voice="Polly.Aditi">Namaste, main Arya hoon. Abhi hamare sabhi adhikari vyast hain. Kripya thodi der baad call karein.</Speak></PreAnswer><Hangup/></Response>';
+      return plivoXmlResponse(xml, 200);
     }
 
     // Assign an available (live) agent, if any. Fire the agent leg first and
@@ -1237,7 +1245,6 @@ router.post('/api/plivo/webhook/voice', async (c) => {
     // in the conference and agents can answer in the app (Phase 2).
     // Dial ALL available (live) agents simultaneously - first to answer wins.
     // The agent who answers claims the call in the outbound webhook (leg=agent).
-    const liveAgents = config.auto_dial_agents === 1 ? await pickAllAvailableAgents(c.env.DB, config.workspace_id) : [];
     if (liveAgents.length > 0) {
       const baseUrl = getBaseUrl(c as Context);
       const agentFallbackUrl = baseUrl + '/api/plivo/webhook/fallback';
