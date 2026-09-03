@@ -700,7 +700,7 @@ app.post('/api/whatsapp/webhook', async (c) => {
                   // Agar inhe clear na karein toh wo line ko hamesha busy dikhaayengi.
                   const cleanup = await c.env.DB.prepare(`
                     UPDATE calls SET status = 'missed', hangup_cause = 'stale_timeout'
-                    WHERE workspace_id = ? AND status = 'ringing' AND strftime('%s', created_at) < strftime('%s', 'now', '-30 seconds')
+                    WHERE workspace_id = ? AND status = 'ringing' AND source = 'whatsapp' AND strftime('%s', created_at) < strftime('%s', 'now', '-30 seconds')
                   `).bind(config.workspace_id).run();
                   if (cleanup.meta?.changes) {
                     console.log(`[Calling] Cleaned ${cleanup.meta.changes} stale ringing call(s) before busy check`);
