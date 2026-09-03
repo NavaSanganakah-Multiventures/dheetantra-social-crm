@@ -486,9 +486,8 @@ async function pushIncomingCallToAgents(env: Env, c: any, workspaceId: string, c
         const { sendPushNotification } = await import('../../lib/fcm');
         if (!tokens.results || tokens.results.length === 0) return;
 
-        const MAX_TOTAL = 45;
         const CHUNK = 25;
-        const targets = tokens.results.slice(-MAX_TOTAL);
+        const targets = tokens.results;
         for (let start = 0; start < targets.length; start += CHUNK) {
           const chunk = targets.slice(start, start + CHUNK);
           const sends = await Promise.allSettled(
