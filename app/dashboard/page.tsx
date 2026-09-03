@@ -352,7 +352,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
               // Auto-dismiss is handled by a dedicated useEffect hook
             } else if (data.type === 'call_answered' && data.source === 'whatsapp') {
               const callId = data.call_id || data.callId;
-              if (data.answeredByUserId !== user.id) {
+              if (data.answeredByUserId !== user?.id) {
                 // Someone else answered, so dismiss our ring
                 if (incomingCallNoSdp && incomingCallNoSdp.id === callId) setIncomingCallNoSdp(null);
                 if (incomingCallRef.current && incomingCallRef.current.id === callId) setIncomingCall(null);

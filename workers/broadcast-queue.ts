@@ -84,6 +84,31 @@ async function recordSentMessage(env: Env, workspaceId: string, convId: string, 
   }
 }
 
+// Increment campaign send counters and transition campaign status to
+// 'completed' (or 'failed') once all recipients have been processed.
+async function updateCampaignProgress(env: Env, campaignId: string, isSuccess: boolean) {
+  const field = isSuccess ? 'successful_sends' : 'failed_sends';
+  try {
+    await env.DB.prepare(
+      `UPDATE broadcast_campaigns SET ${field} = ${field} + 1 WHERE id = ?`
+    ).bind(campaignId).run();
+
+    const campaign = await env.DB.prepare(
+      'SELECT total_recipients, successful_sends, failed_sends FROM broadcast_campaigns WHERE id = ?'
+    ).bind(campaignId).first<{ total_recipients: number; successful_sends: number; failed_sends: number }>();
+
+    if (campaign && (campaign.successful_sends + campaign.failed_sends) >= campaign.total_recipients) {
+      const finalStatus = campaign.successful_sends > 0 ? 'completed' : 'failed';
+      await env.DB.prepare(
+        'UPDATE broadcast_campaigns SET status = ? WHERE id = ?'
+      ).bind(finalStatus, campaignId).run();
+      console.log(`[broadcast-queue] Campaign ${campaignId} finished: status=${finalStatus}, successful=${campaign.successful_sends}, failed=${campaign.failed_sends}`);
+    }
+  } catch (e) {
+    console.error('[broadcast-queue] failed to update campaign progress:', e);
+  }
+}
+
 const broadcastQueueConsumer = {
   async queue(batch: MessageBatch<BroadcastMessage>, env: Env): Promise<void> {
     for (const msg of batch.messages) {
@@ -91,16 +116,13 @@ const broadcastQueueConsumer = {
 
       const recordFailure = async (reason: string) => {
         console.error(`[broadcast-queue] send failed for contact ${contactId} (${toPhone}): ${reason}`);
-        try {
-          await env.DB.prepare("UPDATE broadcast_campaigns SET failed_sends = failed_sends + 1 WHERE id = ?").bind(campaignId).run();
-        } catch (e) {
-          console.error('[broadcast-queue] failed to increment failed_sends:', e);
-        }
+        await updateCampaignProgress(env, campaignId, false);
       };
 
       try {
-        if (!toPhone) {
-          await recordFailure('no phone number for contact');
+        const cleanToPhone = (toPhone || '').replace(/\D/g, '');
+        if (!cleanToPhone) {
+          await recordFailure('invalid or empty phone number for contact');
           msg.ack();
           continue;
         }
@@ -132,7 +154,7 @@ const broadcastQueueConsumer = {
         const payload: any = {
           messaging_product: "whatsapp",
           recipient_type: "individual",
-          to: toPhone
+          to: cleanToPhone
         };
 
         if (isText) {
@@ -174,14 +196,8 @@ const broadcastQueueConsumer = {
 
         const platformMsgId = data?.messages?.[0]?.id || null;
 
-        // Success: increment campaign counter
-        try {
-          await env.DB.prepare(
-            "UPDATE broadcast_campaigns SET successful_sends = successful_sends + 1 WHERE id = ?"
-          ).bind(campaignId).run();
-        } catch (e) {
-          console.error('[broadcast-queue] failed to increment successful_sends:', e);
-        }
+        // Success: increment campaign counter and check for completion
+        await updateCampaignProgress(env, campaignId, true);
 
         // Record the sent message in the contact's conversation so it appears
         // in the chat inbox (previously broadcasts were never saved to messages,
@@ -202,3 +218,4 @@ const broadcastQueueConsumer = {
 };
 
 export default broadcastQueueConsumer;
+

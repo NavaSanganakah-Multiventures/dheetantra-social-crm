@@ -709,7 +709,7 @@ app.post('/api/whatsapp/webhook', async (c) => {
 
                   const activeCall = await c.env.DB.prepare(`
                     SELECT id, status FROM calls
-                    WHERE workspace_id = ? AND status = 'ringing' AND id != ?
+                    WHERE workspace_id = ? AND status = 'ringing' AND source = 'whatsapp' AND id != ?
                     ORDER BY strftime('%s', created_at) ASC LIMIT 1
                   `).bind(config.workspace_id, callId).first<{ id: string; status: string }>();
 
@@ -778,6 +778,8 @@ app.post('/api/whatsapp/webhook', async (c) => {
                       type: 'whatsapp_incoming_call',
                       callId: callId,
                       from: callerNumber,
+                      contactName: callerName,
+                      callerName: callerName,
                       sdp: sdp || '',
                       sdpType: sdpType,
                       phoneNumberId: phoneNumberId,

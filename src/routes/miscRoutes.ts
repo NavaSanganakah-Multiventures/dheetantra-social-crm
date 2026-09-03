@@ -279,7 +279,8 @@ router.post('/api/broadcast', requireRole('owner', 'admin'), async (c) => {
     for (let i = 0; i < contacts.length; i += 25) {
       const batch = contacts.slice(i, i + 25);
       await Promise.all(batch.map(async (contact) => {
-        const toPhone = contact.platform_contact_id || contact.phone;
+        const rawPhone = contact.platform_contact_id || contact.phone;
+        const toPhone = rawPhone ? rawPhone.replace(/\D/g, '') : '';
         if (!toPhone || !queueAvailable) return;
         const queuePayload: any = {
           campaignId,
