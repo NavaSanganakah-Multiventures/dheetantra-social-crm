@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Download, Copy, Upload, MessageSquare, Search, Send, Phone, X, Users, Plus, Trash2, Edit, Instagram, Facebook, Mail, Coins } from 'lucide-react';
 import Papa from 'papaparse';
 import PhoneInput, { isValidPhoneNumber } from 'react-phone-number-input';
@@ -264,7 +264,8 @@ export function ContactsView({
     }
   };
 
-  const filteredContacts = contacts.filter(c => {
+  // Optimization: Memoize filtered contacts to prevent expensive string operations on every re-render
+  const filteredContacts = useMemo(() => contacts.filter(c => {
     const q = searchQuery.toLowerCase();
     return (
       (c.name || "").toLowerCase().includes(q) ||
@@ -274,7 +275,7 @@ export function ContactsView({
       (c.facebook_username || "").toLowerCase().includes(q) ||
       (c.whatsapp_username || "").toLowerCase().includes(q)
     );
-  });
+  }), [contacts, searchQuery]);
 
   // Kanban Pipeline Stages
   const stages = [
@@ -285,7 +286,8 @@ export function ContactsView({
     { key: 'closed_lost', label: 'Lost', color: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-800' }
   ];
 
-  const leads = contacts.filter(c => c.is_lead === 1 || c.is_lead === true);
+  // Optimization: Memoize leads to prevent unnecessary re-filtering on every re-render
+  const leads = useMemo(() => contacts.filter(c => c.is_lead === 1 || c.is_lead === true), [contacts]);
 
   const getStageStats = (stageKey: string) => {
     const stageLeads = leads.filter(l => (l.lead_status || 'new') === stageKey);
