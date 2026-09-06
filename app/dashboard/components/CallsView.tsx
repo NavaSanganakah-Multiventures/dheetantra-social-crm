@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { MessageSquare, Settings, Search, Phone, X, Check, Volume2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useToast } from '@/components/ui/Toast';
@@ -6,6 +6,9 @@ import { formatUserDateTime } from '../lib/dates';
 import { useTwilioVoice } from './TwilioVoiceProvider';
 import { usePlivoVoice } from './PlivoVoiceProvider';
 import { activeTab } from '../lib/types';
+
+const completedStatuses = ['completed', 'answered', 'ended'];
+const missedStatuses = ['missed', 'no_answer', 'busy', 'failed', 'canceled'];
 
 export function CallsView({ 
   setActiveTab, 
@@ -237,7 +240,7 @@ export function CallsView({
     setFromNumberPicker({ contact, options });
   };
 
-  const filteredCalls = calls.filter(c => {
+  const filteredCalls = useMemo(() => calls.filter(c => {
     const matchesSearch = 
       (c.contact_name || "").toLowerCase().includes(search.toLowerCase()) || 
       (c.phone || "").includes(search);
@@ -249,10 +252,7 @@ export function CallsView({
     if (filter === "outgoing") return c.direction === "outgoing";
     if (filter === "missed") return missedStatuses.includes(c.status);
     return true;
-  });
-
-  const completedStatuses = ['completed', 'answered', 'ended'];
-  const missedStatuses = ['missed', 'no_answer', 'busy', 'failed', 'canceled'];
+  }), [calls, search, filter]);
 
   function callStatusInfo(status: string) {
     switch (status) {
@@ -279,9 +279,9 @@ export function CallsView({
     }
   }
   const totalCalls = calls.length;
-  const missedCalls = calls.filter(c => missedStatuses.includes(c.status)).length;
-  const completedCalls = calls.filter(c => completedStatuses.includes(c.status)).length;
-  const outgoingCalls = calls.filter(c => c.direction === 'outgoing').length;
+  const missedCalls = useMemo(() => calls.filter(c => missedStatuses.includes(c.status)).length, [calls]);
+  const completedCalls = useMemo(() => calls.filter(c => completedStatuses.includes(c.status)).length, [calls]);
+  const outgoingCalls = useMemo(() => calls.filter(c => c.direction === 'outgoing').length, [calls]);
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6 w-full animate-fade-in">
