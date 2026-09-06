@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Search, MessageCircle, Phone, ChevronRight, Filter } from 'lucide-react';
 
 type activeTab = 'dashboard' | 'inbox' | 'active-conversations' | 'broadcast' | 'templates' | 'schedule' | 'settings' | 'contacts' | 'calls' | 'integrations' | 'accounts-whatsapp';
@@ -55,17 +55,20 @@ export default function ActiveConversationsView({
   }, [fetchConversations]);
 
   // Filter conversations
-  const filtered = conversations.filter(c => {
-    if (filterStatus !== 'all' && (c.status || 'open') !== filterStatus) return false;
-    if (phoneFilter !== 'all' && c.phone_number_id !== phoneFilter) return false;
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      const name = (c.contact_name || '').toLowerCase();
-      const phone = (c.phone || '').toLowerCase();
-      if (!name.includes(q) && !phone.includes(q)) return false;
-    }
-    return true;
-  });
+  // ⚡ Bolt: Memoize filtered array to prevent expensive recalculations on every render
+  const filtered = useMemo(() => {
+    return conversations.filter(c => {
+      if (filterStatus !== 'all' && (c.status || 'open') !== filterStatus) return false;
+      if (phoneFilter !== 'all' && c.phone_number_id !== phoneFilter) return false;
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        const name = (c.contact_name || '').toLowerCase();
+        const phone = (c.phone || '').toLowerCase();
+        if (!name.includes(q) && !phone.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [conversations, filterStatus, phoneFilter, searchQuery]);
 
   const handleChat = (conv: any) => {
     setPreselectedChat(conv);
