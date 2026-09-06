@@ -69,7 +69,11 @@ function escXml(s: string): string {
 }
 
 const XML_DECL = '<?xml version="1.0" encoding="UTF-8"?>';
-const HOLD_MUSIC_URL = 'https://s3.amazonaws.com/plivocloud/music.mp3';
+// Plivo Conference `waitSound` must be a URL that returns Plivo XML (Play/
+// Speak/Wait elements), not a raw audio file. /api/plivo/wait-sound below
+// returns that XML and plays our self-hosted ringback tone in a loop.
+const WAIT_SOUND_PATH = '/api/plivo/wait-sound';
+const RINGBACK_AUDIO_PATH = '/audio/ringback.wav';
 
 async function parseWebhookBody(c: any): Promise<Record<string, string>> {
   const parsed = await c.req.parseBody();
@@ -1333,6 +1337,7 @@ router.post('/api/plivo/webhook/voice', async (c) => {
     await pushIncomingCallToAgents(c.env, c, config.workspace_id, callId, from, callerName, conferenceName, config.plivo_config_id, answerInApp);
 
     const baseUrl = getBaseUrl(c as Context);
+    const waitSoundUrl = baseUrl + WAIT_SOUND_PATH;
     const statusCallbackUrl = baseUrl + '/api/plivo/webhook/status?callId=' + callId + '&leg=inbound';
     const recordCallbackUrl = baseUrl + '/api/plivo/webhook/record?callId=' + callId;
 
@@ -1341,7 +1346,7 @@ router.post('/api/plivo/webhook/voice', async (c) => {
     // answer. If no agent, the caller simply hears hold music until they hang up.
     const xml = XML_DECL +
       '<Response>' +
-      '<Conference startConferenceOnEnter="false" endConferenceOnExit="true" waitSound="' + escXml(HOLD_MUSIC_URL) + '" callbackUrl="' + escXml(statusCallbackUrl) + '" callbackMethod="POST" record="true" recordFileFormat="mp3" recordCallbackUrl="' + escXml(recordCallbackUrl) + '" recordCallbackMethod="POST">' + escXml(conferenceName) + '</Conference>' +
+      '<Conference startConferenceOnEnter="false" endConferenceOnExit="true" waitSound="' + escXml(waitSoundUrl) + '" callbackUrl="' + escXml(statusCallbackUrl) + '" callbackMethod="POST" record="true" recordFileFormat="mp3" recordCallbackUrl="' + escXml(recordCallbackUrl) + '" recordCallbackMethod="POST">' + escXml(conferenceName) + '</Conference>' +
       '</Response>';
     return plivoXmlResponse(xml, 200);
   } catch (e: any) {
@@ -1516,11 +1521,12 @@ router.post('/api/plivo/webhook/outbound', async (c) => {
     // joins the conference via the softphone endpoint (/api/plivo/webhook/app).
     if (waiting) {
       const baseUrl = getBaseUrl(c as Context);
+      const waitSoundUrl = baseUrl + WAIT_SOUND_PATH;
       const statusCallbackUrl = baseUrl + '/api/plivo/webhook/status?callId=' + callId + '&leg=customer';
       const recordCallbackUrlWaiting = baseUrl + '/api/plivo/webhook/record?callId=' + callId;
       const xml = XML_DECL +
         '<Response>' +
-        '<Conference startConferenceOnEnter="false" endConferenceOnExit="true" waitSound="' + escXml(HOLD_MUSIC_URL) + '" callbackUrl="' + escXml(statusCallbackUrl) + '" callbackMethod="POST" record="true" recordFileFormat="mp3" recordCallbackUrl="' + escXml(recordCallbackUrlWaiting) + '" recordCallbackMethod="POST">' + escXml(conferenceName) + '</Conference>' +
+        '<Conference startConferenceOnEnter="false" endConferenceOnExit="true" waitSound="' + escXml(waitSoundUrl) + '" callbackUrl="' + escXml(statusCallbackUrl) + '" callbackMethod="POST" record="true" recordFileFormat="mp3" recordCallbackUrl="' + escXml(recordCallbackUrlWaiting) + '" recordCallbackMethod="POST">' + escXml(conferenceName) + '</Conference>' +
         '</Response>';
       return plivoXmlResponse(xml, 200);
     }
@@ -1677,6 +1683,17 @@ router.post('/api/plivo/webhook/fallback', async (c) => {
   return plivoXmlResponse(XML_DECL + '<Response><Hangup/></Response>', 200);
 });
 
-// Hold music route is no longer needed since Plivo expects direct MP3 URLs.
+// Plivo's Conference `waitSound` expects a URL that returns Plivo XML
+// (Play/Speak/Wait elements), not a raw audio URL. Serve that XML here and
+// play our self-hosted ringback tone on loop while the caller waits for an
+// agent to answer.
+router.get(WAIT_SOUND_PATH, (c) => {
+  const baseUrl = getBaseUrl(c as Context);
+  const ringbackUrl = baseUrl + RINGBACK_AUDIO_PATH;
+  return plivoXmlResponse(
+    XML_DECL + '<Response><Play loop="0">' + escXml(ringbackUrl) + '</Play></Response>',
+    200
+  );
+});
 
 export default router;
