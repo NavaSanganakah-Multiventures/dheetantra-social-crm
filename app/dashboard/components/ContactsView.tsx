@@ -264,19 +264,18 @@ export function ContactsView({
     }
   };
 
-  const filteredContacts = useMemo(() => {
-    return contacts.filter(c => {
-      const q = searchQuery.toLowerCase();
-      return (
-        (c.name || "").toLowerCase().includes(q) ||
-        (c.phone || c.platform_contact_id || "").toLowerCase().includes(q) ||
-        (c.email || "").toLowerCase().includes(q) ||
-        (c.instagram_username || "").toLowerCase().includes(q) ||
-        (c.facebook_username || "").toLowerCase().includes(q) ||
-        (c.whatsapp_username || "").toLowerCase().includes(q)
-      );
-    });
-  }, [contacts, searchQuery]);
+  // Optimization: Memoize filtered contacts to prevent expensive string operations on every re-render
+  const filteredContacts = useMemo(() => contacts.filter(c => {
+    const q = searchQuery.toLowerCase();
+    return (
+      (c.name || "").toLowerCase().includes(q) ||
+      (c.phone || c.platform_contact_id || "").toLowerCase().includes(q) ||
+      (c.email || "").toLowerCase().includes(q) ||
+      (c.instagram_username || "").toLowerCase().includes(q) ||
+      (c.facebook_username || "").toLowerCase().includes(q) ||
+      (c.whatsapp_username || "").toLowerCase().includes(q)
+    );
+  }), [contacts, searchQuery]);
 
   // Kanban Pipeline Stages
   const stages = [
@@ -287,9 +286,8 @@ export function ContactsView({
     { key: 'closed_lost', label: 'Lost', color: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-800' }
   ];
 
-  const leads = useMemo(() => {
-    return contacts.filter(c => c.is_lead === 1 || c.is_lead === true);
-  }, [contacts]);
+  // Optimization: Memoize leads to prevent unnecessary re-filtering on every re-render
+  const leads = useMemo(() => contacts.filter(c => c.is_lead === 1 || c.is_lead === true), [contacts]);
 
   const getStageStats = (stageKey: string) => {
     const stageLeads = leads.filter(l => (l.lead_status || 'new') === stageKey);
