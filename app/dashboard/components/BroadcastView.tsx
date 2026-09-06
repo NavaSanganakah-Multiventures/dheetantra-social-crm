@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { MessageCircle, Megaphone, Search, Send } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 
@@ -71,14 +71,15 @@ export function BroadcastView() {
     return () => clearInterval(poll);
   }, [campaignId]);
 
-  const filteredContacts = contacts.filter(c => {
+  // ⚡ Bolt: Memoize filtered array to prevent expensive string operations on every re-render
+  const filteredContacts = useMemo(() => contacts.filter(c => {
     const q = contactSearch.toLowerCase();
     const matchesSearch = (c.name || '').toLowerCase().includes(q) || (c.phone || c.platform_contact_id || '').toLowerCase().includes(q);
     if (!matchesSearch) return false;
     // Active conversations filter
     if (activeOnly && !activeContactIds.has(c.id)) return false;
     return true;
-  });
+  }), [contacts, contactSearch, activeOnly, activeContactIds]);
 
   const toggleContact = (id: string) => {
     setSelectedContactIds(prev => {
