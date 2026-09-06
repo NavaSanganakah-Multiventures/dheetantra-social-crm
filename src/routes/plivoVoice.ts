@@ -28,6 +28,34 @@ function conferenceNameFromCallId(callId: string): string {
   return 'conf_' + callId.replace(/-/g, '');
 }
 
+function callIdFromConferenceName(name: string): string | null {
+  if (!name.startsWith('conf_')) return null;
+  const hex = name.slice('conf_'.length);
+  if (!/^[0-9a-fA-F]{32}$/.test(hex)) return null;
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+function extractConferenceName(to: string): string {
+  const raw = (to || '').trim();
+  if (!raw) return 'default_room';
+  let decoded = raw;
+  try {
+    decoded = decodeURIComponent(raw);
+  } catch (_) {
+    decoded = raw;
+  }
+  // Plivo can send 'Display Name <sip:conf_xxx@phone.plivo.com>', a bare
+  // 'conf_xxx', or URL-encoded values. Normalize all of these to the
+  // conference name used by the inbound waiting room.
+  const angle = /<([^>]*)>/.exec(decoded);
+  if (angle && angle[1]) decoded = angle[1].trim();
+  const sip = /^(?:sips?):([^@;\s?]+)/i.exec(decoded);
+  if (sip && sip[1]) return sip[1];
+  const bare = /^([^@;\s?]+)/.exec(decoded);
+  if (bare && bare[1]) return bare[1];
+  return 'default_room';
+}
+
 function plivoApiBase(authId: string): string {
   return 'https://api.plivo.com/v1/Account/' + encodeURIComponent(authId) + '/';
 }
@@ -1519,17 +1547,27 @@ router.post('/api/plivo/webhook/outbound', async (c) => {
 router.post('/api/plivo/webhook/app', async (c) => {
   const body = await parseWebhookBody(c);
   const to = (body.To || body.to || '').toString();
-  const m = /^sip:([^@]+)@/i.exec(to);
-  const conferenceName = m ? m[1] : 'default_room';
-  
-  // Extract callId from conference name if possible, for recording callback
-  const callId = conferenceName.startsWith('conf_') ? 
-    conferenceName.substring(5, 13) + '-' + conferenceName.substring(13, 17) + '-' + conferenceName.substring(17, 21) + '-' + conferenceName.substring(21, 25) + '-' + conferenceName.substring(25) 
-    : conferenceName;
-  
+  const from = (body.From || body.from || '').toString();
+  const conferenceName = extractConferenceName(to);
+  const callId = callIdFromConferenceName(conferenceName);
+  console.log('[Plivo Webhook] app (softphone leg)', { to, from, conferenceName, callId });
+
+  // The conference name encodes the call id, which lets us find the owning
+  // Plivo account so we can verify this webhook really came from Plivo.
+  if (callId) {
+    const call = await c.env.DB.prepare('SELECT id, workspace_id, plivo_config_id FROM calls WHERE id = ?').bind(callId).first<{ id: string; workspace_id: string; plivo_config_id: string | null }>();
+    if (call && call.plivo_config_id) {
+      const plivoCfg = await c.env.DB.prepare('SELECT auth_token FROM plivo_configs WHERE id = ?').bind(call.plivo_config_id).first<{ auth_token: string }>();
+      if (!(await verifyPlivoSignature(c, plivoCfg?.auth_token, body))) {
+        console.warn('[Plivo Webhook] invalid signature on app webhook', callId, from);
+        return c.text('Forbidden', 403);
+      }
+    }
+  }
+
   const baseUrl = getBaseUrl(c as Context);
-  const recordCallbackUrl = baseUrl + '/api/plivo/webhook/record?callId=' + callId;
-  
+  const recordCallbackUrl = baseUrl + '/api/plivo/webhook/record?callId=' + (callId || conferenceName);
+
   return plivoXmlResponse(
     XML_DECL + `<Response><Conference startConferenceOnEnter="true" endConferenceOnExit="false" beep="false" record="true" recordFileFormat="mp3" recordCallbackUrl="${escXml(recordCallbackUrl)}" recordCallbackMethod="POST">${escXml(conferenceName)}</Conference></Response>`
   );
