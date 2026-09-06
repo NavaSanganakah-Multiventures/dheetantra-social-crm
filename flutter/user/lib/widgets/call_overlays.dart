@@ -39,17 +39,28 @@ class _GlobalCallOverlayState extends State<GlobalCallOverlay> {
     WebSocketService().connect();
 
     _wsIncomingSub = WebSocketService().onIncomingCall.listen((callData) async {
-      // WhatsApp, Twilio aur Plivo - teeno sources ke incoming calls ab isi
-      // in-app overlay se ring + UI dikhayenge. Pehle ye sab skip karke sirf
-      // FCM/CallKit par rely karte the, isliye foreground mein ring nahi bajti
-      // thi jab FCM delay/missing hota tha. Neeche duplicate-guard
-      // (CallKitService.hasCall) ensure karta hai ki background/killed path ka
-      // CallKit aur foreground path ka overlay double-ring na karein.
+      // WhatsApp aur Twilio incoming calls isi in-app overlay se ring + UI
+      // dikhate hain. Plivo in-app mode neeche skip hota hai kyunki wo native
+      // CallKit full-screen se handle hota hai (FCM 'incoming_call' push).
+      // Neeche duplicate-guard (CallKitService.hasCall) same-isolate
+      // FCM/CallKit + overlay double-ring rokti hai.
       // Outgoing calls we start ourselves also come back over the same channel
       // (callRoutes broadcasts `incoming_call` to every socket) â never show
       // an "incoming" overlay for a call this device initiated.
       final direction = callData['direction'] ?? 'incoming';
       if (direction == 'outgoing' || direction == 'BUSINESS_INITIATED') return;
+
+      // Plivo in-app mode (auto-forward OFF / answerInApp=true) is handled by
+      // the native CallKit full-screen ring via the FCM 'incoming_call' push
+      // (both foreground and background/killed). Skip the overlay's own ring +
+      // popup for Plivo - otherwise a call that arrives while the app is in
+      // background/killed is shown by the background isolate's CallKit first
+      // and then the main isolate's overlay rings again on app open
+      // (CallKitService.hasCall only sees the current isolate's map).
+      if (callData['source']?.toString() == 'plivo') {
+        debugPrint('CallOverlay: Plivo call handled by native CallKit, skipping overlay');
+        return;
+      }
 
       final callId = callData['id']?.toString() ?? callData['callId']?.toString() ?? '';
       // Respect the "Calling Enabled" toggle (settings).
